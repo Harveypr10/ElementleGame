@@ -22,11 +22,19 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
   const [todayCompleted, setTodayCompleted] = useState(false);
 
   useEffect(() => {
+    const getTodayPuzzleDate = () => {
+      const today = new Date();
+      const day = String(today.getDate()).padStart(2, '0');
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const year = String(today.getFullYear()).slice(-2);
+      return `${day}${month}${year}`;
+    };
+
     const storedStats = localStorage.getItem("elementle-stats");
     if (storedStats) {
       const stats = JSON.parse(storedStats);
       const completions = stats.puzzleCompletions || {};
-      const todayPuzzleDate = "161025";
+      const todayPuzzleDate = getTodayPuzzleDate();
       setTodayCompleted(!!completions[todayPuzzleDate]);
     }
   }, []);
