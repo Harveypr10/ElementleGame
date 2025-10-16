@@ -20,6 +20,7 @@ export default function EndGameModalExample() {
         eventDescription="Neil Armstrong becomes the first human to set foot on the Moon."
         numGuesses={3}
         onPlayAgain={() => setIsOpen(false)}
+        onHome={() => console.log('Home')}
       />
     </div>
   );

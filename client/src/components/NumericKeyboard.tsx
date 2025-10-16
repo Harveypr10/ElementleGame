@@ -35,13 +35,13 @@ export function NumericKeyboard({
   };
 
   return (
-    <div className="space-y-2 w-full max-w-md mx-auto" data-testid="numeric-keyboard">
+    <div className="space-y-2 w-full" data-testid="numeric-keyboard">
       <div className="flex gap-2 justify-center">
         {["1", "2", "3", "4", "5"].map((digit) => (
           <Button
             key={digit}
             variant="outline"
-            className={`h-14 w-14 sm:h-16 sm:w-16 text-xl font-medium ${getKeyClasses(digit)}`}
+            className={`h-14 flex-1 sm:h-16 text-xl font-medium ${getKeyClasses(digit)}`}
             onClick={() => onDigitPress(digit)}
             data-testid={`key-${digit}`}
           >
@@ -55,7 +55,7 @@ export function NumericKeyboard({
           <Button
             key={digit}
             variant="outline"
-            className={`h-14 w-14 sm:h-16 sm:w-16 text-xl font-medium ${getKeyClasses(digit)}`}
+            className={`h-14 flex-1 sm:h-16 text-xl font-medium ${getKeyClasses(digit)}`}
             onClick={() => onDigitPress(digit)}
             data-testid={`key-${digit}`}
           >
@@ -67,7 +67,7 @@ export function NumericKeyboard({
       <div className="flex gap-2 justify-center">
         <Button
           variant="default"
-          className="flex-1 h-14 sm:h-16 text-lg font-medium"
+          className="flex-1 h-12 sm:h-14 text-base font-medium"
           onClick={onEnter}
           disabled={!canSubmit}
           data-testid="key-enter"
@@ -77,20 +77,20 @@ export function NumericKeyboard({
         
         <Button
           variant="outline"
-          className="flex-1 h-14 sm:h-16"
+          className="flex-1 h-12 sm:h-14"
           onClick={onClear}
           data-testid="key-clear"
         >
-          <RotateCcw className="h-5 w-5" />
+          <RotateCcw className="h-4 w-4" />
         </Button>
         
         <Button
           variant="outline"
-          className="flex-1 h-14 sm:h-16"
+          className="flex-1 h-12 sm:h-14"
           onClick={onDelete}
           data-testid="key-delete"
         >
-          <Delete className="h-5 w-5" />
+          <Delete className="h-4 w-4" />
         </Button>
       </div>
     </div>

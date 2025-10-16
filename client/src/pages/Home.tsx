@@ -82,6 +82,7 @@ export default function Home() {
           eventTitle={currentPuzzle.event_title}
           eventDescription={currentPuzzle.event_description}
           maxGuesses={5}
+          onBack={() => setCurrentScreen("selection")}
         />
       )}
     </div>

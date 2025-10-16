@@ -12,51 +12,73 @@ interface GameSelectionPageProps {
 
 export function GameSelectionPage({ onPlayGame }: GameSelectionPageProps) {
   const menuItems = [
-    { image: historianHamster, label: "Play", active: true, onClick: onPlayGame, testId: "button-play" },
-    { image: mathHamster, label: "Stats", active: false, testId: "button-stats" },
-    { image: archiveHamster, label: "Play Archive", active: false, testId: "button-archive" },
-    { image: hamsterLogo, label: "Options", active: false, testId: "button-options" },
+    { 
+      image: historianHamster, 
+      label: "Play", 
+      active: true, 
+      onClick: onPlayGame, 
+      testId: "button-play",
+      bgColor: "bg-game-correct/20 hover:bg-game-correct/30 border-game-correct/30"
+    },
+    { 
+      image: mathHamster, 
+      label: "Stats", 
+      active: false, 
+      testId: "button-stats",
+      bgColor: "bg-game-inSequence/20 hover:bg-game-inSequence/30 border-game-inSequence/30"
+    },
+    { 
+      image: archiveHamster, 
+      label: "Play Archive", 
+      active: false, 
+      testId: "button-archive",
+      bgColor: "bg-blue-300/20 hover:bg-blue-300/30 border-blue-300/30"
+    },
+    { 
+      image: hamsterLogo, 
+      label: "Options", 
+      active: false, 
+      testId: "button-options",
+      bgColor: "bg-purple-300/20 hover:bg-purple-300/30 border-purple-300/30"
+    },
   ];
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-4 left-4"
-        data-testid="button-help"
-      >
-        <HelpCircle className="h-5 w-5" />
-      </Button>
+      <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="icon"
+          data-testid="button-help"
+        >
+          <HelpCircle className="h-5 w-5" />
+        </Button>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute top-4 right-4"
-        data-testid="button-settings"
-      >
-        <Settings className="h-5 w-5" />
-      </Button>
+        <h2 className="text-2xl font-semibold">Elementle</h2>
 
-      <Card className="w-full max-w-md p-8">
-        <h2 className="text-3xl font-semibold text-center mb-8">Elementle</h2>
-        
-        <div className="space-y-3">
-          {menuItems.map((item) => (
-            <Button
-              key={item.label}
-              variant={item.active ? "default" : "outline"}
-              className="w-full h-16 flex items-center justify-start gap-4 px-6"
-              onClick={item.onClick}
-              disabled={!item.active}
-              data-testid={item.testId}
-            >
-              <img src={item.image} alt={item.label} className="h-10 w-10" />
-              <span className="text-lg font-medium">{item.label}</span>
-            </Button>
-          ))}
-        </div>
-      </Card>
+        <Button
+          variant="ghost"
+          size="icon"
+          data-testid="button-settings"
+        >
+          <Settings className="h-5 w-5" />
+        </Button>
+      </div>
+
+      <div className="w-full max-w-md space-y-4 mt-16">
+        {menuItems.map((item) => (
+          <button
+            key={item.label}
+            className={`w-full h-32 flex items-center justify-center gap-6 px-8 rounded-md border-2 transition-colors ${item.bgColor} ${!item.active && 'opacity-50'}`}
+            onClick={item.onClick}
+            disabled={!item.active}
+            data-testid={item.testId}
+          >
+            <img src={item.image} alt={item.label} className="h-16 w-16 object-contain mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert" />
+            <span className="text-2xl font-medium">{item.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

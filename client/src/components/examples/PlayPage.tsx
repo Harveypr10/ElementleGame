@@ -7,6 +7,7 @@ export default function PlayPageExample() {
       eventTitle="Apollo 11 Moon Landing"
       eventDescription="Neil Armstrong becomes the first human to set foot on the Moon."
       maxGuesses={5}
+      onBack={() => console.log('Back')}
     />
   );
 }
