@@ -1,0 +1,49 @@
+Prompt 4: Settings Cog Menu
+Code
+Expand the Settings cog menu:
+- Account management: update personal details, change password/email.
+- Security: toggle 2FA and FaceID (stubbed for now).
+- About: short description of Elementle.
+- Privacy Policy: copy from https://www.dobl.uk/privacy (adapted for Elementle).
+- Terms of Use: copy from https://www.dobl.uk/terms (adapted for Elementle).
+- Sign Out button (if logged in).
+Prompt 5: Archive as Calendar View
+Code
+Redesign Archive as a calendar view:
+- Show current month with each day as a clickable cell.
+- Day states:
+  - No fill = not attempted
+  - Green = completed successfully
+  - Light amber = started but not completed
+  - Red = attempted but incorrect
+- Clicking a day:
+  - If unattempted → start that puzzle
+  - If attempted → show guesses + feedback, with option to view stats
+- Limit history to only go back to 1st October 2025.
+- Add navigation to switch months.
+Prompt 6: Prevent Replay of Today’s Game
+Code
+Update Play button logic:
+- Once today’s puzzle is completed (win or lose), disable the Play button.
+- Replace with message: “You’ve completed today’s challenge. Try the Archive!”
+- Ensure streaks and stats update correctly.
+Prompt 7: Stats Screen Enhancements
+Code
+Enhance Stats screen:
+- Show current streak and longest streak.
+- Show average guesses per win.
+- Show last 30 days performance (table or chart).
+- Show lifetime stats.
+- Compare user’s averages vs bot vs global averages (bot/global are placeholders for now).
+Prompt 8: Help Screen Mobile Fix
+Code
+Fix Help screen on mobile:
+- The close arrow in the top right is inaccessible on smartphones.
+- Nudge it downwards so it is always visible and tappable.
+Prompt 9: Governance Hooks & Export Prep
+Code
+Add governance-ready logging:
+- Every guess logged with timestamp, guess value, and feedback result.
+- Store logs in localStorage for now, structured for later Supabase migration.
+- Include: user_id (or guest), date_id, result (win/lose), number of guesses.
+- Add export function (CSV/JSON) for anonymised stats.
