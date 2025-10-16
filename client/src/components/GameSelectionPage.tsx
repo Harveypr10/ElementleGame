@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, Settings } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
@@ -19,15 +19,26 @@ interface GameSelectionPageProps {
 export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const [showHelp, setShowHelp] = useState(false);
+  const [todayCompleted, setTodayCompleted] = useState(false);
+
+  useEffect(() => {
+    const storedStats = localStorage.getItem("elementle-stats");
+    if (storedStats) {
+      const stats = JSON.parse(storedStats);
+      const completions = stats.puzzleCompletions || {};
+      const todayPuzzleDate = "161025";
+      setTodayCompleted(!!completions[todayPuzzleDate]);
+    }
+  }, []);
 
   const menuItems = [
     { 
       image: historianHamster, 
-      label: "Play", 
-      active: true, 
+      label: todayCompleted ? "Completed Today!" : "Play", 
+      active: !todayCompleted, 
       onClick: onPlayGame, 
       testId: "button-play",
-      bgColor: "bg-game-correct/20 hover:bg-game-correct/30"
+      bgColor: todayCompleted ? "bg-gray-200 dark:bg-gray-700" : "bg-game-correct/20 hover:bg-game-correct/30"
     },
     { 
       image: mathHamster, 

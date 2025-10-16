@@ -186,13 +186,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
 
+      const format = req.query.format || 'json';
       const data = await storage.getAllGameAttemptsForExport();
-      res.json(data);
+
+      if (format === 'csv') {
+        const csv = convertToCSV(data);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=elementle-export-${new Date().toISOString().split('T')[0]}.csv`);
+        res.send(csv);
+      } else {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename=elementle-export-${new Date().toISOString().split('T')[0]}.json`);
+        res.json(data);
+      }
     } catch (error) {
       console.error("Error exporting data:", error);
       res.status(500).json({ message: "Failed to export data" });
     }
   });
+
+  function convertToCSV(data: any[]): string {
+    if (!data || data.length === 0) return '';
+    
+    const headers = Object.keys(data[0]);
+    const csvRows = [headers.join(',')];
+    
+    for (const row of data) {
+      const values = headers.map(header => {
+        const value = row[header];
+        const escaped = ('' + value).replace(/"/g, '""');
+        return `"${escaped}"`;
+      });
+      csvRows.push(values.join(','));
+    }
+    
+    return csvRows.join('\n');
+  }
 
   const httpServer = createServer(app);
   return httpServer;

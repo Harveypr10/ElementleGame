@@ -6,6 +6,8 @@ import { HelpDialog } from "./HelpDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, HelpCircle, Lightbulb } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface PlayPageProps {
   targetDate: string;
@@ -14,9 +16,16 @@ interface PlayPageProps {
   clue1?: string;
   clue2?: string;
   maxGuesses?: number;
+  viewOnly?: boolean;
+  puzzleId?: number;
   onBack: () => void;
   onViewStats?: () => void;
   onViewArchive?: () => void;
+}
+
+interface GuessRecord {
+  guessValue: string;
+  feedbackResult: CellFeedback[];
 }
 
 export function PlayPage({
@@ -26,10 +35,13 @@ export function PlayPage({
   clue1,
   clue2,
   maxGuesses = 5,
+  viewOnly = false,
+  puzzleId,
   onBack,
   onViewStats,
   onViewArchive,
 }: PlayPageProps) {
+  const { user, isAuthenticated } = useAuth();
   const [currentInput, setCurrentInput] = useState("");
   const [guesses, setGuesses] = useState<CellFeedback[][]>([]);
   const [keyStates, setKeyStates] = useState<Record<string, KeyState>>({});
@@ -38,6 +50,34 @@ export function PlayPage({
   const [showHelp, setShowHelp] = useState(false);
   const [cluesEnabled, setCluesEnabled] = useState(true);
   const [wrongGuessCount, setWrongGuessCount] = useState(0);
+  const [guessRecords, setGuessRecords] = useState<GuessRecord[]>([]);
+
+  useEffect(() => {
+    if (viewOnly) {
+      const storedStats = localStorage.getItem("elementle-stats");
+      if (storedStats) {
+        const stats = JSON.parse(storedStats);
+        const puzzleCompletion = stats.puzzleCompletions?.[targetDate];
+        
+        if (puzzleCompletion) {
+          setGameOver(true);
+          setIsWin(puzzleCompletion.won);
+          const mockGuesses: CellFeedback[][] = [];
+          for (let i = 0; i < puzzleCompletion.guessCount; i++) {
+            mockGuesses.push([
+              { digit: "0", state: "ruledOut" },
+              { digit: "0", state: "ruledOut" },
+              { digit: "0", state: "ruledOut" },
+              { digit: "0", state: "ruledOut" },
+              { digit: "0", state: "ruledOut" },
+              { digit: "0", state: "ruledOut" }
+            ]);
+          }
+          setGuesses(mockGuesses);
+        }
+      }
+    }
+  }, [viewOnly, targetDate]);
 
   const calculateFeedback = (guess: string): CellFeedback[] => {
     const feedback: CellFeedback[] = [];
@@ -77,7 +117,10 @@ export function PlayPage({
 
     const feedback = calculateFeedback(currentInput);
     const newGuesses = [...guesses, feedback];
+    const newGuessRecords = [...guessRecords, { guessValue: currentInput, feedbackResult: feedback }];
+    
     setGuesses(newGuesses);
+    setGuessRecords(newGuessRecords);
     setCurrentInput("");
 
     if (currentInput === targetDate) {
@@ -92,10 +135,10 @@ export function PlayPage({
         updateStats(false, newGuesses.length);
       }
     }
-  }, [currentInput, gameOver, guesses, targetDate, maxGuesses, keyStates, wrongGuessCount]);
+  }, [currentInput, gameOver, guesses, guessRecords, targetDate, maxGuesses, keyStates, wrongGuessCount]);
 
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
-    if (gameOver) return;
+    if (gameOver || viewOnly) return;
 
     if (e.key >= "0" && e.key <= "9") {
       if (currentInput.length < 6) {
@@ -115,7 +158,35 @@ export function PlayPage({
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleKeyPress]);
 
-  const updateStats = (won: boolean, numGuesses: number) => {
+  const saveGameToDatabase = async (won: boolean, numGuesses: number, allGuesses: GuessRecord[]) => {
+    if (!puzzleId) return;
+
+    try {
+      const gameAttempt = await apiRequest<{ id: number }>("/api/game-attempts", {
+        method: "POST",
+        body: {
+          puzzleId,
+          result: won ? "win" : "loss",
+          numGuesses
+        }
+      });
+
+      for (const guess of allGuesses) {
+        await apiRequest("/api/guesses", {
+          method: "POST",
+          body: {
+            gameAttemptId: gameAttempt.id,
+            guessValue: guess.guessValue,
+            feedbackResult: guess.feedbackResult
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error saving game to database:", error);
+    }
+  };
+
+  const updateStats = async (won: boolean, numGuesses: number) => {
     const storedStats = localStorage.getItem("elementle-stats");
     const stats = storedStats ? JSON.parse(storedStats) : {
       played: 0,
@@ -123,6 +194,19 @@ export function PlayPage({
       currentStreak: 0,
       maxStreak: 0,
       guessDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      puzzleCompletions: {}
+    };
+
+    if (!stats.puzzleCompletions) {
+      stats.puzzleCompletions = {};
+    }
+
+    const puzzleKey = targetDate;
+    stats.puzzleCompletions[puzzleKey] = {
+      completed: true,
+      won,
+      guessCount: numGuesses,
+      date: new Date().toISOString()
     };
 
     stats.played += 1;
@@ -136,6 +220,8 @@ export function PlayPage({
     }
 
     localStorage.setItem("elementle-stats", JSON.stringify(stats));
+
+    await saveGameToDatabase(won, numGuesses, guessRecords);
   };
 
   const handlePlayAgain = () => {
@@ -162,7 +248,9 @@ export function PlayPage({
           <ArrowLeft className="h-5 w-5" />
         </Button>
 
-        <h2 className="text-2xl font-semibold">Elementle</h2>
+        <h2 className="text-2xl font-semibold">
+          {viewOnly ? "View Puzzle" : "Elementle"}
+        </h2>
 
         <Button
           variant="ghost"
@@ -202,18 +290,20 @@ export function PlayPage({
             </Card>
           )}
 
-          <NumericKeyboard
-            onDigitPress={(digit) => {
-              if (currentInput.length < 6) {
-                setCurrentInput(currentInput + digit);
-              }
-            }}
-            onDelete={() => setCurrentInput(currentInput.slice(0, -1))}
-            onClear={() => setCurrentInput("")}
-            onEnter={handleSubmit}
-            keyStates={keyStates}
-            canSubmit={currentInput.length === 6}
-          />
+          {!viewOnly && (
+            <NumericKeyboard
+              onDigitPress={(digit) => {
+                if (currentInput.length < 6) {
+                  setCurrentInput(currentInput + digit);
+                }
+              }}
+              onDelete={() => setCurrentInput(currentInput.slice(0, -1))}
+              onClear={() => setCurrentInput("")}
+              onEnter={handleSubmit}
+              keyStates={keyStates}
+              canSubmit={currentInput.length === 6}
+            />
+          )}
 
           <div className="text-center text-sm text-muted-foreground">
             Guess {guesses.length + 1} of {maxGuesses}
