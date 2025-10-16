@@ -1,0 +1,280 @@
+[
+  {
+    "date_id": "2025-10-01",
+    "target_date": "011025",
+    "answer_date": "01/10/0331",
+    "event_title": "Founding of Constantinople",
+    "event_description": "Constantine I dedicates Byzantium as the new capital of the Roman Empire.",
+    "clue1": "A city bridging Europe and Asia",
+    "clue2": "Later became the seat of Eastern emperors"
+  },
+  {
+    "date_id": "2025-10-02",
+    "target_date": "021025",
+    "answer_date": "02/10/1187",
+    "event_title": "Saladin Captures Jerusalem",
+    "event_description": "Saladin retakes Jerusalem from the Crusaders after the Battle of Hattin.",
+    "clue1": "A sultan famed for chivalry",
+    "clue2": "Victory after a crushing defeat of knights"
+  },
+  {
+    "date_id": "2025-10-03",
+    "target_date": "031025",
+    "answer_date": "03/10/1226",
+    "event_title": "Death of St. Francis of Assisi",
+    "event_description": "Founder of the Franciscan Order, known for devotion to poverty and nature.",
+    "clue1": "Preacher who called animals his brothers",
+    "clue2": "Inspired a monastic order of friars"
+  },
+  {
+    "date_id": "2025-10-04",
+    "target_date": "041025",
+    "answer_date": "04/10/1582",
+    "event_title": "Gregorian Calendar Introduced",
+    "event_description": "Pope Gregory XIII reforms the calendar, skipping 10 days in October.",
+    "clue1": "A papal reform of time itself",
+    "clue2": "Days vanished overnight to fix the seasons"
+  },
+  {
+    "date_id": "2025-10-05",
+    "target_date": "051025",
+    "answer_date": "05/10/1789",
+    "event_title": "March on Versailles",
+    "event_description": "French Revolution: women march to Versailles demanding bread and reforms.",
+    "clue1": "Crowds stormed a royal palace",
+    "clue2": "A protest sparked by hunger"
+  },
+  {
+    "date_id": "2025-10-06",
+    "target_date": "061025",
+    "answer_date": "06/10/1889",
+    "event_title": "Paris World’s Fair Opens",
+    "event_description": "Exposition Universelle opens in Paris, showcasing the Eiffel Tower.",
+    "clue1": "A global showcase of inventions",
+    "clue2": "A new iron landmark stole the show"
+  },
+  {
+    "date_id": "2025-10-07",
+    "target_date": "071025",
+    "answer_date": "07/10/1919",
+    "event_title": "KLM Founded",
+    "event_description": "Dutch airline KLM is founded, the world’s oldest still operating airline.",
+    "clue1": "Blue planes from the Netherlands",
+    "clue2": "Oldest airline still flying today"
+  },
+  {
+    "date_id": "2025-10-08",
+    "target_date": "081025",
+    "answer_date": "08/10/1871",
+    "event_title": "Great Chicago Fire",
+    "event_description": "A massive fire destroys much of Chicago, killing hundreds and leaving thousands homeless.",
+    "clue1": "A blaze that reshaped a Midwestern city",
+    "clue2": "Legend blames a cow for starting it"
+  },
+  {
+    "date_id": "2025-10-09",
+    "target_date": "091025",
+    "answer_date": "09/10/1967",
+    "event_title": "Che Guevara Executed",
+    "event_description": "Revolutionary Che Guevara is captured and executed in Bolivia.",
+    "clue1": "A bearded guerrilla in a beret",
+    "clue2": "His face became a global protest icon"
+  }
+  {
+    "date_id": "2025-10-10",
+    "target_date": "101025",
+    "answer_date": "10/10/1911",
+    "event_title": "Xinhai Revolution",
+    "event_description": "Revolution in China begins, leading to the fall of the Qing dynasty.",
+    "clue1": "The last imperial dynasty faced collapse",
+    "clue2": "Sparked the birth of a republic in Asia"
+  },
+  {
+    "date_id": "2025-10-11",
+    "target_date": "111025",
+    "answer_date": "11/10/1962",
+    "event_title": "Second Vatican Council Opens",
+    "event_description": "Pope John XXIII opens Vatican II, modernising the Catholic Church.",
+    "clue1": "A council that reshaped Catholic worship",
+    "clue2": "Mass in local languages became possible"
+  },
+  {
+    "date_id": "2025-10-12",
+    "target_date": "121025",
+    "answer_date": "12/10/1492",
+    "event_title": "Columbus Reaches Americas",
+    "event_description": "Christopher Columbus makes landfall in the Bahamas, opening European exploration.",
+    "clue1": "A voyage backed by Spanish monarchs",
+    "clue2": "He thought he’d reached Asia"
+  },
+  {
+    "date_id": "2025-10-13",
+    "target_date": "131025",
+    "answer_date": "13/10/1307",
+    "event_title": "Knights Templar Arrested",
+    "event_description": "King Philip IV of France orders mass arrest of the Knights Templar.",
+    "clue1": "A secretive order of warrior monks",
+    "clue2": "Friday the 13th superstition begins here"
+  },
+  {
+    "date_id": "2025-10-14",
+    "target_date": "141025",
+    "answer_date": "14/10/1066",
+    "event_title": "Battle of Hastings",
+    "event_description": "William the Conqueror defeats Harold II, beginning Norman rule in England.",
+    "clue1": "An arrow in the eye sealed a king’s fate",
+    "clue2": "The last successful invasion of England"
+  },
+  {
+    "date_id": "2025-10-15",
+    "target_date": "151025",
+    "answer_date": "15/10/1582",
+    "event_title": "Gregorian Calendar Skips",
+    "event_description": "In Catholic countries, 10 days are skipped to align with the new calendar.",
+    "clue1": "People went to bed and woke up ten days later",
+    "clue2": "A papal decree fixed drifting seasons"
+  },
+  {
+    "date_id": "2025-10-16",
+    "target_date": "161025",
+    "answer_date": "16/10/1793",
+    "event_title": "Execution of Marie Antoinette",
+    "event_description": "French queen executed during the Revolution.",
+    "clue1": "A monarch met the guillotine",
+    "clue2": "Her name is tied to a cake quote"
+  },
+  {
+    "date_id": "2025-10-17",
+    "target_date": "171025",
+    "answer_date": "17/10/1931",
+    "event_title": "Al Capone Convicted",
+    "event_description": "Chicago gangster Al Capone convicted of tax evasion.",
+    "clue1": "A mob boss brought down by accountants",
+    "clue2": "Not bullets, but ledgers ended his reign"
+  },
+  {
+    "date_id": "2025-10-18",
+    "target_date": "181025",
+    "answer_date": "18/10/1867",
+    "event_title": "Alaska Purchase",
+    "event_description": "The U.S. formally takes possession of Alaska from Russia.",
+    "clue1": "A land deal once mocked as folly",
+    "clue2": "Gold and oil later proved its worth"
+  }
+  {
+    "date_id": "2025-10-19",
+    "target_date": "191025",
+    "answer_date": "19/10/1781",
+    "event_title": "Surrender at Yorktown",
+    "event_description": "British General Cornwallis surrenders to Washington, ending major fighting in the American Revolution.",
+    "clue1": "A decisive blow in a colonial war",
+    "clue2": "French fleet helped seal the victory"
+  },
+  {
+    "date_id": "2025-10-20",
+    "target_date": "201025",
+    "answer_date": "20/10/1973",
+    "event_title": "Sydney Opera House Opens",
+    "event_description": "Australia’s iconic performing arts centre is officially opened.",
+    "clue1": "A building shaped like sails",
+    "clue2": "An icon on Sydney Harbour"
+  },
+  {
+    "date_id": "2025-10-21",
+    "target_date": "211025",
+    "answer_date": "21/10/1805",
+    "event_title": "Battle of Trafalgar",
+    "event_description": "Admiral Nelson defeats the French and Spanish fleets, securing British naval supremacy.",
+    "clue1": "A one‑eyed admiral’s last victory",
+    "clue2": "“England expects that every man will do his duty”"
+  },
+  {
+    "date_id": "2025-10-22",
+    "target_date": "221025",
+    "answer_date": "22/10/1962",
+    "event_title": "Cuban Missile Crisis Peak",
+    "event_description": "President Kennedy announces a naval blockade of Cuba, bringing the world close to nuclear war.",
+    "clue1": "Thirteen days of tension",
+    "clue2": "A standoff over missiles near Florida"
+  },
+  {
+    "date_id": "2025-10-23",
+    "target_date": "231025",
+    "answer_date": "23/10/2001",
+    "event_title": "Apple Releases iPod",
+    "event_description": "Apple launches the iPod, revolutionising portable music.",
+    "clue1": "1,000 songs in your pocket",
+    "clue2": "White earbuds became iconic"
+  },
+  {
+    "date_id": "2025-10-24",
+    "target_date": "241025",
+    "answer_date": "24/10/1945",
+    "event_title": "United Nations Founded",
+    "event_description": "The UN Charter comes into force, establishing the United Nations.",
+    "clue1": "An organisation born after WWII",
+    "clue2": "Its HQ is in New York City"
+  },
+  {
+    "date_id": "2025-10-25",
+    "target_date": "251025",
+    "answer_date": "25/10/1854",
+    "event_title": "Charge of the Light Brigade",
+    "event_description": "British cavalry make a doomed charge during the Crimean War.",
+    "clue1": "“Into the valley of Death rode the six hundred”",
+    "clue2": "A disastrous cavalry charge"
+  },
+  {
+    "date_id": "2025-10-26",
+    "target_date": "261025",
+    "answer_date": "26/10/1881",
+    "event_title": "Gunfight at the O.K. Corral",
+    "event_description": "Famous shootout in Tombstone, Arizona, involving Wyatt Earp and Doc Holliday.",
+    "clue1": "A Wild West showdown",
+    "clue2": "Lawmen vs outlaws in Arizona"
+  },
+  {
+    "date_id": "2025-10-27",
+    "target_date": "271025",
+    "answer_date": "27/10/1904",
+    "event_title": "New York Subway Opens",
+    "event_description": "The first underground line of the New York City Subway opens to the public.",
+    "clue1": "America’s largest metro system begins",
+    "clue2": "Underground trains in Manhattan"
+  },
+  {
+    "date_id": "2025-10-28",
+    "target_date": "281025",
+    "answer_date": "28/10/1886",
+    "event_title": "Statue of Liberty Dedicated",
+    "event_description": "The Statue of Liberty is officially unveiled in New York Harbor.",
+    "clue1": "A gift from France",
+    "clue2": "A torch‑bearing lady greets arrivals"
+  },
+  {
+    "date_id": "2025-10-29",
+    "target_date": "291025",
+    "answer_date": "29/10/1929",
+    "event_title": "Wall Street Crash",
+    "event_description": "Stock market collapse triggers the Great Depression.",
+    "clue1": "Known as Black Tuesday",
+    "clue2": "Billions wiped off in hours"
+  },
+  {
+    "date_id": "2025-10-30",
+    "target_date": "301025",
+    "answer_date": "30/10/1938",
+    "event_title": "War of the Worlds Broadcast",
+    "event_description": "Orson Welles’ radio play causes panic, mistaken for real news of an alien invasion.",
+    "clue1": "Martians on the radio",
+    "clue2": "Orson Welles’ most famous hoax"
+  },
+  {
+    "date_id": "2025-10-31",
+    "target_date": "311025",
+    "answer_date": "31/10/1517",
+    "event_title": "Martin Luther’s 95 Theses",
+    "event_description": "Martin Luther nails his 95 Theses to the church door in Wittenberg, sparking the Reformation.",
+    "clue1": "A monk challenges indulgences",
+    "clue2": "Sparked the Protestant Reformation"
+  }
