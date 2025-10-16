@@ -57,23 +57,16 @@ export function PlayPage({
       const storedStats = localStorage.getItem("elementle-stats");
       if (storedStats) {
         const stats = JSON.parse(storedStats);
-        const puzzleCompletion = stats.puzzleCompletions?.[targetDate];
+        const completion = stats.puzzleCompletions?.[targetDate];
         
-        if (puzzleCompletion) {
+        if (completion) {
           setGameOver(true);
-          setIsWin(puzzleCompletion.won);
-          const mockGuesses: CellFeedback[][] = [];
-          for (let i = 0; i < puzzleCompletion.guessCount; i++) {
-            mockGuesses.push([
-              { digit: "0", state: "ruledOut" },
-              { digit: "0", state: "ruledOut" },
-              { digit: "0", state: "ruledOut" },
-              { digit: "0", state: "ruledOut" },
-              { digit: "0", state: "ruledOut" },
-              { digit: "0", state: "ruledOut" }
-            ]);
+          setIsWin(completion.won);
+          if (completion.guesses && Array.isArray(completion.guesses)) {
+            const feedbackArrays = completion.guesses.map((gr: GuessRecord) => gr.feedbackResult);
+            setGuesses(feedbackArrays);
+            setGuessRecords(completion.guesses);
           }
-          setGuesses(mockGuesses);
         }
       }
     }
@@ -126,13 +119,13 @@ export function PlayPage({
     if (currentInput === targetDate) {
       setIsWin(true);
       setGameOver(true);
-      updateStats(true, newGuesses.length);
+      updateStats(true, newGuesses.length, newGuessRecords);
     } else {
       setWrongGuessCount(wrongGuessCount + 1);
       if (newGuesses.length >= maxGuesses) {
         setIsWin(false);
         setGameOver(true);
-        updateStats(false, newGuesses.length);
+        updateStats(false, newGuesses.length, newGuessRecords);
       }
     }
   }, [currentInput, gameOver, guesses, guessRecords, targetDate, maxGuesses, keyStates, wrongGuessCount]);
@@ -186,7 +179,7 @@ export function PlayPage({
     }
   };
 
-  const updateStats = async (won: boolean, numGuesses: number) => {
+  const updateStats = async (won: boolean, numGuesses: number, allGuessRecords: GuessRecord[]) => {
     const storedStats = localStorage.getItem("elementle-stats");
     const stats = storedStats ? JSON.parse(storedStats) : {
       played: 0,
@@ -206,6 +199,7 @@ export function PlayPage({
       completed: true,
       won,
       guessCount: numGuesses,
+      guesses: allGuessRecords,
       date: new Date().toISOString()
     };
 
@@ -221,7 +215,7 @@ export function PlayPage({
 
     localStorage.setItem("elementle-stats", JSON.stringify(stats));
 
-    await saveGameToDatabase(won, numGuesses, guessRecords);
+    await saveGameToDatabase(won, numGuesses, allGuessRecords);
   };
 
   const handlePlayAgain = () => {

@@ -100,6 +100,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             puzzle && "hover-elevate",
             status?.completed && status.won && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700",
             status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700",
+            !status?.completed && puzzle && "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700",
             isToday && "ring-2 ring-primary"
           )}
           onClick={() => puzzle && onPlayPuzzle(puzzle.date_id)}
