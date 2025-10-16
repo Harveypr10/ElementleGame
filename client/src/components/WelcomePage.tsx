@@ -4,16 +4,10 @@ import hamsterLogo from "@assets/generated_images/Hamster_logo_icon_5c761af3.png
 
 interface WelcomePageProps {
   onPlayWithoutSignIn: () => void;
+  onLogin: () => void;
 }
 
-export function WelcomePage({ onPlayWithoutSignIn }: WelcomePageProps) {
-  const handleLogin = () => {
-    console.log("Login clicked (placeholder)");
-  };
-
-  const handleSignUp = () => {
-    console.log("Sign up clicked (placeholder)");
-  };
+export function WelcomePage({ onPlayWithoutSignIn, onLogin }: WelcomePageProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -34,9 +28,8 @@ export function WelcomePage({ onPlayWithoutSignIn }: WelcomePageProps) {
           <Button
             className="w-full h-14"
             size="lg"
-            onClick={handleLogin}
+            onClick={onLogin}
             data-testid="button-login"
-            disabled
           >
             Login
           </Button>
@@ -45,9 +38,8 @@ export function WelcomePage({ onPlayWithoutSignIn }: WelcomePageProps) {
             className="w-full h-14"
             size="lg"
             variant="outline"
-            onClick={handleSignUp}
+            onClick={onLogin}
             data-testid="button-signup"
-            disabled
           >
             Sign Up
           </Button>

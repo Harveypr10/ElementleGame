@@ -1,4 +1,4 @@
-import happyHamster from "@assets/generated_images/Happy_hamster_mascot_a9b8c7d6.png";
+import happyHamster from "@assets/generated_images/Celebrating_hamster_transparent_c10effe4.png";
 
 export function SplashScreen() {
   return (

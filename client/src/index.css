@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Apply text scaling globally */
+* {
+  font-size: calc(1rem * var(--text-scale));
+}
+
 /* LIGHT MODE */
 :root {
   --button-outline: rgba(0,0,0, .10);
@@ -90,6 +95,7 @@
   --shadow-2xl: 0px 25px 50px -12px hsl(220 13% 11% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+  --text-scale: 1;
 
   /* Automatically computed borders - intensity can be controlled by the user by the --opaque-button-border-intensity setting */
 

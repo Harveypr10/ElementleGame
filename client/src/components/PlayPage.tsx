@@ -4,12 +4,15 @@ import { NumericKeyboard, type KeyState } from "./NumericKeyboard";
 import { EndGameModal } from "./EndGameModal";
 import { HelpDialog } from "./HelpDialog";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, HelpCircle } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { ArrowLeft, HelpCircle, Lightbulb } from "lucide-react";
 
 interface PlayPageProps {
   targetDate: string;
   eventTitle: string;
   eventDescription: string;
+  clue1?: string;
+  clue2?: string;
   maxGuesses?: number;
   onBack: () => void;
   onViewStats?: () => void;
@@ -20,6 +23,8 @@ export function PlayPage({
   targetDate,
   eventTitle,
   eventDescription,
+  clue1,
+  clue2,
   maxGuesses = 5,
   onBack,
   onViewStats,
@@ -31,6 +36,8 @@ export function PlayPage({
   const [gameOver, setGameOver] = useState(false);
   const [isWin, setIsWin] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [cluesEnabled, setCluesEnabled] = useState(true);
+  const [wrongGuessCount, setWrongGuessCount] = useState(0);
 
   const calculateFeedback = (guess: string): CellFeedback[] => {
     const feedback: CellFeedback[] = [];
@@ -60,6 +67,11 @@ export function PlayPage({
     return feedback;
   };
 
+  useEffect(() => {
+    const storedClues = localStorage.getItem("cluesEnabled");
+    if (storedClues !== null) setCluesEnabled(storedClues === "true");
+  }, []);
+
   const handleSubmit = useCallback(() => {
     if (currentInput.length !== 6 || gameOver) return;
 
@@ -72,12 +84,15 @@ export function PlayPage({
       setIsWin(true);
       setGameOver(true);
       updateStats(true, newGuesses.length);
-    } else if (newGuesses.length >= maxGuesses) {
-      setIsWin(false);
-      setGameOver(true);
-      updateStats(false, newGuesses.length);
+    } else {
+      setWrongGuessCount(wrongGuessCount + 1);
+      if (newGuesses.length >= maxGuesses) {
+        setIsWin(false);
+        setGameOver(true);
+        updateStats(false, newGuesses.length);
+      }
     }
-  }, [currentInput, gameOver, guesses, targetDate, maxGuesses, keyStates]);
+  }, [currentInput, gameOver, guesses, targetDate, maxGuesses, keyStates, wrongGuessCount]);
 
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
     if (gameOver) return;
@@ -129,7 +144,11 @@ export function PlayPage({
     setKeyStates({});
     setGameOver(false);
     setIsWin(false);
+    setWrongGuessCount(0);
   };
+
+  const shouldShowClue1 = cluesEnabled && wrongGuessCount >= 2 && clue1 && !gameOver;
+  const shouldShowClue2 = cluesEnabled && wrongGuessCount >= 4 && clue2 && !gameOver;
 
   return (
     <div className="min-h-screen flex flex-col p-4">
@@ -162,6 +181,26 @@ export function PlayPage({
             currentInput={currentInput}
             maxGuesses={maxGuesses}
           />
+
+          {(shouldShowClue1 || shouldShowClue2) && (
+            <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-3">
+                <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                <div className="space-y-2">
+                  {shouldShowClue1 && (
+                    <p className="text-sm text-blue-900 dark:text-blue-100" data-testid="text-clue1">
+                      <span className="font-semibold">Clue 1:</span> {clue1}
+                    </p>
+                  )}
+                  {shouldShowClue2 && (
+                    <p className="text-sm text-blue-900 dark:text-blue-100" data-testid="text-clue2">
+                      <span className="font-semibold">Clue 2:</span> {clue2}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
 
           <NumericKeyboard
             onDigitPress={(digit) => {

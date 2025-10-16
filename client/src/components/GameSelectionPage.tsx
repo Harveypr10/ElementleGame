@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { HelpCircle, Settings } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
+import { useAuth } from "@/hooks/useAuth";
 import historianHamster from "@assets/generated_images/Historian_hamster_icon_03a0d80a.png";
 import mathHamster from "@assets/generated_images/Mathematician_hamster_icon_d981f693.png";
 import archiveHamster from "@assets/generated_images/Archive_hamster_icon_bad10861.png";
@@ -11,9 +12,12 @@ interface GameSelectionPageProps {
   onPlayGame: () => void;
   onViewStats: () => void;
   onViewArchive: () => void;
+  onOpenSettings?: () => void;
+  onOpenOptions?: () => void;
 }
 
-export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive }: GameSelectionPageProps) {
+export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions }: GameSelectionPageProps) {
+  const { user, isAuthenticated } = useAuth();
   const [showHelp, setShowHelp] = useState(false);
 
   const menuItems = [
@@ -44,7 +48,8 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive }: Ga
     { 
       image: hamsterLogo, 
       label: "Options", 
-      active: false, 
+      active: true, 
+      onClick: onOpenOptions,
       testId: "button-options",
       bgColor: "bg-purple-300/20 hover:bg-purple-300/30"
     },
@@ -62,12 +67,29 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive }: Ga
           <HelpCircle className="h-5 w-5" />
         </Button>
 
-        <h2 className="text-2xl font-semibold">Elementle</h2>
+        <div className="flex items-center gap-2">
+          {isAuthenticated && user ? (
+            <span className="text-sm font-medium" data-testid="text-user-name">
+              {user.firstName || "User"}
+            </span>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.location.href = "/api/login"}
+              data-testid="link-login"
+              className="text-sm"
+            >
+              Login
+            </Button>
+          )}
+        </div>
 
         <Button
           variant="ghost"
           size="icon"
-          disabled
+          onClick={onOpenSettings}
+          disabled={!onOpenSettings}
           data-testid="button-settings"
         >
           <Settings className="h-5 w-5" />
