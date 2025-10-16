@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import happyHamster from "@assets/generated_images/Celebrating_hamster_transparent_c10effe4.png";
-import sadHamster from "@assets/generated_images/Sad_hamster_transparent_042236e7.png";
+import happyHamster from "@assets/generated_images/Dancing_celebration_hamster_mascot_12963875.png";
+import sadHamster from "@assets/generated_images/Sad_defeated_hamster_mascot_c614cf35.png";
 import { useEffect, useState } from "react";
 import { Home, BarChart3, Archive } from "lucide-react";
 
@@ -48,15 +48,15 @@ export function EndGameModal({
   return (
     <div className="fixed inset-0 bg-background z-50 flex items-center justify-center p-4" data-testid="end-game-modal">
       <div className="w-full max-w-md space-y-6">
-        <h2 className="text-center text-3xl font-bold">
+        <h2 className="text-center text-3xl font-bold mb-4">
           {isWin ? "Congratulations!" : "Better Luck Next Time"}
         </h2>
 
-        <div className="relative flex justify-center">
+        <div className="relative flex justify-center h-40">
           <img
             src={isWin ? happyHamster : sadHamster}
             alt={isWin ? "Happy hamster" : "Sad hamster"}
-            className={`h-40 w-40 ${isWin ? "animate-bounce" : "animate-pulse"}`}
+            className={`h-32 w-32 bg-white rounded-full ${isWin ? "animate-bounce" : "animate-pulse"}`}
             data-testid="hamster-image"
           />
           {showConfetti && (
@@ -140,7 +140,7 @@ export function EndGameModal({
           top: 0;
           left: 0;
           right: 0;
-          bottom: 0;
+          height: 100%;
           pointer-events: none;
           overflow: hidden;
         }
@@ -149,13 +149,13 @@ export function EndGameModal({
           position: absolute;
           width: 8px;
           height: 8px;
-          top: -10px;
+          top: 0;
           animation: confetti-fall 2s linear forwards;
         }
         
         @keyframes confetti-fall {
           to {
-            transform: translateY(400px) rotate(360deg);
+            transform: translateY(200px) rotate(360deg);
             opacity: 0;
           }
         }
