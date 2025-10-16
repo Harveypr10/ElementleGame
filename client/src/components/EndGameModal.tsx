@@ -39,10 +39,10 @@ export function EndGameModal({
   }, [isOpen, isWin]);
 
   const formatDate = (date: string) => {
-    if (date.length !== 8) return date;
+    if (date.length !== 6) return date;
     const day = date.substring(0, 2);
     const month = date.substring(2, 4);
-    const year = date.substring(4, 8);
+    const year = date.substring(4, 6);
     return `${day}/${month}/${year}`;
   };
 

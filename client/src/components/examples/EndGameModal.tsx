@@ -15,7 +15,7 @@ export default function EndGameModalExample() {
       <EndGameModal
         isOpen={isOpen}
         isWin={isWin}
-        targetDate="19690720"
+        targetDate="200769"
         eventTitle="Apollo 11 Moon Landing"
         eventDescription="Neil Armstrong becomes the first human to set foot on the Moon."
         numGuesses={3}

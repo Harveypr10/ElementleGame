@@ -1,5 +1,9 @@
 import { GameSelectionPage } from '../GameSelectionPage';
 
 export default function GameSelectionPageExample() {
-  return <GameSelectionPage onPlayGame={() => console.log('Play game')} />;
+  return (
+    <div className="relative min-h-screen">
+      <GameSelectionPage onPlayGame={() => console.log('Play game')} />
+    </div>
+  );
 }
