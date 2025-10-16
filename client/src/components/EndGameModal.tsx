@@ -47,16 +47,16 @@ export function EndGameModal({
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex items-center justify-center p-4" data-testid="end-game-modal">
-      <div className="w-full max-w-md space-y-6">
-        <h2 className="text-center text-3xl font-bold mb-4">
+      <div className="w-full max-w-md space-y-8">
+        <h2 className="text-center text-3xl font-bold">
           {isWin ? "Congratulations!" : "Better Luck Next Time"}
         </h2>
 
-        <div className="relative flex justify-center h-40">
+        <div className="relative flex justify-center h-40 mt-8">
           <img
             src={isWin ? happyHamster : sadHamster}
             alt={isWin ? "Happy hamster" : "Sad hamster"}
-            className={`h-32 w-32 bg-white rounded-full ${isWin ? "animate-bounce" : "animate-pulse"}`}
+            className={`h-32 w-32 bg-background rounded-full ${isWin ? "animate-bounce" : "animate-pulse"}`}
             data-testid="hamster-image"
           />
           {showConfetti && (
