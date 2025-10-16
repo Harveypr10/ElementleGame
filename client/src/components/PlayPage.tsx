@@ -180,6 +180,14 @@ export function PlayPage({
   };
 
   const updateStats = async (won: boolean, numGuesses: number, allGuessRecords: GuessRecord[]) => {
+    const getTodayKey = () => {
+      const today = new Date();
+      const day = String(today.getDate()).padStart(2, '0');
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const year = String(today.getFullYear()).slice(-2);
+      return `${day}${month}${year}`;
+    };
+
     const storedStats = localStorage.getItem("elementle-stats");
     const stats = storedStats ? JSON.parse(storedStats) : {
       played: 0,
@@ -194,12 +202,13 @@ export function PlayPage({
       stats.puzzleCompletions = {};
     }
 
-    const puzzleKey = targetDate;
+    const puzzleKey = getTodayKey();
     stats.puzzleCompletions[puzzleKey] = {
       completed: true,
       won,
       guessCount: numGuesses,
       guesses: allGuessRecords,
+      puzzleTargetDate: targetDate,
       date: new Date().toISOString()
     };
 
