@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { InputGrid, type CellFeedback } from "./InputGrid";
 import { NumericKeyboard, type KeyState } from "./NumericKeyboard";
 import { EndGameModal } from "./EndGameModal";
+import { HelpDialog } from "./HelpDialog";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, HelpCircle } from "lucide-react";
 
@@ -11,6 +12,8 @@ interface PlayPageProps {
   eventDescription: string;
   maxGuesses?: number;
   onBack: () => void;
+  onViewStats?: () => void;
+  onViewArchive?: () => void;
 }
 
 export function PlayPage({
@@ -19,12 +22,15 @@ export function PlayPage({
   eventDescription,
   maxGuesses = 5,
   onBack,
+  onViewStats,
+  onViewArchive,
 }: PlayPageProps) {
   const [currentInput, setCurrentInput] = useState("");
   const [guesses, setGuesses] = useState<CellFeedback[][]>([]);
   const [keyStates, setKeyStates] = useState<Record<string, KeyState>>({});
   const [gameOver, setGameOver] = useState(false);
   const [isWin, setIsWin] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const calculateFeedback = (guess: string): CellFeedback[] => {
     const feedback: CellFeedback[] = [];
@@ -65,9 +71,11 @@ export function PlayPage({
     if (currentInput === targetDate) {
       setIsWin(true);
       setGameOver(true);
+      updateStats(true, newGuesses.length);
     } else if (newGuesses.length >= maxGuesses) {
       setIsWin(false);
       setGameOver(true);
+      updateStats(false, newGuesses.length);
     }
   }, [currentInput, gameOver, guesses, targetDate, maxGuesses, keyStates]);
 
@@ -91,6 +99,29 @@ export function PlayPage({
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleKeyPress]);
+
+  const updateStats = (won: boolean, numGuesses: number) => {
+    const storedStats = localStorage.getItem("elementle-stats");
+    const stats = storedStats ? JSON.parse(storedStats) : {
+      played: 0,
+      won: 0,
+      currentStreak: 0,
+      maxStreak: 0,
+      guessDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    };
+
+    stats.played += 1;
+    if (won) {
+      stats.won += 1;
+      stats.currentStreak += 1;
+      stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
+      stats.guessDistribution[numGuesses] = (stats.guessDistribution[numGuesses] || 0) + 1;
+    } else {
+      stats.currentStreak = 0;
+    }
+
+    localStorage.setItem("elementle-stats", JSON.stringify(stats));
+  };
 
   const handlePlayAgain = () => {
     setCurrentInput("");
@@ -117,6 +148,7 @@ export function PlayPage({
         <Button
           variant="ghost"
           size="icon"
+          onClick={() => setShowHelp(true)}
           data-testid="button-help"
         >
           <HelpCircle className="h-5 w-5" />
@@ -159,7 +191,11 @@ export function PlayPage({
         numGuesses={guesses.length}
         onPlayAgain={handlePlayAgain}
         onHome={onBack}
+        onViewStats={onViewStats}
+        onViewArchive={onViewArchive}
       />
+
+      <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 }

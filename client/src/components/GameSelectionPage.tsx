@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { HelpCircle, Settings } from "lucide-react";
+import { HelpDialog } from "./HelpDialog";
 import historianHamster from "@assets/generated_images/Historian_hamster_icon_03a0d80a.png";
 import mathHamster from "@assets/generated_images/Mathematician_hamster_icon_d981f693.png";
 import archiveHamster from "@assets/generated_images/Archive_hamster_icon_bad10861.png";
@@ -8,9 +9,13 @@ import hamsterLogo from "@assets/generated_images/Hamster_logo_icon_5c761af3.png
 
 interface GameSelectionPageProps {
   onPlayGame: () => void;
+  onViewStats: () => void;
+  onViewArchive: () => void;
 }
 
-export function GameSelectionPage({ onPlayGame }: GameSelectionPageProps) {
+export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive }: GameSelectionPageProps) {
+  const [showHelp, setShowHelp] = useState(false);
+
   const menuItems = [
     { 
       image: historianHamster, 
@@ -18,28 +23,30 @@ export function GameSelectionPage({ onPlayGame }: GameSelectionPageProps) {
       active: true, 
       onClick: onPlayGame, 
       testId: "button-play",
-      bgColor: "bg-game-correct/20 hover:bg-game-correct/30 border-game-correct/30"
+      bgColor: "bg-game-correct/20 hover:bg-game-correct/30"
     },
     { 
       image: mathHamster, 
       label: "Stats", 
-      active: false, 
+      active: true, 
+      onClick: onViewStats,
       testId: "button-stats",
-      bgColor: "bg-game-inSequence/20 hover:bg-game-inSequence/30 border-game-inSequence/30"
+      bgColor: "bg-game-inSequence/20 hover:bg-game-inSequence/30"
     },
     { 
       image: archiveHamster, 
       label: "Play Archive", 
-      active: false, 
+      active: true, 
+      onClick: onViewArchive,
       testId: "button-archive",
-      bgColor: "bg-blue-300/20 hover:bg-blue-300/30 border-blue-300/30"
+      bgColor: "bg-blue-300/20 hover:bg-blue-300/30"
     },
     { 
       image: hamsterLogo, 
       label: "Options", 
       active: false, 
       testId: "button-options",
-      bgColor: "bg-purple-300/20 hover:bg-purple-300/30 border-purple-300/30"
+      bgColor: "bg-purple-300/20 hover:bg-purple-300/30"
     },
   ];
 
@@ -49,6 +56,7 @@ export function GameSelectionPage({ onPlayGame }: GameSelectionPageProps) {
         <Button
           variant="ghost"
           size="icon"
+          onClick={() => setShowHelp(true)}
           data-testid="button-help"
         >
           <HelpCircle className="h-5 w-5" />
@@ -59,6 +67,7 @@ export function GameSelectionPage({ onPlayGame }: GameSelectionPageProps) {
         <Button
           variant="ghost"
           size="icon"
+          disabled
           data-testid="button-settings"
         >
           <Settings className="h-5 w-5" />
@@ -83,6 +92,8 @@ export function GameSelectionPage({ onPlayGame }: GameSelectionPageProps) {
           </button>
         ))}
       </div>
+
+      <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   );
 }

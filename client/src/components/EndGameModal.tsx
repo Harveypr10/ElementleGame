@@ -13,6 +13,8 @@ interface EndGameModalProps {
   numGuesses?: number;
   onPlayAgain: () => void;
   onHome: () => void;
+  onViewStats?: () => void;
+  onViewArchive?: () => void;
 }
 
 export function EndGameModal({
@@ -24,6 +26,8 @@ export function EndGameModal({
   numGuesses,
   onPlayAgain,
   onHome,
+  onViewStats,
+  onViewArchive,
 }: EndGameModalProps) {
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -114,7 +118,7 @@ export function EndGameModal({
             <Button
               variant="outline"
               className="flex-1 h-14"
-              disabled
+              onClick={onViewStats}
               data-testid="button-stats"
             >
               <BarChart3 className="h-5 w-5 mr-2" />
@@ -124,7 +128,7 @@ export function EndGameModal({
             <Button
               variant="outline"
               className="flex-1 h-14"
-              disabled
+              onClick={onViewArchive}
               data-testid="button-archive"
             >
               <Archive className="h-5 w-5 mr-2" />

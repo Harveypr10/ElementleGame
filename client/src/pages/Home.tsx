@@ -2,6 +2,8 @@ import { useState } from "react";
 import { WelcomePage } from "@/components/WelcomePage";
 import { GameSelectionPage } from "@/components/GameSelectionPage";
 import { PlayPage } from "@/components/PlayPage";
+import { StatsPage } from "@/components/StatsPage";
+import { ArchivePage } from "@/components/ArchivePage";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const puzzles = [
@@ -49,10 +51,11 @@ const puzzles = [
   }
 ];
 
-type Screen = "welcome" | "selection" | "play";
+type Screen = "welcome" | "selection" | "play" | "stats" | "archive";
 
 export default function Home() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("welcome");
+  const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   
   const getDailyPuzzle = () => {
     const today = new Date();
@@ -60,7 +63,14 @@ export default function Home() {
     return puzzles[dayOfYear % puzzles.length];
   };
 
-  const currentPuzzle = getDailyPuzzle();
+  const currentPuzzle = selectedPuzzleId 
+    ? puzzles.find(p => p.date_id === selectedPuzzleId) || getDailyPuzzle()
+    : getDailyPuzzle();
+
+  const handlePlayPuzzle = (puzzleId: string) => {
+    setSelectedPuzzleId(puzzleId);
+    setCurrentScreen("play");
+  };
 
   return (
     <div className="relative">
@@ -74,7 +84,14 @@ export default function Home() {
       )}
 
       {currentScreen === "selection" && (
-        <GameSelectionPage onPlayGame={() => setCurrentScreen("play")} />
+        <GameSelectionPage 
+          onPlayGame={() => {
+            setSelectedPuzzleId(null);
+            setCurrentScreen("play");
+          }}
+          onViewStats={() => setCurrentScreen("stats")}
+          onViewArchive={() => setCurrentScreen("archive")}
+        />
       )}
 
       {currentScreen === "play" && (
@@ -84,6 +101,20 @@ export default function Home() {
           eventDescription={currentPuzzle.event_description}
           maxGuesses={5}
           onBack={() => setCurrentScreen("selection")}
+          onViewStats={() => setCurrentScreen("stats")}
+          onViewArchive={() => setCurrentScreen("archive")}
+        />
+      )}
+
+      {currentScreen === "stats" && (
+        <StatsPage onBack={() => setCurrentScreen("selection")} />
+      )}
+
+      {currentScreen === "archive" && (
+        <ArchivePage 
+          onBack={() => setCurrentScreen("selection")}
+          onPlayPuzzle={handlePlayPuzzle}
+          puzzles={puzzles}
         />
       )}
     </div>

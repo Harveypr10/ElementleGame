@@ -21,6 +21,8 @@ export default function EndGameModalExample() {
         numGuesses={3}
         onPlayAgain={() => setIsOpen(false)}
         onHome={() => console.log('Home')}
+        onViewStats={() => console.log('View Stats')}
+        onViewArchive={() => console.log('View Archive')}
       />
     </div>
   );
