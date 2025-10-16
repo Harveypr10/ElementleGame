@@ -69,13 +69,17 @@ export function GameSelectionPage({ onPlayGame }: GameSelectionPageProps) {
         {menuItems.map((item) => (
           <button
             key={item.label}
-            className={`w-full h-32 flex items-center justify-center gap-6 px-8 rounded-md border-2 transition-colors ${item.bgColor} ${!item.active && 'opacity-50'}`}
+            className={`w-full h-32 flex items-center rounded-md transition-colors ${item.bgColor} ${!item.active && 'opacity-50'}`}
             onClick={item.onClick}
             disabled={!item.active}
             data-testid={item.testId}
           >
-            <img src={item.image} alt={item.label} className="h-16 w-16 object-contain mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert" />
-            <span className="text-2xl font-medium">{item.label}</span>
+            <div className="w-1/3 flex items-center justify-center">
+              <img src={item.image} alt={item.label} className="h-16 w-16 object-contain mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert" />
+            </div>
+            <div className="flex-1 flex items-center">
+              <span className="text-2xl font-medium">{item.label}</span>
+            </div>
           </button>
         ))}
       </div>

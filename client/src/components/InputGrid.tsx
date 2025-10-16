@@ -46,14 +46,14 @@ export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps)
   });
 
   return (
-    <div className="space-y-2" data-testid="input-grid">
+    <div className="space-y-2 w-full" data-testid="input-grid">
       {rows.map((row, rowIdx) => (
         <div key={rowIdx} className="flex gap-2 justify-center">
           {row.map((cell, cellIdx) => (
             <div
               key={`${rowIdx}-${cellIdx}`}
               className={`
-                relative w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16
+                relative flex-1 aspect-square max-w-16
                 flex items-center justify-center
                 border-2 rounded-md
                 text-2xl sm:text-3xl font-semibold
