@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, BarChart3, TrendingUp, Award, AlertCircle } from "lucide-react";
+import { ArrowLeft, BarChart3, TrendingUp, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface StatsPageProps {
   onBack: () => void;
-  onSignup?: () => void;
 }
 
 interface GameStats {
@@ -25,8 +22,7 @@ interface GameStats {
   }>;
 }
 
-export function StatsPage({ onBack, onSignup }: StatsPageProps) {
-  const { isAuthenticated } = useAuth();
+export function StatsPage({ onBack }: StatsPageProps) {
   const [stats, setStats] = useState<GameStats>({
     played: 0,
     won: 0,
@@ -91,16 +87,6 @@ export function StatsPage({ onBack, onSignup }: StatsPageProps) {
 
       <div className="flex-1 flex items-start justify-center pb-8">
         <div className="w-full max-w-md space-y-6">
-          {!isAuthenticated && (
-            <Alert data-testid="alert-guest-mode">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                You're playing as a guest. Stats are saved locally only. 
-                <a href="#" onClick={(e) => { e.preventDefault(); (onSignup || onBack)(); }} className="underline ml-1" data-testid="link-signup-from-stats">Sign up</a> to save permanently and access global stats!
-              </AlertDescription>
-            </Alert>
-          )}
-          
           <div className="grid grid-cols-4 gap-4">
             <Card className="p-4 text-center">
               <div className="text-3xl font-bold" data-testid="stat-played">{stats.played}</div>

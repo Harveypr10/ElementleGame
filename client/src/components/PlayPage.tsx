@@ -3,6 +3,7 @@ import { InputGrid, type CellFeedback } from "./InputGrid";
 import { NumericKeyboard, type KeyState } from "./NumericKeyboard";
 import { EndGameModal } from "./EndGameModal";
 import { HelpDialog } from "./HelpDialog";
+import { StreakCelebrationPopup } from "./StreakCelebrationPopup";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, HelpCircle, Lightbulb } from "lucide-react";
@@ -51,6 +52,8 @@ export function PlayPage({
   const [cluesEnabled, setCluesEnabled] = useState(true);
   const [wrongGuessCount, setWrongGuessCount] = useState(0);
   const [guessRecords, setGuessRecords] = useState<GuessRecord[]>([]);
+  const [showStreakCelebration, setShowStreakCelebration] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
 
   useEffect(() => {
     if (viewOnly) {
@@ -207,6 +210,10 @@ export function PlayPage({
       stats.currentStreak += 1;
       stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
       stats.guessDistribution[numGuesses] = (stats.guessDistribution[numGuesses] || 0) + 1;
+      
+      // Show streak celebration
+      setCurrentStreak(stats.currentStreak);
+      setShowStreakCelebration(true);
     } else {
       stats.currentStreak = 0;
     }
@@ -323,6 +330,13 @@ export function PlayPage({
       />
 
       <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
+
+      {showStreakCelebration && (
+        <StreakCelebrationPopup
+          streak={currentStreak}
+          onDismiss={() => setShowStreakCelebration(false)}
+        />
+      )}
     </div>
   );
 }
