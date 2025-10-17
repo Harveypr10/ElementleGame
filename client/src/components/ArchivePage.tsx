@@ -161,7 +161,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
         <div className="w-9" />
       </div>
 
-      <div className="flex-1 w-full max-w-xl mx-auto">
+      <div className="flex-1 w-full max-w-[31.5rem] mx-auto">
         <div className="mb-6 flex items-center justify-between">
           <Button
             variant="outline"
