@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface PlayPageProps {
   targetDate: string;
+  answerDate?: string;
   eventTitle: string;
   eventDescription: string;
   clue1?: string;
@@ -32,6 +33,7 @@ interface GuessRecord {
 
 export function PlayPage({
   targetDate,
+  answerDate,
   eventTitle,
   eventDescription,
   clue1,
@@ -370,6 +372,7 @@ export function PlayPage({
         isOpen={gameOver}
         isWin={isWin}
         targetDate={targetDate}
+        answerDate={answerDate}
         eventTitle={eventTitle}
         eventDescription={eventDescription}
         numGuesses={guesses.length}

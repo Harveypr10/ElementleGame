@@ -151,6 +151,7 @@ export default function Home() {
       {currentScreen === "play" && currentPuzzle && (
         <PlayPage
           targetDate={currentPuzzle.targetDate}
+          answerDate={currentPuzzle.answerDate}
           eventTitle={currentPuzzle.eventTitle}
           eventDescription={currentPuzzle.eventDescription}
           clue1={currentPuzzle.clue1}

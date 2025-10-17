@@ -29,3 +29,33 @@ export function formatDateWithOrdinal(dateString: string): string {
   
   return `${ordinalDay} ${monthName} ${fullYear}`;
 }
+
+export function formatFullDateWithOrdinal(dateString: string): string {
+  // Parse date in DD/MM/YYYY format
+  const parts = dateString.split('/');
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1; // 0-indexed
+  const year = parseInt(parts[2], 10);
+  
+  // Get month name
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  
+  // Get ordinal suffix
+  const getOrdinalSuffix = (day: number): string => {
+    if (day > 3 && day < 21) return "th";
+    switch (day % 10) {
+      case 1: return "st";
+      case 2: return "nd";
+      case 3: return "rd";
+      default: return "th";
+    }
+  };
+  
+  const ordinalDay = `${day}${getOrdinalSuffix(day)}`;
+  const monthName = monthNames[month];
+  
+  return `${ordinalDay} ${monthName} ${year}`;
+}
