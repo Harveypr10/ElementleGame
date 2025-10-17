@@ -15,30 +15,24 @@ interface GameSelectionPageProps {
   onOpenSettings?: () => void;
   onOpenOptions?: () => void;
   onLogin?: () => void;
+  todayPuzzleTargetDate?: string;
 }
 
-export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin }: GameSelectionPageProps) {
+export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin, todayPuzzleTargetDate }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const [showHelp, setShowHelp] = useState(false);
   const [todayCompleted, setTodayCompleted] = useState(false);
 
   useEffect(() => {
-    const getTodayPuzzleDate = () => {
-      const today = new Date();
-      const day = String(today.getDate()).padStart(2, '0');
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const year = String(today.getFullYear()).slice(-2);
-      return `${day}${month}${year}`;
-    };
+    if (!todayPuzzleTargetDate) return;
 
     const storedStats = localStorage.getItem("elementle-stats");
     if (storedStats) {
       const stats = JSON.parse(storedStats);
       const completions = stats.puzzleCompletions || {};
-      const todayPuzzleDate = getTodayPuzzleDate();
-      setTodayCompleted(!!completions[todayPuzzleDate]);
+      setTodayCompleted(!!completions[todayPuzzleTargetDate]);
     }
-  }, []);
+  }, [todayPuzzleTargetDate]);
 
   const menuItems = [
     { 

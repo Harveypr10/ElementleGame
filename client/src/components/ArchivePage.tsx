@@ -8,10 +8,11 @@ interface ArchivePageProps {
   onBack: () => void;
   onPlayPuzzle: (puzzleId: string) => void;
   puzzles: Array<{
-    date_id: string;
-    target_date: string;
-    event_title: string;
-    event_description: string;
+    id: number;
+    date: string;
+    targetDate: string;
+    eventTitle: string;
+    eventDescription: string;
     clue1?: string;
     clue2?: string;
   }>;
@@ -35,10 +36,10 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
     const completions = stats.puzzleCompletions || {};
     
     puzzles.forEach(puzzle => {
-      const completion = completions[puzzle.target_date];
+      const completion = completions[puzzle.targetDate];
       
       if (completion) {
-        statusMap[puzzle.target_date] = {
+        statusMap[puzzle.targetDate] = {
           completed: completion.completed || false,
           won: completion.won || false,
           guessCount: completion.guessCount
@@ -61,21 +62,19 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
   };
 
   const getPuzzleForDay = (day: number) => {
+    const year = currentMonth.getFullYear();
     const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
     const dayStr = String(day).padStart(2, '0');
-    const year = String(currentMonth.getFullYear()).slice(-2);
-    const targetDate = `${dayStr}${month}${year}`;
+    const puzzleDate = `${year}-${month}-${dayStr}`;
     
-    return puzzles.find(p => p.target_date === targetDate);
+    return puzzles.find(p => p.date === puzzleDate);
   };
 
   const getDayStatus = (day: number): DayStatus | null => {
-    const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
-    const dayStr = String(day).padStart(2, '0');
-    const year = String(currentMonth.getFullYear()).slice(-2);
-    const targetDate = `${dayStr}${month}${year}`;
+    const puzzle = getPuzzleForDay(day);
+    if (!puzzle) return null;
     
-    return dayStatuses[targetDate] || null;
+    return dayStatuses[puzzle.targetDate] || null;
   };
 
   const renderCalendar = () => {
@@ -103,7 +102,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             !status?.completed && puzzle && "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700",
             isToday && "ring-2 ring-primary"
           )}
-          onClick={() => puzzle && onPlayPuzzle(puzzle.date_id)}
+          onClick={() => puzzle && onPlayPuzzle(puzzle.id.toString())}
           data-testid={`calendar-day-${day}`}
         >
           <span className={cn(

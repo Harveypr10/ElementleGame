@@ -18,10 +18,11 @@ import { useQuery } from "@tanstack/react-query";
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms";
 
 interface Puzzle {
-  date_id: string;
-  target_date: string;
-  event_title: string;
-  event_description: string;
+  id: number;
+  date: string;
+  targetDate: string;
+  eventTitle: string;
+  eventDescription: string;
   clue1?: string;
   clue2?: string;
 }
@@ -54,15 +55,15 @@ export default function Home() {
   const getDailyPuzzle = (): Puzzle | undefined => {
     if (puzzles.length === 0) return undefined;
     
-    // Get today's date in DDMMYY format
+    // Get today's date in YYYY-MM-DD format
     const today = new Date();
-    const day = String(today.getDate()).padStart(2, '0');
+    const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
-    const year = String(today.getFullYear()).slice(-2);
-    const todayDate = `${day}${month}${year}`;
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayDate = `${year}-${month}-${day}`;
     
     // Try to find today's puzzle
-    const todayPuzzle = puzzles.find(p => p.target_date === todayDate);
+    const todayPuzzle = puzzles.find(p => p.date === todayDate);
     if (todayPuzzle) return todayPuzzle;
     
     // Fallback to first puzzle
@@ -70,7 +71,7 @@ export default function Home() {
   };
 
   const currentPuzzle = selectedPuzzleId 
-    ? puzzles.find(p => p.date_id === selectedPuzzleId) || getDailyPuzzle()
+    ? puzzles.find(p => p.id.toString() === selectedPuzzleId) || getDailyPuzzle()
     : getDailyPuzzle();
 
   const handlePlayPuzzle = (puzzleId: string) => {
@@ -139,14 +140,15 @@ export default function Home() {
             setCurrentScreen("options");
           }}
           onLogin={() => setCurrentScreen("login")}
+          todayPuzzleTargetDate={getDailyPuzzle()?.targetDate}
         />
       )}
 
       {currentScreen === "play" && currentPuzzle && (
         <PlayPage
-          targetDate={currentPuzzle.target_date}
-          eventTitle={currentPuzzle.event_title}
-          eventDescription={currentPuzzle.event_description}
+          targetDate={currentPuzzle.targetDate}
+          eventTitle={currentPuzzle.eventTitle}
+          eventDescription={currentPuzzle.eventDescription}
           clue1={currentPuzzle.clue1}
           clue2={currentPuzzle.clue2}
           maxGuesses={5}

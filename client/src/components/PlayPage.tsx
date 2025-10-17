@@ -177,14 +177,6 @@ export function PlayPage({
   };
 
   const updateStats = async (won: boolean, numGuesses: number, allGuessRecords: GuessRecord[]) => {
-    const getTodayKey = () => {
-      const today = new Date();
-      const day = String(today.getDate()).padStart(2, '0');
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const year = String(today.getFullYear()).slice(-2);
-      return `${day}${month}${year}`;
-    };
-
     const storedStats = localStorage.getItem("elementle-stats");
     const stats = storedStats ? JSON.parse(storedStats) : {
       played: 0,
@@ -199,8 +191,8 @@ export function PlayPage({
       stats.puzzleCompletions = {};
     }
 
-    const puzzleKey = getTodayKey();
-    stats.puzzleCompletions[puzzleKey] = {
+    // Use targetDate as the key (historical event date) to match archive lookup
+    stats.puzzleCompletions[targetDate] = {
       completed: true,
       won,
       guessCount: numGuesses,
@@ -264,6 +256,12 @@ export function PlayPage({
 
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">
+              {eventTitle}
+            </h3>
+          </div>
+
           <InputGrid
             guesses={guesses}
             currentInput={currentInput}
