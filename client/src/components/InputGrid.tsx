@@ -1,4 +1,5 @@
 import { ArrowUp, ArrowDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export type CellState = "empty" | "correct" | "inSequence" | "notInSequence";
 
@@ -60,9 +61,25 @@ export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps)
                 transition-colors
                 ${getCellClasses(cell.state)}
               `}
+              style={{ perspective: "1000px" }}
               data-testid={`cell-${rowIdx}-${cellIdx}`}
             >
-              {cell.digit}
+              <AnimatePresence mode="wait">
+                {cell.digit && cell.state !== "empty" && (
+                  <motion.span
+                    key={`${rowIdx}-${cellIdx}-${cell.digit}`}
+                    initial={{ rotateX: 90, opacity: 0 }}
+                    animate={{ rotateX: 0, opacity: 1 }}
+                    exit={{ rotateX: -90, opacity: 0 }}
+                    transition={{ duration: 1, delay: cellIdx * 0.25 }}
+                  >
+                    {cell.digit}
+                  </motion.span>
+                )}
+                {cell.digit && cell.state === "empty" && (
+                  <span>{cell.digit}</span>
+                )}
+              </AnimatePresence>
               {cell.arrow && (
                 <div className="absolute top-0.5 right-0.5">
                   {cell.arrow === "up" ? (
