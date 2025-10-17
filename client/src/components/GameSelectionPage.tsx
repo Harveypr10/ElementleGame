@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { HelpCircle, Settings } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { motion } from "framer-motion";
 import historianHamster from "@assets/generated_images/Historian_hamster_dark-mode_icon_753ecf4f.png";
 import mathHamster from "@assets/generated_images/Mathematician_hamster_dark-mode_icon_6526da46.png";
 import archiveHamster from "@assets/generated_images/Archive_hamster_dark-mode_icon_17b04ed9.png";
@@ -116,13 +117,18 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       </div>
 
       <div className="w-full max-w-md space-y-4 mt-20">
-        {menuItems.map((item) => (
-          <button
+        {menuItems.map((item, index) => (
+          <motion.button
             key={item.label}
             className={`w-full h-32 flex items-center rounded-md transition-colors ${item.bgColor} ${!item.active && 'opacity-50'}`}
             onClick={item.onClick}
             disabled={!item.active}
             data-testid={item.testId}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: index * 0.15 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             <div className="w-1/3 flex items-center justify-center">
               <img src={item.image} alt={item.label} className="h-16 w-16 object-contain mix-blend-multiply dark:mix-blend-normal dark:brightness-0 dark:invert" />
@@ -130,7 +136,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             <div className="flex-1 flex items-center">
               <span className="text-2xl font-medium">{item.label}</span>
             </div>
-          </button>
+          </motion.button>
         ))}
       </div>
 
