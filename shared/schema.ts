@@ -40,6 +40,7 @@ export const puzzles = pgTable("puzzles", {
   id: serial("id").primaryKey(),
   date: date("date").notNull().unique(), // YYYY-MM-DD format
   targetDate: varchar("target_date", { length: 6 }).notNull(), // DDMMYY format
+  answerDate: varchar("answer_date", { length: 10 }), // DD/MM/YYYY format - full historical date
   eventTitle: varchar("event_title", { length: 200 }).notNull(),
   eventDescription: text("event_description").notNull(),
   clue1: text("clue1"), // First clue shown after 2nd incorrect guess
