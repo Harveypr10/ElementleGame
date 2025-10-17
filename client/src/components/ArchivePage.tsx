@@ -80,6 +80,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
   const renderCalendar = () => {
     const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentMonth);
     const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(<div key={`empty-${i}`} className="aspect-square" />);
@@ -88,29 +90,35 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
     for (let day = 1; day <= daysInMonth; day++) {
       const puzzle = getPuzzleForDay(day);
       const status = getDayStatus(day);
-      const isToday = day === 16 && currentMonth.getMonth() === 9;
+      
+      const puzzleDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+      puzzleDate.setHours(0, 0, 0, 0);
+      const isFuture = puzzleDate > today;
+      const isToday = puzzleDate.getTime() === today.getTime();
+      const isPlayable = puzzle && !isFuture;
       
       days.push(
         <Card
           key={day}
           className={cn(
-            "aspect-square p-2 flex flex-col items-center justify-center cursor-pointer transition-all",
-            !puzzle && "opacity-40 cursor-not-allowed",
-            puzzle && "hover-elevate",
+            "aspect-square p-2 flex flex-col items-center justify-center transition-all min-h-[60px]",
+            isPlayable && "cursor-pointer hover-elevate",
+            !isPlayable && "cursor-not-allowed",
             status?.completed && status.won && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700",
             status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700",
-            !status?.completed && puzzle && "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700",
+            !status?.completed && isPlayable && "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700",
+            (!puzzle || isFuture) && "bg-background opacity-40",
             isToday && "ring-2 ring-primary"
           )}
-          onClick={() => puzzle && onPlayPuzzle(puzzle.id.toString())}
+          onClick={() => isPlayable && onPlayPuzzle(puzzle.id.toString())}
           data-testid={`calendar-day-${day}`}
         >
           <span className={cn(
             "text-sm font-semibold",
             status?.completed && status.won && "text-green-700 dark:text-green-300",
             status?.completed && !status.won && "text-red-700 dark:text-red-300",
-            !status?.completed && puzzle && "text-foreground",
-            !puzzle && "text-muted-foreground"
+            !status?.completed && isPlayable && "text-foreground",
+            (!puzzle || isFuture) && "text-muted-foreground"
           )}>
             {day}
           </span>
@@ -127,6 +135,14 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
   };
 
   const monthYear = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  
+  // Determine earliest puzzle month (October 2025)
+  const earliestMonth = new Date(2025, 9, 1); // October 2025
+  const currentDate = new Date();
+  const currentMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  
+  const canGoPrevious = currentMonth > earliestMonth;
+  const canGoNext = currentMonth < currentMonthDate;
 
   return (
     <div className="min-h-screen flex flex-col p-4">
@@ -151,6 +167,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             variant="outline"
             size="icon"
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
+            disabled={!canGoPrevious}
             data-testid="button-prev-month"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -162,6 +179,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             variant="outline"
             size="icon"
             onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
+            disabled={!canGoNext}
             data-testid="button-next-month"
           >
             <ChevronRight className="h-4 w-4" />

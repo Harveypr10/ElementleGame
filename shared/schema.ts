@@ -79,13 +79,15 @@ export const gameAttempts = pgTable("game_attempts", {
   id: serial("id").primaryKey(),
   userId: uuid("user_id").references(() => userProfiles.id, { onDelete: "cascade" }), // null for guest users
   puzzleId: integer("puzzle_id").notNull().references(() => puzzles.id),
-  result: varchar("result", { length: 10 }).notNull(), // 'win' or 'loss'
-  numGuesses: integer("num_guesses").notNull(),
-  completedAt: timestamp("completed_at").defaultNow(),
+  result: varchar("result", { length: 10 }), // 'win' or 'loss' - null for in-progress
+  numGuesses: integer("num_guesses").default(0),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"), // null for in-progress games
 });
 
 export const insertGameAttemptSchema = createInsertSchema(gameAttempts).omit({
   id: true,
+  startedAt: true,
   completedAt: true,
 });
 

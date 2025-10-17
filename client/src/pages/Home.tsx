@@ -76,6 +76,13 @@ export default function Home() {
 
   const handlePlayPuzzle = (puzzleId: string) => {
     setSelectedPuzzleId(puzzleId);
+    setPreviousScreen("archive");
+    setCurrentScreen("play");
+  };
+  
+  const handlePlayToday = () => {
+    setSelectedPuzzleId(null);
+    setPreviousScreen("selection");
     setCurrentScreen("play");
   };
 
@@ -128,10 +135,7 @@ export default function Home() {
 
       {currentScreen === "selection" && (
         <GameSelectionPage 
-          onPlayGame={() => {
-            setSelectedPuzzleId(null);
-            setCurrentScreen("play");
-          }}
+          onPlayGame={handlePlayToday}
           onViewStats={() => setCurrentScreen("stats")}
           onViewArchive={() => setCurrentScreen("archive")}
           onOpenSettings={() => setCurrentScreen("settings")}
@@ -152,7 +156,8 @@ export default function Home() {
           clue1={currentPuzzle.clue1}
           clue2={currentPuzzle.clue2}
           maxGuesses={5}
-          onBack={() => setCurrentScreen("selection")}
+          fromArchive={previousScreen === "archive"}
+          onBack={() => setCurrentScreen(previousScreen === "archive" ? "archive" : "selection")}
           onViewStats={() => setCurrentScreen("stats")}
           onViewArchive={() => setCurrentScreen("archive")}
         />
@@ -166,8 +171,7 @@ export default function Home() {
 
       {currentScreen === "stats" && (
         <StatsPage 
-          onBack={() => setCurrentScreen("selection")} 
-          onSignup={() => setCurrentScreen("signup")}
+          onBack={() => setCurrentScreen("selection")}
         />
       )}
 

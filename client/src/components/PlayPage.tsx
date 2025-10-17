@@ -19,6 +19,7 @@ interface PlayPageProps {
   maxGuesses?: number;
   viewOnly?: boolean;
   puzzleId?: number;
+  fromArchive?: boolean;
   onBack: () => void;
   onViewStats?: () => void;
   onViewArchive?: () => void;
@@ -38,6 +39,7 @@ export function PlayPage({
   maxGuesses = 5,
   viewOnly = false,
   puzzleId,
+  fromArchive = false,
   onBack,
   onViewStats,
   onViewArchive,
@@ -263,10 +265,27 @@ export function PlayPage({
 
       <div className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-md space-y-8">
-          <div className="text-center">
-            <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">
-              {eventTitle}
-            </h3>
+          {!fromArchive && (
+            <div className="text-center">
+              <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">
+                {eventTitle}
+              </h3>
+            </div>
+          )}
+
+          <div className="min-h-[80px]">
+            {(shouldShowClue1 || shouldShowClue2) && (
+              <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <div className="flex items-start gap-3">
+                  <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-blue-900 dark:text-blue-100" data-testid={shouldShowClue2 ? "text-clue2" : "text-clue1"}>
+                      <span className="font-semibold">{shouldShowClue2 ? "Clue 2:" : "Clue 1:"}</span> {shouldShowClue2 ? clue2 : clue1}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
 
           <InputGrid
@@ -274,26 +293,6 @@ export function PlayPage({
             currentInput={currentInput}
             maxGuesses={maxGuesses}
           />
-
-          {(shouldShowClue1 || shouldShowClue2) && (
-            <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-              <div className="flex items-start gap-3">
-                <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div className="space-y-2">
-                  {shouldShowClue1 && (
-                    <p className="text-sm text-blue-900 dark:text-blue-100" data-testid="text-clue1">
-                      <span className="font-semibold">Clue 1:</span> {clue1}
-                    </p>
-                  )}
-                  {shouldShowClue2 && (
-                    <p className="text-sm text-blue-900 dark:text-blue-100" data-testid="text-clue2">
-                      <span className="font-semibold">Clue 2:</span> {clue2}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </Card>
-          )}
 
           {!viewOnly && (
             <NumericKeyboard
