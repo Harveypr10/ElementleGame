@@ -1,12 +1,12 @@
 import {
-  users,
+  userProfiles,
   puzzles,
   userSettings,
   gameAttempts,
   guesses,
   userStats,
-  type User,
-  type UpsertUser,
+  type UserProfile,
+  type InsertUserProfile,
   type Puzzle,
   type InsertPuzzle,
   type UserSettings,
@@ -23,9 +23,9 @@ import { eq, and, gte, desc } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
-  // User operations (mandatory for Replit Auth)
-  getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  // User profile operations
+  getUserProfile(id: string): Promise<UserProfile | undefined>;
+  upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
 
   // Puzzle operations
   getPuzzle(id: number): Promise<Puzzle | undefined>;
@@ -57,25 +57,25 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
-  // User operations (mandatory for Replit Auth)
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
+  // User profile operations
+  async getUserProfile(id: string): Promise<UserProfile | undefined> {
+    const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
+    return profile;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(userData)
+  async upsertUserProfile(profileData: InsertUserProfile): Promise<UserProfile> {
+    const [profile] = await db
+      .insert(userProfiles)
+      .values(profileData)
       .onConflictDoUpdate({
-        target: users.id,
+        target: userProfiles.id,
         set: {
-          ...userData,
+          ...profileData,
           updatedAt: new Date(),
         },
       })
       .returning();
-    return user;
+    return profile;
   }
 
   // Puzzle operations
