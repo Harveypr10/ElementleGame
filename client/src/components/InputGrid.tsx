@@ -53,42 +53,52 @@ export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps)
           {row.map((cell, cellIdx) => (
             <div
               key={`${rowIdx}-${cellIdx}`}
-              className={`
-                relative flex-1 aspect-square max-w-16
-                flex items-center justify-center
-                border-2 rounded-md
-                text-2xl sm:text-3xl font-semibold
-                transition-colors
-                ${getCellClasses(cell.state)}
-              `}
+              className="relative flex-1 aspect-square max-w-16"
               style={{ perspective: "1000px" }}
               data-testid={`cell-${rowIdx}-${cellIdx}`}
             >
               <AnimatePresence mode="wait">
-                {cell.digit && cell.state !== "empty" && (
-                  <motion.span
-                    key={`${rowIdx}-${cellIdx}-${cell.digit}`}
+                {cell.state !== "empty" ? (
+                  <motion.div
+                    key={`${rowIdx}-${cellIdx}-${cell.state}`}
+                    className={`
+                      absolute inset-0
+                      flex items-center justify-center
+                      border-2 rounded-md
+                      text-3xl sm:text-4xl font-semibold
+                      ${getCellClasses(cell.state)}
+                    `}
                     initial={{ rotateX: 90, opacity: 0 }}
                     animate={{ rotateX: 0, opacity: 1 }}
                     exit={{ rotateX: -90, opacity: 0 }}
                     transition={{ duration: 1, delay: cellIdx * 0.25 }}
                   >
                     {cell.digit}
-                  </motion.span>
-                )}
-                {cell.digit && cell.state === "empty" && (
-                  <span>{cell.digit}</span>
+                    {cell.arrow && (
+                      <div className="absolute top-0.5 right-0.5">
+                        {cell.arrow === "up" ? (
+                          <ArrowUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4 sm:h-5 sm:w-5" />
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                ) : (
+                  <div
+                    key={`${rowIdx}-${cellIdx}-empty`}
+                    className={`
+                      absolute inset-0
+                      flex items-center justify-center
+                      border-2 rounded-md
+                      text-3xl sm:text-4xl font-semibold
+                      ${getCellClasses(cell.state)}
+                    `}
+                  >
+                    {cell.digit}
+                  </div>
                 )}
               </AnimatePresence>
-              {cell.arrow && (
-                <div className="absolute top-0.5 right-0.5">
-                  {cell.arrow === "up" ? (
-                    <ArrowUp className="h-4 w-4 sm:h-5 sm:w-5" />
-                  ) : (
-                    <ArrowDown className="h-4 w-4 sm:h-5 sm:w-5" />
-                  )}
-                </div>
-              )}
             </div>
           ))}
         </div>

@@ -21,7 +21,11 @@ interface PlayPageProps {
   viewOnly?: boolean;
   puzzleId?: number;
   fromArchive?: boolean;
+  showCelebrationFirst?: boolean;
+  hasOpenedCelebration?: boolean;
   onBack: () => void;
+  onHomeFromCelebration?: () => void;
+  onSetHasOpenedCelebration?: (value: boolean) => void;
   onViewStats?: () => void;
   onViewArchive?: () => void;
 }
@@ -42,7 +46,11 @@ export function PlayPage({
   viewOnly = false,
   puzzleId,
   fromArchive = false,
+  showCelebrationFirst = false,
+  hasOpenedCelebration = false,
   onBack,
+  onHomeFromCelebration,
+  onSetHasOpenedCelebration,
   onViewStats,
   onViewArchive,
 }: PlayPageProps) {
@@ -58,6 +66,7 @@ export function PlayPage({
   const [guessRecords, setGuessRecords] = useState<GuessRecord[]>([]);
   const [showStreakCelebration, setShowStreakCelebration] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
+  const [showCelebrationModal, setShowCelebrationModal] = useState(false);
 
   // Reset state when targetDate changes
   useEffect(() => {
@@ -112,6 +121,13 @@ export function PlayPage({
       }
     }
   }, [viewOnly, targetDate]);
+
+  // Auto-open celebration modal when returning from stats for completed archive puzzles
+  useEffect(() => {
+    if (showCelebrationFirst && gameOver && hasOpenedCelebration && !showCelebrationModal) {
+      setShowCelebrationModal(true);
+    }
+  }, [showCelebrationFirst, gameOver, hasOpenedCelebration, showCelebrationModal]);
 
   // Load in-progress guesses when resuming a puzzle
   useEffect(() => {
@@ -325,7 +341,7 @@ export function PlayPage({
 
   return (
     <div className="min-h-screen flex flex-col p-4">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <Button
           variant="ghost"
           size="icon"
@@ -350,7 +366,7 @@ export function PlayPage({
       </div>
 
       <div className="flex-1 flex items-center justify-center">
-        <div className="w-full max-w-md space-y-8">
+        <div className="w-full max-w-md space-y-4">
           {!fromArchive && (
             <div className="text-center">
               <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">
@@ -359,20 +375,18 @@ export function PlayPage({
             </div>
           )}
 
-          <div className="min-h-[80px]">
-            {(shouldShowClue1 || shouldShowClue2) && (
-              <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                <div className="flex items-start gap-3">
-                  <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-blue-900 dark:text-blue-100" data-testid={shouldShowClue2 ? "text-clue2" : "text-clue1"}>
-                      <span className="font-semibold">{shouldShowClue2 ? "Clue 2:" : "Clue 1:"}</span> {shouldShowClue2 ? clue2 : clue1}
-                    </p>
-                  </div>
+          {(shouldShowClue1 || shouldShowClue2) && (
+            <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-3">
+                <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-blue-900 dark:text-blue-100" data-testid={shouldShowClue2 ? "text-clue2" : "text-clue1"}>
+                    <span className="font-semibold">{shouldShowClue2 ? "Clue 2:" : "Clue 1:"}</span> {shouldShowClue2 ? clue2 : clue1}
+                  </p>
                 </div>
-              </Card>
-            )}
-          </div>
+              </div>
+            </Card>
+          )}
 
           <InputGrid
             guesses={guesses}
@@ -380,7 +394,20 @@ export function PlayPage({
             maxGuesses={maxGuesses}
           />
 
-          {!viewOnly && (
+          {showCelebrationFirst && gameOver && !hasOpenedCelebration && (
+            <Button
+              className="w-full h-14 text-lg"
+              onClick={() => {
+                onSetHasOpenedCelebration?.(true);
+                setShowCelebrationModal(true);
+              }}
+              data-testid="button-continue"
+            >
+              Continue
+            </Button>
+          )}
+
+          {!viewOnly && !showCelebrationFirst && (
             <NumericKeyboard
               onDigitPress={(digit) => {
                 if (currentInput.length < 6) {
@@ -402,7 +429,7 @@ export function PlayPage({
       </div>
 
       <EndGameModal
-        isOpen={gameOver}
+        isOpen={showCelebrationFirst ? showCelebrationModal : gameOver}
         isWin={isWin}
         targetDate={targetDate}
         answerDate={answerDate}
@@ -410,7 +437,7 @@ export function PlayPage({
         eventDescription={eventDescription}
         numGuesses={guesses.length}
         onPlayAgain={handlePlayAgain}
-        onHome={onBack}
+        onHome={onHomeFromCelebration || onBack}
         onViewStats={onViewStats}
         onViewArchive={onViewArchive}
       />

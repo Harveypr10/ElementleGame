@@ -3,12 +3,11 @@ import { Card } from "@/components/ui/card";
 import hamsterLogo from "@assets/generated_images/Hamster_logo_dark-mode_compatible_73ae1e8d.png";
 
 interface WelcomePageProps {
-  onPlayWithoutSignIn: () => void;
   onLogin: () => void;
   onSignup: () => void;
 }
 
-export function WelcomePage({ onPlayWithoutSignIn, onLogin, onSignup }: WelcomePageProps) {
+export function WelcomePage({ onLogin, onSignup }: WelcomePageProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -44,17 +43,6 @@ export function WelcomePage({ onPlayWithoutSignIn, onLogin, onSignup }: WelcomeP
           >
             Sign Up
           </Button>
-
-          <div className="text-center pt-2">
-            <Button
-              variant="ghost"
-              onClick={onPlayWithoutSignIn}
-              data-testid="button-play-without-signin"
-              className="text-sm text-muted-foreground"
-            >
-              Play without signing in
-            </Button>
-          </div>
         </div>
       </Card>
     </div>

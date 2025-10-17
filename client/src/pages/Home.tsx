@@ -33,6 +33,9 @@ export default function Home() {
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
   const [previousScreen, setPreviousScreen] = useState<Screen>("selection");
+  const [statsReturnScreen, setStatsReturnScreen] = useState<Screen>("selection");
+  const [showCelebrationFirst, setShowCelebrationFirst] = useState(false);
+  const [hasOpenedCelebration, setHasOpenedCelebration] = useState(false);
   
   // Fetch puzzles from API
   const { data: puzzles = [], isLoading: puzzlesLoading } = useQuery<Puzzle[]>({
@@ -75,6 +78,28 @@ export default function Home() {
     : getDailyPuzzle();
 
   const handlePlayPuzzle = (puzzleId: string) => {
+    const puzzle = puzzles.find(p => p.id.toString() === puzzleId);
+    if (!puzzle) return;
+    
+    // Check if this puzzle is already completed
+    const storedStats = localStorage.getItem("elementle-stats");
+    if (storedStats) {
+      const stats = JSON.parse(storedStats);
+      const completion = stats.puzzleCompletions?.[puzzle.targetDate];
+      
+      if (completion && completion.completed) {
+        // Show game screen first, then celebration
+        setShowCelebrationFirst(true);
+        setHasOpenedCelebration(false);
+      } else {
+        setShowCelebrationFirst(false);
+        setHasOpenedCelebration(false);
+      }
+    } else {
+      setShowCelebrationFirst(false);
+      setHasOpenedCelebration(false);
+    }
+    
     setSelectedPuzzleId(puzzleId);
     setPreviousScreen("archive");
     setCurrentScreen("play");
@@ -83,6 +108,8 @@ export default function Home() {
   const handlePlayToday = () => {
     setSelectedPuzzleId(null);
     setPreviousScreen("selection");
+    setShowCelebrationFirst(false);
+    setHasOpenedCelebration(false);
     setCurrentScreen("play");
   };
 
@@ -102,7 +129,6 @@ export default function Home() {
     <div className="relative">
       {currentScreen === "welcome" && (
         <WelcomePage 
-          onPlayWithoutSignIn={() => setCurrentScreen("selection")}
           onLogin={() => setCurrentScreen("login")}
           onSignup={() => setCurrentScreen("signup")}
         />
@@ -136,7 +162,10 @@ export default function Home() {
       {currentScreen === "selection" && (
         <GameSelectionPage 
           onPlayGame={handlePlayToday}
-          onViewStats={() => setCurrentScreen("stats")}
+          onViewStats={() => {
+            setStatsReturnScreen("selection");
+            setCurrentScreen("stats");
+          }}
           onViewArchive={() => setCurrentScreen("archive")}
           onOpenSettings={() => setCurrentScreen("settings")}
           onOpenOptions={() => {
@@ -158,8 +187,18 @@ export default function Home() {
           clue2={currentPuzzle.clue2}
           maxGuesses={5}
           fromArchive={previousScreen === "archive"}
+          showCelebrationFirst={showCelebrationFirst}
+          hasOpenedCelebration={hasOpenedCelebration}
+          onSetHasOpenedCelebration={setHasOpenedCelebration}
           onBack={() => setCurrentScreen(previousScreen === "archive" ? "archive" : "selection")}
-          onViewStats={() => setCurrentScreen("stats")}
+          onHomeFromCelebration={() => {
+            setShowCelebrationFirst(false);
+            setCurrentScreen("selection");
+          }}
+          onViewStats={() => {
+            setStatsReturnScreen("play");
+            setCurrentScreen("stats");
+          }}
           onViewArchive={() => setCurrentScreen("archive")}
         />
       )}
@@ -172,7 +211,7 @@ export default function Home() {
 
       {currentScreen === "stats" && (
         <StatsPage 
-          onBack={() => setCurrentScreen("selection")}
+          onBack={() => setCurrentScreen(statsReturnScreen)}
         />
       )}
 
