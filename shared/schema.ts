@@ -10,37 +10,30 @@ import {
   boolean,
   date,
   serial,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table for Replit Auth
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)]
-);
-
-// User storage table for Replit Auth
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
+// User profiles table - extends Supabase Auth users
+// References auth.users(id) from Supabase Auth
+export const userProfiles = pgTable("user_profiles", {
+  id: uuid("id").primaryKey(), // References auth.users(id) in Supabase
+  email: varchar("email").notNull(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
   isAdmin: boolean("is_admin").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export type UpsertUser = typeof users.$inferInsert;
-export type User = typeof users.$inferSelect;
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+export type UserProfile = typeof userProfiles.$inferSelect;
 
 // Puzzles table - contains historical events with dates and clues
 export const puzzles = pgTable("puzzles", {
@@ -65,7 +58,7 @@ export type Puzzle = typeof puzzles.$inferSelect;
 // User settings table - stores preferences per user
 export const userSettings = pgTable("user_settings", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
   textSize: varchar("text_size", { length: 20 }).default("medium"), // small, medium, large
   soundsEnabled: boolean("sounds_enabled").default(true),
   darkMode: boolean("dark_mode").default(false),
@@ -84,7 +77,7 @@ export type UserSettings = typeof userSettings.$inferSelect;
 // Game attempts table - tracks each game session
 export const gameAttempts = pgTable("game_attempts", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }), // null for guest users
+  userId: uuid("user_id").references(() => userProfiles.id, { onDelete: "cascade" }), // null for guest users
   puzzleId: integer("puzzle_id").notNull().references(() => puzzles.id),
   result: varchar("result", { length: 10 }).notNull(), // 'win' or 'loss'
   numGuesses: integer("num_guesses").notNull(),
@@ -119,7 +112,7 @@ export type Guess = typeof guesses.$inferSelect;
 // User stats table - aggregated statistics per user
 export const userStats = pgTable("user_stats", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().unique().references(() => userProfiles.id, { onDelete: "cascade" }),
   gamesPlayed: integer("games_played").default(0),
   gamesWon: integer("games_won").default(0),
   currentStreak: integer("current_streak").default(0),
