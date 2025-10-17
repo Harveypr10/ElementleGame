@@ -1,0 +1,56 @@
+Please remove all use of Replit Auth and replace it with my own Supabase-based authentication and backend. Wherever backend aggregation or secure server logic is needed, implement it as Supabase Edge Functions.
+
+Requirements:
+
+1. Authentication
+- Implement email + password sign-up and sign-in using Supabase Auth.
+- Use environment variables SUPABASE_URL and SUPABASE_ANON_KEY for client-side auth calls.
+- Use SUPABASE_SERVICE_ROLE_KEY only in server-side code (migrations, admin tasks, Edge Functions).
+- On app load:
+  - If user is signed in, briefly show the login screen then auto-navigate to Game Selection.
+  - If not signed in, show the Welcome screen with Login, Sign-up, and Play without signing in.
+- On Game Selection:
+  - If guest, show “Login” link at top right next to the settings cog.
+  - If signed in, show the user’s first name; clicking it opens Settings with a Sign Out button.
+
+2. Database migration
+- Migrate the existing schema into my Supabase project:
+  - users (handled by Supabase Auth; app-specific profile table if needed)
+  - puzzles (historical date puzzles)
+  - game_attempts (gameplay tracking: user_id, date_id, guesses, result, timestamps)
+  - guess_attempts (per-guess governance log: user_id, date_id, guess_value, feedback, timestamp)
+- Update all queries to use Supabase client calls instead of Replit/Postgres.
+- If possible, export existing data from Replit DB and import it into Supabase (puzzles, attempts, guesses).
+
+3. Governance and logging
+- Continue logging every guess with: timestamp, guess value, feedback result, user_id (or guest), date_id, result (win/lose), number of guesses.
+- Persist logs in Supabase tables (not localStorage).
+- Keep the export function (CSV/JSON) and fetch from Supabase.
+
+4. Global stats (Edge Function)
+- Create a production-ready Supabase Edge Function named global-stats that aggregates across all users without exposing raw table data to the client.
+- Function responsibilities:
+  - Compute overall averages (e.g., average guesses for wins, win rate).
+  - Return a compact JSON payload for the Stats screen (no raw rows).
+- Secure the function with service role key on the server side; call it from the client using the anon key.
+- In the StatsPage, add a useEffect that fetches the global-stats Edge Function and displays “All users’ averages” alongside local stats.
+
+5. UI adjustments
+- Update login and signup forms to use Supabase Auth calls.
+- Ensure “Play without signing in” still works, with limited features (local-only stats, no account settings).
+- Settings cog menu must include:
+  - Account management (update details, change password)
+  - About (Elementle summary)
+  - Privacy Policy and Terms of Use (use our dobl links/text, adapted for Elementle)
+  - Sign Out
+
+6. Environment
+- Read Supabase credentials from process.env (SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY).
+- Do not hardcode keys. Service role key must only be used server-side and in Edge Functions.
+
+7. Implementation notes
+- Always implement backend aggregation and secure logic as Supabase Edge Functions where appropriate (e.g., global stats, admin exports, scheduled governance jobs).
+- Leave stubs/hooks for future Edge Functions (e.g., leaderboards, anti-cheat checks), but only build global-stats now.
+
+Goal:
+Full control of users and data in my Supabase project, migrated off Replit Auth and Replit’s internal database, with a secure, production-ready global-stats Edge Function powering “all users’ averages”.

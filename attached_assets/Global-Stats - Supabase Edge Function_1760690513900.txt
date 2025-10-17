@@ -1,0 +1,17 @@
+// supabase/functions/global-stats/index.ts
+import { serve } from "https://deno.land/std/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js";
+
+serve(async (req) => {
+  const supabase = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+  const { data, error } = await supabase
+    .from("game_attempts")
+    .select("guesses, result");
+
+  if (error) return new Response(JSON.stringify({ error }), { status: 500 });
+
+  const wins = data.filter(d => d.result === "win");
+  const avgGuesses = wins.reduce((sum, d) => sum + d.guesses, 0) / wins.length;
+
+  return new Response(JSON.stringify({ avgGuesses }), { headers: { "Content-Type": "application/json" } });
+});
