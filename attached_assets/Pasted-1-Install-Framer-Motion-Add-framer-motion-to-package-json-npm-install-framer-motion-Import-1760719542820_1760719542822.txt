@@ -1,0 +1,41 @@
+1. Install Framer Motion
+•	Add framer-motion to package.json (npm install framer-motion).
+•	Import from "framer-motion" in the relevant components.
+2. GameSelection screen buttons
+•	In GameSelectionPage.tsx, wrap each of the main buttons in a <motion.button>.
+•	Each button should:
+o	Start with initial={{ opacity: 0, y: 20 }}.
+o	Animate to animate={{ opacity: 1, y: 0 }}.
+o	Use transition={{ duration: 0.5, delay: stagger }} so they fade in and move up slightly one after another.
+o	Stagger the delay by about 0.15s between each button, so they cascade into place.
+•	Add a small hover/tap effect for polish:
+o	whileHover={{ scale: 1.05 }}.
+o	whileTap={{ scale: 0.95 }}.
+3. Answer grid numbers (page turn effect)
+•	In InputGrid.tsx (or wherever the 6 digit answer grid is rendered), wrap each digit cell’s displayed number in a <motion.span>.
+•	Use the key={value} trick so the animation re runs when the digit changes.
+•	Each digit should:
+o	Animate with a flip effect:
+tsx
+<motion.span
+  key={digit}
+  initial={{ rotateX: 90, opacity: 0 }}
+  animate={{ rotateX: 0, opacity: 1 }}
+  exit={{ rotateX: -90, opacity: 0 }}
+  transition={{ duration: 1 }}
+>
+  {digit}
+</motion.span>
+o	Ensure the parent cell has style={{ perspective: "1000px" }} so the 3D flip looks correct.
+•	Sequence the digits:
+o	The first digit starts immediately when the user presses Enter.
+o	Each subsequent digit starts 0.25s after the previous one.
+o	With 6 digits, the full sequence should complete in ~2.25s (1s per flip, staggered by 0.25s).
+4. General setup
+•	Use AnimatePresence from Framer Motion where needed to handle exit/enter animations cleanly.
+•	Keep Tailwind classes for styling; only add Framer Motion for the animation logic.
+Goal:
+•	On the GameSelection screen, buttons should fade in and move up into position with a slight stagger.
+•	In the answer grid, after the user enters a 6 digit guess and presses Enter, each digit should flip with a page turn effect, one after another, completing in ~2.25s total.
+Do not change the SplashScreen or any other components.
+Important: For this request only, please make the changes as I describe. After making the edits, you may run a quick test to confirm that the specific change works as intended. Do not run broader or full‑system tests beyond this scope. I will handle wider testing myself. This instruction applies only to this request, not to future ones.
