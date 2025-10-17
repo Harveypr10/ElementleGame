@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import happyHamster from "@assets/generated_images/Dancing_celebration_hamster_mascot_12963875.png";
-import sadHamster from "@assets/generated_images/Sad_defeated_hamster_mascot_c614cf35.png";
+import happyHamster from "@assets/generated_images/Celebrating_hamster_dark-mode_compatible_97e4ff48.png";
+import sadHamster from "@assets/generated_images/Sad_hamster_dark-mode_compatible_422589c8.png";
 import { useEffect, useState } from "react";
 import { Home, BarChart3, Archive } from "lucide-react";
 import { formatDateWithOrdinal } from "@/lib/dateFormat";

@@ -1,4 +1,4 @@
-import happyHamster from "@assets/generated_images/Celebrating_hamster_transparent_c10effe4.png";
+import happyHamster from "@assets/generated_images/Celebrating_hamster_dark-mode_compatible_97e4ff48.png";
 
 interface SplashScreenProps {
   firstName?: string;

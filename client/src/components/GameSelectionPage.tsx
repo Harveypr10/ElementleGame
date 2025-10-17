@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { HelpCircle, Settings } from "lucide-react";
 import { HelpDialog } from "./HelpDialog";
 import { useAuth } from "@/hooks/useAuth";
-import historianHamster from "@assets/generated_images/Historian_hamster_icon_03a0d80a.png";
-import mathHamster from "@assets/generated_images/Mathematician_hamster_icon_d981f693.png";
-import archiveHamster from "@assets/generated_images/Archive_hamster_icon_bad10861.png";
-import hamsterLogo from "@assets/generated_images/Hamster_logo_icon_5c761af3.png";
+import historianHamster from "@assets/generated_images/Historian_hamster_dark-mode_icon_753ecf4f.png";
+import mathHamster from "@assets/generated_images/Mathematician_hamster_dark-mode_icon_6526da46.png";
+import archiveHamster from "@assets/generated_images/Archive_hamster_dark-mode_icon_17b04ed9.png";
+import hamsterLogo from "@assets/generated_images/Hamster_logo_dark-mode_compatible_73ae1e8d.png";
 
 interface GameSelectionPageProps {
   onPlayGame: () => void;

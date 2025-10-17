@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import hamsterLogo from "@assets/generated_images/Hamster_logo_icon_5c761af3.png";
+import hamsterLogo from "@assets/generated_images/Hamster_logo_dark-mode_compatible_73ae1e8d.png";
 
 interface WelcomePageProps {
   onPlayWithoutSignIn: () => void;
