@@ -101,7 +101,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
         <Card
           key={day}
           className={cn(
-            "aspect-square p-2 flex flex-col items-center justify-center transition-all min-h-[60px]",
+            "aspect-square p-2 flex flex-col items-center justify-center transition-all min-h-[54px]",
             isPlayable && "cursor-pointer hover-elevate",
             !isPlayable && "cursor-not-allowed",
             status?.completed && status.won && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700",
@@ -161,7 +161,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
         <div className="w-9" />
       </div>
 
-      <div className="flex-1 w-full max-w-2xl mx-auto">
+      <div className="flex-1 w-full max-w-xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
           <Button
             variant="outline"

@@ -59,6 +59,39 @@ export function PlayPage({
   const [showStreakCelebration, setShowStreakCelebration] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
 
+  // Reset state when targetDate changes
+  useEffect(() => {
+    setCurrentInput("");
+    setGuesses([]);
+    setKeyStates({});
+    setGameOver(false);
+    setIsWin(false);
+    setWrongGuessCount(0);
+    setGuessRecords([]);
+  }, [targetDate]);
+
+  // Check if puzzle is already completed and redirect if needed
+  useEffect(() => {
+    if (!viewOnly) {
+      const storedStats = localStorage.getItem("elementle-stats");
+      if (storedStats) {
+        const stats = JSON.parse(storedStats);
+        const completion = stats.puzzleCompletions?.[targetDate];
+        
+        if (completion && completion.completed) {
+          // Puzzle already completed - set to view-only mode
+          setGameOver(true);
+          setIsWin(completion.won);
+          if (completion.guesses && Array.isArray(completion.guesses)) {
+            const feedbackArrays = completion.guesses.map((gr: GuessRecord) => gr.feedbackResult);
+            setGuesses(feedbackArrays);
+            setGuessRecords(completion.guesses);
+          }
+        }
+      }
+    }
+  }, [targetDate, viewOnly]);
+
   // Load completed puzzle guesses for view-only mode
   useEffect(() => {
     if (viewOnly) {
