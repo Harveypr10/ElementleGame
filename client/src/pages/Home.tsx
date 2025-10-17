@@ -8,76 +8,35 @@ import { SettingsPage } from "@/components/SettingsPage";
 import { OptionsPage } from "@/components/OptionsPage";
 import { SplashScreen } from "@/components/SplashScreen";
 import AuthPage from "@/components/AuthPage";
+import ForgotPasswordPage from "@/components/ForgotPasswordPage";
+import AccountInfoPage from "@/components/AccountInfoPage";
 import { PrivacyPage } from "@/components/PrivacyPage";
 import { TermsPage } from "@/components/TermsPage";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 
-const puzzles = [
-  {
-    date_id: "day1",
-    target_date: "251015",
-    event_title: "Battle of Agincourt",
-    event_description: "Henry V's English army defeats the French in one of the most famous battles of the Hundred Years' War.",
-    clue1: "An English king's triumph in France",
-    clue2: "Longbowmen dominated armored knights"
-  },
-  {
-    date_id: "day2",
-    target_date: "020966",
-    event_title: "Great Fire of London",
-    event_description: "A massive fire sweeps through London, destroying much of the medieval city over four days.",
-    clue1: "Started in a bakery on Pudding Lane",
-    clue2: "Led to rebuild with stone instead of wood"
-  },
-  {
-    date_id: "day3",
-    target_date: "040776",
-    event_title: "Declaration of Independence",
-    event_description: "The United States Declaration of Independence is adopted in Philadelphia.",
-    clue1: "Thomas Jefferson penned the document",
-    clue2: "Thirteen colonies declared freedom"
-  },
-  {
-    date_id: "day4",
-    target_date: "180615",
-    event_title: "Battle of Waterloo",
-    event_description: "Napoleon Bonaparte meets his final defeat at the Battle of Waterloo, ending his rule as Emperor of the French.",
-    clue1: "Napoleon's final battle",
-    clue2: "Wellington led the allied forces"
-  },
-  {
-    date_id: "day5",
-    target_date: "171203",
-    event_title: "First Powered Flight",
-    event_description: "The Wright brothers achieve the first powered flight at Kitty Hawk, North Carolina.",
-    clue1: "Two brothers achieved the impossible",
-    clue2: "12 seconds in the air changed history"
-  },
-  {
-    date_id: "day6",
-    target_date: "200769",
-    event_title: "Apollo 11 Moon Landing",
-    event_description: "Neil Armstrong becomes the first human to set foot on the Moon.",
-    clue1: "One small step for man",
-    clue2: "Eagle landed in the Sea of Tranquility"
-  },
-  {
-    date_id: "day7",
-    target_date: "091189",
-    event_title: "Fall of the Berlin Wall",
-    event_description: "East and West Berliners begin dismantling the wall that divided the city for decades.",
-    clue1: "A divided city reunited",
-    clue2: "The Iron Curtain fell"
-  }
-];
+type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms";
 
-type Screen = "splash" | "welcome" | "login" | "signup" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "privacy" | "terms";
+interface Puzzle {
+  date_id: string;
+  target_date: string;
+  event_title: string;
+  event_description: string;
+  clue1?: string;
+  clue2?: string;
+}
 
 export default function Home() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
+  const [previousScreen, setPreviousScreen] = useState<Screen>("selection");
+  
+  // Fetch puzzles from API
+  const { data: puzzles = [], isLoading: puzzlesLoading } = useQuery<Puzzle[]>({
+    queryKey: ['/api/puzzles'],
+  });
   
   useEffect(() => {
     if (isLoading) return;
@@ -92,10 +51,22 @@ export default function Home() {
     }
   }, [isAuthenticated, isLoading, showSplash]);
 
-  const getDailyPuzzle = () => {
+  const getDailyPuzzle = (): Puzzle | undefined => {
+    if (puzzles.length === 0) return undefined;
+    
+    // Get today's date in DDMMYY format
     const today = new Date();
-    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
-    return puzzles[dayOfYear % puzzles.length];
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = String(today.getFullYear()).slice(-2);
+    const todayDate = `${day}${month}${year}`;
+    
+    // Try to find today's puzzle
+    const todayPuzzle = puzzles.find(p => p.target_date === todayDate);
+    if (todayPuzzle) return todayPuzzle;
+    
+    // Fallback to first puzzle
+    return puzzles[0];
   };
 
   const currentPuzzle = selectedPuzzleId 
@@ -116,7 +87,7 @@ export default function Home() {
   }
 
   if (isAuthenticated && showSplash) {
-    return <SplashScreen />;
+    return <SplashScreen firstName={user?.user_metadata?.first_name} />;
   }
 
   return (
@@ -135,6 +106,7 @@ export default function Home() {
           onSuccess={() => setCurrentScreen("selection")}
           onSwitchMode={() => setCurrentScreen("signup")}
           onBack={() => setCurrentScreen("welcome")}
+          onForgotPassword={() => setCurrentScreen("forgot-password")}
         />
       )}
 
@@ -147,6 +119,12 @@ export default function Home() {
         />
       )}
 
+      {currentScreen === "forgot-password" && (
+        <ForgotPasswordPage 
+          onBack={() => setCurrentScreen("login")}
+        />
+      )}
+
       {currentScreen === "selection" && (
         <GameSelectionPage 
           onPlayGame={() => {
@@ -156,12 +134,15 @@ export default function Home() {
           onViewStats={() => setCurrentScreen("stats")}
           onViewArchive={() => setCurrentScreen("archive")}
           onOpenSettings={() => setCurrentScreen("settings")}
-          onOpenOptions={() => setCurrentScreen("options")}
+          onOpenOptions={() => {
+            setPreviousScreen("selection");
+            setCurrentScreen("options");
+          }}
           onLogin={() => setCurrentScreen("login")}
         />
       )}
 
-      {currentScreen === "play" && (
+      {currentScreen === "play" && currentPuzzle && (
         <PlayPage
           targetDate={currentPuzzle.target_date}
           eventTitle={currentPuzzle.event_title}
@@ -175,6 +156,12 @@ export default function Home() {
         />
       )}
 
+      {currentScreen === "play" && !currentPuzzle && (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-lg">Loading puzzle...</div>
+        </div>
+      )}
+
       {currentScreen === "stats" && (
         <StatsPage 
           onBack={() => setCurrentScreen("selection")} 
@@ -186,14 +173,18 @@ export default function Home() {
         <ArchivePage 
           onBack={() => setCurrentScreen("selection")}
           onPlayPuzzle={handlePlayPuzzle}
-          puzzles={puzzles}
+          puzzles={puzzles as any[]}
         />
       )}
 
       {currentScreen === "settings" && (
         <SettingsPage 
           onBack={() => setCurrentScreen("selection")}
-          onOpenOptions={() => setCurrentScreen("options")}
+          onOpenOptions={() => {
+            setPreviousScreen("settings");
+            setCurrentScreen("options");
+          }}
+          onAccountInfo={() => setCurrentScreen("account-info")}
           onPrivacy={() => setCurrentScreen("privacy")}
           onTerms={() => setCurrentScreen("terms")}
         />
@@ -201,6 +192,12 @@ export default function Home() {
 
       {currentScreen === "options" && (
         <OptionsPage 
+          onBack={() => setCurrentScreen(previousScreen)}
+        />
+      )}
+
+      {currentScreen === "account-info" && (
+        <AccountInfoPage 
           onBack={() => setCurrentScreen("settings")}
         />
       )}

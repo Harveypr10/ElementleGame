@@ -6,11 +6,12 @@ import { useAuth } from "@/hooks/useAuth";
 interface SettingsPageProps {
   onBack: () => void;
   onOpenOptions: () => void;
+  onAccountInfo: () => void;
   onPrivacy?: () => void;
   onTerms?: () => void;
 }
 
-export function SettingsPage({ onBack, onOpenOptions, onPrivacy, onTerms }: SettingsPageProps) {
+export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, onTerms }: SettingsPageProps) {
   const { user, isAuthenticated, signOut } = useAuth();
 
   const menuItems = [
@@ -19,10 +20,7 @@ export function SettingsPage({ onBack, onOpenOptions, onPrivacy, onTerms }: Sett
       label: "Account Info",
       onClick: () => {
         if (isAuthenticated && user) {
-          const firstName = user.user_metadata?.first_name || 'N/A';
-          const lastName = user.user_metadata?.last_name || 'N/A';
-          const email = user.email || 'N/A';
-          alert(`Account Information:\n\nName: ${firstName} ${lastName}\nEmail: ${email}`);
+          onAccountInfo();
         } else {
           alert("Please sign in to view account info");
         }

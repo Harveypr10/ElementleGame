@@ -3,6 +3,7 @@ import happyHamster from "@assets/generated_images/Dancing_celebration_hamster_m
 import sadHamster from "@assets/generated_images/Sad_defeated_hamster_mascot_c614cf35.png";
 import { useEffect, useState } from "react";
 import { Home, BarChart3, Archive } from "lucide-react";
+import { formatDateWithOrdinal } from "@/lib/dateFormat";
 
 interface EndGameModalProps {
   isOpen: boolean;
@@ -39,13 +40,6 @@ export function EndGameModal({
     }
   }, [isOpen, isWin]);
 
-  const formatDate = (date: string) => {
-    if (date.length !== 6) return date;
-    const day = date.substring(0, 2);
-    const month = date.substring(2, 4);
-    const year = date.substring(4, 6);
-    return `${day}/${month}/${year}`;
-  };
 
   if (!isOpen) return null;
 
@@ -84,7 +78,7 @@ export function EndGameModal({
           <div>
             <p className="text-sm text-muted-foreground mb-1">The date was</p>
             <p className="text-4xl font-bold" data-testid="text-target-date">
-              {formatDate(targetDate)}
+              {formatDateWithOrdinal(targetDate)}
             </p>
           </div>
 

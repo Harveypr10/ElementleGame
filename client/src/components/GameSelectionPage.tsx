@@ -77,46 +77,52 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
-      <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setShowHelp(true)}
-          data-testid="button-help"
-        >
-          <HelpCircle className="h-5 w-5" />
-        </Button>
+      <div className="absolute top-4 left-4 right-4">
+        <div className="flex items-center justify-between mb-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowHelp(true)}
+            data-testid="button-help"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </Button>
 
-        <div className="flex items-center gap-2">
-          {isAuthenticated && user ? (
-            <span className="text-sm font-medium" data-testid="text-user-name">
-              {user.user_metadata?.first_name || "User"}
-            </span>
-          ) : (
+          <h1 className="text-3xl font-bold text-foreground" data-testid="text-title">
+            Elementle
+          </h1>
+
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {isAuthenticated && user ? (
+              <span className="text-sm font-medium order-2 sm:order-1" data-testid="text-user-name">
+                {user.user_metadata?.first_name || "User"}
+              </span>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onLogin}
+                data-testid="link-login"
+                className="text-sm order-2 sm:order-1"
+              >
+                Login
+              </Button>
+            )}
             <Button
               variant="ghost"
-              size="sm"
-              onClick={onLogin}
-              data-testid="link-login"
-              className="text-sm"
+              size="icon"
+              onClick={onOpenSettings}
+              disabled={!onOpenSettings}
+              data-testid="button-settings"
+              className="order-1 sm:order-2"
             >
-              Login
+              <Settings className="h-5 w-5" />
             </Button>
-          )}
+          </div>
         </div>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onOpenSettings}
-          disabled={!onOpenSettings}
-          data-testid="button-settings"
-        >
-          <Settings className="h-5 w-5" />
-        </Button>
       </div>
 
-      <div className="w-full max-w-md space-y-4 mt-16">
+      <div className="w-full max-w-md space-y-4 mt-20">
         {menuItems.map((item) => (
           <button
             key={item.label}

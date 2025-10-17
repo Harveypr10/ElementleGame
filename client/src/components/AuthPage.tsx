@@ -5,15 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 
 interface AuthPageProps {
-  mode: "login" | "signup";
+  mode: "login" | "signup" | "forgot-password";
   onSuccess: () => void;
   onSwitchMode: () => void;
   onBack: () => void;
+  onForgotPassword?: () => void;
 }
 
-export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack }: AuthPageProps) {
+export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword }: AuthPageProps) {
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -27,6 +29,20 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack }: Auth
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate password for signup
+    if (mode === "signup") {
+      const validation = validatePassword(formData.password);
+      if (!validation.valid) {
+        toast({
+          title: "Invalid Password",
+          description: validation.errors.join(', '),
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     setLoading(true);
 
     try {
@@ -117,6 +133,21 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack }: Auth
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
               />
+              {mode === "signup" && (
+                <p className="text-xs text-muted-foreground" data-testid="text-password-requirements">
+                  {getPasswordRequirementsText()}
+                </p>
+              )}
+              {mode === "login" && onForgotPassword && (
+                <button
+                  type="button"
+                  onClick={onForgotPassword}
+                  className="text-xs text-primary hover:underline"
+                  data-testid="button-forgot-password"
+                >
+                  Forgot password?
+                </button>
+              )}
             </div>
 
             <Button 
