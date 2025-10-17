@@ -57,6 +57,7 @@ export function PlayPage({
   const [showStreakCelebration, setShowStreakCelebration] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
 
+  // Load completed puzzle guesses for view-only mode
   useEffect(() => {
     if (viewOnly) {
       const storedStats = localStorage.getItem("elementle-stats");
@@ -71,6 +72,29 @@ export function PlayPage({
             const feedbackArrays = completion.guesses.map((gr: GuessRecord) => gr.feedbackResult);
             setGuesses(feedbackArrays);
             setGuessRecords(completion.guesses);
+          }
+        }
+      }
+    }
+  }, [viewOnly, targetDate]);
+
+  // Load in-progress guesses when resuming a puzzle
+  useEffect(() => {
+    if (!viewOnly && !gameOver) {
+      const inProgressKey = `puzzle-progress-${targetDate}`;
+      const savedProgress = localStorage.getItem(inProgressKey);
+      
+      if (savedProgress) {
+        const progress = JSON.parse(savedProgress);
+        if (progress.guessRecords && Array.isArray(progress.guessRecords)) {
+          const feedbackArrays = progress.guessRecords.map((gr: GuessRecord) => gr.feedbackResult);
+          setGuesses(feedbackArrays);
+          setGuessRecords(progress.guessRecords);
+          setWrongGuessCount(progress.wrongGuessCount || 0);
+          
+          // Restore key states
+          if (progress.keyStates) {
+            setKeyStates(progress.keyStates);
           }
         }
       }
@@ -116,21 +140,48 @@ export function PlayPage({
     const feedback = calculateFeedback(currentInput);
     const newGuesses = [...guesses, feedback];
     const newGuessRecords = [...guessRecords, { guessValue: currentInput, feedbackResult: feedback }];
+    const newWrongGuessCount = currentInput !== targetDate ? wrongGuessCount + 1 : wrongGuessCount;
     
     setGuesses(newGuesses);
     setGuessRecords(newGuessRecords);
     setCurrentInput("");
 
     if (currentInput === targetDate) {
+      // Game won - save to stats and clear progress
       setIsWin(true);
       setGameOver(true);
       updateStats(true, newGuesses.length, newGuessRecords);
+      localStorage.removeItem(`puzzle-progress-${targetDate}`);
     } else {
-      setWrongGuessCount(wrongGuessCount + 1);
+      setWrongGuessCount(newWrongGuessCount);
       if (newGuesses.length >= maxGuesses) {
+        // Game lost - save to stats and clear progress
         setIsWin(false);
         setGameOver(true);
         updateStats(false, newGuesses.length, newGuessRecords);
+        localStorage.removeItem(`puzzle-progress-${targetDate}`);
+      } else {
+        // Game in progress - save current state
+        const inProgressKey = `puzzle-progress-${targetDate}`;
+        const newKeyStates = { ...keyStates };
+        // Update key states from the feedback we just calculated
+        for (let i = 0; i < 6; i++) {
+          const digit = currentInput[i];
+          const state = feedback[i].state;
+          if (state === "correct") {
+            newKeyStates[digit] = "correct";
+          } else if (state === "inSequence" && newKeyStates[digit] !== "correct") {
+            newKeyStates[digit] = "inSequence";
+          } else if (state === "notInSequence") {
+            newKeyStates[digit] = "ruledOut";
+          }
+        }
+        
+        localStorage.setItem(inProgressKey, JSON.stringify({
+          guessRecords: newGuessRecords,
+          wrongGuessCount: newWrongGuessCount,
+          keyStates: newKeyStates
+        }));
       }
     }
   }, [currentInput, gameOver, guesses, guessRecords, targetDate, maxGuesses, keyStates, wrongGuessCount]);
