@@ -6,16 +6,27 @@ import { useAuth } from "@/hooks/useAuth";
 interface SettingsPageProps {
   onBack: () => void;
   onOpenOptions: () => void;
+  onPrivacy?: () => void;
+  onTerms?: () => void;
 }
 
-export function SettingsPage({ onBack, onOpenOptions }: SettingsPageProps) {
-  const { user, isAuthenticated } = useAuth();
+export function SettingsPage({ onBack, onOpenOptions, onPrivacy, onTerms }: SettingsPageProps) {
+  const { user, isAuthenticated, signOut } = useAuth();
 
   const menuItems = [
     {
       icon: User,
       label: "Account Info",
-      onClick: () => alert("Account Info coming soon"),
+      onClick: () => {
+        if (isAuthenticated && user) {
+          const firstName = user.user_metadata?.first_name || 'N/A';
+          const lastName = user.user_metadata?.last_name || 'N/A';
+          const email = user.email || 'N/A';
+          alert(`Account Information:\n\nName: ${firstName} ${lastName}\nEmail: ${email}`);
+        } else {
+          alert("Please sign in to view account info");
+        }
+      },
       testId: "button-account-info",
     },
     {
@@ -40,19 +51,19 @@ export function SettingsPage({ onBack, onOpenOptions }: SettingsPageProps) {
     {
       icon: Lock,
       label: "Privacy",
-      onClick: () => alert("Privacy page coming soon"),
+      onClick: onPrivacy || (() => alert("Privacy page coming soon")),
       testId: "button-privacy",
     },
     {
       icon: FileText,
       label: "Terms",
-      onClick: () => alert("Terms page coming soon"),
+      onClick: onTerms || (() => alert("Terms page coming soon")),
       testId: "button-terms",
     },
   ];
 
-  const handleSignOut = () => {
-    window.location.href = "/api/logout";
+  const handleSignOut = async () => {
+    await signOut();
   };
 
   return (
@@ -67,7 +78,14 @@ export function SettingsPage({ onBack, onOpenOptions }: SettingsPageProps) {
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Settings</h1>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold">Settings</h1>
+            {isAuthenticated && user && (
+              <p className="text-sm text-muted-foreground" data-testid="text-settings-user-name">
+                {user.user_metadata?.first_name || "User"}
+              </p>
+            )}
+          </div>
         </div>
 
         <Card className="p-4 space-y-2">

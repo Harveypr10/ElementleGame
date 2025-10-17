@@ -152,26 +152,23 @@ export function PlayPage({
   }, [handleKeyPress]);
 
   const saveGameToDatabase = async (won: boolean, numGuesses: number, allGuesses: GuessRecord[]) => {
-    if (!puzzleId) return;
+    // Only save to database for authenticated users
+    if (!isAuthenticated || !puzzleId) return;
 
     try {
-      const gameAttempt = await apiRequest<{ id: number }>("/api/game-attempts", {
-        method: "POST",
-        body: {
-          puzzleId,
-          result: won ? "win" : "loss",
-          numGuesses
-        }
+      const res = await apiRequest("POST", "/api/game-attempts", {
+        puzzleId,
+        result: won ? "win" : "loss",
+        numGuesses
       });
+      
+      const gameAttempt = await res.json();
 
       for (const guess of allGuesses) {
-        await apiRequest("/api/guesses", {
-          method: "POST",
-          body: {
-            gameAttemptId: gameAttempt.id,
-            guessValue: guess.guessValue,
-            feedbackResult: guess.feedbackResult
-          }
+        await apiRequest("POST", "/api/guesses", {
+          gameAttemptId: gameAttempt.id,
+          guessValue: guess.guessValue,
+          feedbackResult: guess.feedbackResult
         });
       }
     } catch (error) {

@@ -5,9 +5,10 @@ import hamsterLogo from "@assets/generated_images/Hamster_logo_icon_5c761af3.png
 interface WelcomePageProps {
   onPlayWithoutSignIn: () => void;
   onLogin: () => void;
+  onSignup: () => void;
 }
 
-export function WelcomePage({ onPlayWithoutSignIn, onLogin }: WelcomePageProps) {
+export function WelcomePage({ onPlayWithoutSignIn, onLogin, onSignup }: WelcomePageProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -38,7 +39,7 @@ export function WelcomePage({ onPlayWithoutSignIn, onLogin }: WelcomePageProps) 
             className="w-full h-14"
             size="lg"
             variant="outline"
-            onClick={onLogin}
+            onClick={onSignup}
             data-testid="button-signup"
           >
             Sign Up

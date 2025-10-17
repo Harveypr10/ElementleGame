@@ -14,9 +14,10 @@ interface GameSelectionPageProps {
   onViewArchive: () => void;
   onOpenSettings?: () => void;
   onOpenOptions?: () => void;
+  onLogin?: () => void;
 }
 
-export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions }: GameSelectionPageProps) {
+export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const [showHelp, setShowHelp] = useState(false);
   const [todayCompleted, setTodayCompleted] = useState(false);
@@ -89,13 +90,13 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         <div className="flex items-center gap-2">
           {isAuthenticated && user ? (
             <span className="text-sm font-medium" data-testid="text-user-name">
-              {user.firstName || "User"}
+              {user.user_metadata?.first_name || "User"}
             </span>
           ) : (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => window.location.href = "/api/login"}
+              onClick={onLogin}
               data-testid="link-login"
               className="text-sm"
             >

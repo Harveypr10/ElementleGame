@@ -7,6 +7,9 @@ import { ArchivePage } from "@/components/ArchivePage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { OptionsPage } from "@/components/OptionsPage";
 import { SplashScreen } from "@/components/SplashScreen";
+import AuthPage from "@/components/AuthPage";
+import { PrivacyPage } from "@/components/PrivacyPage";
+import { TermsPage } from "@/components/TermsPage";
 import { useAuth } from "@/hooks/useAuth";
 
 const puzzles = [
@@ -68,7 +71,7 @@ const puzzles = [
   }
 ];
 
-type Screen = "splash" | "welcome" | "selection" | "play" | "stats" | "archive" | "settings" | "options";
+type Screen = "splash" | "welcome" | "login" | "signup" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "privacy" | "terms";
 
 export default function Home() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -121,7 +124,26 @@ export default function Home() {
       {currentScreen === "welcome" && (
         <WelcomePage 
           onPlayWithoutSignIn={() => setCurrentScreen("selection")}
-          onLogin={() => window.location.href = "/api/login"}
+          onLogin={() => setCurrentScreen("login")}
+          onSignup={() => setCurrentScreen("signup")}
+        />
+      )}
+
+      {currentScreen === "login" && (
+        <AuthPage 
+          mode="login"
+          onSuccess={() => setCurrentScreen("selection")}
+          onSwitchMode={() => setCurrentScreen("signup")}
+          onBack={() => setCurrentScreen("welcome")}
+        />
+      )}
+
+      {currentScreen === "signup" && (
+        <AuthPage 
+          mode="signup"
+          onSuccess={() => setCurrentScreen("selection")}
+          onSwitchMode={() => setCurrentScreen("login")}
+          onBack={() => setCurrentScreen("welcome")}
         />
       )}
 
@@ -135,6 +157,7 @@ export default function Home() {
           onViewArchive={() => setCurrentScreen("archive")}
           onOpenSettings={() => setCurrentScreen("settings")}
           onOpenOptions={() => setCurrentScreen("options")}
+          onLogin={() => setCurrentScreen("login")}
         />
       )}
 
@@ -153,7 +176,10 @@ export default function Home() {
       )}
 
       {currentScreen === "stats" && (
-        <StatsPage onBack={() => setCurrentScreen("selection")} />
+        <StatsPage 
+          onBack={() => setCurrentScreen("selection")} 
+          onSignup={() => setCurrentScreen("signup")}
+        />
       )}
 
       {currentScreen === "archive" && (
@@ -168,6 +194,8 @@ export default function Home() {
         <SettingsPage 
           onBack={() => setCurrentScreen("selection")}
           onOpenOptions={() => setCurrentScreen("options")}
+          onPrivacy={() => setCurrentScreen("privacy")}
+          onTerms={() => setCurrentScreen("terms")}
         />
       )}
 
@@ -175,6 +203,14 @@ export default function Home() {
         <OptionsPage 
           onBack={() => setCurrentScreen("settings")}
         />
+      )}
+
+      {currentScreen === "privacy" && (
+        <PrivacyPage onBack={() => setCurrentScreen("settings")} />
+      )}
+
+      {currentScreen === "terms" && (
+        <TermsPage onBack={() => setCurrentScreen("settings")} />
       )}
     </div>
   );
