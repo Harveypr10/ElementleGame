@@ -49,7 +49,7 @@ export default function Home() {
       setTimeout(() => {
         setShowSplash(false);
         setCurrentScreen("selection");
-      }, 1500);
+      }, 5740);
     } else if (!isAuthenticated) {
       setCurrentScreen("welcome");
     }
