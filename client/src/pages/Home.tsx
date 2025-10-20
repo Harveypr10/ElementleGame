@@ -13,6 +13,7 @@ import AccountInfoPage from "@/components/AccountInfoPage";
 import { PrivacyPage } from "@/components/PrivacyPage";
 import { TermsPage } from "@/components/TermsPage";
 import { useAuth } from "@/hooks/useAuth";
+import { useGameData } from "@/hooks/useGameData";
 import { useQuery } from "@tanstack/react-query";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms";
@@ -29,6 +30,7 @@ interface Puzzle {
 
 export default function Home() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const { gameAttempts } = useGameData();
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -82,19 +84,29 @@ export default function Home() {
     if (!puzzle) return;
     
     // Check if this puzzle is already completed
-    const storedStats = localStorage.getItem("elementle-stats");
-    if (storedStats) {
-      const stats = JSON.parse(storedStats);
-      const completion = stats.puzzleCompletions?.[puzzle.targetDate];
-      
-      if (completion && completion.completed) {
-        // Show game screen first, then celebration
-        setShowCelebrationFirst(true);
-        setHasOpenedCelebration(false);
-      } else {
-        setShowCelebrationFirst(false);
-        setHasOpenedCelebration(false);
+    let isCompleted = false;
+    
+    if (isAuthenticated && gameAttempts) {
+      // For authenticated users, check Supabase data
+      const numericPuzzleId = parseInt(puzzleId);
+      const completedAttempt = gameAttempts.find(
+        attempt => attempt.puzzleId === numericPuzzleId && attempt.completed
+      );
+      isCompleted = !!completedAttempt;
+    } else {
+      // For guest users, check localStorage
+      const storedStats = localStorage.getItem("elementle-stats");
+      if (storedStats) {
+        const stats = JSON.parse(storedStats);
+        const completion = stats.puzzleCompletions?.[puzzle.targetDate];
+        isCompleted = !!(completion && completion.completed);
       }
+    }
+    
+    if (isCompleted) {
+      // Show game screen first, then celebration
+      setShowCelebrationFirst(true);
+      setHasOpenedCelebration(false);
     } else {
       setShowCelebrationFirst(false);
       setHasOpenedCelebration(false);
