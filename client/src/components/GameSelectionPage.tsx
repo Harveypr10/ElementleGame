@@ -9,8 +9,8 @@ import mathsHamsterGreen from "@assets/Maths-Hamster-Green_1760977182003.png";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey_1760977182003.png";
 import whiteTickBlue from "@assets/White-Tick-Blue_1760977182003.png";
 import whiteCrossBlue from "@assets/White-Cross-Blue_1760977182003.png";
-import greyHelpIcon from "@assets/Grey-Help-Grey_1760979090178.png";
-import greyCogIcon from "@assets/Grey-Cog-Grey_1760979090179.png";
+import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
+import greyCogIcon from "@assets/Grey-Cog-Grey_1760979822772.png";
 
 interface GameSelectionPageProps {
   onPlayGame: () => void;
@@ -137,9 +137,9 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
   ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative">
-      <div className="absolute top-4 left-4 right-4">
-        <div className="flex items-center justify-between mb-4">
+    <div className="min-h-screen p-4">
+      <div className="max-w-md mx-auto">
+        <div className="flex items-center justify-between mb-2">
           <button
             onClick={() => setShowHelp(true)}
             data-testid="button-help"
@@ -162,7 +162,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
           </button>
         </div>
         
-        <div className="flex justify-end pr-1">
+        <div className="flex justify-end pr-2 mb-32">
           {isAuthenticated && user ? (
             <span className="text-sm font-medium" data-testid="text-user-name">
               {user.user_metadata?.first_name || "User"}
@@ -179,9 +179,8 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             </Button>
           )}
         </div>
-      </div>
 
-      <div className="w-full max-w-md space-y-3 mt-16 px-2">
+        <div className="w-full space-y-3">
         {menuItems.map((item, index) => (
           <motion.button
             key={item.testId}
@@ -212,6 +211,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             </div>
           </motion.button>
         ))}
+        </div>
       </div>
 
       <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
