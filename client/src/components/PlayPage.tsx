@@ -290,8 +290,8 @@ export function PlayPage({
   const updateStats = async (won: boolean, numGuesses: number, allGuessRecords: GuessRecord[]) => {
     // Get current stats from appropriate source
     let currentStats;
-    if (isAuthenticated && supabaseStats) {
-      // Use Supabase stats for authenticated users
+    if (isAuthenticated && supabaseStats && supabaseStats.gamesPlayed !== undefined) {
+      // Use Supabase stats for authenticated users (only if stats exist)
       const dist = supabaseStats.guessDistribution as any || {};
       currentStats = {
         played: supabaseStats.gamesPlayed ?? 0,
@@ -351,7 +351,10 @@ export function PlayPage({
     // Always save to localStorage for backward compatibility
     localStorage.setItem("elementle-stats", JSON.stringify(currentStats));
 
-    // Save to Supabase for authenticated users
+    // Save game data and stats to Supabase for authenticated users
+    await saveGameToDatabase(won, numGuesses, allGuessRecords);
+
+    // Save stats to Supabase for authenticated users
     if (isAuthenticated) {
       try {
         await apiRequest("POST", "/api/stats", {
@@ -361,12 +364,15 @@ export function PlayPage({
           maxStreak: currentStats.maxStreak,
           guessDistribution: currentStats.guessDistribution,
         });
+        
+        // Invalidate caches to refetch fresh data
+        const { queryClient } = await import("@/lib/queryClient");
+        await queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+        await queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
       } catch (error) {
         console.error("Error saving stats to Supabase:", error);
       }
     }
-
-    await saveGameToDatabase(won, numGuesses, allGuessRecords);
   };
 
   const handlePlayAgain = () => {
