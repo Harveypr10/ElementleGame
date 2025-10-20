@@ -183,7 +183,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         {menuItems.map((item) => (
           <button
             key={item.testId}
-            className={`w-full ${item.height} flex items-center justify-between px-6 rounded-3xl transition-all shadow-sm hover:shadow-md active:scale-[0.98]`}
+            className={`w-full ${item.height} flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md`}
             style={{ backgroundColor: item.bgColor }}
             onClick={item.onClick}
             data-testid={item.testId}
