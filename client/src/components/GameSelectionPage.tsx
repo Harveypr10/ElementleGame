@@ -188,12 +188,19 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             style={{ backgroundColor: item.bgColor }}
             onClick={item.onClick}
             data-testid={item.testId}
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ 
-              duration: 0.5, 
-              delay: index * 0.12, 
-              ease: [0.25, 0.1, 0.25, 1]
+              y: {
+                duration: 0.6,
+                delay: index * 0.1,
+                ease: [0.25, 0.1, 0.25, 1]
+              },
+              opacity: {
+                duration: 0.4,
+                delay: index * 0.1 + 0.1,
+                ease: "easeIn"
+              }
             }}
           >
             <div className="flex flex-col items-start justify-center text-left">
