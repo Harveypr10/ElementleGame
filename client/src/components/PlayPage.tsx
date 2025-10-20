@@ -324,6 +324,21 @@ export function PlayPage({
 
     localStorage.setItem("elementle-stats", JSON.stringify(stats));
 
+    // Save to Supabase for authenticated users
+    if (isAuthenticated) {
+      try {
+        await apiRequest("POST", "/api/stats", {
+          gamesPlayed: stats.played,
+          gamesWon: stats.won,
+          currentStreak: stats.currentStreak,
+          maxStreak: stats.maxStreak,
+          guessDistribution: stats.guessDistribution,
+        });
+      } catch (error) {
+        console.error("Error saving stats to Supabase:", error);
+      }
+    }
+
     await saveGameToDatabase(won, numGuesses, allGuessRecords);
   };
 
