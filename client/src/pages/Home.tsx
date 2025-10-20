@@ -30,7 +30,7 @@ interface Puzzle {
 
 export default function Home() {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const { gameAttempts } = useGameData();
+  const { gameAttempts, loadingAttempts } = useGameData();
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -86,14 +86,14 @@ export default function Home() {
     // Check if this puzzle is already completed
     let isCompleted = false;
     
-    if (isAuthenticated && gameAttempts) {
-      // For authenticated users, check Supabase data
+    if (isAuthenticated && !loadingAttempts && gameAttempts) {
+      // For authenticated users, check Supabase data using result !== null as completion check
       const numericPuzzleId = parseInt(puzzleId);
       const completedAttempt = gameAttempts.find(
-        attempt => attempt.puzzleId === numericPuzzleId && attempt.completed
+        attempt => attempt.puzzleId === numericPuzzleId && attempt.result !== null
       );
       isCompleted = !!completedAttempt;
-    } else {
+    } else if (!isAuthenticated) {
       // For guest users, check localStorage
       const storedStats = localStorage.getItem("elementle-stats");
       if (storedStats) {
@@ -102,6 +102,7 @@ export default function Home() {
         isCompleted = !!(completion && completion.completed);
       }
     }
+    // If loadingAttempts is true, we wait before determining completion
     
     if (isCompleted) {
       // Show game screen first, then celebration

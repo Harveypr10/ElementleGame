@@ -146,6 +146,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
+      const userId = req.user.id;
+      
+      // Verify ownership before updating
+      const allAttempts = await storage.getGameAttemptsByUser(userId);
+      const ownedAttempt = allAttempts.find(a => a.id === id);
+      
+      if (!ownedAttempt) {
+        return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
+      }
+      
       const gameAttempt = await storage.updateGameAttempt(id, req.body);
       res.json(gameAttempt);
     } catch (error) {
@@ -157,8 +167,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Guess routes
   app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
     try {
+      const userId = req.user.id;
+      const gameAttemptId = req.body.gameAttemptId;
+      
+      // Verify ownership of the game attempt before creating guess
+      const allAttempts = await storage.getGameAttemptsByUser(userId);
+      const ownedAttempt = allAttempts.find(a => a.id === gameAttemptId);
+      
+      if (!ownedAttempt) {
+        return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
+      }
+      
       const guess = await storage.createGuess({
-        gameAttemptId: req.body.gameAttemptId,
+        gameAttemptId,
         guessValue: req.body.guessValue,
         feedbackResult: req.body.feedbackResult,
       });
@@ -171,9 +192,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/guesses/:gameAttemptId", verifySupabaseAuth, async (req: any, res) => {
     try {
-      const guesses = await storage.getGuessesByGameAttempt(
-        parseInt(req.params.gameAttemptId)
-      );
+      const userId = req.user.id;
+      const gameAttemptId = parseInt(req.params.gameAttemptId);
+      
+      // Verify ownership of the game attempt before fetching guesses
+      const allAttempts = await storage.getGameAttemptsByUser(userId);
+      const ownedAttempt = allAttempts.find(a => a.id === gameAttemptId);
+      
+      if (!ownedAttempt) {
+        return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
+      }
+      
+      const guesses = await storage.getGuessesByGameAttempt(gameAttemptId);
       res.json(guesses);
     } catch (error) {
       console.error("Error fetching guesses:", error);
