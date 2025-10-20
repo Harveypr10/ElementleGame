@@ -85,46 +85,107 @@ export function PlayPage({
 
   // Check if puzzle is already completed and redirect if needed
   useEffect(() => {
-    if (!viewOnly) {
-      const storedStats = localStorage.getItem("elementle-stats");
-      if (storedStats) {
-        const stats = JSON.parse(storedStats);
-        const completion = stats.puzzleCompletions?.[targetDate];
+    if (!viewOnly && !loadingAttempts) {
+      if (isAuthenticated && gameAttempts && puzzleId) {
+        // For authenticated users, check Supabase data
+        const completedAttempt = gameAttempts.find(
+          attempt => attempt.puzzleId === puzzleId && attempt.completed
+        );
         
-        if (completion && completion.completed) {
+        if (completedAttempt) {
           // Puzzle already completed - set to view-only mode
           setGameOver(true);
-          setIsWin(completion.won);
-          if (completion.guesses && Array.isArray(completion.guesses)) {
-            const feedbackArrays = completion.guesses.map((gr: GuessRecord) => gr.feedbackResult);
+          setIsWin(completedAttempt.won || false);
+          
+          // Load guesses from Supabase
+          const attemptGuesses = getGuessesByAttempt(completedAttempt.id);
+          if (attemptGuesses && attemptGuesses.length > 0) {
+            const feedbackArrays = attemptGuesses.map(guess => {
+              const feedback = guess.feedback as CellFeedback[];
+              return feedback;
+            });
             setGuesses(feedbackArrays);
-            setGuessRecords(completion.guesses);
+            
+            // Reconstruct guess records for display
+            const records = attemptGuesses.map(guess => ({
+              guessValue: guess.guessValue,
+              feedbackResult: guess.feedback as CellFeedback[]
+            }));
+            setGuessRecords(records);
+          }
+        }
+      } else {
+        // For guest users, check localStorage
+        const storedStats = localStorage.getItem("elementle-stats");
+        if (storedStats) {
+          const stats = JSON.parse(storedStats);
+          const completion = stats.puzzleCompletions?.[targetDate];
+          
+          if (completion && completion.completed) {
+            // Puzzle already completed - set to view-only mode
+            setGameOver(true);
+            setIsWin(completion.won);
+            if (completion.guesses && Array.isArray(completion.guesses)) {
+              const feedbackArrays = completion.guesses.map((gr: GuessRecord) => gr.feedbackResult);
+              setGuesses(feedbackArrays);
+              setGuessRecords(completion.guesses);
+            }
           }
         }
       }
     }
-  }, [targetDate, viewOnly]);
+  }, [targetDate, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, getGuessesByAttempt]);
 
   // Load completed puzzle guesses for view-only mode
   useEffect(() => {
-    if (viewOnly) {
-      const storedStats = localStorage.getItem("elementle-stats");
-      if (storedStats) {
-        const stats = JSON.parse(storedStats);
-        const completion = stats.puzzleCompletions?.[targetDate];
+    if (viewOnly && !loadingAttempts) {
+      if (isAuthenticated && gameAttempts && puzzleId) {
+        // For authenticated users, check Supabase data
+        const completedAttempt = gameAttempts.find(
+          attempt => attempt.puzzleId === puzzleId && attempt.completed
+        );
         
-        if (completion) {
+        if (completedAttempt) {
           setGameOver(true);
-          setIsWin(completion.won);
-          if (completion.guesses && Array.isArray(completion.guesses)) {
-            const feedbackArrays = completion.guesses.map((gr: GuessRecord) => gr.feedbackResult);
+          setIsWin(completedAttempt.won || false);
+          
+          // Load guesses from Supabase
+          const attemptGuesses = getGuessesByAttempt(completedAttempt.id);
+          if (attemptGuesses && attemptGuesses.length > 0) {
+            const feedbackArrays = attemptGuesses.map(guess => {
+              const feedback = guess.feedback as CellFeedback[];
+              return feedback;
+            });
             setGuesses(feedbackArrays);
-            setGuessRecords(completion.guesses);
+            
+            // Reconstruct guess records for display
+            const records = attemptGuesses.map(guess => ({
+              guessValue: guess.guessValue,
+              feedbackResult: guess.feedback as CellFeedback[]
+            }));
+            setGuessRecords(records);
+          }
+        }
+      } else {
+        // For guest users, check localStorage
+        const storedStats = localStorage.getItem("elementle-stats");
+        if (storedStats) {
+          const stats = JSON.parse(storedStats);
+          const completion = stats.puzzleCompletions?.[targetDate];
+          
+          if (completion) {
+            setGameOver(true);
+            setIsWin(completion.won);
+            if (completion.guesses && Array.isArray(completion.guesses)) {
+              const feedbackArrays = completion.guesses.map((gr: GuessRecord) => gr.feedbackResult);
+              setGuesses(feedbackArrays);
+              setGuessRecords(completion.guesses);
+            }
           }
         }
       }
     }
-  }, [viewOnly, targetDate]);
+  }, [viewOnly, targetDate, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, getGuessesByAttempt]);
 
   // Auto-open celebration modal when returning from stats for completed archive puzzles
   useEffect(() => {
