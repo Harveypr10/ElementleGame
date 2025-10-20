@@ -160,7 +160,8 @@ export function PlayPage({
           
           if (completedAttempt && mounted) {
             setGameOver(true);
-            const isWinResult = completedAttempt.result === "won";
+            // Defensive normalization: handle both "won"/"lost" (current) and "win"/"loss" (legacy)
+            const isWinResult = completedAttempt.result === "won" || completedAttempt.result === "win";
             setIsWin(isWinResult);
             
             // Load guesses from Supabase (async call)

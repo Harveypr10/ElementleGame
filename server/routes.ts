@@ -119,10 +119,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      
+      // Defensive normalization: convert legacy "win"/"loss" to "won"/"lost"
+      let result = req.body.result;
+      if (result === "win") result = "won";
+      if (result === "loss") result = "lost";
+      
       const gameAttempt = await storage.createGameAttempt({
         userId,
         puzzleId: req.body.puzzleId,
-        result: req.body.result,
+        result,
         numGuesses: req.body.numGuesses,
       });
       res.json(gameAttempt);
@@ -156,7 +162,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
       }
       
-      const gameAttempt = await storage.updateGameAttempt(id, req.body);
+      // Defensive normalization: convert legacy "win"/"loss" to "won"/"lost"
+      const updates = { ...req.body };
+      if (updates.result === "win") updates.result = "won";
+      if (updates.result === "loss") updates.result = "lost";
+      
+      const gameAttempt = await storage.updateGameAttempt(id, updates);
       res.json(gameAttempt);
     } catch (error) {
       console.error("Error updating game attempt:", error);
