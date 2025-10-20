@@ -188,18 +188,18 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             style={{ backgroundColor: item.bgColor }}
             onClick={item.onClick}
             data-testid={item.testId}
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ 
               y: {
-                duration: 0.45,
+                duration: 0.5,
                 delay: index * 0.1,
-                ease: [0.25, 0.1, 0.25, 1]
+                ease: [0, 0, 0.2, 1]
               },
               opacity: {
-                duration: 0.35,
-                delay: index * 0.1 + 0.05,
-                ease: "easeIn"
+                duration: 0.4,
+                delay: index * 0.1,
+                ease: "easeOut"
               }
             }}
           >
