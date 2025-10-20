@@ -156,13 +156,13 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             onClick={onOpenSettings}
             disabled={!onOpenSettings}
             data-testid="button-settings"
-            className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+            className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
           >
             <img src={greyCogIcon} alt="Settings" className="h-9 w-9" />
           </button>
         </div>
         
-        <div className="flex justify-end pr-2 mb-32">
+        <div className="flex justify-end pr-2 mb-16">
           {isAuthenticated && user ? (
             <span className="text-sm font-medium" data-testid="text-user-name">
               {user.user_metadata?.first_name || "User"}
@@ -188,17 +188,17 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             style={{ backgroundColor: item.bgColor }}
             onClick={item.onClick}
             data-testid={item.testId}
-            initial={{ opacity: 0, y: 50 }}
+            initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ 
               y: {
-                duration: 0.6,
+                duration: 0.45,
                 delay: index * 0.1,
                 ease: [0.25, 0.1, 0.25, 1]
               },
               opacity: {
-                duration: 0.4,
-                delay: index * 0.1 + 0.1,
+                duration: 0.35,
+                delay: index * 0.1 + 0.05,
                 ease: "easeIn"
               }
             }}
