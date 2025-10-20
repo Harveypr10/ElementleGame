@@ -348,7 +348,7 @@ export function PlayPage({
     try {
       const res = await apiRequest("POST", "/api/game-attempts", {
         puzzleId,
-        result: won ? "win" : "loss",
+        result: won ? "won" : "lost",
         numGuesses
       });
       
