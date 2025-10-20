@@ -147,18 +147,17 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
   return (
     <div className="min-h-screen flex flex-col p-4">
       <div className="flex items-center justify-between mb-8">
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
           onClick={onBack}
           data-testid="button-back"
+          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+          <ArrowLeft className="h-9 w-9" />
+        </button>
 
         <h2 className="text-4xl font-bold">Archive</h2>
 
-        <div className="w-9" />
+        <div className="w-14" />
       </div>
 
       <div className="flex-1 w-full max-w-[31.5rem] mx-auto">

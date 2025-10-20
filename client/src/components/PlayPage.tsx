@@ -5,10 +5,10 @@ import { EndGameModal } from "./EndGameModal";
 import { HelpDialog } from "./HelpDialog";
 import { StreakCelebrationPopup } from "./StreakCelebrationPopup";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { ArrowLeft, HelpCircle, Lightbulb } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 
 interface PlayPageProps {
   targetDate: string;
@@ -336,65 +336,49 @@ export function PlayPage({
     setWrongGuessCount(0);
   };
 
-  const shouldShowClue1 = cluesEnabled && wrongGuessCount >= 2 && clue1 && !gameOver;
-  const shouldShowClue2 = cluesEnabled && wrongGuessCount >= 4 && clue2 && !gameOver;
-
   return (
     <div className="min-h-screen flex flex-col p-4">
       <div className="flex items-center justify-between mb-4">
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
           onClick={onBack}
           data-testid="button-back"
+          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+          <ArrowLeft className="h-9 w-9" />
+        </button>
 
-        <h2 className="text-2xl font-semibold">
+        <h2 className="text-4xl font-bold">
           {viewOnly ? "View Puzzle" : "Elementle"}
         </h2>
 
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
           onClick={() => setShowHelp(true)}
           data-testid="button-help"
+          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <HelpCircle className="h-5 w-5" />
-        </Button>
+          <img src={greyHelpIcon} alt="Help" className="h-6 w-6" />
+        </button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center">
-        <div className="w-full max-w-md space-y-4">
-          {!fromArchive && (
+      <div className="flex-1 flex flex-col justify-between">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="w-full max-w-md space-y-4">
             <div className="text-center">
               <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">
                 {eventTitle}
               </h3>
             </div>
-          )}
 
-          {(shouldShowClue1 || shouldShowClue2) && (
-            <Card className="p-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-              <div className="flex items-start gap-3">
-                <Lightbulb className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div>
-                  <p className="text-sm text-blue-900 dark:text-blue-100" data-testid={shouldShowClue2 ? "text-clue2" : "text-clue1"}>
-                    <span className="font-semibold">{shouldShowClue2 ? "Clue 2:" : "Clue 1:"}</span> {shouldShowClue2 ? clue2 : clue1}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          )}
+            <InputGrid
+              guesses={guesses}
+              currentInput={currentInput}
+              maxGuesses={maxGuesses}
+            />
+          </div>
+        </div>
 
-          <InputGrid
-            guesses={guesses}
-            currentInput={currentInput}
-            maxGuesses={maxGuesses}
-          />
-
-          {showCelebrationFirst && gameOver && !hasOpenedCelebration && (
+        {showCelebrationFirst && gameOver && !hasOpenedCelebration && (
+          <div className="w-full max-w-md mx-auto pb-4">
             <Button
               className="w-full h-14 text-lg"
               onClick={() => {
@@ -405,9 +389,11 @@ export function PlayPage({
             >
               Continue
             </Button>
-          )}
+          </div>
+        )}
 
-          {!viewOnly && !showCelebrationFirst && (
+        {!viewOnly && !showCelebrationFirst && (
+          <div className="w-full max-w-md mx-auto pb-4">
             <NumericKeyboard
               onDigitPress={(digit) => {
                 if (currentInput.length < 6) {
@@ -420,12 +406,8 @@ export function PlayPage({
               keyStates={keyStates}
               canSubmit={currentInput.length === 6}
             />
-          )}
-
-          <div className="text-center text-sm text-muted-foreground">
-            Guess {guesses.length + 1} of {maxGuesses}
           </div>
-        </div>
+        )}
       </div>
 
       <EndGameModal

@@ -1,6 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import hamsterVideo from "@assets/generated_images/hamster-welcome.mp4";
+import { useEffect, useState } from "react";
 import { WelcomePage } from "./WelcomePage";
+import welcomeHamster from "@assets/Welcome-Hamster-Blue.svg";
+import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
+import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
+import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
+import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
+import whiteTickBlue from "@assets/White-Tick-Blue.svg";
 
 interface SplashScreenProps {
   onLogin: () => void;
@@ -8,16 +13,29 @@ interface SplashScreenProps {
 }
 
 export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [finished, setFinished] = useState(false);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    // Preload GameSelection screen images
+    const imagesToPreload = [
+      historianHamsterBlue,
+      librarianHamsterYellow,
+      mathsHamsterGreen,
+      mechanicHamsterGrey,
+      whiteTickBlue
+    ];
 
-    const handleEnded = () => setFinished(true);
-    video.addEventListener("ended", handleEnded);
-    return () => video.removeEventListener("ended", handleEnded);
+    imagesToPreload.forEach(src => {
+      const img = new Image();
+      img.src = src;
+    });
+
+    // Show splash screen for 3 seconds
+    const timer = setTimeout(() => {
+      setFinished(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   if (finished) {
@@ -26,30 +44,24 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
 
   return (
     <div
-      className="relative min-h-screen flex items-center justify-center 
-                 bg-gradient-to-b from-[#DFE1CE] to-[#DFE1CE] overflow-hidden"
+      className="min-h-screen flex flex-col items-center justify-center p-4"
+      style={{ backgroundColor: '#7DAAE8' }}
     >
-      {/* Overlay heading */}
-      <h1 className="absolute top-8 w-full text-center text-3xl md:text-4xl font-bold z-10 text-gray-800 drop-shadow">
-        Welcome to Elementle
-      </h1>
+      <div className="flex flex-col items-center gap-8">
+        <h1 className="text-5xl font-bold text-white">
+          Elementle
+        </h1>
 
-      {/* Full video with stronger responsive zoom */}
-      <video
-        ref={videoRef}
-        src={hamsterVideo}
-        autoPlay
-        muted
-        playsInline
-        className="
-          w-full h-full object-cover
-          scale-125           /* default: zoomed in for phones */
-          sm:scale-125        /* keep zoom on small screens */
-          md:scale-110        /* reduce zoom on tablets */
-          lg:scale-100        /* normal size on desktops */
-          transition-transform
-        "
-      />
+        <img 
+          src={welcomeHamster} 
+          alt="Welcome Hamster" 
+          className="w-4/5 max-w-xs"
+        />
+
+        <p className="text-3xl text-white">
+          Welcome back
+        </p>
+      </div>
     </div>
   );
 }
