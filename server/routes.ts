@@ -143,6 +143,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const gameAttempt = await storage.updateGameAttempt(id, req.body);
+      res.json(gameAttempt);
+    } catch (error) {
+      console.error("Error updating game attempt:", error);
+      res.status(500).json({ error: "Failed to update game attempt" });
+    }
+  });
+
   // Guess routes
   app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
     try {

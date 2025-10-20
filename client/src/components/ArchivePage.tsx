@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useGameData } from "@/hooks/useGameData";
 
 interface ArchivePageProps {
   onBack: () => void;
@@ -25,30 +27,52 @@ interface DayStatus {
 }
 
 export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps) {
+  const { isAuthenticated } = useAuth();
+  const { gameAttempts, loadingAttempts } = useGameData();
   const [currentMonth, setCurrentMonth] = useState(new Date(2025, 9, 1)); // October 2025
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
 
   useEffect(() => {
-    const storedStats = localStorage.getItem("elementle-stats");
-    const stats = storedStats ? JSON.parse(storedStats) : { puzzleCompletions: {} };
-    
-    const statusMap: Record<string, DayStatus> = {};
-    const completions = stats.puzzleCompletions || {};
-    
-    puzzles.forEach(puzzle => {
-      const completion = completions[puzzle.targetDate];
+    if (isAuthenticated && gameAttempts) {
+      // Use Supabase game attempts for authenticated users
+      const statusMap: Record<string, DayStatus> = {};
       
-      if (completion) {
-        statusMap[puzzle.targetDate] = {
-          completed: completion.completed || false,
-          won: completion.won || false,
-          guessCount: completion.guessCount
-        };
-      }
-    });
-    
-    setDayStatuses(statusMap);
-  }, [puzzles]);
+      puzzles.forEach(puzzle => {
+        const attempt = gameAttempts.find(a => a.puzzleId === puzzle.id && a.result !== null);
+        
+        if (attempt) {
+          statusMap[puzzle.targetDate] = {
+            completed: true,
+            won: attempt.result === 'win',
+            guessCount: attempt.numGuesses ?? 0
+          };
+        }
+      });
+      
+      setDayStatuses(statusMap);
+    } else if (!isAuthenticated) {
+      // Use localStorage for guest users
+      const storedStats = localStorage.getItem("elementle-stats");
+      const stats = storedStats ? JSON.parse(storedStats) : { puzzleCompletions: {} };
+      
+      const statusMap: Record<string, DayStatus> = {};
+      const completions = stats.puzzleCompletions || {};
+      
+      puzzles.forEach(puzzle => {
+        const completion = completions[puzzle.targetDate];
+        
+        if (completion) {
+          statusMap[puzzle.targetDate] = {
+            completed: completion.completed || false,
+            won: completion.won || false,
+            guessCount: completion.guessCount
+          };
+        }
+      });
+      
+      setDayStatuses(statusMap);
+    }
+  }, [isAuthenticated, gameAttempts, puzzles]);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();

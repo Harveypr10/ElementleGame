@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, BarChart3, TrendingUp, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserStats } from "@/hooks/useUserStats";
+import { useGameData } from "@/hooks/useGameData";
 
 interface StatsPageProps {
   onBack: () => void;
@@ -23,6 +26,10 @@ interface GameStats {
 }
 
 export function StatsPage({ onBack }: StatsPageProps) {
+  const { isAuthenticated } = useAuth();
+  const { stats: supabaseStats, isLoading: loadingStats } = useUserStats();
+  const { gameAttempts, loadingAttempts } = useGameData();
+  
   const [stats, setStats] = useState<GameStats>({
     played: 0,
     won: 0,
@@ -33,11 +40,41 @@ export function StatsPage({ onBack }: StatsPageProps) {
   });
 
   useEffect(() => {
-    const storedStats = localStorage.getItem("elementle-stats");
-    if (storedStats) {
-      setStats(JSON.parse(storedStats));
+    if (isAuthenticated && supabaseStats && gameAttempts) {
+      // Use Supabase stats for authenticated users
+      const dist = supabaseStats.guessDistribution as any || {};
+      setStats({
+        played: supabaseStats.gamesPlayed ?? 0,
+        won: supabaseStats.gamesWon ?? 0,
+        currentStreak: supabaseStats.currentStreak ?? 0,
+        maxStreak: supabaseStats.maxStreak ?? 0,
+        guessDistribution: {
+          1: dist["1"] || 0,
+          2: dist["2"] || 0,
+          3: dist["3"] || 0,
+          4: dist["4"] || 0,
+          5: dist["5"] || 0,
+        },
+        puzzleCompletions: gameAttempts.reduce((acc, attempt) => {
+          if (attempt.result) {
+            acc[attempt.puzzleId.toString()] = {
+              completed: true,
+              won: attempt.result === 'win',
+              guessCount: attempt.numGuesses ?? 0,
+              date: attempt.completedAt?.toString() || new Date().toISOString(),
+            };
+          }
+          return acc;
+        }, {} as any),
+      });
+    } else if (!isAuthenticated) {
+      // Use localStorage for guest users
+      const storedStats = localStorage.getItem("elementle-stats");
+      if (storedStats) {
+        setStats(JSON.parse(storedStats));
+      }
     }
-  }, []);
+  }, [isAuthenticated, supabaseStats, gameAttempts]);
 
   const winPercentage = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
   const maxGuesses = Math.max(...Object.values(stats.guessDistribution), 1);

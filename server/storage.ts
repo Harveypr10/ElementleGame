@@ -43,6 +43,7 @@ export interface IStorage {
   getGameAttemptsByUser(userId: string): Promise<GameAttempt[]>;
   getGameAttemptByUserAndPuzzle(userId: string | null, puzzleId: number): Promise<GameAttempt | undefined>;
   createGameAttempt(attempt: InsertGameAttempt): Promise<GameAttempt>;
+  updateGameAttempt(id: number, updateData: Partial<Omit<GameAttempt, 'id' | 'userId' | 'puzzleId' | 'startedAt'>>): Promise<GameAttempt>;
 
   // Guess operations
   getGuessesByGameAttempt(gameAttemptId: number): Promise<Guess[]>;
@@ -170,6 +171,21 @@ export class DatabaseStorage implements IStorage {
 
   async createGameAttempt(attemptData: InsertGameAttempt): Promise<GameAttempt> {
     const [attempt] = await db.insert(gameAttempts).values(attemptData).returning();
+    return attempt;
+  }
+
+  async updateGameAttempt(
+    id: number,
+    updateData: Partial<Omit<GameAttempt, 'id' | 'userId' | 'puzzleId' | 'startedAt'>>
+  ): Promise<GameAttempt> {
+    const [attempt] = await db
+      .update(gameAttempts)
+      .set({
+        ...updateData,
+        completedAt: updateData.result ? new Date() : undefined,
+      })
+      .where(eq(gameAttempts.id, id))
+      .returning();
     return attempt;
   }
 

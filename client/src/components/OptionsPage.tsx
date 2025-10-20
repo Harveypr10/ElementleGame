@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserSettings } from "@/hooks/useUserSettings";
 
 interface OptionsPageProps {
   onBack: () => void;
@@ -12,55 +13,94 @@ interface OptionsPageProps {
 
 export function OptionsPage({ onBack }: OptionsPageProps) {
   const { isAuthenticated } = useAuth();
+  const { settings, updateSettings } = useUserSettings();
   const [textSize, setTextSize] = useState<"small" | "medium" | "large">("medium");
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [cluesEnabled, setCluesEnabled] = useState(true);
 
+  // Load settings from Supabase or localStorage
   useEffect(() => {
-    const storedTheme = localStorage.getItem("theme");
-    setDarkMode(storedTheme === "dark");
-    
-    const storedTextSize = localStorage.getItem("textSize") as "small" | "medium" | "large" | null;
-    if (storedTextSize) {
-      setTextSize(storedTextSize);
+    if (isAuthenticated && settings) {
+      // Use Supabase settings for authenticated users
+      const size = (settings.textSize as "small" | "medium" | "large") || "medium";
+      setTextSize(size);
+      setSoundsEnabled(settings.soundsEnabled ?? true);
+      setDarkMode(settings.darkMode ?? false);
+      setCluesEnabled(settings.cluesEnabled ?? true);
+      
+      // Apply settings to DOM
       document.documentElement.style.setProperty(
         "--text-scale",
-        storedTextSize === "small" ? "0.875" : storedTextSize === "large" ? "1.125" : "1"
+        size === "small" ? "0.875" : size === "large" ? "1.125" : "1"
       );
+      document.documentElement.classList.toggle("dark", settings.darkMode ?? false);
+    } else {
+      // Use localStorage for guest users
+      const storedTheme = localStorage.getItem("theme");
+      setDarkMode(storedTheme === "dark");
+      
+      const storedTextSize = localStorage.getItem("textSize") as "small" | "medium" | "large" | null;
+      if (storedTextSize) {
+        setTextSize(storedTextSize);
+        document.documentElement.style.setProperty(
+          "--text-scale",
+          storedTextSize === "small" ? "0.875" : storedTextSize === "large" ? "1.125" : "1"
+        );
+      }
+      
+      const storedSounds = localStorage.getItem("soundsEnabled");
+      if (storedSounds !== null) setSoundsEnabled(storedSounds === "true");
+      
+      const storedClues = localStorage.getItem("cluesEnabled");
+      if (storedClues !== null) setCluesEnabled(storedClues === "true");
     }
-    
-    const storedSounds = localStorage.getItem("soundsEnabled");
-    if (storedSounds !== null) setSoundsEnabled(storedSounds === "true");
-    
-    const storedClues = localStorage.getItem("cluesEnabled");
-    if (storedClues !== null) setCluesEnabled(storedClues === "true");
-  }, []);
+  }, [isAuthenticated, settings]);
 
-  const handleTextSizeChange = (size: "small" | "medium" | "large") => {
+  const handleTextSizeChange = async (size: "small" | "medium" | "large") => {
     setTextSize(size);
-    localStorage.setItem("textSize", size);
     document.documentElement.style.setProperty(
       "--text-scale",
       size === "small" ? "0.875" : size === "large" ? "1.125" : "1"
     );
+    
+    if (isAuthenticated) {
+      await updateSettings({ textSize: size });
+    } else {
+      localStorage.setItem("textSize", size);
+    }
   };
 
-  const handleDarkModeToggle = (checked: boolean) => {
+  const handleDarkModeToggle = async (checked: boolean) => {
     setDarkMode(checked);
     const newTheme = checked ? "dark" : "light";
-    localStorage.setItem("theme", newTheme);
     document.documentElement.classList.toggle("dark", checked);
+    
+    if (isAuthenticated) {
+      await updateSettings({ darkMode: checked });
+    } else {
+      localStorage.setItem("theme", newTheme);
+    }
   };
 
-  const handleSoundsToggle = (checked: boolean) => {
+  const handleSoundsToggle = async (checked: boolean) => {
     setSoundsEnabled(checked);
-    localStorage.setItem("soundsEnabled", String(checked));
+    
+    if (isAuthenticated) {
+      await updateSettings({ soundsEnabled: checked });
+    } else {
+      localStorage.setItem("soundsEnabled", String(checked));
+    }
   };
 
-  const handleCluesToggle = (checked: boolean) => {
+  const handleCluesToggle = async (checked: boolean) => {
     setCluesEnabled(checked);
-    localStorage.setItem("cluesEnabled", String(checked));
+    
+    if (isAuthenticated) {
+      await updateSettings({ cluesEnabled: checked });
+    } else {
+      localStorage.setItem("cluesEnabled", String(checked));
+    }
   };
 
   return (
