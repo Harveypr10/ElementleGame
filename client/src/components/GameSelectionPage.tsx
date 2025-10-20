@@ -40,7 +40,9 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       if (completion) {
         if (completion.won) {
           setTodayPuzzleStatus('solved');
-          setGuessCount(completion.guesses);
+          // completion.guesses is an array, so get its length
+          const count = Array.isArray(completion.guesses) ? completion.guesses.length : completion.guesses;
+          setGuessCount(count);
         } else {
           setTodayPuzzleStatus('failed');
         }
@@ -137,16 +139,16 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
       <div className="absolute top-4 left-4 right-4">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => setShowHelp(true)}
             data-testid="button-help"
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <img src={greyHelpWhite} alt="Help" className="h-6 w-6" />
+            <img src={greyHelpWhite} alt="Help" className="h-9 w-9" />
           </button>
 
-          <h1 className="text-5xl font-bold text-foreground absolute left-1/2 -translate-x-1/2" data-testid="text-title">
+          <h1 className="text-5xl font-bold text-foreground" data-testid="text-title">
             Elementle
           </h1>
 
@@ -155,12 +157,12 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
               onClick={onOpenSettings}
               disabled={!onOpenSettings}
               data-testid="button-settings"
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+              className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
             >
-              <img src={greyCogWhite} alt="Settings" className="h-6 w-6" />
+              <img src={greyCogWhite} alt="Settings" className="h-9 w-9" />
             </button>
             {isAuthenticated && user ? (
-              <span className="text-sm font-medium" data-testid="text-user-name">
+              <span className="text-sm font-medium text-right" data-testid="text-user-name">
                 {user.user_metadata?.first_name || "User"}
               </span>
             ) : (
@@ -178,17 +180,17 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         </div>
       </div>
 
-      <div className="w-full max-w-md space-y-3 mt-20 px-2">
+      <div className="w-full max-w-md space-y-3 mt-16 px-2">
         {menuItems.map((item, index) => (
           <motion.button
-            key={item.title}
+            key={item.testId}
             className={`w-full ${item.height} flex items-center justify-between px-6 rounded-3xl transition-all shadow-sm hover:shadow-md active:scale-[0.98]`}
             style={{ backgroundColor: item.bgColor }}
             onClick={item.onClick}
             data-testid={item.testId}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: index * 0.15 }}
+            transition={{ duration: 0.3, delay: index * 0.1, ease: "easeOut" }}
           >
             <div className="flex flex-col items-start justify-center text-left">
               <span className="text-xl font-bold text-gray-800" data-testid={`text-${item.testId}-title`}>

@@ -98,15 +98,15 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       const isPlayable = puzzle && !isFuture;
       
       days.push(
-        <Card
+        <div
           key={day}
           className={cn(
-            "aspect-square p-2 flex flex-col items-center justify-center transition-all min-h-[54px]",
+            "aspect-square p-2 flex flex-col items-center justify-center transition-all min-h-[48px] min-w-[48px] rounded-md",
             isPlayable && "cursor-pointer hover-elevate",
             !isPlayable && "cursor-not-allowed",
-            status?.completed && status.won && "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-700",
-            status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700",
-            !status?.completed && isPlayable && "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700",
+            status?.completed && status.won && "bg-green-100 dark:bg-green-900/30",
+            status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30",
+            !status?.completed && isPlayable && "bg-gray-100 dark:bg-gray-800",
             (!puzzle || isFuture) && "bg-background opacity-40",
             isToday && "ring-2 ring-primary"
           )}
@@ -127,7 +127,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
               {status.won ? `✓ ${status.guessCount}` : '✗'}
             </span>
           )}
-        </Card>
+        </div>
       );
     }
     
@@ -156,7 +156,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
           <ArrowLeft className="h-5 w-5" />
         </Button>
 
-        <h2 className="text-2xl font-semibold">Archive</h2>
+        <h2 className="text-4xl font-bold">Archive</h2>
 
         <div className="w-9" />
       </div>
@@ -173,7 +173,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             <ChevronLeft className="h-4 w-4" />
           </Button>
           
-          <h3 className="text-lg font-semibold" data-testid="text-current-month">{monthYear}</h3>
+          <h3 className="text-xl font-bold" data-testid="text-current-month">{monthYear}</h3>
           
           <Button
             variant="outline"
@@ -196,28 +196,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
 
         <div className="grid grid-cols-7 gap-2">
           {renderCalendar()}
-        </div>
-
-        <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-          <h4 className="font-semibold mb-3 text-sm">Legend</h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded" />
-              <span>Completed (Won)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 rounded" />
-              <span>Completed (Lost)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-background border rounded" />
-              <span>Not Attempted</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 ring-2 ring-primary rounded" />
-              <span>Today's Puzzle</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
