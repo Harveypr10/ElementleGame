@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { HelpDialog } from "./HelpDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { motion } from "framer-motion";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
@@ -180,13 +181,20 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         </div>
 
         <div className="w-full space-y-3">
-        {menuItems.map((item) => (
-          <button
+        {menuItems.map((item, index) => (
+          <motion.button
             key={item.testId}
             className={`w-full ${item.height} flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md`}
             style={{ backgroundColor: item.bgColor }}
             onClick={item.onClick}
             data-testid={item.testId}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ 
+              duration: 0.25,
+              delay: index * 0.25,
+              ease: "easeOut"
+            }}
           >
             <div className="flex flex-col items-start justify-center text-left">
               <span className="text-xl font-bold text-gray-800" data-testid={`text-${item.testId}-title`}>
@@ -201,7 +209,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             <div className="flex-shrink-0">
               <img src={item.image} alt={item.title} className="h-20 w-20 object-contain" />
             </div>
-          </button>
+          </motion.button>
         ))}
         </div>
       </div>
