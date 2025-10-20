@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { useGameData } from "@/hooks/useGameData";
+import { useUserStats } from "@/hooks/useUserStats";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 
 interface PlayPageProps {
@@ -55,6 +57,8 @@ export function PlayPage({
   onViewArchive,
 }: PlayPageProps) {
   const { user, isAuthenticated } = useAuth();
+  const { gameAttempts, getGuessesByAttempt, loadingAttempts } = useGameData();
+  const { stats: supabaseStats } = useUserStats();
   const [currentInput, setCurrentInput] = useState("");
   const [guesses, setGuesses] = useState<CellFeedback[][]>([]);
   const [keyStates, setKeyStates] = useState<Record<string, KeyState>>({});
@@ -284,22 +288,44 @@ export function PlayPage({
   };
 
   const updateStats = async (won: boolean, numGuesses: number, allGuessRecords: GuessRecord[]) => {
-    const storedStats = localStorage.getItem("elementle-stats");
-    const stats = storedStats ? JSON.parse(storedStats) : {
-      played: 0,
-      won: 0,
-      currentStreak: 0,
-      maxStreak: 0,
-      guessDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-      puzzleCompletions: {}
-    };
+    // Get current stats from appropriate source
+    let currentStats;
+    if (isAuthenticated && supabaseStats) {
+      // Use Supabase stats for authenticated users
+      const dist = supabaseStats.guessDistribution as any || {};
+      currentStats = {
+        played: supabaseStats.gamesPlayed ?? 0,
+        won: supabaseStats.gamesWon ?? 0,
+        currentStreak: supabaseStats.currentStreak ?? 0,
+        maxStreak: supabaseStats.maxStreak ?? 0,
+        guessDistribution: {
+          1: dist["1"] || 0,
+          2: dist["2"] || 0,
+          3: dist["3"] || 0,
+          4: dist["4"] || 0,
+          5: dist["5"] || 0,
+        },
+        puzzleCompletions: {}
+      };
+    } else {
+      // Use localStorage for guest users or as fallback
+      const storedStats = localStorage.getItem("elementle-stats");
+      currentStats = storedStats ? JSON.parse(storedStats) : {
+        played: 0,
+        won: 0,
+        currentStreak: 0,
+        maxStreak: 0,
+        guessDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        puzzleCompletions: {}
+      };
+    }
 
-    if (!stats.puzzleCompletions) {
-      stats.puzzleCompletions = {};
+    if (!currentStats.puzzleCompletions) {
+      currentStats.puzzleCompletions = {};
     }
 
     // Use targetDate as the key (historical event date) to match archive lookup
-    stats.puzzleCompletions[targetDate] = {
+    currentStats.puzzleCompletions[targetDate] = {
       completed: true,
       won,
       guessCount: numGuesses,
@@ -308,31 +334,32 @@ export function PlayPage({
       date: new Date().toISOString()
     };
 
-    stats.played += 1;
+    currentStats.played += 1;
     if (won) {
-      stats.won += 1;
-      stats.currentStreak += 1;
-      stats.maxStreak = Math.max(stats.maxStreak, stats.currentStreak);
-      stats.guessDistribution[numGuesses] = (stats.guessDistribution[numGuesses] || 0) + 1;
+      currentStats.won += 1;
+      currentStats.currentStreak += 1;
+      currentStats.maxStreak = Math.max(currentStats.maxStreak, currentStats.currentStreak);
+      currentStats.guessDistribution[numGuesses] = (currentStats.guessDistribution[numGuesses] || 0) + 1;
       
       // Show streak celebration
-      setCurrentStreak(stats.currentStreak);
+      setCurrentStreak(currentStats.currentStreak);
       setShowStreakCelebration(true);
     } else {
-      stats.currentStreak = 0;
+      currentStats.currentStreak = 0;
     }
 
-    localStorage.setItem("elementle-stats", JSON.stringify(stats));
+    // Always save to localStorage for backward compatibility
+    localStorage.setItem("elementle-stats", JSON.stringify(currentStats));
 
     // Save to Supabase for authenticated users
     if (isAuthenticated) {
       try {
         await apiRequest("POST", "/api/stats", {
-          gamesPlayed: stats.played,
-          gamesWon: stats.won,
-          currentStreak: stats.currentStreak,
-          maxStreak: stats.maxStreak,
-          guessDistribution: stats.guessDistribution,
+          gamesPlayed: currentStats.played,
+          gamesWon: currentStats.won,
+          currentStreak: currentStats.currentStreak,
+          maxStreak: currentStats.maxStreak,
+          guessDistribution: currentStats.guessDistribution,
         });
       } catch (error) {
         console.error("Error saving stats to Supabase:", error);
