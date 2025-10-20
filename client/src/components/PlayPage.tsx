@@ -105,7 +105,7 @@ export function PlayPage({
             const attemptGuesses = await getGuessesByAttempt(completedAttempt.id);
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
               const feedbackArrays = attemptGuesses.map(guess => {
-                const feedback = guess.feedback as CellFeedback[];
+                const feedback = guess.feedbackResult as CellFeedback[];
                 return feedback;
               });
               setGuesses(feedbackArrays);
@@ -113,7 +113,7 @@ export function PlayPage({
               // Reconstruct guess records for display
               const records = attemptGuesses.map(guess => ({
                 guessValue: guess.guessValue,
-                feedbackResult: guess.feedback as CellFeedback[]
+                feedbackResult: guess.feedbackResult as CellFeedback[]
               }));
               setGuessRecords(records);
             }
@@ -166,7 +166,7 @@ export function PlayPage({
             const attemptGuesses = await getGuessesByAttempt(completedAttempt.id);
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
               const feedbackArrays = attemptGuesses.map(guess => {
-                const feedback = guess.feedback as CellFeedback[];
+                const feedback = guess.feedbackResult as CellFeedback[];
                 return feedback;
               });
               setGuesses(feedbackArrays);
@@ -174,7 +174,7 @@ export function PlayPage({
               // Reconstruct guess records for display
               const records = attemptGuesses.map(guess => ({
                 guessValue: guess.guessValue,
-                feedbackResult: guess.feedback as CellFeedback[]
+                feedbackResult: guess.feedbackResult as CellFeedback[]
               }));
               setGuessRecords(records);
             }
