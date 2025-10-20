@@ -192,7 +192,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             animate={{ opacity: 1, y: 0 }}
             transition={{ 
               duration: 0.25,
-              delay: index * 0.25,
+              delay: index * 0.15,
               ease: "easeOut"
             }}
           >
