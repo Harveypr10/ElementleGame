@@ -9,8 +9,8 @@ import mathsHamsterGreen from "@assets/Maths-Hamster-Green_1760977182003.png";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey_1760977182003.png";
 import whiteTickBlue from "@assets/White-Tick-Blue_1760977182003.png";
 import whiteCrossBlue from "@assets/White-Cross-Blue_1760977182003.png";
-import greyHelpWhite from "@assets/Grey-Help-White_1760977262303.png";
-import greyCogWhite from "@assets/Grey-Cog-White_1760977262301.png";
+import greyHelpIcon from "@assets/Grey-Help-Grey_1760979090178.png";
+import greyCogIcon from "@assets/Grey-Cog-Grey_1760979090179.png";
 
 interface GameSelectionPageProps {
   onPlayGame: () => void;
@@ -145,38 +145,39 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             data-testid="button-help"
             className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <img src={greyHelpWhite} alt="Help" className="h-9 w-9" />
+            <img src={greyHelpIcon} alt="Help" className="h-9 w-9" />
           </button>
 
           <h1 className="text-5xl font-bold text-foreground" data-testid="text-title">
             Elementle
           </h1>
 
-          <div className="flex flex-col items-end gap-1">
-            <button
-              onClick={onOpenSettings}
-              disabled={!onOpenSettings}
-              data-testid="button-settings"
-              className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+          <button
+            onClick={onOpenSettings}
+            disabled={!onOpenSettings}
+            data-testid="button-settings"
+            className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+          >
+            <img src={greyCogIcon} alt="Settings" className="h-9 w-9" />
+          </button>
+        </div>
+        
+        <div className="flex justify-end pr-1">
+          {isAuthenticated && user ? (
+            <span className="text-sm font-medium" data-testid="text-user-name">
+              {user.user_metadata?.first_name || "User"}
+            </span>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onLogin}
+              data-testid="link-login"
+              className="text-sm"
             >
-              <img src={greyCogWhite} alt="Settings" className="h-9 w-9" />
-            </button>
-            {isAuthenticated && user ? (
-              <span className="text-sm font-medium text-right" data-testid="text-user-name">
-                {user.user_metadata?.first_name || "User"}
-              </span>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onLogin}
-                data-testid="link-login"
-                className="text-sm"
-              >
-                Login
-              </Button>
-            )}
-          </div>
+              Login
+            </Button>
+          )}
         </div>
       </div>
 
@@ -188,9 +189,13 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             style={{ backgroundColor: item.bgColor }}
             onClick={item.onClick}
             data-testid={item.testId}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1, ease: "easeOut" }}
+            transition={{ 
+              duration: 0.5, 
+              delay: index * 0.12, 
+              ease: [0.25, 0.1, 0.25, 1]
+            }}
           >
             <div className="flex flex-col items-start justify-center text-left">
               <span className="text-xl font-bold text-gray-800" data-testid={`text-${item.testId}-title`}>
