@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { SupabaseClient, createClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from './supabaseClient';
 
 const SupabaseContext = createContext<SupabaseClient | null>(null);
 
@@ -11,13 +12,8 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function initSupabase() {
       try {
-        const response = await fetch('/api/supabase-config');
-        if (!response.ok) {
-          throw new Error('Failed to fetch Supabase configuration');
-        }
-        
-        const config = await response.json();
-        const client = createClient(config.url, config.anonKey);
+        // Use the unified singleton client
+        const client = await getSupabaseClient();
         setSupabase(client);
         setLoading(false);
       } catch (err) {

@@ -68,8 +68,7 @@ export function useGameData() {
   const getGuessesByAttempt = async (gameAttemptId: number): Promise<Guess[]> => {
     if (!isAuthenticated) return [];
     try {
-      const response = await fetch(`/api/guesses/${gameAttemptId}`);
-      if (!response.ok) return [];
+      const response = await apiRequest("GET", `/api/guesses/${gameAttemptId}`);
       return await response.json();
     } catch (error) {
       console.error("Error fetching guesses:", error);

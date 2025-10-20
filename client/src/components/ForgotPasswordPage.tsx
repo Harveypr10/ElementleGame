@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getSupabase } from "@/lib/supabase";
+import { useSupabase } from "@/lib/SupabaseProvider";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
 
@@ -12,6 +12,7 @@ interface ForgotPasswordPageProps {
 }
 
 export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) {
+  const supabase = useSupabase();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -22,7 +23,6 @@ export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) 
     setLoading(true);
 
     try {
-      const supabase = getSupabase();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });

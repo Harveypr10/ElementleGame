@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { getSupabase } from "@/lib/supabase";
+import { useSupabase } from "@/lib/SupabaseProvider";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 
 interface AccountInfoPageProps {
@@ -14,6 +14,7 @@ interface AccountInfoPageProps {
 }
 
 export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
+  const supabase = useSupabase();
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -35,7 +36,6 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     setLoading(true);
 
     try {
-      const supabase = getSupabase();
       const { error } = await supabase.auth.updateUser({
         email: profileData.email,
         data: {
@@ -88,8 +88,6 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     setLoading(true);
 
     try {
-      const supabase = getSupabase();
-      
       // Verify current password by attempting to sign in
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user?.email || "",

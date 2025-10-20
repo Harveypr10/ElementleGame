@@ -1,13 +1,21 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 let supabaseInstance: SupabaseClient | null = null;
+let initPromise: Promise<SupabaseClient> | null = null;
 
-export async function initializeSupabase(): Promise<SupabaseClient> {
+export async function getSupabaseClient(): Promise<SupabaseClient> {
+  // Return existing instance if already initialized
   if (supabaseInstance) {
     return supabaseInstance;
   }
 
-  try {
+  // Return the same promise if initialization is in progress
+  if (initPromise) {
+    return initPromise;
+  }
+
+  // Start initialization and memoize the promise
+  initPromise = (async () => {
     const response = await fetch('/api/supabase-config');
     if (!response.ok) {
       throw new Error('Failed to fetch Supabase configuration');
@@ -16,18 +24,7 @@ export async function initializeSupabase(): Promise<SupabaseClient> {
     const config = await response.json();
     supabaseInstance = createClient(config.url, config.anonKey);
     return supabaseInstance;
-  } catch (error) {
-    console.error('Failed to initialize Supabase:', error);
-    throw error;
-  }
-}
+  })();
 
-export function getSupabase(): SupabaseClient {
-  if (!supabaseInstance) {
-    throw new Error('Supabase not initialized. Call initializeSupabase() first.');
-  }
-  return supabaseInstance;
+  return initPromise;
 }
-
-// Export for components that need it
-export { supabaseInstance as supabase };
