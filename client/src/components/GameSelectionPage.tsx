@@ -143,7 +143,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       bgColor: "#FFD429",
       onClick: isArchiveDisabled ? undefined : onViewArchive,
       testId: "button-archive",
-      height: "h-[89px]", // 30% shorter than 128px = ~89px
+      height: "h-[115px]", // 10% smaller than h-32 (128px * 0.9 = 115px)
       disabled: isArchiveDisabled
     },
     { 
@@ -153,7 +153,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       bgColor: "#A4DB57",
       onClick: onViewStats,
       testId: "button-stats",
-      height: "h-[89px]",
+      height: "h-[115px]",
       disabled: false
     },
     { 
@@ -163,7 +163,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       bgColor: "#C4C9D4",
       onClick: onOpenOptions,
       testId: "button-options",
-      height: "h-[89px]",
+      height: "h-[115px]",
       disabled: false
     },
   ];

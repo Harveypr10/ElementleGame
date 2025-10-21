@@ -223,6 +223,20 @@ export function StatsPage({ onBack }: StatsPageProps) {
                   </div>
                 );
               })}
+              <div className="flex items-center gap-2">
+                <div className="w-4 text-sm font-medium">X</div>
+                <div className="flex-1 bg-muted rounded-sm h-8 relative overflow-hidden">
+                  <div
+                    className="bg-red-500 h-full transition-all duration-300 flex items-center justify-end pr-2"
+                    style={{ width: `${Math.max((stats.played - stats.won) > 0 ? ((stats.played - stats.won) / maxGuesses) * 100 : 0, (stats.played - stats.won) > 0 ? 10 : 0)}%` }}
+                    data-testid="dist-bar-lost"
+                  >
+                    {(stats.played - stats.won) > 0 && (
+                      <span className="text-sm font-medium text-white">{stats.played - stats.won}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
