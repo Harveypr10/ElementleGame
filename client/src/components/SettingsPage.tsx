@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Mail, Info, Lock, FileText, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -13,6 +14,7 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, onTerms }: SettingsPageProps) {
   const { user, isAuthenticated, signOut } = useAuth();
+  const [, setLocation] = useLocation();
 
   const menuItems = [
     {
@@ -61,7 +63,14 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, 
   ];
 
   const handleSignOut = async () => {
-    await signOut();
+    try {
+      await signOut();
+      // Redirect to login page after sign out
+      setLocation("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+      alert("Failed to sign out. Please try again.");
+    }
   };
 
   return (
