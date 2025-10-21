@@ -4,7 +4,7 @@ import postgres from "postgres";
 const databaseUrl = process.env.SUPABASE_DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error("SUPABASE_DATABASE_URL or DATABASE_URL environment variable is not set");
+  throw new Error("SUPABASE_DATABASE_URL must be set to your Supabase Postgres connection string");
 }
 
 const client = postgres(databaseUrl, { ssl: 'require', prepare: false });
