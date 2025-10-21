@@ -7,5 +7,5 @@ if (!databaseUrl) {
   throw new Error("SUPABASE_DATABASE_URL or DATABASE_URL environment variable is not set");
 }
 
-const client = postgres(databaseUrl, { ssl: 'require' });
+const client = postgres(databaseUrl, { ssl: 'require', prepare: false });
 export const db = drizzle(client);

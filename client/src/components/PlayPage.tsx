@@ -156,7 +156,8 @@ export function PlayPage({
     loadCompletedPuzzle();
     
     return () => { mounted = false; };
-  }, [targetDate, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, getGuessesByAttempt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetDate, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
 
   // Load completed puzzle guesses for view-only mode
   useEffect(() => {
@@ -217,7 +218,8 @@ export function PlayPage({
     loadViewOnlyPuzzle();
     
     return () => { mounted = false; };
-  }, [viewOnly, targetDate, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, getGuessesByAttempt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewOnly, targetDate, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
 
   // Auto-open celebration modal when returning from stats for completed archive puzzles
   useEffect(() => {

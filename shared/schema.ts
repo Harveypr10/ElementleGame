@@ -60,7 +60,7 @@ export type Puzzle = typeof puzzles.$inferSelect;
 // User settings table - stores preferences per user
 export const userSettings = pgTable("user_settings", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().unique().references(() => userProfiles.id, { onDelete: "cascade" }),
   textSize: varchar("text_size", { length: 20 }).default("medium"), // small, medium, large
   soundsEnabled: boolean("sounds_enabled").default(true),
   darkMode: boolean("dark_mode").default(false),

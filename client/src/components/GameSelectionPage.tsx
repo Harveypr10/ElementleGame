@@ -143,7 +143,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       bgColor: "#FFD429",
       onClick: isArchiveDisabled ? undefined : onViewArchive,
       testId: "button-archive",
-      height: "h-32",
+      height: "h-24",
       disabled: isArchiveDisabled
     },
     { 
@@ -153,7 +153,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       bgColor: "#A4DB57",
       onClick: onViewStats,
       testId: "button-stats",
-      height: "h-32",
+      height: "h-24",
       disabled: false
     },
     { 
@@ -163,7 +163,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       bgColor: "#C4C9D4",
       onClick: onOpenOptions,
       testId: "button-options",
-      height: "h-32",
+      height: "h-24",
       disabled: false
     },
   ];
@@ -239,8 +239,12 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
                 </span>
               )}
             </div>
-            <div className="flex-shrink-0">
-              <img src={item.image} alt={item.title} className="h-18 w-18 object-contain" />
+            <div className="flex-shrink-0 flex items-center">
+              <img
+                src={item.image}
+                alt={item.title}
+                className="max-h-20 w-auto object-contain"
+              />
             </div>
           </motion.button>
         ))}
