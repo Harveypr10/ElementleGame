@@ -33,8 +33,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
 
   useEffect(() => {
-    if (isAuthenticated && gameAttempts) {
-      // Use Supabase game attempts for authenticated users
+    if (isAuthenticated && gameAttempts && !loadingAttempts) {
+      // Use Supabase game attempts ONLY for authenticated users
       const statusMap: Record<string, DayStatus> = {};
       
       puzzles.forEach(puzzle => {
@@ -43,7 +43,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
         if (attempt) {
           statusMap[puzzle.targetDate] = {
             completed: true,
-            won: attempt.result === 'win',
+            // Defensive normalization: handle both "won"/"lost" and "win"/"loss"
+            won: attempt.result === 'won' || attempt.result === 'win',
             guessCount: attempt.numGuesses ?? 0
           };
         }

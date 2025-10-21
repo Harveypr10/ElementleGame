@@ -20,10 +20,11 @@ interface GameSelectionPageProps {
   onOpenSettings?: () => void;
   onOpenOptions?: () => void;
   onLogin?: () => void;
+  todayPuzzleId?: number;
   todayPuzzleTargetDate?: string;
 }
 
-export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin, todayPuzzleTargetDate }: GameSelectionPageProps) {
+export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin, todayPuzzleId, todayPuzzleTargetDate }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const { gameAttempts, loadingAttempts } = useGameData();
   const [showHelp, setShowHelp] = useState(false);
@@ -31,53 +32,35 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
   const [guessCount, setGuessCount] = useState<number>(0);
 
   useEffect(() => {
-    if (!todayPuzzleTargetDate) return;
+    if (!todayPuzzleId && !todayPuzzleTargetDate) return;
 
-    if (isAuthenticated && gameAttempts) {
-      // Use Supabase game attempts for authenticated users
-      // Find today's puzzle attempt (matching by targetDate via puzzles)
-      const todayAttempt = gameAttempts.find(attempt => {
-        // We need to match by puzzle - check if attempt has a result (completed)
-        return attempt.result !== null;
-      });
+    if (isAuthenticated && gameAttempts && !loadingAttempts) {
+      // Use Supabase game attempts ONLY for authenticated users
+      const todayAttempt = gameAttempts.find(attempt => 
+        attempt.puzzleId === todayPuzzleId && attempt.result !== null
+      );
       
-      // For now, check localStorage to map targetDate to puzzleId
-      // This will be improved when we pass the actual puzzle object
-      const storedStats = localStorage.getItem("elementle-stats");
-      if (storedStats) {
-        const stats = JSON.parse(storedStats);
-        const completions = stats.puzzleCompletions || {};
-        const completion = completions[todayPuzzleTargetDate];
-        
-        if (completion && todayAttempt) {
-          if (todayAttempt.result === 'win') {
-            setTodayPuzzleStatus('solved');
-            setGuessCount(todayAttempt.numGuesses ?? 0);
-          } else {
-            setTodayPuzzleStatus('failed');
-          }
-        } else if (completion) {
-          // Fallback to localStorage if Supabase doesn't have it yet
-          if (completion.won) {
-            setTodayPuzzleStatus('solved');
-            const count = Array.isArray(completion.guesses) ? completion.guesses.length : completion.guesses;
-            setGuessCount(count);
-          } else {
-            setTodayPuzzleStatus('failed');
-          }
+      if (todayAttempt) {
+        // Defensive normalization: handle both "won"/"lost" and "win"/"loss"
+        const isWin = todayAttempt.result === 'won' || todayAttempt.result === 'win';
+        if (isWin) {
+          setTodayPuzzleStatus('solved');
+          setGuessCount(todayAttempt.numGuesses ?? 0);
         } else {
-          setTodayPuzzleStatus('not-played');
+          setTodayPuzzleStatus('failed');
         }
+      } else {
+        setTodayPuzzleStatus('not-played');
       }
-    } else if (!isAuthenticated) {
-      // Use localStorage for guest users
+    } else if (!isAuthenticated && todayPuzzleTargetDate) {
+      // Use localStorage ONLY for guest users
       const storedStats = localStorage.getItem("elementle-stats");
       if (storedStats) {
         const stats = JSON.parse(storedStats);
         const completions = stats.puzzleCompletions || {};
         const completion = completions[todayPuzzleTargetDate];
         
-        if (completion) {
+        if (completion && completion.completed) {
           if (completion.won) {
             setTodayPuzzleStatus('solved');
             const count = Array.isArray(completion.guesses) ? completion.guesses.length : completion.guesses;
@@ -90,7 +73,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         }
       }
     }
-  }, [isAuthenticated, gameAttempts, todayPuzzleTargetDate]);
+  }, [isAuthenticated, gameAttempts, loadingAttempts, todayPuzzleId, todayPuzzleTargetDate]);
 
   // Format today's date as "Monday 20th Oct"
   const getFormattedDate = () => {

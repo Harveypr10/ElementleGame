@@ -59,7 +59,8 @@ export function StatsPage({ onBack }: StatsPageProps) {
           if (attempt.result) {
             acc[attempt.puzzleId.toString()] = {
               completed: true,
-              won: attempt.result === 'win',
+              // Defensive normalization: handle both "won"/"win"
+              won: attempt.result === 'won' || attempt.result === 'win',
               guessCount: attempt.numGuesses ?? 0,
               date: attempt.completedAt?.toString() || new Date().toISOString(),
             };

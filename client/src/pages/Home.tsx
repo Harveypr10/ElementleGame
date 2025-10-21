@@ -139,8 +139,13 @@ export default function Home() {
     );
   }
 
-  if (isAuthenticated && showSplash) {
-    return <SplashScreen firstName={user?.user_metadata?.first_name} />;
+  if (showSplash) {
+    return (
+      <SplashScreen 
+        onLogin={() => setCurrentScreen("login")}
+        onSignup={() => setCurrentScreen("signup")}
+      />
+    );
   }
 
   return (
@@ -191,6 +196,7 @@ export default function Home() {
             setCurrentScreen("options");
           }}
           onLogin={() => setCurrentScreen("login")}
+          todayPuzzleId={getDailyPuzzle()?.id}
           todayPuzzleTargetDate={getDailyPuzzle()?.targetDate}
         />
       )}
@@ -199,7 +205,6 @@ export default function Home() {
         <PlayPage
           puzzleId={currentPuzzle.id}
           targetDate={currentPuzzle.targetDate}
-          answerDate={currentPuzzle.answerDate}
           eventTitle={currentPuzzle.eventTitle}
           eventDescription={currentPuzzle.eventDescription}
           clue1={currentPuzzle.clue1}
