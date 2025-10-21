@@ -176,7 +176,7 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
                 Clues
               </Label>
               <p className="text-sm text-muted-foreground">
-                Show hints after wrong guesses
+                Show the event title when guessing
               </p>
             </div>
             <Switch
