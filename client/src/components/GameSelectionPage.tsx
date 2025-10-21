@@ -9,7 +9,7 @@ import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
 import whiteTickBlue from "@assets/White-Tick-Blue.svg";
-import whiteCrossBlue from "@assets/White-Cross-Blue_1760977182003.png";
+import whiteCrossBlue from "@assets/White-Cross-Blue.svg";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import greyCogIcon from "@assets/Grey-Cog-Grey_1760979822772.png";
 
@@ -247,7 +247,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
               )}
             </div>
             <div className="flex-shrink-0">
-              <img src={item.image} alt={item.title} className="h-20 w-20 object-contain" />
+              <img src={item.image} alt={item.title} className="h-18 w-18 object-contain" />
             </div>
           </motion.button>
         ))}

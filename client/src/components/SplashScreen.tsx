@@ -14,6 +14,7 @@ interface SplashScreenProps {
 
 export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
   const [finished, setFinished] = useState(false);
+  const [fadeIn, setFadeIn] = useState(false);
 
   useEffect(() => {
     // Preload GameSelection screen images
@@ -30,6 +31,11 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
       img.src = src;
     });
 
+    // Trigger fade-in animation
+    requestAnimationFrame(() => {
+      setFadeIn(true);
+    });
+
     // Show splash screen for 3 seconds
     const timer = setTimeout(() => {
       setFinished(true);
@@ -39,7 +45,7 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
   }, []);
 
   if (finished) {
-    return <WelcomePage onLogin={onLogin} onSignup={onSignup} />;
+    return <WelcomePage onLogin={onSignup} onSignup={onSignup} />;
   }
 
   return (
@@ -47,7 +53,10 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
       className="min-h-screen flex flex-col items-center justify-center p-4"
       style={{ backgroundColor: '#7DAAE8' }}
     >
-      <div className="flex flex-col items-center gap-8">
+      <div 
+        className="flex flex-col items-center gap-8 transition-opacity duration-1000"
+        style={{ opacity: fadeIn ? 1 : 0 }}
+      >
         <h1 className="text-5xl font-bold text-white">
           Elementle
         </h1>

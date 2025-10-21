@@ -48,12 +48,17 @@ export default function Home() {
     if (isLoading) return;
     
     if (isAuthenticated && showSplash) {
+      // Skip splash and go directly to selection for logged-in users
       setTimeout(() => {
         setShowSplash(false);
         setCurrentScreen("selection");
-      }, 5740);
-    } else if (!isAuthenticated) {
-      setCurrentScreen("welcome");
+      }, 3000);
+    } else if (!isAuthenticated && showSplash) {
+      // Show splash, then welcome page for non-authenticated users
+      setTimeout(() => {
+        setShowSplash(false);
+        setCurrentScreen("welcome");
+      }, 3000);
     }
   }, [isAuthenticated, isLoading, showSplash]);
 
