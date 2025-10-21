@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useSupabase } from "@/lib/SupabaseProvider";
 import type { Guess } from "@shared/schema";
 
 interface GuessCache {
@@ -18,6 +19,7 @@ const GuessCacheContext = createContext<GuessCacheContextValue | undefined>(unde
 
 export function GuessCacheProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
+  const supabase = useSupabase();
   const [cache, setCache] = useState<GuessCache>({});
   const [isLoading, setIsLoading] = useState(false);
 
@@ -31,8 +33,20 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const dateString = thirtyDaysAgo.toISOString().split("T")[0];
 
+      // Get Supabase session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        console.error("No access token available");
+        setIsLoading(false);
+        return;
+      }
+
       const response = await fetch(`/api/guesses/recent?since=${dateString}`, {
         credentials: "include",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
       });
 
       if (!response.ok) {
@@ -67,7 +81,7 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, supabase]);
 
   // On login: clear cache first, then load from localStorage, then fetch fresh
   useEffect(() => {

@@ -64,9 +64,14 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, 
 
   const handleSignOut = async () => {
     try {
+      // Clear any cached data first
+      localStorage.clear();
+      
+      // Sign out from Supabase
       await signOut();
-      // Redirect to login page after sign out
-      setLocation("/");
+      
+      // Immediately redirect to login page
+      window.location.href = "/";
     } catch (error) {
       console.error("Error signing out:", error);
       alert("Failed to sign out. Please try again.");
