@@ -22,6 +22,7 @@ interface Puzzle {
   id: number;
   date: string;
   targetDate: string;
+  answerDate?: string;
   eventTitle: string;
   eventDescription: string;
   clue1?: string;
@@ -231,6 +232,7 @@ export default function Home() {
           onLogin={() => setCurrentScreen("login")}
           todayPuzzleId={getDailyPuzzle()?.id}
           todayPuzzleTargetDate={getDailyPuzzle()?.targetDate}
+          todayPuzzleAnswerDate={getDailyPuzzle()?.answerDate}
         />
       )}
 
@@ -238,6 +240,7 @@ export default function Home() {
         <PlayPage
           puzzleId={currentPuzzle.id}
           targetDate={currentPuzzle.targetDate}
+          answerDate={currentPuzzle.answerDate}
           eventTitle={currentPuzzle.eventTitle}
           eventDescription={currentPuzzle.eventDescription}
           clue1={currentPuzzle.clue1}

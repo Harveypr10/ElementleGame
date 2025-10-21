@@ -319,11 +319,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (format === "csv") {
         // Convert to CSV
-        const headers = ["User Email", "Puzzle Date", "Target Date", "Event Title", "Result", "Guesses", "Completed At", "Guess Details"];
+        const headers = ["User Email", "Puzzle Date", "Target Date", "Answer Date","Event Title", "Result", "Guesses", "Completed At", "Guess Details"];
         const rows = data.map((row: any) => [
           row.userEmail || "guest",
           row.puzzleDate,
           row.targetDate,
+          row.answerDate || "",
           row.eventTitle,
           row.result,
           row.numGuesses,

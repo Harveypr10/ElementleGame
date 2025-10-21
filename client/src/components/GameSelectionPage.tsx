@@ -23,6 +23,7 @@ interface GameSelectionPageProps {
   onLogin?: () => void;
   todayPuzzleId?: number;
   todayPuzzleTargetDate?: string;
+  todayPuzzleAnswerDate?: string;
 }
 
 export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin, todayPuzzleId, todayPuzzleTargetDate }: GameSelectionPageProps) {

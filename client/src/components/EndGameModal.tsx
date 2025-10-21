@@ -3,7 +3,7 @@ import happyHamster from "@assets/generated_images/Celebrating_hamster_dark-mode
 import sadHamster from "@assets/generated_images/Sad_hamster_dark-mode_compatible_422589c8.png";
 import { useEffect, useState } from "react";
 import { Home, BarChart3, Archive } from "lucide-react";
-import { formatDateWithOrdinal, formatFullDateWithOrdinal } from "@/lib/dateFormat";
+import { formatFullDateWithOrdinal, formatDateWithOrdinal } from "@/lib/dateFormat";
 
 interface EndGameModalProps {
   isOpen: boolean;
@@ -80,7 +80,13 @@ export function EndGameModal({
           <div>
             <p className="text-sm text-muted-foreground mb-1">The date was</p>
             <p className="text-4xl font-bold" data-testid="text-target-date">
-              {answerDate ? formatFullDateWithOrdinal(answerDate) : formatDateWithOrdinal(targetDate)}
+              {(() => {
+                console.log("EndGameModal answerDate prop:", answerDate);
+                if (answerDate) {
+                  return formatFullDateWithOrdinal(answerDate);
+                }
+                return "Unknown date";
+              })()}
             </p>
           </div>
 

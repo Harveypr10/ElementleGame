@@ -59,3 +59,34 @@ export function formatFullDateWithOrdinal(dateString: string): string {
   
   return `${ordinalDay} ${monthName} ${year}`;
 }
+
+// Convert an ISO date (YYYY-MM-DD) into DD/MM/YYYY for formatFullDateWithOrdinal
+export function isoToDisplayDate(isoString: string): string {
+  const [year, month, day] = isoString.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+export function formatIsoDateWithOrdinal(isoString: string): string {
+  // Expecting YYYY-MM-DD
+  const [year, month, day] = isoString.split("-");
+  const d = parseInt(day, 10);
+  const m = parseInt(month, 10) - 1;
+  const y = parseInt(year, 10);
+
+  const monthNames = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December"
+  ];
+
+  const getOrdinalSuffix = (n: number): string => {
+    if (n > 3 && n < 21) return "th";
+    switch (n % 10) {
+      case 1: return "st";
+      case 2: return "nd";
+      case 3: return "rd";
+      default: return "th";
+    }
+  };
+
+  return `${d}${getOrdinalSuffix(d)} ${monthNames[m]} ${y}`;
+}
