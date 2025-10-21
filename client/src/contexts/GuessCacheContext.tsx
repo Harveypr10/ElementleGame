@@ -23,130 +23,125 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
 
   // Fetch recent guesses (last 30 days) from Supabase
   const fetchRecentGuesses = useCallback(async () => {
-    if (!isAuthenticated || !user || !user.id) return;
+    if (!isAuthenticated || !user?.id) return;
 
     setIsLoading(true);
     try {
-      // Calculate date 30 days ago
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const dateString = thirtyDaysAgo.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dateString = thirtyDaysAgo.toISOString().split("T")[0];
 
-      // Fetch all guesses for recent game attempts
       const response = await fetch(`/api/guesses/recent?since=${dateString}`, {
-        credentials: 'include',
+        credentials: "include",
       });
 
       if (!response.ok) {
-        // Don't log error for 401 (not yet authenticated)
         if (response.status !== 401) {
-          console.error('Failed to fetch recent guesses');
+          console.error("Failed to fetch recent guesses:", response.status);
         }
         return;
       }
 
       const guesses: Guess[] = await response.json();
 
-      // Group guesses by puzzle ID
       const newCache: GuessCache = {};
       for (const guess of guesses) {
-        // We need to get the puzzle ID from the game attempt
-        // The API should return guesses with their associated puzzle IDs
         const puzzleId = (guess as any).puzzleId;
-        if (puzzleId) {
-          if (!newCache[puzzleId]) {
-            newCache[puzzleId] = [];
-          }
-          newCache[puzzleId].push(guess);
+        if (!puzzleId) {
+          console.warn("Guess missing puzzleId:", guess);
+          continue;
         }
+        if (!newCache[puzzleId]) newCache[puzzleId] = [];
+        newCache[puzzleId].push(guess);
       }
 
       setCache(newCache);
 
-      // Optionally persist to localStorage
       try {
         localStorage.setItem(`guess-cache-${user.id}`, JSON.stringify(newCache));
       } catch (e) {
-        console.warn('Failed to persist cache to localStorage', e);
+        console.warn("Failed to persist cache to localStorage", e);
       }
     } catch (error) {
-      console.error('Error fetching recent guesses:', error);
+      console.error("Error fetching recent guesses:", error);
     } finally {
       setIsLoading(false);
     }
   }, [isAuthenticated, user]);
 
-  // Load cache from localStorage on mount
+  // On login: clear cache first, then load from localStorage, then fetch fresh
   useEffect(() => {
-    if (isAuthenticated && user && user.id) {
+    if (isAuthenticated && user?.id) {
+      setCache({}); // clear stale data immediately
+
       try {
         const stored = localStorage.getItem(`guess-cache-${user.id}`);
         if (stored) {
           setCache(JSON.parse(stored));
         }
       } catch (e) {
-        console.warn('Failed to load cache from localStorage', e);
+        console.warn("Failed to load cache from localStorage", e);
       }
-      // Then fetch fresh data
+
       fetchRecentGuesses();
     }
   }, [isAuthenticated, user, fetchRecentGuesses]);
 
-  // Clear cache on logout
+  // On logout: clear cache and localStorage
   useEffect(() => {
     if (!isAuthenticated) {
       setCache({});
-      // Clear all guess caches from localStorage
       try {
-        Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('guess-cache-')) {
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith("guess-cache-")) {
             localStorage.removeItem(key);
           }
         });
       } catch (e) {
-        console.warn('Failed to clear cache from localStorage', e);
+        console.warn("Failed to clear cache from localStorage", e);
       }
     }
   }, [isAuthenticated]);
 
-  const getGuessesForPuzzle = useCallback((puzzleId: number): Guess[] | null => {
-    return cache[puzzleId] || null;
-  }, [cache]);
+  const getGuessesForPuzzle = useCallback(
+    (puzzleId: number): Guess[] | null => cache[puzzleId] || null,
+    [cache]
+  );
 
-  const setGuessesForPuzzle = useCallback((puzzleId: number, guesses: Guess[]) => {
-    setCache(prev => {
-      const newCache = { ...prev, [puzzleId]: guesses };
-      
-      // Persist to localStorage
-      if (user) {
-        try {
-          localStorage.setItem(`guess-cache-${user.id}`, JSON.stringify(newCache));
-        } catch (e) {
-          console.warn('Failed to persist cache to localStorage', e);
+  const setGuessesForPuzzle = useCallback(
+    (puzzleId: number, guesses: Guess[]) => {
+      setCache((prev) => {
+        const newCache = { ...prev, [puzzleId]: guesses };
+        if (user) {
+          try {
+            localStorage.setItem(`guess-cache-${user.id}`, JSON.stringify(newCache));
+          } catch (e) {
+            console.warn("Failed to persist cache to localStorage", e);
+          }
         }
-      }
-      
-      return newCache;
-    });
-  }, [user]);
+        return newCache;
+      });
+    },
+    [user]
+  );
 
-  const addGuessToCache = useCallback((puzzleId: number, guess: Guess) => {
-    setCache(prev => {
-      const existing = prev[puzzleId] || [];
-      const newCache = { ...prev, [puzzleId]: [...existing, guess] };
-      
-      // Persist to localStorage
-      if (user) {
-        try {
-          localStorage.setItem(`guess-cache-${user.id}`, JSON.stringify(newCache));
-        } catch (e) {
-          console.warn('Failed to persist cache to localStorage', e);
+  const addGuessToCache = useCallback(
+    (puzzleId: number, guess: Guess) => {
+      setCache((prev) => {
+        const existing = prev[puzzleId] || [];
+        const newCache = { ...prev, [puzzleId]: [...existing, guess] };
+        if (user) {
+          try {
+            localStorage.setItem(`guess-cache-${user.id}`, JSON.stringify(newCache));
+          } catch (e) {
+            console.warn("Failed to persist cache to localStorage", e);
+          }
         }
-      }
-      
-      return newCache;
-    });
-  }, [user]);
+        return newCache;
+      });
+    },
+    [user]
+  );
 
   const refreshRecentGuesses = useCallback(async () => {
     await fetchRecentGuesses();
