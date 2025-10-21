@@ -40,8 +40,8 @@ export function StatsPage({ onBack }: StatsPageProps) {
   });
 
   useEffect(() => {
-    if (isAuthenticated && supabaseStats && gameAttempts) {
-      // Use Supabase stats for authenticated users
+    if (isAuthenticated && supabaseStats) {
+      // Use Supabase stats for authenticated users - always show user_stats data
       const dist = supabaseStats.guessDistribution as any || {};
       setStats({
         played: supabaseStats.gamesPlayed ?? 0,
@@ -55,18 +55,19 @@ export function StatsPage({ onBack }: StatsPageProps) {
           4: dist["4"] || 0,
           5: dist["5"] || 0,
         },
-        puzzleCompletions: gameAttempts.reduce((acc, attempt) => {
+        // Build puzzle completions from game attempts if available
+        puzzleCompletions: gameAttempts ? gameAttempts.reduce((acc, attempt) => {
           if (attempt.result) {
             acc[attempt.puzzleId.toString()] = {
               completed: true,
               // Defensive normalization: handle both "won"/"win"
               won: attempt.result === 'won' || attempt.result === 'win',
               guessCount: attempt.numGuesses ?? 0,
-              date: attempt.completedAt?.toString() || new Date().toISOString(),
+              date: attempt.completedAt?.toString() || attempt.startedAt?.toString() || new Date().toISOString(),
             };
           }
           return acc;
-        }, {} as any),
+        }, {} as any) : {},
       });
     } else if (!isAuthenticated) {
       // Use localStorage for guest users
