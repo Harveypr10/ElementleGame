@@ -12,11 +12,12 @@ import ForgotPasswordPage from "@/components/ForgotPasswordPage";
 import AccountInfoPage from "@/components/AccountInfoPage";
 import { PrivacyPage } from "@/components/PrivacyPage";
 import { TermsPage } from "@/components/TermsPage";
+import { AboutPage } from "@/components/AboutPage";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useQuery } from "@tanstack/react-query";
 
-type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms";
+type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about";
 
 interface Puzzle {
   id: number;
@@ -293,6 +294,7 @@ export default function Home() {
           onAccountInfo={() => setCurrentScreen("account-info")}
           onPrivacy={() => setCurrentScreen("privacy")}
           onTerms={() => setCurrentScreen("terms")}
+          onAbout={() => setCurrentScreen("about")}
         />
       )}
 
@@ -314,6 +316,10 @@ export default function Home() {
 
       {currentScreen === "terms" && (
         <TermsPage onBack={() => setCurrentScreen("settings")} />
+      )}
+
+      {currentScreen === "about" && (
+        <AboutPage onBack={() => setCurrentScreen("settings")} />
       )}
     </div>
   );

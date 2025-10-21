@@ -53,6 +53,7 @@ export interface IStorage {
   // User stats operations
   getUserStats(userId: string): Promise<UserStats | undefined>;
   upsertUserStats(stats: InsertUserStats): Promise<UserStats>;
+  recalculateUserStats(userId: string): Promise<UserStats>;
 
   // Admin export operations
   getAllGameAttemptsForExport(): Promise<any[]>;
@@ -259,6 +260,113 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return stats;
+  }
+
+  async recalculateUserStats(userId: string): Promise<UserStats> {
+    // Get all completed game attempts for this user (result !== null means completed)
+    const completedAttempts = await db
+      .select({
+        id: gameAttempts.id,
+        result: gameAttempts.result,
+        numGuesses: gameAttempts.numGuesses,
+        completedAt: gameAttempts.completedAt,
+        puzzleId: gameAttempts.puzzleId,
+        puzzleDate: puzzles.date,
+      })
+      .from(gameAttempts)
+      .innerJoin(puzzles, eq(gameAttempts.puzzleId, puzzles.id))
+      .where(
+        and(
+          eq(gameAttempts.userId, userId),
+          eq(gameAttempts.result, 'won') // Only count completed won games
+        )
+      )
+      .orderBy(puzzles.date);
+
+    // Also get lost games
+    const lostAttempts = await db
+      .select({
+        id: gameAttempts.id,
+        result: gameAttempts.result,
+        puzzleDate: puzzles.date,
+      })
+      .from(gameAttempts)
+      .innerJoin(puzzles, eq(gameAttempts.puzzleId, puzzles.id))
+      .where(
+        and(
+          eq(gameAttempts.userId, userId),
+          eq(gameAttempts.result, 'lost')
+        )
+      );
+
+    const gamesPlayed = completedAttempts.length + lostAttempts.length;
+    const gamesWon = completedAttempts.length;
+
+    // Calculate guess distribution (only for won games)
+    const guessDistribution: any = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+    for (const attempt of completedAttempts) {
+      const numGuesses = attempt.numGuesses || 0;
+      if (numGuesses >= 1 && numGuesses <= 5) {
+        guessDistribution[numGuesses.toString()] = (guessDistribution[numGuesses.toString()] || 0) + 1;
+      }
+    }
+
+    // Calculate current streak - check consecutive days ending at or before today
+    const allCompletedAttempts = [...completedAttempts, ...lostAttempts].sort((a, b) => 
+      new Date(b.puzzleDate).getTime() - new Date(a.puzzleDate).getTime()
+    );
+
+    let currentStreak = 0;
+    let maxStreak = 0;
+    let tempStreak = 0;
+    
+    // Build map of dates to results
+    const dateMap = new Map<string, string>();
+    for (const attempt of allCompletedAttempts) {
+      dateMap.set(attempt.puzzleDate, attempt.result || '');
+    }
+
+    // Calculate current streak from today backwards
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let checkDate = new Date(today);
+    
+    while (true) {
+      const dateStr = checkDate.toISOString().split('T')[0];
+      const result = dateMap.get(dateStr);
+      
+      if (!result) break; // No game played this day
+      if (result === 'won') {
+        currentStreak++;
+      } else {
+        break; // Streak broken by a loss
+      }
+      
+      // Move back one day
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    // Calculate max streak by going through all dates
+    const sortedDates = Array.from(dateMap.keys()).sort();
+    for (let i = 0; i < sortedDates.length; i++) {
+      const result = dateMap.get(sortedDates[i]);
+      if (result === 'won') {
+        tempStreak++;
+        maxStreak = Math.max(maxStreak, tempStreak);
+      } else {
+        tempStreak = 0;
+      }
+    }
+
+    // Upsert the calculated stats
+    return await this.upsertUserStats({
+      userId,
+      gamesPlayed,
+      gamesWon,
+      currentStreak,
+      maxStreak,
+      guessDistribution,
+    });
   }
 
   // Admin export operations

@@ -10,9 +10,10 @@ interface SettingsPageProps {
   onAccountInfo: () => void;
   onPrivacy?: () => void;
   onTerms?: () => void;
+  onAbout?: () => void;
 }
 
-export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, onTerms }: SettingsPageProps) {
+export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, onTerms, onAbout }: SettingsPageProps) {
   const { user, isAuthenticated, signOut } = useAuth();
   const [, setLocation] = useLocation();
 
@@ -45,7 +46,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, 
     {
       icon: Info,
       label: "About",
-      onClick: () => alert("About page coming soon"),
+      onClick: onAbout || (() => alert("About page coming soon")),
       testId: "button-about",
     },
     {

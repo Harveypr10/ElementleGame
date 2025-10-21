@@ -311,6 +311,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/stats/recalculate", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const stats = await storage.recalculateUserStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error recalculating stats:", error);
+      res.status(500).json({ error: "Failed to recalculate stats" });
+    }
+  });
+
   // Admin export route
   app.get("/api/admin/export", verifySupabaseAuth, requireAdmin, async (req, res) => {
     try {

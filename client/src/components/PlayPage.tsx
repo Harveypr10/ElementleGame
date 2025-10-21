@@ -75,6 +75,8 @@ export function PlayPage({
   const [showStreakCelebration, setShowStreakCelebration] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [showCelebrationModal, setShowCelebrationModal] = useState(false);
+  const [currentGameAttemptId, setCurrentGameAttemptId] = useState<number | null>(null);
+  const [showEndModal, setShowEndModal] = useState(false);
 
   // Load clues setting from Supabase or localStorage
   useEffect(() => {
@@ -96,6 +98,8 @@ export function PlayPage({
     setIsWin(false);
     setWrongGuessCount(0);
     setGuessRecords([]);
+    setCurrentGameAttemptId(null);
+    setShowEndModal(false);
   }, [targetDate]);
 
   // Check if puzzle is already completed and redirect if needed
@@ -113,6 +117,7 @@ export function PlayPage({
           if (completedAttempt && mounted) {
             // Puzzle already completed - set to view-only mode
             setGameOver(true);
+            setShowEndModal(true); // Show modal immediately for completed puzzles
             // Defensive normalization: handle both "won"/"lost" (current) and "win"/"loss" (legacy)
             const isWinResult = completedAttempt.result === "won" || completedAttempt.result === "win";
             setIsWin(isWinResult);
@@ -188,6 +193,7 @@ export function PlayPage({
           
           if (completedAttempt && mounted) {
             setGameOver(true);
+            setShowEndModal(true); // Show modal immediately for view-only mode
             // Defensive normalization: handle both "won"/"lost" (current) and "win"/"loss" (legacy)
             const isWinResult = completedAttempt.result === "won" || completedAttempt.result === "win";
             setIsWin(isWinResult);
@@ -311,57 +317,96 @@ export function PlayPage({
     if (storedClues !== null) setCluesEnabled(storedClues === "true");
   }, []);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (currentInput.length !== 6 || gameOver) return;
 
     const feedback = calculateFeedback(currentInput);
     const newGuesses = [...guesses, feedback];
     const newGuessRecords = [...guessRecords, { guessValue: currentInput, feedbackResult: feedback }];
     const newWrongGuessCount = currentInput !== targetDate ? wrongGuessCount + 1 : wrongGuessCount;
+    const currentGuess = { guessValue: currentInput, feedbackResult: feedback };
     
     setGuesses(newGuesses);
     setGuessRecords(newGuessRecords);
     setCurrentInput("");
 
-    if (currentInput === targetDate) {
-      // Game won - save to stats and clear progress
-      setIsWin(true);
-      setGameOver(true);
-      updateStats(true, newGuesses.length, newGuessRecords);
-      localStorage.removeItem(`puzzle-progress-${targetDate}`);
-    } else {
-      setWrongGuessCount(newWrongGuessCount);
-      if (newGuesses.length >= maxGuesses) {
-        // Game lost - save to stats and clear progress
-        setIsWin(false);
-        setGameOver(true);
-        updateStats(false, newGuesses.length, newGuessRecords);
-        localStorage.removeItem(`puzzle-progress-${targetDate}`);
-      } else {
-        // Game in progress - save current state
-        const inProgressKey = `puzzle-progress-${targetDate}`;
-        const newKeyStates = { ...keyStates };
-        // Update key states from the feedback we just calculated
-        for (let i = 0; i < 6; i++) {
-          const digit = currentInput[i];
-          const state = feedback[i].state;
-          if (state === "correct") {
-            newKeyStates[digit] = "correct";
-          } else if (state === "inSequence" && newKeyStates[digit] !== "correct") {
-            newKeyStates[digit] = "inSequence";
-          } else if (state === "notInSequence") {
-            newKeyStates[digit] = "ruledOut";
-          }
-        }
-        
-        localStorage.setItem(inProgressKey, JSON.stringify({
-          guessRecords: newGuessRecords,
-          wrongGuessCount: newWrongGuessCount,
-          keyStates: newKeyStates
-        }));
+    // For authenticated users: progressive database saving
+    let attemptId: number | null = null;
+    if (isAuthenticated && puzzleId) {
+      // Create or get game attempt on first guess
+      attemptId = await createOrGetGameAttempt();
+      
+      // Save this guess to database
+      if (attemptId) {
+        await saveGuessToDatabase(attemptId, currentGuess);
       }
     }
-  }, [currentInput, gameOver, guesses, guessRecords, targetDate, maxGuesses, keyStates, wrongGuessCount]);
+
+    const isWinningGuess = currentInput === targetDate;
+    const isLosingGuess = !isWinningGuess && newGuesses.length >= maxGuesses;
+
+    if (isWinningGuess) {
+      // Game won
+      setIsWin(true);
+      setGameOver(true);
+      localStorage.removeItem(`puzzle-progress-${targetDate}`);
+      
+      // Delay showing modal by 2 seconds to show animations
+      setTimeout(() => {
+        setShowEndModal(true);
+      }, 2000);
+      
+      if (isAuthenticated && attemptId) {
+        // Complete game attempt and recalculate stats from database (use attemptId, not state)
+        await completeGameAttempt(attemptId, true, newGuesses.length);
+      } else if (!isAuthenticated) {
+        // Guest user: use localStorage stats
+        await updateStats(true, newGuesses.length, newGuessRecords);
+      }
+    } else if (isLosingGuess) {
+      // Game lost
+      setIsWin(false);
+      setGameOver(true);
+      localStorage.removeItem(`puzzle-progress-${targetDate}`);
+      
+      // Delay showing modal by 2 seconds to show final state
+      setTimeout(() => {
+        setShowEndModal(true);
+      }, 2000);
+      
+      if (isAuthenticated && attemptId) {
+        // Complete game attempt and recalculate stats from database (use attemptId, not state)
+        await completeGameAttempt(attemptId, false, newGuesses.length);
+      } else if (!isAuthenticated) {
+        // Guest user: use localStorage stats
+        await updateStats(false, newGuesses.length, newGuessRecords);
+      }
+    } else {
+      // Game in progress - save current state to localStorage
+      setWrongGuessCount(newWrongGuessCount);
+      const inProgressKey = `puzzle-progress-${targetDate}`;
+      const newKeyStates = { ...keyStates };
+      
+      // Update key states from the feedback we just calculated
+      for (let i = 0; i < 6; i++) {
+        const digit = currentInput[i];
+        const state = feedback[i].state;
+        if (state === "correct") {
+          newKeyStates[digit] = "correct";
+        } else if (state === "inSequence" && newKeyStates[digit] !== "correct") {
+          newKeyStates[digit] = "inSequence";
+        } else if (state === "notInSequence") {
+          newKeyStates[digit] = "ruledOut";
+        }
+      }
+      
+      localStorage.setItem(inProgressKey, JSON.stringify({
+        guessRecords: newGuessRecords,
+        wrongGuessCount: newWrongGuessCount,
+        keyStates: newKeyStates
+      }));
+    }
+  }, [currentInput, gameOver, guesses, guessRecords, targetDate, maxGuesses, keyStates, wrongGuessCount, isAuthenticated, puzzleId, currentGameAttemptId]);
 
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
     if (gameOver || viewOnly) return;
@@ -384,71 +429,95 @@ export function PlayPage({
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleKeyPress]);
 
-  const saveGameToDatabase = async (won: boolean, numGuesses: number, allGuesses: GuessRecord[]) => {
-    // Only save to database for authenticated users
-    if (!isAuthenticated || !puzzleId) return;
+  const createOrGetGameAttempt = async (): Promise<number | null> => {
+    // Only create for authenticated users
+    if (!isAuthenticated || !puzzleId) return null;
+
+    // If we already have a game attempt ID, return it
+    if (currentGameAttemptId) return currentGameAttemptId;
 
     try {
+      // Create a new game attempt with result=NULL (in progress)
       const res = await apiRequest("POST", "/api/game-attempts", {
         puzzleId,
-        result: won ? "won" : "lost",
-        numGuesses
+        result: null,  // null means in-progress
+        numGuesses: 0
       });
       
       const gameAttempt = await res.json();
+      setCurrentGameAttemptId(gameAttempt.id);
+      return gameAttempt.id;
+    } catch (error) {
+      console.error("Error creating game attempt:", error);
+      return null;
+    }
+  };
 
-      const savedGuesses = [];
-      for (const guess of allGuesses) {
-        const guessRes = await apiRequest("POST", "/api/guesses", {
-          gameAttemptId: gameAttempt.id,
-          guessValue: guess.guessValue,
-          feedbackResult: guess.feedbackResult
-        });
-        const savedGuess = await guessRes.json();
-        savedGuesses.push(savedGuess);
-      }
+  const saveGuessToDatabase = async (gameAttemptId: number, guess: GuessRecord) => {
+    if (!isAuthenticated) return;
+
+    try {
+      const res = await apiRequest("POST", "/api/guesses", {
+        gameAttemptId,
+        guessValue: guess.guessValue,
+        feedbackResult: guess.feedbackResult
+      });
+      await res.json();
+    } catch (error) {
+      console.error("Error saving guess:", error);
+    }
+  };
+
+  const completeGameAttempt = async (gameAttemptId: number, won: boolean, numGuesses: number) => {
+    if (!isAuthenticated) return;
+
+    try {
+      // Update the game attempt with result and completion time
+      await apiRequest("PATCH", `/api/game-attempts/${gameAttemptId}`, {
+        result: won ? "won" : "lost",
+        numGuesses
+      });
+
+      // Recalculate stats from database
+      await apiRequest("POST", "/api/stats/recalculate");
+
+      // Invalidate caches to refetch fresh data
+      const { queryClient } = await import("@/lib/queryClient");
+      await queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+      await queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
       
-      // Add all guesses to cache immediately for instant Archive access
-      if (savedGuesses.length > 0) {
-        setGuessesForPuzzle(puzzleId, savedGuesses);
+      // Reload stats to show streak celebration if won
+      if (won) {
+        const statsRes = await apiRequest("GET", "/api/stats");
+        const freshStats = await statsRes.json();
+        if (freshStats.currentStreak) {
+          setCurrentStreak(freshStats.currentStreak);
+          setShowStreakCelebration(true);
+        }
       }
     } catch (error) {
-      console.error("Error saving game to database:", error);
+      console.error("Error completing game attempt:", error);
     }
   };
 
   const updateStats = async (won: boolean, numGuesses: number, allGuessRecords: GuessRecord[]) => {
-    // Get current stats from appropriate source
-    let currentStats;
-    if (isAuthenticated && supabaseStats && supabaseStats.gamesPlayed !== undefined) {
-      // Use Supabase stats for authenticated users (only if stats exist)
-      const dist = supabaseStats.guessDistribution as any || {};
-      currentStats = {
-        played: supabaseStats.gamesPlayed ?? 0,
-        won: supabaseStats.gamesWon ?? 0,
-        currentStreak: supabaseStats.currentStreak ?? 0,
-        maxStreak: supabaseStats.maxStreak ?? 0,
-        guessDistribution: {
-          1: dist["1"] || 0,
-          2: dist["2"] || 0,
-          3: dist["3"] || 0,
-          4: dist["4"] || 0,
-          5: dist["5"] || 0,
-        },
-        puzzleCompletions: {}
-      };
-    } else {
-      // Use localStorage for guest users or as fallback
-      const storedStats = localStorage.getItem("elementle-stats");
-      currentStats = storedStats ? JSON.parse(storedStats) : {
-        played: 0,
-        won: 0,
-        currentStreak: 0,
-        maxStreak: 0,
-        guessDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-        puzzleCompletions: {}
-      };
+    // For authenticated users, stats are now calculated from database
+    // This function only handles localStorage for guest users
+    if (isAuthenticated) {
+      // Authenticated users: database handles everything via recalculate
+      return;
     }
+
+    // Guest users: use old localStorage increment logic
+    const storedStats = localStorage.getItem("elementle-stats");
+    const currentStats = storedStats ? JSON.parse(storedStats) : {
+      played: 0,
+      won: 0,
+      currentStreak: 0,
+      maxStreak: 0,
+      guessDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      puzzleCompletions: {}
+    };
 
     if (!currentStats.puzzleCompletions) {
       currentStats.puzzleCompletions = {};
@@ -478,31 +547,8 @@ export function PlayPage({
       currentStats.currentStreak = 0;
     }
 
-    // Always save to localStorage for backward compatibility
+    // Save to localStorage for guest users
     localStorage.setItem("elementle-stats", JSON.stringify(currentStats));
-
-    // Save game data and stats to Supabase for authenticated users
-    await saveGameToDatabase(won, numGuesses, allGuessRecords);
-
-    // Save stats to Supabase for authenticated users
-    if (isAuthenticated) {
-      try {
-        await apiRequest("POST", "/api/stats", {
-          gamesPlayed: currentStats.played,
-          gamesWon: currentStats.won,
-          currentStreak: currentStats.currentStreak,
-          maxStreak: currentStats.maxStreak,
-          guessDistribution: currentStats.guessDistribution,
-        });
-        
-        // Invalidate caches to refetch fresh data
-        const { queryClient } = await import("@/lib/queryClient");
-        await queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
-        await queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
-      } catch (error) {
-        console.error("Error saving stats to Supabase:", error);
-      }
-    }
   };
 
   const handlePlayAgain = () => {
@@ -554,6 +600,23 @@ export function PlayPage({
               currentInput={currentInput}
               maxGuesses={maxGuesses}
             />
+            
+            {gameOver && !isWin && (
+              <div className="flex flex-col items-center mt-12">
+                <p className="text-sm text-muted-foreground mb-3">Correct answer:</p>
+                <div className="flex gap-2 justify-center">
+                  {targetDate.split('').map((digit, i) => (
+                    <div
+                      key={i}
+                      className="w-12 h-12 flex items-center justify-center bg-game-correct text-white text-2xl font-bold rounded-md"
+                      data-testid={`answer-digit-${i}`}
+                    >
+                      {digit}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -591,7 +654,7 @@ export function PlayPage({
       </div>
 
       <EndGameModal
-        isOpen={showCelebrationFirst ? showCelebrationModal : gameOver}
+        isOpen={showCelebrationFirst ? showCelebrationModal : showEndModal}
         isWin={isWin}
         targetDate={targetDate}
         answerDate={answerDate}
