@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { InputGrid, type CellFeedback } from "./InputGrid";
 import { NumericKeyboard, type KeyState } from "./NumericKeyboard";
 import { EndGameModal } from "./EndGameModal";
@@ -87,6 +87,7 @@ export function PlayPage({
   }, [isAuthenticated, settings]);
 
   // Reset state when targetDate changes
+  // Note: This runs before loadCompletedPuzzle, so completed puzzles will reload their guesses after reset
   useEffect(() => {
     setCurrentInput("");
     setGuesses([]);
