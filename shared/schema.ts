@@ -22,6 +22,7 @@ export const userProfiles = pgTable("user_profiles", {
   email: varchar("email").notNull(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  emailVerified: boolean("email_verified").default(false),
   isAdmin: boolean("is_admin").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

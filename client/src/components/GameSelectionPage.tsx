@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { HelpDialog } from "./HelpDialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { motion } from "framer-motion";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
@@ -26,6 +27,7 @@ interface GameSelectionPageProps {
 
 export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin, todayPuzzleId, todayPuzzleTargetDate }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
+  const { profile } = useProfile();
   const { gameAttempts, loadingAttempts } = useGameData();
   const [showHelp, setShowHelp] = useState(false);
   const [todayPuzzleStatus, setTodayPuzzleStatus] = useState<'not-played' | 'solved' | 'failed'>('not-played');
@@ -120,6 +122,9 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
 
   const playContent = getPlayButtonContent();
 
+  // Check if Archive should be disabled (authenticated users with unverified email)
+  const isArchiveDisabled = isAuthenticated && profile && !profile.emailVerified;
+
   const menuItems = [
     { 
       title: playContent.title,
@@ -128,16 +133,18 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       bgColor: "#7DAAE8",
       onClick: onPlayGame, 
       testId: "button-play",
-      height: "h-32" // Taller play button
+      height: "h-32", // Taller play button
+      disabled: false
     },
     { 
       title: "Archive",
-      subtitle: "",
+      subtitle: isArchiveDisabled ? "Verify your email to unlock" : "",
       image: librarianHamsterYellow,
       bgColor: "#FFD429",
-      onClick: onViewArchive,
+      onClick: isArchiveDisabled ? undefined : onViewArchive,
       testId: "button-archive",
-      height: "h-[89px]" // 30% shorter than 128px = ~89px
+      height: "h-[89px]", // 30% shorter than 128px = ~89px
+      disabled: isArchiveDisabled
     },
     { 
       title: "Stats",
@@ -146,7 +153,8 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       bgColor: "#A4DB57",
       onClick: onViewStats,
       testId: "button-stats",
-      height: "h-[89px]"
+      height: "h-[89px]",
+      disabled: false
     },
     { 
       title: "Options",
@@ -155,7 +163,8 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       bgColor: "#C4C9D4",
       onClick: onOpenOptions,
       testId: "button-options",
-      height: "h-[89px]"
+      height: "h-[89px]",
+      disabled: false
     },
   ];
 
@@ -207,10 +216,11 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         {menuItems.map((item, index) => (
           <motion.button
             key={item.testId}
-            className={`w-full ${item.height} flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md`}
+            className={`w-full ${item.height} flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             style={{ backgroundColor: item.bgColor }}
-            onClick={item.onClick}
+            onClick={item.disabled ? undefined : item.onClick}
             data-testid={item.testId}
+            disabled={item.disabled}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ 

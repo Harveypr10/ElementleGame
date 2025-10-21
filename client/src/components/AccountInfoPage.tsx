@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from "@/lib/SupabaseProvider";
+import { queryClient } from "@/lib/queryClient";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 
 interface AccountInfoPageProps {
@@ -16,14 +19,26 @@ interface AccountInfoPageProps {
 export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const supabase = useSupabase();
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   
   const [profileData, setProfileData] = useState({
-    firstName: user?.user_metadata?.first_name || "",
-    lastName: user?.user_metadata?.last_name || "",
-    email: user?.email || "",
+    firstName: "",
+    lastName: "",
+    email: "",
   });
+
+  // Load profile data when available
+  useEffect(() => {
+    if (profile) {
+      setProfileData({
+        firstName: profile.firstName || "",
+        lastName: profile.lastName || "",
+        email: profile.email || "",
+      });
+    }
+  }, [profile]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -36,20 +51,57 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        email: profileData.email,
-        data: {
-          first_name: profileData.firstName,
-          last_name: profileData.lastName,
+      const emailChanged = profileData.email !== profile?.email;
+
+      // Update Supabase Auth user with proper email redirect URL for verification
+      const { error } = await supabase.auth.updateUser(
+        {
+          email: profileData.email,
+          data: {
+            first_name: profileData.firstName,
+            last_name: profileData.lastName,
+          },
         },
-      });
+        emailChanged ? {
+          emailRedirectTo: `${window.location.origin}/`,
+        } : undefined
+      );
 
       if (error) throw error;
 
-      toast({
-        title: "Profile updated!",
-        description: "Your profile information has been saved.",
+      // Update user profile in database via API
+      // Server will handle emailVerified logic based on email change
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          email: profileData.email,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile in database');
+      }
+
+      // Invalidate profile query to refetch updated verification status
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
+
+      if (emailChanged) {
+        toast({
+          title: "Email verification required",
+          description: "Please check your new email inbox for a verification link. Archive will be disabled until verified.",
+        });
+      } else {
+        toast({
+          title: "Profile updated!",
+          description: "Your profile information has been saved.",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -186,9 +238,20 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email" data-testid="label-email">
-                    Email
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="email" data-testid="label-email">
+                      Email
+                    </Label>
+                    {profile?.emailVerified ? (
+                      <Badge variant="default" className="text-xs" data-testid="badge-email-verified">
+                        Verified
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs" data-testid="badge-email-unverified">
+                        Not Verified
+                      </Badge>
+                    )}
+                  </div>
                   <Input
                     id="email"
                     type="email"
@@ -199,6 +262,11 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                     }
                     required
                   />
+                  {!profile?.emailVerified && (
+                    <p className="text-xs text-muted-foreground" data-testid="text-email-verification-warning">
+                      Please verify your email to access all features. Check your inbox for the verification link.
+                    </p>
+                  )}
                 </div>
 
                 <Button

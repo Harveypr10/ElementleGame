@@ -19,11 +19,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { email, password, firstName, lastName } = req.body;
 
-      // Create auth user
+      // Create auth user - email verification will be required
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
-        email_confirm: true, // Auto-confirm email in development
+        email_confirm: false, // Require email verification
         user_metadata: {
           first_name: firstName,
           last_name: lastName,
@@ -34,12 +34,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: authError?.message || 'Failed to create user' });
       }
 
-      // Create user profile
+      // Create user profile with email verification status
       await storage.upsertUserProfile({
         id: authData.user.id,
         email: authData.user.email!,
         firstName,
         lastName,
+        emailVerified: !!authData.user.email_confirmed_at,
       });
 
       res.json({ user: authData.user });
@@ -54,14 +55,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/profile", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      
+      // Get profile from database
       const profile = await storage.getUserProfile(userId);
       if (!profile) {
         return res.status(404).json({ error: "Profile not found" });
       }
+
+      // Sync email verification status from Supabase Auth
+      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+      if (authUser?.user && authUser.user.email_confirmed_at) {
+        const emailVerified = !!authUser.user.email_confirmed_at;
+        if (profile.emailVerified !== emailVerified) {
+          // Update profile with verified status
+          await storage.upsertUserProfile({
+            ...profile,
+            emailVerified,
+          });
+          profile.emailVerified = emailVerified;
+        }
+      }
+
       res.json(profile);
     } catch (error) {
       console.error("Error fetching profile:", error);
       res.status(500).json({ error: "Failed to fetch profile" });
+    }
+  });
+
+  app.patch("/api/auth/profile", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { firstName, lastName, email } = req.body;
+
+      // Get current profile to check if email changed
+      const currentProfile = await storage.getUserProfile(userId);
+      const emailChanged = currentProfile && currentProfile.email !== email;
+
+      // Update profile in database
+      // IMPORTANT: Never trust client-provided emailVerified
+      // Always set to false if email changed, let Supabase Auth sync handle verification
+      const updatedProfile = await storage.upsertUserProfile({
+        id: userId,
+        email,
+        firstName,
+        lastName,
+        emailVerified: emailChanged ? false : (currentProfile?.emailVerified ?? false),
+      });
+
+      res.json(updatedProfile);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ error: "Failed to update profile" });
     }
   });
 
