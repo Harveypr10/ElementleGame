@@ -10,6 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserStats } from "@/hooks/useUserStats";
+import { useUserSettings } from "@/hooks/useUserSettings";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 
 interface PlayPageProps {
@@ -59,6 +60,7 @@ export function PlayPage({
   const { user, isAuthenticated } = useAuth();
   const { gameAttempts, getGuessesByAttempt, loadingAttempts } = useGameData();
   const { stats: supabaseStats } = useUserStats();
+  const { settings } = useUserSettings();
   const [currentInput, setCurrentInput] = useState("");
   const [guesses, setGuesses] = useState<CellFeedback[][]>([]);
   const [keyStates, setKeyStates] = useState<Record<string, KeyState>>({});
@@ -71,6 +73,16 @@ export function PlayPage({
   const [showStreakCelebration, setShowStreakCelebration] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [showCelebrationModal, setShowCelebrationModal] = useState(false);
+
+  // Load clues setting from Supabase or localStorage
+  useEffect(() => {
+    if (isAuthenticated && settings) {
+      setCluesEnabled(settings.cluesEnabled ?? true);
+    } else if (!isAuthenticated) {
+      const storedCluesEnabled = localStorage.getItem("cluesEnabled");
+      setCluesEnabled(storedCluesEnabled ? storedCluesEnabled === "true" : true);
+    }
+  }, [isAuthenticated, settings]);
 
   // Reset state when targetDate changes
   useEffect(() => {
@@ -492,11 +504,13 @@ export function PlayPage({
       <div className="flex-1 flex flex-col justify-between">
         <div className="flex-1 flex flex-col items-center justify-center">
           <div className="w-full max-w-md space-y-4">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">
-                {eventTitle}
-              </h3>
-            </div>
+            {cluesEnabled && (
+              <div className="text-center">
+                <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">
+                  {eventTitle}
+                </h3>
+              </div>
+            )}
 
             <InputGrid
               guesses={guesses}
