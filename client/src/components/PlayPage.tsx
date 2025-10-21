@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { useGuessCache } from "@/contexts/GuessCacheContext";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 
 interface PlayPageProps {
@@ -61,6 +62,7 @@ export function PlayPage({
   const { gameAttempts, getGuessesByAttempt, loadingAttempts } = useGameData();
   const { stats: supabaseStats } = useUserStats();
   const { settings } = useUserSettings();
+  const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
   const [currentInput, setCurrentInput] = useState("");
   const [guesses, setGuesses] = useState<CellFeedback[][]>([]);
   const [keyStates, setKeyStates] = useState<Record<string, KeyState>>({});
@@ -114,8 +116,20 @@ export function PlayPage({
             const isWinResult = completedAttempt.result === "won" || completedAttempt.result === "win";
             setIsWin(isWinResult);
             
-            // Load guesses from Supabase (async call)
-            const attemptGuesses = await getGuessesByAttempt(completedAttempt.id);
+            // Try to load guesses from cache first for faster loading
+            const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId) : null;
+            let attemptGuesses = cachedGuesses;
+            
+            if (!cachedGuesses) {
+              // Cache miss - load from Supabase
+              attemptGuesses = await getGuessesByAttempt(completedAttempt.id);
+              
+              // Add to cache for next time
+              if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
+                setGuessesForPuzzle(puzzleId, attemptGuesses);
+              }
+            }
+            
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
               const feedbackArrays = attemptGuesses.map(guess => {
                 const feedback = guess.feedbackResult as CellFeedback[];
@@ -177,8 +191,20 @@ export function PlayPage({
             const isWinResult = completedAttempt.result === "won" || completedAttempt.result === "win";
             setIsWin(isWinResult);
             
-            // Load guesses from Supabase (async call)
-            const attemptGuesses = await getGuessesByAttempt(completedAttempt.id);
+            // Try to load guesses from cache first for faster loading
+            const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId) : null;
+            let attemptGuesses = cachedGuesses;
+            
+            if (!cachedGuesses) {
+              // Cache miss - load from Supabase
+              attemptGuesses = await getGuessesByAttempt(completedAttempt.id);
+              
+              // Add to cache for next time
+              if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
+                setGuessesForPuzzle(puzzleId, attemptGuesses);
+              }
+            }
+            
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
               const feedbackArrays = attemptGuesses.map(guess => {
                 const feedback = guess.feedbackResult as CellFeedback[];
@@ -370,12 +396,20 @@ export function PlayPage({
       
       const gameAttempt = await res.json();
 
+      const savedGuesses = [];
       for (const guess of allGuesses) {
-        await apiRequest("POST", "/api/guesses", {
+        const guessRes = await apiRequest("POST", "/api/guesses", {
           gameAttemptId: gameAttempt.id,
           guessValue: guess.guessValue,
           feedbackResult: guess.feedbackResult
         });
+        const savedGuess = await guessRes.json();
+        savedGuesses.push(savedGuess);
+      }
+      
+      // Add all guesses to cache immediately for instant Archive access
+      if (savedGuesses.length > 0) {
+        setGuessesForPuzzle(puzzleId, savedGuesses);
       }
     } catch (error) {
       console.error("Error saving game to database:", error);

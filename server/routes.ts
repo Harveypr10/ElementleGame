@@ -267,6 +267,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get recent guesses with puzzle IDs for caching
+  app.get("/api/guesses/recent", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const since = req.query.since as string;
+      
+      if (!since) {
+        return res.status(400).json({ error: "Missing 'since' query parameter" });
+      }
+      
+      const guesses = await storage.getRecentGuessesWithPuzzleIds(userId, since);
+      res.json(guesses);
+    } catch (error) {
+      console.error("Error fetching recent guesses:", error);
+      res.status(500).json({ error: "Failed to fetch recent guesses" });
+    }
+  });
+
   // Stats routes
   app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     try {

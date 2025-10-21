@@ -48,6 +48,7 @@ export interface IStorage {
   // Guess operations
   getGuessesByGameAttempt(gameAttemptId: number): Promise<Guess[]>;
   createGuess(guess: InsertGuess): Promise<Guess>;
+  getRecentGuessesWithPuzzleIds(userId: string, since: string): Promise<Array<Guess & { puzzleId: number }>>;
 
   // User stats operations
   getUserStats(userId: string): Promise<UserStats | undefined>;
@@ -117,18 +118,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUserSettings(settingsData: InsertUserSettings): Promise<UserSettings> {
-    const [settings] = await db
-      .insert(userSettings)
-      .values(settingsData)
-      .onConflictDoUpdate({
-        target: userSettings.userId,
-        set: {
+    // Check if settings exist for this user
+    const existing = await this.getUserSettings(settingsData.userId);
+    
+    if (existing) {
+      // Update existing settings
+      const [settings] = await db
+        .update(userSettings)
+        .set({
           ...settingsData,
           updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return settings;
+        })
+        .where(eq(userSettings.userId, settingsData.userId))
+        .returning();
+      return settings;
+    } else {
+      // Insert new settings
+      const [settings] = await db
+        .insert(userSettings)
+        .values(settingsData)
+        .returning();
+      return settings;
+    }
   }
 
   // Game attempt operations
@@ -201,6 +212,32 @@ export class DatabaseStorage implements IStorage {
   async createGuess(guessData: InsertGuess): Promise<Guess> {
     const [guess] = await db.insert(guesses).values(guessData).returning();
     return guess;
+  }
+
+  async getRecentGuessesWithPuzzleIds(userId: string, since: string): Promise<Array<Guess & { puzzleId: number }>> {
+    // Join guesses with game_attempts to get puzzle IDs
+    // Only return guesses for completed game attempts from the last N days
+    const results = await db
+      .select({
+        id: guesses.id,
+        gameAttemptId: guesses.gameAttemptId,
+        guessValue: guesses.guessValue,
+        feedbackResult: guesses.feedbackResult,
+        guessedAt: guesses.guessedAt,
+        puzzleId: gameAttempts.puzzleId,
+      })
+      .from(guesses)
+      .innerJoin(gameAttempts, eq(guesses.gameAttemptId, gameAttempts.id))
+      .innerJoin(puzzles, eq(gameAttempts.puzzleId, puzzles.id))
+      .where(
+        and(
+          eq(gameAttempts.userId, userId),
+          gte(puzzles.date, since)
+        )
+      )
+      .orderBy(guesses.guessedAt);
+
+    return results;
   }
 
   // User stats operations

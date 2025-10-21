@@ -126,8 +126,41 @@ export default function Home() {
   const handlePlayToday = () => {
     setSelectedPuzzleId(null);
     setPreviousScreen("selection");
-    setShowCelebrationFirst(false);
-    setHasOpenedCelebration(false);
+    
+    // Check if today's puzzle is already completed
+    const todayPuzzle = getDailyPuzzle();
+    if (todayPuzzle) {
+      let isCompleted = false;
+      
+      if (isAuthenticated && !loadingAttempts && gameAttempts) {
+        // For authenticated users, check Supabase data
+        const completedAttempt = gameAttempts.find(
+          attempt => attempt.puzzleId === todayPuzzle.id && attempt.result !== null
+        );
+        isCompleted = !!completedAttempt;
+      } else if (!isAuthenticated) {
+        // For guest users, check localStorage
+        const storedStats = localStorage.getItem("elementle-stats");
+        if (storedStats) {
+          const stats = JSON.parse(storedStats);
+          const completion = stats.puzzleCompletions?.[todayPuzzle.targetDate];
+          isCompleted = !!(completion && completion.completed);
+        }
+      }
+      
+      if (isCompleted) {
+        // Show game screen first, then celebration
+        setShowCelebrationFirst(true);
+        setHasOpenedCelebration(false);
+      } else {
+        setShowCelebrationFirst(false);
+        setHasOpenedCelebration(false);
+      }
+    } else {
+      setShowCelebrationFirst(false);
+      setHasOpenedCelebration(false);
+    }
+    
     setCurrentScreen("play");
   };
 
