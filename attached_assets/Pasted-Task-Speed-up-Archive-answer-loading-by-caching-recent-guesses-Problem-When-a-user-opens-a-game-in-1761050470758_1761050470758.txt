@@ -1,0 +1,66 @@
+Task: Speed up Archive answer loading by caching recent guesses
+Problem: When a user opens a game in the Archive that they’ve already played, the previous answers take too long to load because each archive view makes a fresh Supabase query.
+
+Solution to implement:
+
+Prefetch on login
+
+When the user logs in (or refreshes while authenticated), run a single Supabase query to fetch all guesses for the last 30 days for that user.
+
+Store these results in a local cache:
+
+In‑memory (React context, Zustand, or similar) for fast access during the session.
+
+Optionally persist to localStorage or IndexedDB so the cache survives reloads.
+
+Cache lifecycle management
+
+Clear the local cache whenever a user logs in (before fetching new data) and whenever they log out.
+
+Ensure guesses are always scoped to the currently authenticated user.
+
+This prevents lingering data from another user or stale guesses.
+
+Cache access API
+
+Create a hook (e.g. useRecentGuesses) that exposes:
+
+getGuessesForPuzzle(puzzleId) → returns guesses from the cache if available, otherwise falls back to Supabase.
+
+refreshRecentGuesses() → re‑runs the 30‑day fetch (useful after login or manual refresh).
+
+Use cache in ArchivePage
+
+Update ArchivePage.tsx so that when a user opens a past puzzle:
+
+It first checks the cache for that puzzle’s guesses.
+
+If found, render immediately (fast).
+
+If not found (older than 30 days), fetch from Supabase as a fallback.
+
+Update cache when a new game is played
+
+When the user completes a new puzzle (in PlayPage.tsx or wherever guesses are saved):
+
+Push the new guesses into the local cache immediately.
+
+This ensures that if the user navigates to Archive right after playing, their answers are already available without another Supabase round‑trip.
+
+Background sync (optional but recommended)
+
+After serving cached data, still hit Supabase in the background to confirm nothing has changed (e.g. if the user played on another device).
+
+If the server has newer data, reconcile and update the cache.
+
+Acceptance criteria:
+
+Archive games from the last 30 days load instantly from cache.
+
+Older games still load correctly via Supabase.
+
+When a user plays a new game, their guesses appear in Archive immediately without waiting for a network call.
+
+Cache is cleared on login/logout to avoid stale or cross‑user data.
+
+Cache refreshes automatically on login.
