@@ -629,7 +629,7 @@ export function PlayPage({
         {showCelebrationFirst && gameOver && !hasOpenedCelebration && (
           <div className="w-full max-w-md mx-auto pb-4">
             <button
-              className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm"
+              className="w-full h-24 flex items-center justify-center px-6 rounded-3xl shadow-sm"
               style={{ backgroundColor: "#C4C9D4" }}
               onClick={() => {
                 onSetHasOpenedCelebration?.(true);
@@ -638,13 +638,6 @@ export function PlayPage({
               data-testid="button-continue"
             >
               <span className="text-xl font-bold text-gray-800">Continue</span>
-              <div className="flex-shrink-0 flex items-center">
-                <img
-                  src={mechanicHamsterGrey}
-                  alt="Continue"
-                  className="max-h-20 w-auto object-contain"
-                />
-              </div>
             </button>
           </div>
         )}

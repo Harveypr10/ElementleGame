@@ -58,8 +58,9 @@ export function EndGameModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex items-center justify-center p-4" data-testid="end-game-modal">
-        <div className="w-full max-w-md space-y-6">
+    <div className="fixed inset-0 bg-background z-50 overflow-y-auto" data-testid="end-game-modal">
+      <div className="min-h-screen p-4 pt-8">
+        <div className="w-full max-w-md mx-auto space-y-6">
           <h2 className="text-center text-3xl font-bold">
             {isWin ? "Congratulations!" : "Better Luck Next Time"}
           </h2>
@@ -114,7 +115,7 @@ export function EndGameModal({
 
         <div className="space-y-3">
           <button
-            className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm"
+            className="w-full h-20 flex items-center justify-between px-6 rounded-3xl shadow-sm"
             style={{ backgroundColor: "#A4DB57" }}
             onClick={onViewStats}
             data-testid="button-stats"
@@ -124,14 +125,14 @@ export function EndGameModal({
               <img
                 src={mathsHamsterGreen}
                 alt="Stats"
-                className="max-h-16 w-auto object-contain"
+                className="max-h-14 w-auto object-contain"
               />
             </div>
           </button>
 
           <div className="flex gap-3">
             <button
-              className="flex-1 h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm"
+              className="flex-1 h-20 flex items-center justify-between px-4 rounded-3xl shadow-sm"
               style={{ backgroundColor: "#7DAAE8" }}
               onClick={onHome}
               data-testid="button-home"
@@ -141,13 +142,13 @@ export function EndGameModal({
                 <img
                   src={historianHamsterBlue}
                   alt="Home"
-                  className="max-h-16 w-auto object-contain"
+                  className="max-h-14 w-auto object-contain"
                 />
               </div>
             </button>
 
             <button
-              className="flex-1 h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm"
+              className="flex-1 h-20 flex items-center justify-between px-4 rounded-3xl shadow-sm"
               style={{ backgroundColor: "#FFD429" }}
               onClick={onViewArchive}
               data-testid="button-archive"
@@ -157,13 +158,14 @@ export function EndGameModal({
                 <img
                   src={librarianHamsterYellow}
                   alt="Archive"
-                  className="max-h-16 w-auto object-contain"
+                  className="max-h-14 w-auto object-contain"
                 />
               </div>
             </button>
           </div>
         </div>
       </div>
+    </div>
 
       <style>{`
         .confetti-container {
