@@ -41,11 +41,13 @@ export function EndGameModal({
       if (isWin) {
         soundManager.playCelebration();
         setShowConfetti(true);
-        const timer = setTimeout(() => setShowConfetti(false), 3000);
-        return () => clearTimeout(timer);
+        // Keep confetti showing while modal is open
       } else {
         soundManager.playCommiseration();
       }
+    } else {
+      // Hide confetti when modal closes
+      setShowConfetti(false);
     }
   }, [isOpen, isWin]);
 
@@ -59,11 +61,11 @@ export function EndGameModal({
           {isWin ? "Congratulations!" : "Better Luck Next Time"}
         </h2>
 
-        <div className="relative flex justify-center h-40 mt-8">
+        <div className="relative flex justify-center my-8">
           <img
             src={isWin ? happyHamster : sadHamster}
             alt={isWin ? "Happy hamster" : "Sad hamster"}
-            className={`h-32 w-32 bg-background rounded-full ${isWin ? "animate-bounce" : "animate-pulse"}`}
+            className={`max-w-xs w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""}`}
             data-testid="hamster-image"
           />
           {showConfetti && (
@@ -166,10 +168,23 @@ export function EndGameModal({
           animation: confetti-fall 2s linear forwards;
         }
         
+        .animate-fade-in {
+          animation: fade-in 0.8s ease-in forwards;
+        }
+        
         @keyframes confetti-fall {
           to {
             transform: translateY(200px) rotate(360deg);
             opacity: 0;
+          }
+        }
+        
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
           }
         }
       `}</style>
