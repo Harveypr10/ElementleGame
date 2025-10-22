@@ -1,0 +1,151 @@
+Request to step through and fix Supabase save flow for guesses and attempts
+Hi Replit — we need your help to diagnose why guesses aren’t being saved as the user plays (presses Enter per guess), and why the final streak UI sometimes crashes. Below is everything you need: exact symptoms, the intended behavior, what we’ve changed, and the places to instrument and verify. Please step through end-to-end and advise on fixes. We don’t need a prescriptive solution; we need you to pinpoint where the logic breaks and propose a safe correction.
+
+Context and symptoms
+Problem A: Guesses are not consistently saved to Supabase after pressing Enter. Some guesses don’t appear, and num_guesses doesn’t reflect per-guess increments until completion.
+
+Problem B: Streak screen error: “Cannot read properties of undefined (reading '3')” from updateStats when indexing guessDistribution[numGuesses].
+
+Expected behavior
+For authenticated users:
+
+Exactly one row in game_attempts per (user_id, puzzle_id).
+
+Each submitted guess saves a row in guesses with the same game_attempt_id.
+
+num_guesses increments with each guess.
+
+On completion, result is set to “won” or “lost”; num_guesses equals the final count; stats recalculation runs.
+
+For guest users:
+
+LocalStorage “elementle-stats” updates mid-game with in-progress state (guess count and guess records) and final stats on completion.
+
+What we’ve implemented
+Drizzle schema: added a unique constraint on (user_id, puzzle_id) in game_attempts via unique().on(table.userId, table.puzzleId) and ran migrations.
+
+routes.ts:
+
+POST /api/game-attempts: now attempts to reuse an open attempt and otherwise upserts (not blind insert).
+
+PATCH /api/game-attempts/:id: hardened to ensure numGuesses never decreases and identity fields aren’t mutated.
+
+POST /api/guesses: verifies ownership, prevents guesses after completion, inserts the guess, then increments num_guesses.
+
+storage.ts:
+
+Added upsertGameAttempt (Drizzle onConflictDoUpdate).
+
+Added getOpenAttemptByUserAndPuzzle (result = null).
+
+Added incrementAttemptGuesses (read-modify-write fallback).
+
+Hardened updateGameAttempt to ensure numGuesses monotonicity and set completedAt when result is first set.
+
+Please verify and instrument these areas
+1) Client-side PlayPage flow
+Confirm createOrGetGameAttempt returns the same attempt id throughout a play session:
+
+Add logs on Enter press: attemptId, puzzleId, isAuthenticated, and whether it came from “find open” or “create”.
+
+Check that state currentGameAttemptId is set once and reused.
+
+Confirm saveGuessToDatabase is being called after handleSubmit:
+
+Log payload: gameAttemptId, guessValue, feedbackResult (length and shape).
+
+Confirm API response status and JSON shape.
+
+Confirm completeGameAttempt runs once at end:
+
+Log when it fires, what PATCH body is sent, and the recalc stats POST response.
+
+2) Server routes
+POST /api/game-attempts:
+
+Verify logic path: if an open attempt exists, it returns it (no new row). Otherwise upsert creates one.
+
+Log userId, puzzleId, whether existing was found, and returned id.
+
+POST /api/guesses:
+
+Verify ownedAttempt.result === null when accepting guesses.
+
+Confirm guess insert succeeds and incrementAttemptGuesses runs immediately after.
+
+Log the updated num_guesses (read-back after increment) and ensure it matches the total guesses saved for that attempt.
+
+PATCH /api/game-attempts/:id:
+
+Confirm numGuesses never decreases; log previous and new numGuesses.
+
+Confirm completedAt is set when result is changed from null to won/lost.
+
+3) storage.ts Drizzle queries
+upsertGameAttempt:
+
+Confirm onConflictDoUpdate target matches the schema unique constraint (userId, puzzleId).
+
+Ensure the set clause doesn’t accidentally clear other columns (e.g., completedAt).
+
+getOpenAttemptByUserAndPuzzle:
+
+Confirm the eq(gameAttempts.result, null) condition is correct for Drizzle/PG (not ‘is null’ mismatch).
+
+incrementAttemptGuesses:
+
+Ensure read-modify-write updates num_guesses exactly once per POST /api/guesses.
+
+Consider adding a small transactional guard if interleaved requests are possible; for now, please validate sequential calls reflect the incremented count.
+
+4) Supabase data integrity
+Validate the unique constraint exists on game_attempts (user_id, puzzle_id).
+
+Inspect data for any legacy duplicates that might cause unexpected behavior:
+
+If duplicates exist, identify the surviving attempt per (user, puzzle) and re-attach orphan guesses; propose a cleanup plan if needed.
+
+5) Guest stats crash (streak screen)
+In PlayPage updateStats (guest branch), ensure guessDistribution is always initialised:
+
+Add a guard: if (!currentStats.guessDistribution) currentStats.guessDistribution = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }.
+
+Verify numGuesses key is a string (“1”..“5”) or normalise numGuesses.toString() before indexing.
+
+Confirm that updateStats only runs for guest users; authenticated users rely on database recalculation.
+
+Minimal reproduction steps to run while instrumented
+Log in as an authenticated user. Start a puzzle; press Enter to submit several guesses (e.g., 2–3 guesses).
+
+Observe logs:
+
+One game_attempt row reused throughout.
+
+One guesses row per Enter, all referencing the same game_attempt_id.
+
+num_guesses increments with each guess.
+
+Finish the puzzle (win or lose).
+
+Confirm PATCH sets result and final numGuesses equals guesses.length..
+
+Confirm stats recalculation runs and streak popup reads updated stats without crashing.
+
+Repeat as a guest user.
+
+Confirm localStorage elementle-stats updates mid-game (in-progress) and final stats on completion.
+
+Confirm no streak crash (guessDistribution initialised).
+
+What we need from you
+Identify exactly where in the sequence data stops being saved or ids diverge (client, route, or storage).
+
+Confirm whether the open attempt lookup is returning null when it should not, causing multiple attempts and fragmented guesses.
+
+Confirm whether POST /api/guesses is succeeding but incrementAttemptGuesses is failing silently, leaving num_guesses stale.
+
+Confirm whether result is being set too early, blocking subsequent guesses due to the “completed” check.
+
+Provide a concise patch or recommendation to make the flow robust (e.g., adjust conditionals, add transactional increment, or tweak the open attempt finder).
+
+If you need any specific files or lines referenced, I can point you to their exact locations.

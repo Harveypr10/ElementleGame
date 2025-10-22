@@ -19,7 +19,7 @@ import {
   type InsertUserStats,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, desc } from "drizzle-orm";
+import { eq, and, gte, desc, isNull } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -42,8 +42,11 @@ export interface IStorage {
   getGameAttempt(id: number): Promise<GameAttempt | undefined>;
   getGameAttemptsByUser(userId: string): Promise<GameAttempt[]>;
   getGameAttemptByUserAndPuzzle(userId: string | null, puzzleId: number): Promise<GameAttempt | undefined>;
+  getOpenAttemptByUserAndPuzzle(userId: string, puzzleId: number): Promise<GameAttempt | undefined>;
   createGameAttempt(attempt: InsertGameAttempt): Promise<GameAttempt>;
+  upsertGameAttempt(attempt: InsertGameAttempt): Promise<GameAttempt>;
   updateGameAttempt(id: number, updateData: Partial<Omit<GameAttempt, 'id' | 'userId' | 'puzzleId' | 'startedAt'>>): Promise<GameAttempt>;
+  incrementAttemptGuesses(gameAttemptId: number): Promise<void>;
 
   // Guess operations
   getGuessesByGameAttempt(gameAttemptId: number): Promise<Guess[]>;
@@ -186,20 +189,79 @@ export class DatabaseStorage implements IStorage {
     return attempt;
   }
 
+  async upsertGameAttempt(attemptData: InsertGameAttempt): Promise<GameAttempt> {
+    const [attempt] = await db
+      .insert(gameAttempts)
+      .values(attemptData)
+      .onConflictDoUpdate({
+        target: [gameAttempts.userId, gameAttempts.puzzleId], // unique constraint
+        set: {
+          result: attemptData.result,
+          numGuesses: attemptData.numGuesses,
+        },
+      })
+      .returning();
+
+    return attempt;
+  }
+
+  async getOpenAttemptByUserAndPuzzle(userId: string, puzzleId: number): Promise<GameAttempt | undefined> {
+    const [attempt] = await db
+      .select()
+      .from(gameAttempts)
+      .where(
+        and(
+          eq(gameAttempts.userId, userId),
+          eq(gameAttempts.puzzleId, puzzleId),
+          isNull(gameAttempts.result) // still in progress
+        )
+      );
+    return attempt;
+  }
+
+  async incrementAttemptGuesses(gameAttemptId: number): Promise<void> {
+    // Fetch current value
+    const [current] = await db
+      .select({ numGuesses: gameAttempts.numGuesses })
+      .from(gameAttempts)
+      .where(eq(gameAttempts.id, gameAttemptId));
+
+    const next = (current?.numGuesses ?? 0) + 1;
+
+    await db
+      .update(gameAttempts)
+      .set({ numGuesses: next })
+      .where(eq(gameAttempts.id, gameAttemptId));
+  }
+
   async updateGameAttempt(
     id: number,
     updateData: Partial<Omit<GameAttempt, 'id' | 'userId' | 'puzzleId' | 'startedAt'>>
   ): Promise<GameAttempt> {
+    // Fetch current attempt to enforce numGuesses monotonicity
+    const [current] = await db.select().from(gameAttempts).where(eq(gameAttempts.id, id));
+
+    let safeUpdate = { ...updateData } as any;
+
+    // Ensure numGuesses never decreases
+    if (typeof safeUpdate.numGuesses === "number" && current) {
+      safeUpdate.numGuesses = Math.max(safeUpdate.numGuesses, current.numGuesses ?? 0);
+    }
+
+    // If result is being set, mark completedAt
+    if (safeUpdate.result && !current?.completedAt) {
+      safeUpdate.completedAt = new Date();
+    }
+
     const [attempt] = await db
       .update(gameAttempts)
-      .set({
-        ...updateData,
-        completedAt: updateData.result ? new Date() : undefined,
-      })
+      .set(safeUpdate)
       .where(eq(gameAttempts.id, id))
       .returning();
+
     return attempt;
   }
+
 
   // Guess operations
   async getGuessesByGameAttempt(gameAttemptId: number): Promise<Guess[]> {

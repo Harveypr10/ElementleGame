@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
@@ -181,20 +181,23 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
 
   return (
     <div className="min-h-screen flex flex-col p-4">
-      <div className="flex items-center justify-between mb-8">
-        <Button
-          variant="ghost"
-          size="icon"
+      <div className="flex items-center justify-between mb-6">
+        <button
           onClick={onBack}
-          data-testid="button-back"
+          data-testid="button-back-from-account"
+          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+          <ChevronLeft className="h-9 w-9 text-gray-700" />
+        </button>
 
-        <h2 className="text-2xl font-semibold">Account Information</h2>
+        <div className="flex flex-col items-center">
+          <h1 className="text-4xl font-bold text-gray-700">Account Info</h1>
+        </div>
 
-        <div className="w-9" />
+        {/* Spacer to balance layout */}
+        <div className="w-14" />
       </div>
+
 
       <div className="flex-1 flex items-start justify-center pb-8">
         <div className="w-full max-w-md space-y-6">

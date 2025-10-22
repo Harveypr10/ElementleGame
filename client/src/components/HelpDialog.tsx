@@ -16,7 +16,7 @@ export function HelpDialog({ isOpen, onClose }: HelpDialogProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg top-4 translate-y-0 max-h-[calc(100vh-2rem)] overflow-y-auto" data-testid="help-dialog">
         <DialogHeader>
-          <DialogTitle className="text-2xl">How to Play</DialogTitle>
+          <DialogTitle className="text-4xl">How to Play</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 text-sm">

@@ -25,6 +25,7 @@ interface DayStatus {
   completed: boolean;
   won: boolean;
   guessCount?: number;
+  inProgress?: boolean;
 }
 
 export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps) {
@@ -70,7 +71,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             completed: true,
             // Defensive normalization: handle both "won"/"lost" and "win"/"loss"
             won: attempt.result === 'won' || attempt.result === 'win',
-            guessCount: attempt.numGuesses ?? 0
+            guessCount: attempt.numGuesses ?? 0,
+            inProgress: attempt.result === null
           };
         }
       });
@@ -101,7 +103,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
           statusMap[puzzle.targetDate] = {
             completed: completion.completed || false,
             won: completion.won || false,
-            guessCount: completion.guessCount
+            guessCount: completion.guessCount,
+            inProgress: !completion.completed && (completion.guessCount > 0)
           };
         }
       });
@@ -166,6 +169,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             !isPlayable && "cursor-not-allowed",
             status?.completed && status.won && "bg-green-100 dark:bg-green-900/30",
             status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30",
+            status?.inProgress && "bg-blue-100 dark:bg-blue-900/30",
             !status?.completed && isPlayable && "bg-gray-100 dark:bg-gray-800",
             (!puzzle || isFuture) && "bg-background opacity-40",
             isToday && "ring-2 ring-primary"
@@ -177,6 +181,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             "text-sm font-semibold",
             status?.completed && status.won && "text-green-700 dark:text-green-300",
             status?.completed && !status.won && "text-red-700 dark:text-red-300",
+            status?.inProgress && "text-blue-700 dark:text-blue-300",
             !status?.completed && isPlayable && "text-foreground",
             (!puzzle || isFuture) && "text-muted-foreground"
           )}>

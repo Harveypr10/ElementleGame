@@ -135,167 +135,210 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User settings routes
-  app.get("/api/settings", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const settings = await storage.getUserSettings(userId);
-      res.json(settings || {});
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-      res.status(500).json({ error: "Failed to fetch settings" });
-    }
-  });
+app.get("/api/settings", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const settings = await storage.getUserSettings(userId);
+    res.json(settings || {});
+  } catch (error) {
+    console.error("Error fetching settings:", error);
+    res.status(500).json({ error: "Failed to fetch settings" });
+  }
+});
 
-  app.post("/api/settings", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const settings = await storage.upsertUserSettings({
-        userId,
-        ...req.body,
-      });
-      res.json(settings);
-    } catch (error) {
-      console.error("Error saving settings:", error);
-      res.status(500).json({ error: "Failed to save settings" });
-    }
-  });
+app.post("/api/settings", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const settings = await storage.upsertUserSettings({
+      userId,
+      ...req.body,
+    });
+    res.json(settings);
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    res.status(500).json({ error: "Failed to save settings" });
+  }
+});
 
-  // Game attempt routes
-  app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      
-      // Defensive normalization: convert legacy "win"/"loss" to "won"/"lost"
-      let result = req.body.result;
-      if (result === "win") result = "won";
-      if (result === "loss") result = "lost";
-      
-      const gameAttempt = await storage.createGameAttempt({
-        userId,
-        puzzleId: req.body.puzzleId,
-        result,
-        numGuesses: req.body.numGuesses,
-      });
-      res.json(gameAttempt);
-    } catch (error) {
-      console.error("Error creating game attempt:", error);
-      res.status(500).json({ error: "Failed to create game attempt" });
-    }
-  });
+// Game attempt routes
+app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const puzzleId = req.body.puzzleId;
 
-  app.get("/api/game-attempts/user", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const attempts = await storage.getGameAttemptsByUser(userId);
-      res.json(attempts);
-    } catch (error) {
-      console.error("Error fetching game attempts:", error);
-      res.status(500).json({ error: "Failed to fetch game attempts" });
+    if (!puzzleId) {
+      return res.status(400).json({ error: "Missing puzzleId in body" });
     }
-  });
 
-  app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const userId = req.user.id;
-      
-      // Verify ownership before updating
-      const allAttempts = await storage.getGameAttemptsByUser(userId);
-      const ownedAttempt = allAttempts.find(a => a.id === id);
-      
-      if (!ownedAttempt) {
-        return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
+    // Defensive normalization: convert legacy "win"/"loss" to "won"/"lost"
+    let result = req.body.result;
+    if (result === "win") result = "won";
+    if (result === "loss") result = "lost";
+
+    // Try to find an existing open attempt
+    const existing = await storage.getOpenAttemptByUserAndPuzzle(userId, puzzleId);
+
+    if (existing) {
+      // Update numGuesses if client sent a higher value
+      if (typeof req.body.numGuesses === "number" && req.body.numGuesses > (existing.numGuesses ?? 0)) {
+        await storage.updateGameAttempt(existing.id, { numGuesses: req.body.numGuesses });
       }
-      
-      // Defensive normalization: convert legacy "win"/"loss" to "won"/"lost"
-      const updates = { ...req.body };
-      if (updates.result === "win") updates.result = "won";
-      if (updates.result === "loss") updates.result = "lost";
-      
-      const gameAttempt = await storage.updateGameAttempt(id, updates);
-      res.json(gameAttempt);
-    } catch (error) {
-      console.error("Error updating game attempt:", error);
-      res.status(500).json({ error: "Failed to update game attempt" });
+      return res.json({ ...existing, numGuesses: Math.max(existing.numGuesses ?? 0, req.body.numGuesses ?? 0) });
     }
-  });
 
-  // Guess routes
-  app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const gameAttemptId = req.body.gameAttemptId;
-      
-      // Verify ownership of the game attempt before creating guess
-      const allAttempts = await storage.getGameAttemptsByUser(userId);
-      const ownedAttempt = allAttempts.find(a => a.id === gameAttemptId);
-      
-      if (!ownedAttempt) {
-        return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
-      }
-      
-      const guess = await storage.createGuess({
-        gameAttemptId,
-        guessValue: req.body.guessValue,
-        feedbackResult: req.body.feedbackResult,
-      });
-      res.json(guess);
-    } catch (error) {
-      console.error("Error creating guess:", error);
-      res.status(500).json({ error: "Failed to create guess" });
-    }
-  });
+    // Otherwise create new (upsert handles unique constraint)
+    const gameAttempt = await storage.upsertGameAttempt({
+      userId,
+      puzzleId,
+      result: result ?? null,
+      numGuesses: req.body.numGuesses ?? 0,
+    });
 
-  // Get recent guesses with puzzle IDs for caching (must be before parameterized route)
-  app.get("/api/guesses/recent", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const since = req.query.since as string;
-      
-      if (!since) {
-        return res.status(400).json({ error: "Missing 'since' query parameter" });
-      }
-      
-      const guesses = await storage.getRecentGuessesWithPuzzleIds(userId, since);
-      res.json(guesses);
-    } catch (error) {
-      console.error("Error fetching recent guesses:", error);
-      res.status(500).json({ error: "Failed to fetch recent guesses" });
-    }
-  });
+    res.json(gameAttempt);
+  } catch (error) {
+    console.error("Error creating/upserting game attempt:", error);
+    res.status(500).json({ error: "Failed to create/upsert game attempt" });
+  }
+});
 
-  app.get("/api/guesses/:gameAttemptId", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const gameAttemptId = parseInt(req.params.gameAttemptId);
-      
-      // Verify ownership of the game attempt before fetching guesses
-      const allAttempts = await storage.getGameAttemptsByUser(userId);
-      const ownedAttempt = allAttempts.find(a => a.id === gameAttemptId);
-      
-      if (!ownedAttempt) {
-        return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
-      }
-      
-      const guesses = await storage.getGuessesByGameAttempt(gameAttemptId);
-      res.json(guesses);
-    } catch (error) {
-      console.error("Error fetching guesses:", error);
-      res.status(500).json({ error: "Failed to fetch guesses" });
-    }
-  });
+app.get("/api/game-attempts/user", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const attempts = await storage.getGameAttemptsByUser(userId);
+    res.json(attempts);
+  } catch (error) {
+    console.error("Error fetching game attempts:", error);
+    res.status(500).json({ error: "Failed to fetch game attempts" });
+  }
+});
 
-  // Stats routes
-  app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const stats = await storage.getUserStats(userId);
-      res.json(stats || {});
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-      res.status(500).json({ error: "Failed to fetch stats" });
+app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user.id;
+
+    // Verify ownership
+    const allAttempts = await storage.getGameAttemptsByUser(userId);
+    const ownedAttempt = allAttempts.find(a => a.id === id);
+
+    if (!ownedAttempt) {
+      return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
     }
-  });
+
+    // Defensive normalization
+    const updates: any = { ...req.body };
+    if (updates.result === "win") updates.result = "won";
+    if (updates.result === "loss") updates.result = "lost";
+
+    // Prevent mutating identity columns
+    delete updates.userId;
+    delete updates.user_id;
+    delete updates.puzzleId;
+    delete updates.puzzle_id;
+
+    // Ensure numGuesses never decreases
+    if (typeof updates.numGuesses === "number") {
+      updates.numGuesses = Math.max(updates.numGuesses, ownedAttempt.numGuesses ?? 0);
+    }
+
+    const gameAttempt = await storage.updateGameAttempt(id, updates);
+    res.json(gameAttempt);
+  } catch (error) {
+    console.error("Error updating game attempt:", error);
+    res.status(500).json({ error: "Failed to update game attempt" });
+  }
+});
+
+// Guess routes
+app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const gameAttemptId = req.body.gameAttemptId;
+
+    if (!gameAttemptId) {
+      return res.status(400).json({ error: "Missing gameAttemptId in body" });
+    }
+
+    // Verify ownership
+    const allAttempts = await storage.getGameAttemptsByUser(userId);
+    const ownedAttempt = allAttempts.find(a => a.id === gameAttemptId);
+
+    if (!ownedAttempt) {
+      return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
+    }
+
+    // Block guesses if attempt already completed
+    if (ownedAttempt.result !== null) {
+      return res.status(409).json({ error: "Attempt already completed; no further guesses allowed" });
+    }
+
+    // Save the guess
+    const guess = await storage.createGuess({
+      gameAttemptId,
+      guessValue: req.body.guessValue,
+      feedbackResult: req.body.feedbackResult,
+    });
+
+    // Increment num_guesses
+    await storage.incrementAttemptGuesses(gameAttemptId);
+
+    res.json(guess);
+  } catch (error) {
+    console.error("Error creating guess:", error);
+    res.status(500).json({ error: "Failed to create guess" });
+  }
+});
+
+// Get recent guesses with puzzle IDs for caching
+app.get("/api/guesses/recent", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const since = req.query.since as string;
+
+    if (!since) {
+      return res.status(400).json({ error: "Missing 'since' query parameter" });
+    }
+
+    const guesses = await storage.getRecentGuessesWithPuzzleIds(userId, since);
+    res.json(guesses);
+  } catch (error) {
+    console.error("Error fetching recent guesses:", error);
+    res.status(500).json({ error: "Failed to fetch recent guesses" });
+  }
+});
+
+app.get("/api/guesses/:gameAttemptId", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const gameAttemptId = parseInt(req.params.gameAttemptId);
+
+    // Verify ownership
+    const allAttempts = await storage.getGameAttemptsByUser(userId);
+    const ownedAttempt = allAttempts.find(a => a.id === gameAttemptId);
+
+    if (!ownedAttempt) {
+      return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
+    }
+
+    const guesses = await storage.getGuessesByGameAttempt(gameAttemptId);
+    res.json(guesses);
+  } catch (error) {
+    console.error("Error fetching guesses:", error);
+    res.status(500).json({ error: "Failed to fetch guesses" });
+  }
+});
+
+// Stats routes
+app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const stats = await storage.getUserStats(userId);
+    res.json(stats || {});
+  } catch (error) {
+    console.error("Error fetching stats:", error);
+    res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
 
   app.post("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     try {

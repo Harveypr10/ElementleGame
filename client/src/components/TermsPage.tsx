@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface TermsPageProps {
@@ -10,17 +10,23 @@ interface TermsPageProps {
 export function TermsPage({ onBack }: TermsPageProps) {
   return (
     <div className="min-h-screen flex flex-col p-4">
-      <div className="flex items-center gap-2 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
+      <div className="flex items-center justify-between mb-6">
+        <button
           onClick={onBack}
-          data-testid="button-back"
+          data-testid="button-back-from-terms"
+          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-2xl font-bold">Terms of Use</h1>
+          <ChevronLeft className="h-9 w-9 text-gray-700" />
+        </button>
+
+        <div className="flex flex-col items-center">
+          <h1 className="text-4xl font-bold text-gray-700">Terms of Use</h1>
+        </div>
+
+        {/* Spacer to balance layout */}
+        <div className="w-14" />
       </div>
+
 
       <ScrollArea className="flex-1">
         <Card className="max-w-4xl mx-auto">

@@ -332,6 +332,27 @@ export function PlayPage({
     setGuessRecords(newGuessRecords);
     setCurrentInput("");
 
+    // For guest users: update archive progress immediately
+    if (!isAuthenticated) {
+      const storedStats = localStorage.getItem("elementle-stats");
+      const stats = storedStats ? JSON.parse(storedStats) : { puzzleCompletions: {} };
+
+      const completion = stats.puzzleCompletions[targetDate] || {
+        completed: false,
+        won: false,
+        guessCount: 0,
+        guesses: []
+      };
+
+      completion.guessCount = newGuesses.length;
+      completion.guesses = newGuessRecords;
+      completion.completed = false; // still in progress
+      completion.won = false;
+
+      stats.puzzleCompletions[targetDate] = completion;
+      localStorage.setItem("elementle-stats", JSON.stringify(stats));
+    }
+    
     // For authenticated users: progressive database saving
     let attemptId: number | null = null;
     if (isAuthenticated && puzzleId) {
@@ -452,25 +473,32 @@ export function PlayPage({
   }, [handleKeyPress]);
 
   const createOrGetGameAttempt = async (): Promise<number | null> => {
-    // Only create for authenticated users
     if (!isAuthenticated || !puzzleId) return null;
 
-    // If we already have a game attempt ID, return it
+    // If we already have one in state, reuse it
     if (currentGameAttemptId) return currentGameAttemptId;
 
     try {
-      // Create a new game attempt with result=NULL (in progress)
-      const res = await apiRequest("POST", "/api/game-attempts", {
+      // Check if an attempt already exists for this user & puzzle with result = null
+      const res = await apiRequest("GET", `/api/game-attempts?puzzleId=${puzzleId}&resultIsNull=true`);
+      const existing = await res.json();
+
+      if (existing && existing.length > 0) {
+        setCurrentGameAttemptId(existing[0].id);
+        return existing[0].id;
+      }
+
+      // Otherwise create a new one
+      const createRes = await apiRequest("POST", "/api/game-attempts", {
         puzzleId,
-        result: null,  // null means in-progress
+        result: null,
         numGuesses: 0
       });
-      
-      const gameAttempt = await res.json();
+      const gameAttempt = await createRes.json();
       setCurrentGameAttemptId(gameAttempt.id);
       return gameAttempt.id;
     } catch (error) {
-      console.error("Error creating game attempt:", error);
+      console.error("Error creating or fetching game attempt:", error);
       return null;
     }
   };
