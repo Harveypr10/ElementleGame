@@ -117,16 +117,16 @@ export function EndGameModal({
             {/* Stats button: full width, green */}
             <Button
               variant="success"
-              className="w-full h-20 flex items-center justify-between px-6 rounded-3xl shadow-sm"
+              className="w-full h-16 sm:h-20 md:h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm"
               onClick={onViewStats}
               data-testid="button-stats"
             >
-              <span className="text-xl font-bold text-gray-800">Stats</span>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800">Stats</span>
               <div className="flex-shrink-0 flex items-center">
                 <img
                   src={mathsHamsterGreen}
                   alt="Stats"
-                  className="h-10 w-auto object-contain sm:h-12 md:h-14"
+                  className="h-14 sm:h-16 md:h-20 w-auto object-contain"
                 />
               </div>
             </Button>
@@ -135,16 +135,16 @@ export function EndGameModal({
               {/* Home button: half width, blue */}
               <Button
                 variant="default"
-                className="flex-1 h-20 flex items-center justify-between px-4 rounded-3xl shadow-sm"
+                className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm"
                 onClick={onHome}
                 data-testid="button-home"
               >
-                <span className="text-lg font-bold text-gray-800">Home</span>
+                <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Home</span>
                 <div className="flex-shrink-0 flex items-center">
                   <img
                     src={historianHamsterBlue}
                     alt="Home"
-                    className="h-10 w-auto object-contain sm:h-12 md:h-14"
+                    className="h-14 sm:h-16 md:h-20 w-auto object-contain"
                   />
                 </div>
               </Button>
@@ -152,21 +152,23 @@ export function EndGameModal({
               {/* Archive button: half width, yellow */}
               <Button
                 variant="warning"
-                className="flex-1 h-20 flex items-center justify-between px-4 rounded-3xl shadow-sm"
+                className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm"
                 onClick={onViewArchive}
                 data-testid="button-archive"
               >
-                <span className="text-lg font-bold text-gray-800">Archive</span>
+                <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Archive</span>
                 <div className="flex-shrink-0 flex items-center">
                   <img
                     src={librarianHamsterYellow}
                     alt="Archive"
-                    className="h-10 w-auto object-contain sm:h-12 md:h-14"
+                    className="h-14 sm:h-16 md:h-20 w-auto object-contain"
                   />
                 </div>
               </Button>
             </div>
           </div>
+
+
 
       </div>
     </div>
