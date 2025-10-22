@@ -30,6 +30,17 @@ Preferred communication style: Simple, everyday language.
 - Local React state (useState, useEffect) for component-level UI state
 - LocalStorage for persisting game statistics and theme preferences
 
+**Preload & Cache System** (Added October 2025)
+- PreloadProvider wraps the entire application and runs on mount to preload critical assets and data
+- Image preloading: All hamster SVGs, tick/cross icons loaded before first render
+- Data prefetching: Uses Promise.allSettled to fetch settings, profile, stats, attempts, and puzzles in parallel
+- Independent error handling: One failed fetch (e.g., 401 from /api/settings) doesn't prevent other caches from populating
+- Cache-first rendering: All pages read from localStorage cache first for instant, flicker-free loads
+- Background reconciliation: After showing cached data, pages fetch fresh data from Supabase and update cache
+- Automatic cache updates: All mutations update both TanStack Query cache and localStorage
+- Cache keys: cached-settings, cached-profile, cached-stats, cached-attempts, cached-today-outcome, cached-archive-YYYY-MM
+- Logout flow: Clears user-specific caches via clearUserCache() utility function
+
 **Design System**
 - Custom color palette defined in CSS variables for game feedback states (correct/green, in-sequence/amber, not-in-sequence/grey)
 - Responsive design with mobile-first approach
@@ -102,3 +113,21 @@ Preferred communication style: Simple, everyday language.
 - Client-side puzzle validation and feedback calculation
 - LocalStorage-based statistics tracking (games played, won, streak, guess distribution)
 - 5-attempt limit per puzzle with directional hints for incorrect digits
+
+## Recent Changes (October 2025)
+
+**Preload & Local Cache System Implementation**
+- Created `client/src/lib/localCache.ts` utility with type-safe localStorage access (readLocal, writeLocal, clearUserCache)
+- Created `client/src/lib/PreloadProvider.tsx` that preloads all images and prefetches data on app mount
+- Updated all major pages (GameSelectionPage, OptionsPage, StatsPage, ArchivePage, PlayPage) to read from cache first
+- Implemented background reconciliation pattern: cache → render → fetch → reconcile → update cache
+- Fixed critical bug using Promise.allSettled to ensure independent error handling for each prefetch
+- Archive page now caches data by month with pattern: cached-archive-YYYY-MM
+- PlayPage writes today's outcome to cache on game completion (only for non-archive puzzles)
+- SettingsPage clears user-specific caches on logout
+
+**Benefits**
+- Instant, flicker-free page loads by showing cached data immediately
+- Resilient to partial fetch failures (e.g., 401 responses during auth warm-up)
+- Reduced network requests and improved perceived performance
+- Seamless offline-to-online transitions with background reconciliation
