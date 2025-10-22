@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Mail, Info, Lock, FileText, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
+import { clearUserCache } from "@/lib/localCache";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -65,8 +66,8 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, 
 
   const handleSignOut = async () => {
     try {
-      // Clear any cached data first
-      localStorage.clear();
+      // Clear user-specific cached data
+      clearUserCache();
       
       // Sign out from Supabase
       await signOut();

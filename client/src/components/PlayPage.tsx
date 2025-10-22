@@ -14,6 +14,7 @@ import { useUserSettings } from "@/hooks/useUserSettings";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
+import { writeLocal, CACHE_KEYS } from "@/lib/localCache";
 
 interface PlayPageProps {
   targetDate: string;
@@ -364,6 +365,16 @@ export function PlayPage({
         // Guest user: use localStorage stats
         await updateStats(true, newGuesses.length, newGuessRecords);
       }
+      
+      // Cache today's outcome (only if not from archive)
+      if (!fromArchive) {
+        writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
+          date: targetDate,
+          puzzleId: puzzleId,
+          isWin: true,
+          guessCount: newGuesses.length,
+        });
+      }
     } else if (isLosingGuess) {
       // Game lost
       setIsWin(false);
@@ -381,6 +392,16 @@ export function PlayPage({
       } else if (!isAuthenticated) {
         // Guest user: use localStorage stats
         await updateStats(false, newGuesses.length, newGuessRecords);
+      }
+      
+      // Cache today's outcome (only if not from archive)
+      if (!fromArchive) {
+        writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
+          date: targetDate,
+          puzzleId: puzzleId,
+          isWin: false,
+          guessCount: newGuesses.length,
+        });
       }
     } else {
       // Game in progress - save current state to localStorage

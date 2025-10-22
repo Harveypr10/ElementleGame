@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
+import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 
 interface ArchivePageProps {
   onBack: () => void;
@@ -32,6 +33,30 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
   const [currentMonth, setCurrentMonth] = useState(new Date(2025, 9, 1)); // October 2025
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
 
+  // Load from cache first for instant rendering
+  useEffect(() => {
+    const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+    const cachedMonthData = readLocal<any>(`${CACHE_KEYS.ARCHIVE_PREFIX}${monthKey}`);
+    
+    if (cachedMonthData && Array.isArray(cachedMonthData)) {
+      // Build status map from cached data
+      const statusMap: Record<string, DayStatus> = {};
+      
+      cachedMonthData.forEach((puzzle: any) => {
+        if (puzzle.completed) {
+          statusMap[puzzle.targetDate] = {
+            completed: true,
+            won: puzzle.won || false,
+            guessCount: puzzle.guessCount || 0
+          };
+        }
+      });
+      
+      setDayStatuses(statusMap);
+    }
+  }, [currentMonth]); // Re-run when month changes
+
+  // Background reconciliation with Supabase/localStorage
   useEffect(() => {
     if (isAuthenticated && gameAttempts && !loadingAttempts) {
       // Use Supabase game attempts ONLY for authenticated users
@@ -51,6 +76,16 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       });
       
       setDayStatuses(statusMap);
+      
+      // Update cache for current month
+      const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+      const monthPuzzles = puzzles.map(puzzle => ({
+        ...puzzle,
+        completed: statusMap[puzzle.targetDate]?.completed || false,
+        won: statusMap[puzzle.targetDate]?.won || false,
+        guessCount: statusMap[puzzle.targetDate]?.guessCount || 0,
+      }));
+      writeLocal(`${CACHE_KEYS.ARCHIVE_PREFIX}${monthKey}`, monthPuzzles);
     } else if (!isAuthenticated) {
       // Use localStorage for guest users
       const storedStats = localStorage.getItem("elementle-stats");
@@ -73,7 +108,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       
       setDayStatuses(statusMap);
     }
-  }, [isAuthenticated, gameAttempts, puzzles]);
+  }, [isAuthenticated, gameAttempts, puzzles, currentMonth]);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();

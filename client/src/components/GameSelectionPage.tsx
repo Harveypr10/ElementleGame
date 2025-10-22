@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { motion } from "framer-motion";
+import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
@@ -13,6 +14,13 @@ import whiteTickBlue from "@assets/White-Tick-Blue.svg";
 import whiteCrossBlue from "@assets/White-Cross-Blue.svg";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import greyCogIcon from "@assets/Grey-Cog-Grey_1760979822772.png";
+
+interface TodayOutcome {
+  date: string;
+  puzzleId?: number;
+  isWin: boolean;
+  guessCount: number;
+}
 
 interface GameSelectionPageProps {
   onPlayGame: () => void;
@@ -34,6 +42,27 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
   const [todayPuzzleStatus, setTodayPuzzleStatus] = useState<'not-played' | 'solved' | 'failed'>('not-played');
   const [guessCount, setGuessCount] = useState<number>(0);
 
+  // Load from cache immediately on mount for instant rendering
+  useEffect(() => {
+    const cachedOutcome = readLocal<TodayOutcome>(CACHE_KEYS.TODAY_OUTCOME);
+    
+    if (cachedOutcome) {
+      // Check if cache is for today's puzzle
+      const isCacheForToday = cachedOutcome.puzzleId === todayPuzzleId || 
+                              cachedOutcome.date === todayPuzzleTargetDate;
+      
+      if (isCacheForToday) {
+        if (cachedOutcome.isWin) {
+          setTodayPuzzleStatus('solved');
+          setGuessCount(cachedOutcome.guessCount);
+        } else {
+          setTodayPuzzleStatus('failed');
+        }
+      }
+    }
+  }, []); // Run once on mount for instant rendering
+
+  // Background reconciliation with Supabase/localStorage
   useEffect(() => {
     if (!todayPuzzleId && !todayPuzzleTargetDate) return;
 
@@ -46,12 +75,22 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       if (todayAttempt) {
         // Defensive normalization: handle both "won"/"lost" and "win"/"loss"
         const isWin = todayAttempt.result === 'won' || todayAttempt.result === 'win';
+        const count = todayAttempt.numGuesses ?? 0;
+        
         if (isWin) {
           setTodayPuzzleStatus('solved');
-          setGuessCount(todayAttempt.numGuesses ?? 0);
+          setGuessCount(count);
         } else {
           setTodayPuzzleStatus('failed');
         }
+        
+        // Update cache with fresh data from Supabase
+        writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
+          date: todayPuzzleTargetDate || '',
+          puzzleId: todayPuzzleId,
+          isWin,
+          guessCount: count,
+        });
       } else {
         setTodayPuzzleStatus('not-played');
       }
@@ -64,13 +103,21 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         const completion = completions[todayPuzzleTargetDate];
         
         if (completion && completion.completed) {
+          const count = Array.isArray(completion.guesses) ? completion.guesses.length : completion.guesses;
+          
           if (completion.won) {
             setTodayPuzzleStatus('solved');
-            const count = Array.isArray(completion.guesses) ? completion.guesses.length : completion.guesses;
             setGuessCount(count);
           } else {
             setTodayPuzzleStatus('failed');
           }
+          
+          // Update cache with fresh data from localStorage
+          writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
+            date: todayPuzzleTargetDate,
+            isWin: completion.won,
+            guessCount: count,
+          });
         } else {
           setTodayPuzzleStatus('not-played');
         }

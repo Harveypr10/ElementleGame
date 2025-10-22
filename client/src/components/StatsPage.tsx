@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useGameData } from "@/hooks/useGameData";
+import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 
 interface StatsPageProps {
   onBack: () => void;
@@ -39,11 +40,34 @@ export function StatsPage({ onBack }: StatsPageProps) {
     puzzleCompletions: {}
   });
 
+  // Load from cache first for instant rendering
+  useEffect(() => {
+    const cachedStats = readLocal<any>(CACHE_KEYS.STATS);
+    if (cachedStats) {
+      const dist = cachedStats.guessDistribution as any || {};
+      setStats({
+        played: cachedStats.gamesPlayed ?? cachedStats.played ?? 0,
+        won: cachedStats.gamesWon ?? cachedStats.won ?? 0,
+        currentStreak: cachedStats.currentStreak ?? 0,
+        maxStreak: cachedStats.maxStreak ?? 0,
+        guessDistribution: {
+          1: dist["1"] || dist[1] || 0,
+          2: dist["2"] || dist[2] || 0,
+          3: dist["3"] || dist[3] || 0,
+          4: dist["4"] || dist[4] || 0,
+          5: dist["5"] || dist[5] || 0,
+        },
+        puzzleCompletions: cachedStats.puzzleCompletions || {},
+      });
+    }
+  }, []); // Run once on mount
+
+  // Background reconciliation with Supabase/localStorage
   useEffect(() => {
     if (isAuthenticated && supabaseStats) {
       // Use Supabase stats for authenticated users - always show user_stats data
       const dist = supabaseStats.guessDistribution as any || {};
-      setStats({
+      const newStats = {
         played: supabaseStats.gamesPlayed ?? 0,
         won: supabaseStats.gamesWon ?? 0,
         currentStreak: supabaseStats.currentStreak ?? 0,
@@ -68,7 +92,11 @@ export function StatsPage({ onBack }: StatsPageProps) {
           }
           return acc;
         }, {} as any) : {},
-      });
+      };
+      setStats(newStats);
+      
+      // Update cache
+      writeLocal(CACHE_KEYS.STATS, { ...supabaseStats, puzzleCompletions: newStats.puzzleCompletions });
     } else if (!isAuthenticated) {
       // Use localStorage for guest users
       const storedStats = localStorage.getItem("elementle-stats");

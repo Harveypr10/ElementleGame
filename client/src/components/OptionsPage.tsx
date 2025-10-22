@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 
 interface OptionsPageProps {
   onBack: () => void;
@@ -19,7 +20,26 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [cluesEnabled, setCluesEnabled] = useState(true);
 
-  // Load settings from Supabase or localStorage
+  // Load settings from cache first for instant rendering
+  useEffect(() => {
+    const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS);
+    if (cachedSettings) {
+      const size = (cachedSettings.textSize as "small" | "medium" | "large") || "medium";
+      setTextSize(size);
+      setSoundsEnabled(cachedSettings.soundsEnabled ?? true);
+      setDarkMode(cachedSettings.darkMode ?? false);
+      setCluesEnabled(cachedSettings.cluesEnabled ?? true);
+      
+      // Apply settings to DOM
+      document.documentElement.style.setProperty(
+        "--text-scale",
+        size === "small" ? "0.875" : size === "large" ? "1.125" : "1"
+      );
+      document.documentElement.classList.toggle("dark", cachedSettings.darkMode ?? false);
+    }
+  }, []); // Run once on mount
+
+  // Background reconciliation with Supabase or localStorage
   useEffect(() => {
     if (isAuthenticated && settings) {
       // Use Supabase settings for authenticated users
@@ -35,7 +55,10 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
         size === "small" ? "0.875" : size === "large" ? "1.125" : "1"
       );
       document.documentElement.classList.toggle("dark", settings.darkMode ?? false);
-    } else {
+      
+      // Update cache
+      writeLocal(CACHE_KEYS.SETTINGS, settings);
+    } else if (!isAuthenticated) {
       // Use localStorage for guest users
       const storedTheme = localStorage.getItem("theme");
       setDarkMode(storedTheme === "dark");
@@ -66,6 +89,9 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
     
     if (isAuthenticated) {
       await updateSettings({ textSize: size });
+      // Update cache after Supabase update
+      const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, textSize: size });
     } else {
       localStorage.setItem("textSize", size);
     }
@@ -78,6 +104,9 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
     
     if (isAuthenticated) {
       await updateSettings({ darkMode: checked });
+      // Update cache after Supabase update
+      const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, darkMode: checked });
     } else {
       localStorage.setItem("theme", newTheme);
     }
@@ -88,6 +117,9 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
     
     if (isAuthenticated) {
       await updateSettings({ soundsEnabled: checked });
+      // Update cache after Supabase update
+      const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, soundsEnabled: checked });
     } else {
       localStorage.setItem("soundsEnabled", String(checked));
     }
@@ -98,6 +130,9 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
     
     if (isAuthenticated) {
       await updateSettings({ cluesEnabled: checked });
+      // Update cache after Supabase update
+      const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, cluesEnabled: checked });
     } else {
       localStorage.setItem("cluesEnabled", String(checked));
     }
