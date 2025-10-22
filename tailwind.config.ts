@@ -87,9 +87,17 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+
+        brand: {
+          blue: "#7DAAE8",
+          yellow: "#FFD429",
+          green: "#A4DB57",
+          grey: "#C4C9D4",
+          background: "#FAFAFA",
+        },
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
+        sans: ["Nunito", "sans-serif"],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
       },
