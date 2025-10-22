@@ -602,13 +602,13 @@ export function PlayPage({
             />
             
             {gameOver && !isWin && (
-              <div className="flex flex-col items-center mt-12">
-                <p className="text-sm text-muted-foreground mb-3">Correct answer:</p>
+              <div className="w-full mt-12">
+                <p className="text-center text-sm text-muted-foreground mb-3">Correct answer:</p>
                 <div className="flex gap-2 justify-center">
                   {targetDate.split('').map((digit, i) => (
                     <div
                       key={i}
-                      className="flex-1 aspect-square max-w-16"
+                      className="flex-1 aspect-square"
                       data-testid={`answer-container-${i}`}
                     >
                       <div

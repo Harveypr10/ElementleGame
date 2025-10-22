@@ -165,7 +165,7 @@ export function EndGameModal({
           width: 8px;
           height: 8px;
           top: 0;
-          animation: confetti-fall 2s linear forwards;
+          animation: confetti-fall 2s linear infinite;
         }
         
         .animate-fade-in {
