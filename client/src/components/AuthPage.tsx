@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,15 +23,38 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const [formData, setFormData] = useState({
     email: "",
     password: "",
+    confirmPassword: "",
     firstName: "",
     lastName: "",
   });
+
+  // Reset form when mode changes to prevent stale data
+  useEffect(() => {
+    setFormData({
+      email: "",
+      password: "",
+      confirmPassword: "",
+      firstName: "",
+      lastName: "",
+    });
+  }, [mode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate password for signup
     if (mode === "signup") {
+      // Check if passwords match first for clearer feedback
+      if (formData.password !== formData.confirmPassword) {
+        toast({
+          title: "Passwords don't match",
+          description: "Please make sure both passwords are the same.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Then check password strength
       const validation = validatePassword(formData.password);
       if (!validation.valid) {
         toast({
@@ -149,6 +172,20 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
                 </button>
               )}
             </div>
+
+            {mode === "signup" && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" data-testid="label-confirm-password">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  data-testid="input-confirm-password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  required
+                />
+              </div>
+            )}
 
             <Button 
               type="submit" 
