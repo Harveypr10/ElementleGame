@@ -4,6 +4,7 @@ import sadHamster from "@assets/Commiseration-Hamster-Grey.svg";
 import { useEffect, useState } from "react";
 import { Home, BarChart3, Archive } from "lucide-react";
 import { formatFullDateWithOrdinal, formatDateWithOrdinal } from "@/lib/dateFormat";
+import { soundManager } from "@/lib/sounds";
 
 interface EndGameModalProps {
   isOpen: boolean;
@@ -35,10 +36,16 @@ export function EndGameModal({
   const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    if (isOpen && isWin) {
-      setShowConfetti(true);
-      const timer = setTimeout(() => setShowConfetti(false), 3000);
-      return () => clearTimeout(timer);
+    if (isOpen) {
+      // Play appropriate sound when modal opens
+      if (isWin) {
+        soundManager.playCelebration();
+        setShowConfetti(true);
+        const timer = setTimeout(() => setShowConfetti(false), 3000);
+        return () => clearTimeout(timer);
+      } else {
+        soundManager.playCommiseration();
+      }
     }
   }, [isOpen, isWin]);
 

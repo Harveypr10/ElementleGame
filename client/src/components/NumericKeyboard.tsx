@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Delete, RotateCcw } from "lucide-react";
+import { soundManager } from "@/lib/sounds";
 
 export type KeyState = "default" | "correct" | "inSequence" | "ruledOut";
 
@@ -34,6 +35,11 @@ export function NumericKeyboard({
     }
   };
 
+  const handleClick = (callback: () => void) => {
+    soundManager.playClick();
+    callback();
+  };
+
   return (
     <div className="space-y-2 w-full" data-testid="numeric-keyboard">
       <div className="flex gap-2 justify-center">
@@ -42,7 +48,7 @@ export function NumericKeyboard({
             key={digit}
             variant="outline"
             className={`h-14 flex-1 sm:h-16 text-xl font-medium ${getKeyClasses(digit)}`}
-            onClick={() => onDigitPress(digit)}
+            onClick={() => handleClick(() => onDigitPress(digit))}
             data-testid={`key-${digit}`}
           >
             {digit}
@@ -56,7 +62,7 @@ export function NumericKeyboard({
             key={digit}
             variant="outline"
             className={`h-14 flex-1 sm:h-16 text-xl font-medium ${getKeyClasses(digit)}`}
-            onClick={() => onDigitPress(digit)}
+            onClick={() => handleClick(() => onDigitPress(digit))}
             data-testid={`key-${digit}`}
           >
             {digit}
@@ -68,7 +74,7 @@ export function NumericKeyboard({
         <Button
           variant="default"
           className="flex-1 h-12 sm:h-14 text-base font-medium"
-          onClick={onEnter}
+          onClick={() => handleClick(onEnter)}
           disabled={!canSubmit}
           data-testid="key-enter"
         >
@@ -78,7 +84,7 @@ export function NumericKeyboard({
         <Button
           variant="outline"
           className="flex-1 h-12 sm:h-14"
-          onClick={onClear}
+          onClick={() => handleClick(onClear)}
           data-testid="key-clear"
         >
           <RotateCcw className="h-4 w-4" />
@@ -87,7 +93,7 @@ export function NumericKeyboard({
         <Button
           variant="outline"
           className="flex-1 h-12 sm:h-14"
-          onClick={onDelete}
+          onClick={() => handleClick(onDelete)}
           data-testid="key-delete"
         >
           <Delete className="h-4 w-4" />

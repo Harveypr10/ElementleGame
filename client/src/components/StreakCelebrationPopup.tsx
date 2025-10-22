@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import streakHamster from "@assets/Streak-Hamster-Black.svg";
+import { soundManager } from "@/lib/sounds";
 
 interface StreakCelebrationPopupProps {
   streak: number;
@@ -8,6 +9,9 @@ interface StreakCelebrationPopupProps {
 
 export function StreakCelebrationPopup({ streak, onDismiss }: StreakCelebrationPopupProps) {
   useEffect(() => {
+    // Play streak sound when popup appears
+    soundManager.playStreak();
+    
     const timer = setTimeout(() => {
       onDismiss();
     }, 5000);
