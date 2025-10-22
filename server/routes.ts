@@ -183,24 +183,65 @@ app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
     if (existing) {
       console.log('[POST /api/game-attempts] Found existing open attempt:', { id: existing.id, numGuesses: existing.numGuesses });
       
-      // Update numGuesses if client sent a higher value
-      if (typeof req.body.numGuesses === "number" && req.body.numGuesses > (existing.numGuesses ?? 0)) {
-        await storage.updateGameAttempt(existing.id, { numGuesses: req.body.numGuesses });
+      // If client sends completion data (result), apply it along with numGuesses
+      // This handles cases where POST is used for completion instead of PATCH
+      const updates: any = {};
+      
+      if (result && result !== null) {
+        updates.result = result;
+        console.log('[POST /api/game-attempts] Client sent result in POST:', result);
       }
-      return res.json({ ...existing, numGuesses: Math.max(existing.numGuesses ?? 0, req.body.numGuesses ?? 0) });
+      
+      if (typeof req.body.numGuesses === "number" && req.body.numGuesses > (existing.numGuesses ?? 0)) {
+        updates.numGuesses = req.body.numGuesses;
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        const updated = await storage.updateGameAttempt(existing.id, updates);
+        console.log('[POST /api/game-attempts] Updated existing attempt:', { result: updated.result, numGuesses: updated.numGuesses });
+        return res.json(updated);
+      }
+      
+      return res.json(existing);
     }
 
-    console.log('[POST /api/game-attempts] No existing open attempt found, creating new one');
+    console.log('[POST /api/game-attempts] No existing open attempt found, checking for ANY attempt...');
     
-    // Otherwise create new (upsert handles unique constraint)
-    const gameAttempt = await storage.upsertGameAttempt({
+    // Check if ANY attempt exists for this user/puzzle (including completed ones)
+    const anyAttempt = await storage.getGameAttemptByUserAndPuzzle(userId, puzzleId);
+    
+    if (anyAttempt) {
+      // An attempt exists (likely completed) - don't create a new one or overwrite it
+      console.log('[POST /api/game-attempts] Found existing attempt (possibly completed):', { 
+        id: anyAttempt.id, 
+        result: anyAttempt.result, 
+        numGuesses: anyAttempt.numGuesses 
+      });
+      
+      // If it's completed, don't allow mutation - just return it
+      if (anyAttempt.result !== null) {
+        console.log('[POST /api/game-attempts] Attempt is completed, returning without mutation');
+        return res.json(anyAttempt);
+      }
+      
+      // If somehow result is null but we didn't find it in getOpenAttemptByUserAndPuzzle
+      // (shouldn't happen, but defensive), update numGuesses if needed
+      if (typeof req.body.numGuesses === "number" && req.body.numGuesses > (anyAttempt.numGuesses ?? 0)) {
+        await storage.updateGameAttempt(anyAttempt.id, { numGuesses: req.body.numGuesses });
+      }
+      return res.json({ ...anyAttempt, numGuesses: Math.max(anyAttempt.numGuesses ?? 0, req.body.numGuesses ?? 0) });
+    }
+    
+    // No attempt exists at all - create a fresh one
+    console.log('[POST /api/game-attempts] No attempt exists, creating fresh one');
+    const gameAttempt = await storage.createGameAttempt({
       userId,
       puzzleId,
       result: result ?? null,
       numGuesses: req.body.numGuesses ?? 0,
     });
 
-    console.log('[POST /api/game-attempts] Created/upserted attempt:', { id: gameAttempt.id, numGuesses: gameAttempt.numGuesses });
+    console.log('[POST /api/game-attempts] Created attempt:', { id: gameAttempt.id, numGuesses: gameAttempt.numGuesses });
 
     res.json(gameAttempt);
   } catch (error) {
