@@ -29,6 +29,7 @@ export function useGameData() {
   const { data: gameAttempts, isLoading: loadingAttempts } = useQuery<GameAttempt[]>({
     queryKey: ["/api/game-attempts/user"],
     enabled: isAuthenticated,
+    staleTime: 0, // Always consider data stale to ensure refetch on Archive mount
   });
 
   // Create a new game attempt
@@ -61,6 +62,11 @@ export function useGameData() {
     mutationFn: async (data: CreateGuessData) => {
       const response = await apiRequest("POST", "/api/guesses", data);
       return await response.json();
+    },
+    onSuccess: () => {
+      // Invalidate game attempts cache because POST /api/guesses increments numGuesses
+      // This ensures Archive page shows updated guess counts for in-progress games
+      queryClient.invalidateQueries({ queryKey: ["/api/game-attempts/user"] });
     },
   });
 

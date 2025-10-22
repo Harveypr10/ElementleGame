@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
@@ -31,8 +32,20 @@ interface DayStatus {
 export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps) {
   const { isAuthenticated } = useAuth();
   const { gameAttempts, loadingAttempts } = useGameData();
+  const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date(2025, 9, 1)); // October 2025
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
+
+  // Explicitly refetch game attempts when Archive mounts
+  // Archive is conditionally rendered and unmounts when navigating away,
+  // so this effect runs every time user navigates to Archive
+  // This ensures in-progress games show updated guess counts after playing
+  useEffect(() => {
+    if (isAuthenticated) {
+      queryClient.refetchQueries({ queryKey: ["/api/game-attempts/user"] });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty array is intentional - runs on mount (which happens on every navigation to Archive)
 
   // Load from cache first for instant rendering
   useEffect(() => {
