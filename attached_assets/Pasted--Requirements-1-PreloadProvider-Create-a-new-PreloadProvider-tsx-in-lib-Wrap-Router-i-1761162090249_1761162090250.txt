@@ -1,0 +1,62 @@
+✅ Requirements
+1. PreloadProvider
+•	Create a new PreloadProvider.tsx in lib/.
+•	Wrap <Router /> in App.tsx with <PreloadProvider>.
+•	On mount, it should:
+o	Preload images:
+	HistorianHamsterBlue, LibrarianHamsterYellow, MathsHamsterGreen, MechanicHamsterGrey
+	WhiteTickBlue, WhiteCrossBlue
+o	Prefetch data (using TanStack Query or direct Supabase fetch):
+	Options settings
+	Account profile (full object, including emailVerified)
+	Statistics (full object if not too heavy, otherwise summary)
+	Game attempts (today’s puzzle outcome)
+	Archive data (last 12 months if trivial, otherwise current month only)
+2. Local cache utility
+•	Create localCache.ts with:
+ts
+export function readLocal<T>(key: string): T | null
+export function writeLocal(key: string, value: unknown): void
+•	All prefetched data should be written into localStorage under keys like:
+o	cached-settings
+o	cached-profile
+o	cached-stats
+o	cached-attempts
+o	cached-archive-YYYY-MM
+3. Component behaviour
+•	Play button (GameSelectionPage)
+o	Always preload both tick and cross images.
+o	On game completion, preload the correct image again (to refresh cache).
+o	Store today’s outcome in cached-today-outcome with {date, isWin, guessCount}.
+o	On GameSelectionPage load, read this cache first to render instantly, then reconcile with Supabase/localStorage in background.
+•	OptionsPage
+o	On load, read cached-settings and render immediately.
+o	When a setting changes, update Supabase (if logged in), update TanStack Query cache, and write to localStorage.
+•	Account Info (Profile)
+o	On load, read cached-profile and render immediately.
+o	On Supabase fetch, update both query cache and localStorage.
+o	Auto invalidate cache on logout (clear cached-profile).
+•	Statistics (StatsPage)
+o	On load, read cached-stats and render immediately.
+o	On game completion, update stats locally and in Supabase, then write to localStorage.
+•	Archive (ArchivePage)
+o	On app load, preload last 12 months if trivial; otherwise preload current month.
+o	Store each month’s data in cached-archive-YYYY-MM.
+o	When user clicks into a different month, fetch that month’s data, cache it, and render instantly next time.
+o	When a user plays an archive puzzle:
+	Insert/update guesses and game_attempts in Supabase.
+	Update local cache for that month immediately (so the date turns blue and shows guess count).
+4. Update flows
+•	Any time data changes (settings toggled, profile updated, game completed, archive puzzle played):
+o	Update Supabase (if logged in).
+o	Update TanStack Query cache.
+o	Write to localStorage.
+5. Logout behaviour
+•	On logout, clear all cached user specific data: cached-profile, cached-settings, cached-stats, cached-attempts.
+✅ Acceptance Criteria
+•	No flicker: Play button never flashes hamster before tick/cross.
+•	Instant load: Options, Account Info, Stats, and Archive pages render immediately from cache.
+•	Always fresh: Supabase updates are reflected in cache instantly.
+•	Archive UX: Current month preloaded; other months fetched on demand and cached. Archive dates update immediately when guesses are made.
+•	Logout: Clears user specific caches.
+This is the full scope. Please implement PreloadProvider.tsx, localCache.ts, and update the relevant pages (GameSelectionPage, OptionsPage, AccountInfoPage, StatsPage, ArchivePage, PlayPage) to use local first rendering with background refresh.

@@ -37,11 +37,24 @@ export function StreakCelebrationPopup({ streak, onDismiss }: StreakCelebrationP
               alt="Streak hamster"
               className="w-full h-full object-contain"
             />
-            <div className="absolute inset-0 flex items-center justify-center" style={{ top: '40%' }}>
-              <span className="text-6xl font-bold text-red-600 drop-shadow-lg" data-testid="text-streak-number">
+            <div
+              className="absolute inset-0 flex items-center justify-center"
+              style={{ top: "50%" }}
+            >
+              <span
+                className={`font-bold text-red-600 drop-shadow-lg leading-none ${
+                  String(streak).length === 1
+                    ? "text-6xl"
+                    : String(streak).length === 2
+                    ? "text-5xl"
+                    : "text-4xl"
+                }`}
+                data-testid="text-streak-number"
+              >
                 {streak}
               </span>
             </div>
+
           </div>
           
           <div className="text-white">
