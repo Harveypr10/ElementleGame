@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SupabaseProvider } from "@/lib/SupabaseProvider";
+import { PreloadProvider } from "@/lib/PreloadProvider";
 import { GuessCacheProvider } from "@/contexts/GuessCacheContext";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/not-found";
@@ -65,12 +66,14 @@ function App() {
   return (
     <SupabaseProvider>
       <QueryClientProvider client={queryClient}>
-        <GuessCacheProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </GuessCacheProvider>
+        <PreloadProvider>
+          <GuessCacheProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </GuessCacheProvider>
+        </PreloadProvider>
       </QueryClientProvider>
     </SupabaseProvider>
   );
