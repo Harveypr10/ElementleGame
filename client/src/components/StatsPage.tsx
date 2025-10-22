@@ -107,9 +107,9 @@ export function StatsPage({ onBack }: StatsPageProps) {
   }, [isAuthenticated, supabaseStats, gameAttempts]);
 
   const winPercentage = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
-  const maxGuesses = Math.max(...Object.values(stats.guessDistribution), 1);
+  const maxGuesses = Math.max(...Object.values(stats.guessDistribution || {}), 1);
   
-  const averageGuesses = stats.won > 0
+  const averageGuesses = stats.won > 0 && stats.guessDistribution
     ? (Object.entries(stats.guessDistribution).reduce((sum, [guesses, count]) => 
         sum + (parseInt(guesses) * count), 0) / stats.won).toFixed(2)
     : "0";
@@ -232,7 +232,7 @@ export function StatsPage({ onBack }: StatsPageProps) {
             </h3>
             <div className="space-y-2">
               {[1, 2, 3, 4, 5].map((guessNum) => {
-                const count = stats.guessDistribution[guessNum] || 0;
+                const count = (stats.guessDistribution && stats.guessDistribution[guessNum]) || 0;
                 const percentage = maxGuesses > 0 ? (count / maxGuesses) * 100 : 0;
                 
                 return (

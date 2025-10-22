@@ -64,15 +64,16 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       const statusMap: Record<string, DayStatus> = {};
       
       puzzles.forEach(puzzle => {
-        const attempt = gameAttempts.find(a => a.puzzleId === puzzle.id && a.result !== null);
+        // Find ANY attempt (including in-progress ones with result=null)
+        const attempt = gameAttempts.find(a => a.puzzleId === puzzle.id);
         
         if (attempt) {
           statusMap[puzzle.targetDate] = {
-            completed: true,
+            completed: attempt.result !== null,
             // Defensive normalization: handle both "won"/"lost" and "win"/"loss"
             won: attempt.result === 'won' || attempt.result === 'win',
             guessCount: attempt.numGuesses ?? 0,
-            inProgress: attempt.result === null
+            inProgress: attempt.result === null && (attempt.numGuesses ?? 0) > 0
           };
         }
       });
@@ -190,6 +191,11 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
           {status?.completed && (
             <span className="text-xs mt-1 opacity-70">
               {status.won ? `✓ ${status.guessCount}` : '✗'}
+            </span>
+          )}
+          {status?.inProgress && (
+            <span className="text-xs mt-1 opacity-70">
+              {status.guessCount}
             </span>
           )}
         </div>
