@@ -82,23 +82,21 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, 
   return (
     <div className="min-h-screen flex flex-col p-4">
       <div className="w-full max-w-md mx-auto space-y-4">
-        <div className="flex items-center gap-2 mb-6">
-          <Button
-            variant="ghost"
-            size="icon"
+        <div className="flex items-center justify-between mb-6">
+          <button
             onClick={onBack}
             data-testid="button-back-from-settings"
+            className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">Settings</h1>
-            {isAuthenticated && user && (
-              <p className="text-sm text-muted-foreground" data-testid="text-settings-user-name">
-                {user.user_metadata?.first_name || "User"}
-              </p>
-            )}
+            <ChevronLeft className="h-9 w-9 text-gray-700" />
+          </button>
+
+          <div className="flex flex-col items-center">
+            <h1 className="text-4xl font-bold text-gray-700">Settings</h1>
           </div>
+
+          {/* Spacer to balance layout */}
+          <div className="w-14" />
         </div>
 
         <Card className="p-4 space-y-2">

@@ -180,7 +180,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
           <ChevronLeft className="h-10 w-10 text-gray-700" />
         </button>
 
-        <h2 className="text-3xl font-bold">Archive</h2>
+        <h2 className="text-4xl font-bold">Archive</h2>
 
         <div className="w-14" />
       </div>

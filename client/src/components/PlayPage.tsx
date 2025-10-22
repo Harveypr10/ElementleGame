@@ -581,13 +581,13 @@ export function PlayPage({
           data-testid="button-help"
           className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <img src={greyHelpIcon} alt="Help" className="h-6 w-6" />
+          <img src={greyHelpIcon} alt="Help" className="h-9 w-9" />
         </button>
       </div>
 
       <div className="flex-1 flex flex-col justify-between">
         <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="w-full max-w-md space-y-4">
+          <div className="w-full max-w-md space-y-2 sm:space-y-4">
             {cluesEnabled && (
               <div className="text-center">
                 <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">

@@ -107,18 +107,16 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
     <div className="min-h-screen flex flex-col p-4">
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
+          <button
             onClick={onBack}
             data-testid="button-back-from-options"
             className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <ChevronLeft className="h-10 w-10 text-gray-700" />
-          </Button>
+            <ChevronLeft className="h-9 w-9 text-gray-700" />
+          </button>
 
           <h1 className="text-4xl font-bold text-gray-700">Options</h1>
 
-          {/* Spacer to balance layout */}
           <div className="w-14" />
         </div>
 
