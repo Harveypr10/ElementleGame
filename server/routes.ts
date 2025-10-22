@@ -166,6 +166,8 @@ app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
     const userId = req.user.id;
     const puzzleId = req.body.puzzleId;
 
+    console.log('[POST /api/game-attempts] Request:', { userId, puzzleId, numGuesses: req.body.numGuesses, result: req.body.result });
+
     if (!puzzleId) {
       return res.status(400).json({ error: "Missing puzzleId in body" });
     }
@@ -179,6 +181,8 @@ app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
     const existing = await storage.getOpenAttemptByUserAndPuzzle(userId, puzzleId);
 
     if (existing) {
+      console.log('[POST /api/game-attempts] Found existing open attempt:', { id: existing.id, numGuesses: existing.numGuesses });
+      
       // Update numGuesses if client sent a higher value
       if (typeof req.body.numGuesses === "number" && req.body.numGuesses > (existing.numGuesses ?? 0)) {
         await storage.updateGameAttempt(existing.id, { numGuesses: req.body.numGuesses });
@@ -186,6 +190,8 @@ app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
       return res.json({ ...existing, numGuesses: Math.max(existing.numGuesses ?? 0, req.body.numGuesses ?? 0) });
     }
 
+    console.log('[POST /api/game-attempts] No existing open attempt found, creating new one');
+    
     // Otherwise create new (upsert handles unique constraint)
     const gameAttempt = await storage.upsertGameAttempt({
       userId,
@@ -194,9 +200,11 @@ app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
       numGuesses: req.body.numGuesses ?? 0,
     });
 
+    console.log('[POST /api/game-attempts] Created/upserted attempt:', { id: gameAttempt.id, numGuesses: gameAttempt.numGuesses });
+
     res.json(gameAttempt);
   } catch (error) {
-    console.error("Error creating/upserting game attempt:", error);
+    console.error("[POST /api/game-attempts] Error:", error);
     res.status(500).json({ error: "Failed to create/upsert game attempt" });
   }
 });
@@ -217,13 +225,22 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
     const id = parseInt(req.params.id);
     const userId = req.user.id;
 
+    console.log('[PATCH /api/game-attempts/:id] Request:', { id, userId, updates: req.body });
+
     // Verify ownership
     const allAttempts = await storage.getGameAttemptsByUser(userId);
     const ownedAttempt = allAttempts.find(a => a.id === id);
 
     if (!ownedAttempt) {
+      console.error('[PATCH /api/game-attempts/:id] Attempt not owned by user:', id);
       return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
     }
+
+    console.log('[PATCH /api/game-attempts/:id] Current state:', {
+      result: ownedAttempt.result,
+      numGuesses: ownedAttempt.numGuesses,
+      completedAt: ownedAttempt.completedAt
+    });
 
     // Defensive normalization
     const updates: any = { ...req.body };
@@ -238,13 +255,17 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
 
     // Ensure numGuesses never decreases
     if (typeof updates.numGuesses === "number") {
-      updates.numGuesses = Math.max(updates.numGuesses, ownedAttempt.numGuesses ?? 0);
+      const previousNumGuesses = ownedAttempt.numGuesses ?? 0;
+      updates.numGuesses = Math.max(updates.numGuesses, previousNumGuesses);
+      console.log('[PATCH /api/game-attempts/:id] numGuesses:', { previous: previousNumGuesses, requested: req.body.numGuesses, final: updates.numGuesses });
     }
 
     const gameAttempt = await storage.updateGameAttempt(id, updates);
+    console.log('[PATCH /api/game-attempts/:id] Updated:', { result: gameAttempt.result, numGuesses: gameAttempt.numGuesses, completedAt: gameAttempt.completedAt });
+    
     res.json(gameAttempt);
   } catch (error) {
-    console.error("Error updating game attempt:", error);
+    console.error("[PATCH /api/game-attempts/:id] Error:", error);
     res.status(500).json({ error: "Failed to update game attempt" });
   }
 });
@@ -255,6 +276,8 @@ app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
     const userId = req.user.id;
     const gameAttemptId = req.body.gameAttemptId;
 
+    console.log('[POST /api/guesses] Request:', { userId, gameAttemptId, guessValue: req.body.guessValue });
+
     if (!gameAttemptId) {
       return res.status(400).json({ error: "Missing gameAttemptId in body" });
     }
@@ -264,14 +287,18 @@ app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
     const ownedAttempt = allAttempts.find(a => a.id === gameAttemptId);
 
     if (!ownedAttempt) {
+      console.error('[POST /api/guesses] Attempt not owned by user:', gameAttemptId);
       return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
     }
 
     // Block guesses if attempt already completed
     if (ownedAttempt.result !== null) {
+      console.error('[POST /api/guesses] Attempt already completed with result:', ownedAttempt.result);
       return res.status(409).json({ error: "Attempt already completed; no further guesses allowed" });
     }
 
+    console.log('[POST /api/guesses] Saving guess to database...');
+    
     // Save the guess
     const guess = await storage.createGuess({
       gameAttemptId,
@@ -279,12 +306,18 @@ app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
       feedbackResult: req.body.feedbackResult,
     });
 
+    console.log('[POST /api/guesses] Guess saved:', guess.id);
+    
     // Increment num_guesses
     await storage.incrementAttemptGuesses(gameAttemptId);
+    
+    // Read back to verify
+    const updatedAttempt = await storage.getGameAttempt(gameAttemptId);
+    console.log('[POST /api/guesses] After increment, numGuesses:', updatedAttempt?.numGuesses);
 
     res.json(guess);
   } catch (error) {
-    console.error("Error creating guess:", error);
+    console.error("[POST /api/guesses] Error:", error);
     res.status(500).json({ error: "Failed to create guess" });
   }
 });

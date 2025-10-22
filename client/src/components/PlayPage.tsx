@@ -473,32 +473,39 @@ export function PlayPage({
   }, [handleKeyPress]);
 
   const createOrGetGameAttempt = async (): Promise<number | null> => {
-    if (!isAuthenticated || !puzzleId) return null;
+    if (!isAuthenticated || !puzzleId) {
+      console.log('[createOrGetGameAttempt] Not authenticated or missing puzzleId', { isAuthenticated, puzzleId });
+      return null;
+    }
 
     // If we already have one in state, reuse it
-    if (currentGameAttemptId) return currentGameAttemptId;
+    if (currentGameAttemptId) {
+      console.log('[createOrGetGameAttempt] Reusing existing attemptId from state:', currentGameAttemptId);
+      return currentGameAttemptId;
+    }
 
     try {
-      // Check if an attempt already exists for this user & puzzle with result = null
-      const res = await apiRequest("GET", `/api/game-attempts?puzzleId=${puzzleId}&resultIsNull=true`);
-      const existing = await res.json();
-
-      if (existing && existing.length > 0) {
-        setCurrentGameAttemptId(existing[0].id);
-        return existing[0].id;
-      }
-
-      // Otherwise create a new one
-      const createRes = await apiRequest("POST", "/api/game-attempts", {
+      console.log('[createOrGetGameAttempt] POSTing to find or create attempt for puzzleId:', puzzleId);
+      
+      // POST to /api/game-attempts - server will find existing open attempt or create new one
+      const res = await apiRequest("POST", "/api/game-attempts", {
         puzzleId,
         result: null,
         numGuesses: 0
       });
-      const gameAttempt = await createRes.json();
+      
+      if (!res.ok) {
+        console.error('[createOrGetGameAttempt] Failed to create/get attempt:', res.status, res.statusText);
+        return null;
+      }
+      
+      const gameAttempt = await res.json();
+      console.log('[createOrGetGameAttempt] Got attemptId:', gameAttempt.id, 'numGuesses:', gameAttempt.numGuesses);
+      
       setCurrentGameAttemptId(gameAttempt.id);
       return gameAttempt.id;
     } catch (error) {
-      console.error("Error creating or fetching game attempt:", error);
+      console.error("[createOrGetGameAttempt] Error:", error);
       return null;
     }
   };
@@ -507,14 +514,29 @@ export function PlayPage({
     if (!isAuthenticated) return;
 
     try {
+      console.log('[saveGuessToDatabase] Saving guess:', {
+        gameAttemptId,
+        guessValue: guess.guessValue,
+        feedbackLength: guess.feedbackResult.length
+      });
+      
       const res = await apiRequest("POST", "/api/guesses", {
         gameAttemptId,
         guessValue: guess.guessValue,
         feedbackResult: guess.feedbackResult
       });
-      await res.json();
+      
+      if (!res.ok) {
+        console.error('[saveGuessToDatabase] Failed to save guess:', res.status, res.statusText);
+        const errorText = await res.text();
+        console.error('[saveGuessToDatabase] Error response:', errorText);
+        return;
+      }
+      
+      const savedGuess = await res.json();
+      console.log('[saveGuessToDatabase] Guess saved successfully:', savedGuess.id);
     } catch (error) {
-      console.error("Error saving guess:", error);
+      console.error("[saveGuessToDatabase] Error:", error);
     }
   };
 
@@ -522,14 +544,36 @@ export function PlayPage({
     if (!isAuthenticated) return;
 
     try {
+      console.log('[completeGameAttempt] Completing attempt:', {
+        gameAttemptId,
+        won,
+        numGuesses
+      });
+      
       // Update the game attempt with result and completion time
-      await apiRequest("PATCH", `/api/game-attempts/${gameAttemptId}`, {
+      const patchRes = await apiRequest("PATCH", `/api/game-attempts/${gameAttemptId}`, {
         result: won ? "won" : "lost",
         numGuesses
       });
+      
+      if (!patchRes.ok) {
+        console.error('[completeGameAttempt] Failed to PATCH attempt:', patchRes.status);
+        return;
+      }
+      
+      const updatedAttempt = await patchRes.json();
+      console.log('[completeGameAttempt] Attempt updated:', updatedAttempt);
 
       // Recalculate stats from database
-      await apiRequest("POST", "/api/stats/recalculate");
+      console.log('[completeGameAttempt] Recalculating stats...');
+      const recalcRes = await apiRequest("POST", "/api/stats/recalculate");
+      
+      if (!recalcRes.ok) {
+        console.error('[completeGameAttempt] Failed to recalculate stats:', recalcRes.status);
+      } else {
+        const recalcStats = await recalcRes.json();
+        console.log('[completeGameAttempt] Stats recalculated:', recalcStats);
+      }
 
       // Invalidate caches to refetch fresh data
       const { queryClient } = await import("@/lib/queryClient");
@@ -540,13 +584,14 @@ export function PlayPage({
       if (won) {
         const statsRes = await apiRequest("GET", "/api/stats");
         const freshStats = await statsRes.json();
+        console.log('[completeGameAttempt] Fresh stats loaded:', freshStats);
         if (freshStats.currentStreak) {
           setCurrentStreak(freshStats.currentStreak);
           setShowStreakCelebration(true);
         }
       }
     } catch (error) {
-      console.error("Error completing game attempt:", error);
+      console.error("[completeGameAttempt] Error:", error);
     }
   };
 
@@ -558,6 +603,8 @@ export function PlayPage({
       return;
     }
 
+    console.log('[updateStats] Updating guest stats:', { won, numGuesses });
+
     // Guest users: use old localStorage increment logic
     const storedStats = localStorage.getItem("elementle-stats");
     const currentStats = storedStats ? JSON.parse(storedStats) : {
@@ -565,9 +612,14 @@ export function PlayPage({
       won: 0,
       currentStreak: 0,
       maxStreak: 0,
-      guessDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      guessDistribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
       puzzleCompletions: {}
     };
+
+    // Ensure guessDistribution is always initialized with string keys
+    if (!currentStats.guessDistribution || typeof currentStats.guessDistribution !== 'object') {
+      currentStats.guessDistribution = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+    }
 
     if (!currentStats.puzzleCompletions) {
       currentStats.puzzleCompletions = {};
@@ -588,7 +640,14 @@ export function PlayPage({
       currentStats.won += 1;
       currentStats.currentStreak += 1;
       currentStats.maxStreak = Math.max(currentStats.maxStreak, currentStats.currentStreak);
-      currentStats.guessDistribution[numGuesses] = (currentStats.guessDistribution[numGuesses] || 0) + 1;
+      
+      // Use string key for guessDistribution (convert numGuesses to string)
+      const guessKey = numGuesses.toString();
+      if (numGuesses >= 1 && numGuesses <= 5) {
+        currentStats.guessDistribution[guessKey] = (currentStats.guessDistribution[guessKey] || 0) + 1;
+      }
+      
+      console.log('[updateStats] Updated distribution:', currentStats.guessDistribution);
       
       // Show streak celebration
       setCurrentStreak(currentStats.currentStreak);
@@ -599,6 +658,7 @@ export function PlayPage({
 
     // Save to localStorage for guest users
     localStorage.setItem("elementle-stats", JSON.stringify(currentStats));
+    console.log('[updateStats] Stats saved to localStorage');
   };
 
   const handlePlayAgain = () => {
