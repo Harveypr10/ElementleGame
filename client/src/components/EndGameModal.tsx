@@ -65,7 +65,7 @@ export function EndGameModal({
           <img
             src={isWin ? happyHamster : sadHamster}
             alt={isWin ? "Happy hamster" : "Sad hamster"}
-            className={`max-w-xs w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""}`}
+            className={`${isWin ? "max-w-[150px]" : "max-w-xs"} w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""}`}
             data-testid="hamster-image"
           />
           {showConfetti && (
