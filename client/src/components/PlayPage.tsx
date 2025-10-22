@@ -351,10 +351,10 @@ export function PlayPage({
       setGameOver(true);
       localStorage.removeItem(`puzzle-progress-${targetDate}`);
       
-      // Delay showing modal by 2 seconds to show animations
+      // Delay showing modal by 4 seconds to show animations
       setTimeout(() => {
         setShowEndModal(true);
-      }, 2000);
+      }, 4000);
       
       if (isAuthenticated && attemptId) {
         // Complete game attempt and recalculate stats from database (use attemptId, not state)
@@ -608,10 +608,15 @@ export function PlayPage({
                   {targetDate.split('').map((digit, i) => (
                     <div
                       key={i}
-                      className="w-12 h-12 flex items-center justify-center bg-game-correct text-white text-2xl font-bold rounded-md"
-                      data-testid={`answer-digit-${i}`}
+                      className="flex-1 aspect-square max-w-16"
+                      data-testid={`answer-container-${i}`}
                     >
-                      {digit}
+                      <div
+                        className="w-full h-full flex items-center justify-center bg-game-correct text-white border-2 border-game-correct text-3xl sm:text-4xl font-semibold rounded-md"
+                        data-testid={`answer-digit-${i}`}
+                      >
+                        {digit}
+                      </div>
                     </div>
                   ))}
                 </div>
