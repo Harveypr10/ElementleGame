@@ -13,6 +13,7 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
+import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
 
 interface PlayPageProps {
   targetDate: string;
@@ -627,16 +628,24 @@ export function PlayPage({
 
         {showCelebrationFirst && gameOver && !hasOpenedCelebration && (
           <div className="w-full max-w-md mx-auto pb-4">
-            <Button
-              className="w-full h-14 text-lg"
+            <button
+              className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm"
+              style={{ backgroundColor: "#C4C9D4" }}
               onClick={() => {
                 onSetHasOpenedCelebration?.(true);
                 setShowCelebrationModal(true);
               }}
               data-testid="button-continue"
             >
-              Continue
-            </Button>
+              <span className="text-xl font-bold text-gray-800">Continue</span>
+              <div className="flex-shrink-0 flex items-center">
+                <img
+                  src={mechanicHamsterGrey}
+                  alt="Continue"
+                  className="max-h-20 w-auto object-contain"
+                />
+              </div>
+            </button>
           </div>
         )}
 
