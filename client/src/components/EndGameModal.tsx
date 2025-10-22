@@ -113,57 +113,61 @@ export function EndGameModal({
             )}
           </div>
 
-        <div className="space-y-3">
-          <button
-            className="w-full h-20 flex items-center justify-between px-6 rounded-3xl shadow-sm"
-            style={{ backgroundColor: "#A4DB57" }}
-            onClick={onViewStats}
-            data-testid="button-stats"
-          >
-            <span className="text-xl font-bold text-gray-800">Stats</span>
-            <div className="flex-shrink-0 flex items-center">
-              <img
-                src={mathsHamsterGreen}
-                alt="Stats"
-                className="max-h-14 w-auto object-contain"
-              />
+          <div className="space-y-3">
+            {/* Stats button: full width, green */}
+            <Button
+              variant="success"
+              className="w-full h-20 flex items-center justify-between px-6 rounded-3xl shadow-sm"
+              onClick={onViewStats}
+              data-testid="button-stats"
+            >
+              <span className="text-xl font-bold text-gray-800">Stats</span>
+              <div className="flex-shrink-0 flex items-center">
+                <img
+                  src={mathsHamsterGreen}
+                  alt="Stats"
+                  className="h-10 w-auto object-contain sm:h-12 md:h-14"
+                />
+              </div>
+            </Button>
+
+            <div className="flex gap-3">
+              {/* Home button: half width, blue */}
+              <Button
+                variant="default"
+                className="flex-1 h-20 flex items-center justify-between px-4 rounded-3xl shadow-sm"
+                onClick={onHome}
+                data-testid="button-home"
+              >
+                <span className="text-lg font-bold text-gray-800">Home</span>
+                <div className="flex-shrink-0 flex items-center">
+                  <img
+                    src={historianHamsterBlue}
+                    alt="Home"
+                    className="h-10 w-auto object-contain sm:h-12 md:h-14"
+                  />
+                </div>
+              </Button>
+
+              {/* Archive button: half width, yellow */}
+              <Button
+                variant="warning"
+                className="flex-1 h-20 flex items-center justify-between px-4 rounded-3xl shadow-sm"
+                onClick={onViewArchive}
+                data-testid="button-archive"
+              >
+                <span className="text-lg font-bold text-gray-800">Archive</span>
+                <div className="flex-shrink-0 flex items-center">
+                  <img
+                    src={librarianHamsterYellow}
+                    alt="Archive"
+                    className="h-10 w-auto object-contain sm:h-12 md:h-14"
+                  />
+                </div>
+              </Button>
             </div>
-          </button>
-
-          <div className="flex gap-3">
-            <button
-              className="flex-1 h-20 flex items-center justify-between px-4 rounded-3xl shadow-sm"
-              style={{ backgroundColor: "#7DAAE8" }}
-              onClick={onHome}
-              data-testid="button-home"
-            >
-              <span className="text-lg font-bold text-gray-800">Home</span>
-              <div className="flex-shrink-0 flex items-center">
-                <img
-                  src={historianHamsterBlue}
-                  alt="Home"
-                  className="max-h-14 w-auto object-contain"
-                />
-              </div>
-            </button>
-
-            <button
-              className="flex-1 h-20 flex items-center justify-between px-4 rounded-3xl shadow-sm"
-              style={{ backgroundColor: "#FFD429" }}
-              onClick={onViewArchive}
-              data-testid="button-archive"
-            >
-              <span className="text-lg font-bold text-gray-800">Archive</span>
-              <div className="flex-shrink-0 flex items-center">
-                <img
-                  src={librarianHamsterYellow}
-                  alt="Archive"
-                  className="max-h-14 w-auto object-contain"
-                />
-              </div>
-            </button>
           </div>
-        </div>
+
       </div>
     </div>
 
