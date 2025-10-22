@@ -29,7 +29,7 @@ export function NumericKeyboard({
       case "inSequence":
         return "bg-game-inSequence text-white hover:bg-game-inSequence";
       case "ruledOut":
-        return "bg-game-ruledOut text-muted-foreground opacity-50";
+        return "bg-gray-500 text-white font-bold";
       default:
         return "";
     }
@@ -42,12 +42,14 @@ export function NumericKeyboard({
 
   return (
     <div className="space-y-2 w-full" data-testid="numeric-keyboard">
+      {/* Row 1 */}
       <div className="flex gap-2 justify-center">
         {["1", "2", "3", "4", "5"].map((digit) => (
           <Button
             key={digit}
-            variant="outline"
-            className={`h-14 flex-1 sm:h-16 text-xl font-medium ${getKeyClasses(digit)}`}
+            className={`h-14 flex-1 sm:h-16 text-xl font-bold rounded-md active:scale-95 transition-transform ${
+              getKeyClasses(digit) || "bg-gray-200 text-gray-800 hover:bg-gray-300"
+            }`}
             onClick={() => handleClick(() => onDigitPress(digit))}
             data-testid={`key-${digit}`}
           >
@@ -55,13 +57,15 @@ export function NumericKeyboard({
           </Button>
         ))}
       </div>
-      
+
+      {/* Row 2 */}
       <div className="flex gap-2 justify-center">
         {["6", "7", "8", "9", "0"].map((digit) => (
           <Button
             key={digit}
-            variant="outline"
-            className={`h-14 flex-1 sm:h-16 text-xl font-medium ${getKeyClasses(digit)}`}
+            className={`h-14 flex-1 sm:h-16 text-xl font-bold rounded-md active:scale-95 transition-transform ${
+              getKeyClasses(digit) || "bg-gray-200 text-gray-800 hover:bg-gray-300"
+            }`}
             onClick={() => handleClick(() => onDigitPress(digit))}
             data-testid={`key-${digit}`}
           >
@@ -69,36 +73,42 @@ export function NumericKeyboard({
           </Button>
         ))}
       </div>
-      
+
+      {/* Row 3 */}
       <div className="flex gap-2 justify-center">
+        {/* Enter key */}
         <Button
-          variant="default"
-          className="flex-1 h-12 sm:h-14 text-base font-medium"
+          className={`flex-1 h-14 sm:h-16 text-base sm:text-lg font-bold rounded-md active:scale-95 transition-transform ${
+            canSubmit
+              ? "bg-brand-blue/90 hover:bg-brand-blue/80 text-white"
+              : "bg-brand-blue/60 text-white cursor-not-allowed"
+          }`}
           onClick={() => handleClick(onEnter)}
           disabled={!canSubmit}
           data-testid="key-enter"
         >
           Enter
         </Button>
-        
+
+        {/* Clear key */}
         <Button
-          variant="outline"
-          className="flex-1 h-12 sm:h-14"
+          className="flex-1 h-14 sm:h-16 bg-gray-200 text-gray-800 font-bold rounded-md hover:bg-gray-300 active:scale-95 transition-transform"
           onClick={() => handleClick(onClear)}
           data-testid="key-clear"
         >
-          <RotateCcw className="h-4 w-4" />
+          <RotateCcw className="h-7 w-7" />
         </Button>
-        
+
+        {/* Delete key */}
         <Button
-          variant="outline"
-          className="flex-1 h-12 sm:h-14"
+          className="flex-1 h-14 sm:h-16 bg-gray-200 text-gray-800 font-bold rounded-md hover:bg-gray-300 active:scale-95 transition-transform"
           onClick={() => handleClick(onDelete)}
           data-testid="key-delete"
         >
-          <Delete className="h-4 w-4" />
+          <Delete className="h-7 w-7" />
         </Button>
       </div>
     </div>
+
   );
 }

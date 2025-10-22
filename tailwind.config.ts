@@ -94,6 +94,7 @@ export default {
           yellow: "#FFD429",
           green: "#A4DB57",
           grey: "#C4C9D4",
+          purple: "#8e57db",
           background: "#FAFAFA",
         },
       },

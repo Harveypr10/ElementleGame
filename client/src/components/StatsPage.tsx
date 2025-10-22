@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, BarChart3, TrendingUp, Award } from "lucide-react";
+import { ChevronLeft, BarChart3, TrendingUp, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
@@ -115,10 +115,10 @@ export function StatsPage({ onBack }: StatsPageProps) {
           data-testid="button-back"
           className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <ArrowLeft className="h-9 w-9" />
+          <ChevronLeft className="h-10 w-10 text-gray-700" />
         </button>
 
-        <h2 className="text-4xl font-bold">Statistics</h2>
+        <h2 className="text-3xl font-bold">Statistics</h2>
 
         <div className="w-14" />
       </div>
@@ -181,7 +181,7 @@ export function StatsPage({ onBack }: StatsPageProps) {
                         key={i}
                         className={cn(
                           "flex-1 rounded-sm transition-all",
-                          day.won ? "bg-green-500" : "bg-red-500"
+                          day.won ? "bg-brand-green" : "bg-brand-purple"
                         )}
                         style={{ height: `${(day.guessCount / 5) * 100}%` }}
                         title={`${day.won ? 'Won' : 'Lost'} in ${day.guessCount} guesses`}
@@ -212,7 +212,7 @@ export function StatsPage({ onBack }: StatsPageProps) {
                     <div className="w-4 text-sm font-medium">{guessNum}</div>
                     <div className="flex-1 bg-muted rounded-sm h-8 relative overflow-hidden">
                       <div
-                        className="bg-game-correct h-full transition-all duration-300 flex items-center justify-end pr-2"
+                        className="bg-brand-green h-full transition-all duration-300 flex items-center justify-end pr-2"
                         style={{ width: `${Math.max(percentage, count > 0 ? 10 : 0)}%` }}
                         data-testid={`dist-bar-${guessNum}`}
                       >
@@ -228,7 +228,7 @@ export function StatsPage({ onBack }: StatsPageProps) {
                 <div className="w-4 text-sm font-medium">X</div>
                 <div className="flex-1 bg-muted rounded-sm h-8 relative overflow-hidden">
                   <div
-                    className="bg-red-500 h-full transition-all duration-300 flex items-center justify-end pr-2"
+                    className="bg-brand-purple h-full transition-all duration-300 flex items-center justify-end pr-2"
                     style={{ width: `${Math.max((stats.played - stats.won) > 0 ? ((stats.played - stats.won) / maxGuesses) * 100 : 0, (stats.played - stats.won) > 0 ? 10 : 0)}%` }}
                     data-testid="dist-bar-lost"
                   >

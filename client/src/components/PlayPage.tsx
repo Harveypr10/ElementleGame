@@ -5,7 +5,7 @@ import { EndGameModal } from "./EndGameModal";
 import { HelpDialog } from "./HelpDialog";
 import { StreakCelebrationPopup } from "./StreakCelebrationPopup";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
@@ -569,7 +569,7 @@ export function PlayPage({
           data-testid="button-back"
           className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <ArrowLeft className="h-9 w-9" />
+          <ChevronLeft className="h-10 w-10 text-gray-700" />
         </button>
 
         <h2 className="text-4xl font-bold">
