@@ -628,17 +628,19 @@ export function PlayPage({
 
         {showCelebrationFirst && gameOver && !hasOpenedCelebration && (
           <div className="w-full max-w-md mx-auto pb-4">
-            <button
-              className="w-full h-24 flex items-center justify-center px-6 rounded-3xl shadow-sm"
-              style={{ backgroundColor: "#C4C9D4" }}
+            <Button
+              variant="outline"
+              className="w-full h-16 sm:h-20 md:h-24 flex items-center justify-center px-6 rounded-3xl shadow-sm bg-brand-grey"
               onClick={() => {
                 onSetHasOpenedCelebration?.(true);
                 setShowCelebrationModal(true);
               }}
               data-testid="button-continue"
             >
-              <span className="text-xl font-bold text-gray-800">Continue</span>
-            </button>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800">
+                Continue
+              </span>
+            </Button>
           </div>
         )}
 

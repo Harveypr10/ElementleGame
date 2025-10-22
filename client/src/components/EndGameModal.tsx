@@ -62,14 +62,14 @@ export function EndGameModal({
       <div className="min-h-screen p-4 pt-8">
         <div className="w-full max-w-md mx-auto space-y-6">
           <h2 className="text-center text-3xl font-bold">
-            {isWin ? "Congratulations!" : "Better Luck Next Time"}
+            {isWin ? "Congratulations!" : "Unlucky!"}
           </h2>
 
           <div className="relative flex justify-center my-4">
             <img
               src={isWin ? happyHamster : sadHamster}
               alt={isWin ? "Happy hamster" : "Sad hamster"}
-              className={`${isWin ? "max-w-[150px]" : "max-w-[224px]"} w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""}`}
+              className={`${isWin ? "max-w-[150px]" : "max-w-[150px]"} w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""}`}
               data-testid="hamster-image"
             />
             {showConfetti && (
