@@ -53,11 +53,11 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
       // Wait for all images to load (but don't block on errors)
       await Promise.allSettled(imagePromises);
 
-      // Prefetch data if authenticated
+      // Prefetch data if authenticated - handle each independently
       if (isAuthenticated && user) {
-        try {
+        const prefetchTasks = [
           // Prefetch settings
-          const settings = await queryClient.fetchQuery({
+          queryClient.fetchQuery({
             queryKey: ['/api/settings'],
             queryFn: async () => {
               const response = await fetch('/api/settings', {
@@ -66,12 +66,11 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
               if (!response.ok) throw new Error('Failed to fetch settings');
               return response.json();
             },
-            staleTime: 5 * 60 * 1000, // 5 minutes
-          });
-          writeLocal(CACHE_KEYS.SETTINGS, settings);
+            staleTime: 5 * 60 * 1000,
+          }).then(data => ({ key: 'settings', data })).catch(() => ({ key: 'settings', data: null })),
 
           // Prefetch profile
-          const profile = await queryClient.fetchQuery({
+          queryClient.fetchQuery({
             queryKey: ['/api/auth/profile'],
             queryFn: async () => {
               const response = await fetch('/api/auth/profile', {
@@ -81,11 +80,10 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
               return response.json();
             },
             staleTime: 5 * 60 * 1000,
-          });
-          writeLocal(CACHE_KEYS.PROFILE, profile);
+          }).then(data => ({ key: 'profile', data })).catch(() => ({ key: 'profile', data: null })),
 
           // Prefetch stats
-          const stats = await queryClient.fetchQuery({
+          queryClient.fetchQuery({
             queryKey: ['/api/stats'],
             queryFn: async () => {
               const response = await fetch('/api/stats', {
@@ -95,11 +93,10 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
               return response.json();
             },
             staleTime: 5 * 60 * 1000,
-          });
-          writeLocal(CACHE_KEYS.STATS, stats);
+          }).then(data => ({ key: 'stats', data })).catch(() => ({ key: 'stats', data: null })),
 
           // Prefetch game attempts
-          const attempts = await queryClient.fetchQuery({
+          queryClient.fetchQuery({
             queryKey: ['/api/game-attempts/user'],
             queryFn: async () => {
               const response = await fetch('/api/game-attempts/user', {
@@ -109,14 +106,10 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
               return response.json();
             },
             staleTime: 5 * 60 * 1000,
-          });
-          writeLocal(CACHE_KEYS.ATTEMPTS, attempts);
+          }).then(data => ({ key: 'attempts', data })).catch(() => ({ key: 'attempts', data: null })),
 
-          // Prefetch current month's archive data
-          const now = new Date();
-          const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-          
-          const puzzles = await queryClient.fetchQuery({
+          // Prefetch puzzles (public data)
+          queryClient.fetchQuery({
             queryKey: ['/api/puzzles'],
             queryFn: async () => {
               const response = await fetch('/api/puzzles', {
@@ -125,20 +118,50 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
               if (!response.ok) throw new Error('Failed to fetch puzzles');
               return response.json();
             },
-            staleTime: 10 * 60 * 1000, // 10 minutes for puzzles
-          });
+            staleTime: 10 * 60 * 1000,
+          }).then(data => ({ key: 'puzzles', data })).catch(() => ({ key: 'puzzles', data: null })),
+        ];
+
+        // Execute all prefetch tasks in parallel
+        const results = await Promise.allSettled(prefetchTasks);
+
+        // Process results and update caches independently
+        const dataMap: Record<string, any> = {};
+        results.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value.data) {
+            dataMap[result.value.key] = result.value.data;
+          }
+        });
+
+        // Cache each piece of data if available
+        if (dataMap.settings) {
+          writeLocal(CACHE_KEYS.SETTINGS, dataMap.settings);
+        }
+
+        if (dataMap.profile?.user) {
+          writeLocal(CACHE_KEYS.PROFILE, dataMap.profile.user);
+        }
+
+        if (dataMap.stats) {
+          writeLocal(CACHE_KEYS.STATS, dataMap.stats);
+        }
+
+        if (dataMap.attempts) {
+          writeLocal(CACHE_KEYS.ATTEMPTS, dataMap.attempts);
+        }
+
+        // Cache current month's archive if we have puzzles
+        if (dataMap.puzzles && Array.isArray(dataMap.puzzles)) {
+          const now = new Date();
+          const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
           
-          // Filter current month's puzzles
-          const currentMonthPuzzles = puzzles.filter((puzzle: any) => {
+          const currentMonthPuzzles = dataMap.puzzles.filter((puzzle: any) => {
             const puzzleDate = new Date(puzzle.date);
             const puzzleMonth = `${puzzleDate.getFullYear()}-${String(puzzleDate.getMonth() + 1).padStart(2, '0')}`;
             return puzzleMonth === currentMonth;
           });
           
           writeLocal(`${CACHE_KEYS.ARCHIVE_PREFIX}${currentMonth}`, currentMonthPuzzles);
-        } catch (error) {
-          console.error('Error prefetching data:', error);
-          // Don't block the app if prefetch fails
         }
       }
 
