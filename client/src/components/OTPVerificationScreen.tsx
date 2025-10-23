@@ -112,7 +112,7 @@ export function OTPVerificationScreen({
       const { data, error} = await supabase.auth.verifyOtp({
         email,
         token: code,
-        type: verifyType,
+        type: "magiclink",
       });
 
       console.log('[OTP] verifyOtp result:', error ? `Error: ${error.message}` : 'Success');
