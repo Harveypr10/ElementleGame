@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { apiRequest } from "@/lib/queryClient";
+import { useSupabase } from "@/lib/SupabaseProvider";
 import type { GameAttempt, Guess } from "@shared/schema";
 
 interface CreateGameAttemptData {
@@ -24,6 +25,7 @@ interface UpdateGameAttemptData {
 export function useGameData() {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  const supabase = useSupabase();
 
   // Get all game attempts for the current user
   const { data: gameAttempts, isLoading: loadingAttempts } = useQuery<GameAttempt[]>({
@@ -72,12 +74,42 @@ export function useGameData() {
 
   // Get guesses for a specific game attempt
   const getGuessesByAttempt = async (gameAttemptId: number): Promise<Guess[]> => {
-    if (!isAuthenticated) return [];
+    console.log('[getGuessesByAttempt] Called with gameAttemptId:', gameAttemptId, 'isAuthenticated:', isAuthenticated);
+    if (!isAuthenticated) {
+      console.log('[getGuessesByAttempt] Not authenticated, returning empty array');
+      return [];
+    }
     try {
-      const response = await apiRequest("GET", `/api/guesses/${gameAttemptId}`);
-      return await response.json();
+      // Get fresh session to ensure valid token
+      console.log('[getGuessesByAttempt] Getting Supabase session from supabase instance...');
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.access_token) {
+        console.error('[getGuessesByAttempt] No valid session:', sessionError);
+        return [];
+      }
+      
+      console.log('[getGuessesByAttempt] Making API request with fresh token to /api/guesses/' + gameAttemptId);
+      const response = await fetch(`/api/guesses/${gameAttemptId}`, {
+        credentials: "include",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
+      
+      console.log('[getGuessesByAttempt] Response received, status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[getGuessesByAttempt] Request failed with status:', response.status, 'error:', errorText);
+        return [];
+      }
+      
+      const data = await response.json();
+      console.log('[getGuessesByAttempt] Data parsed, guesses count:', data.length);
+      return data;
     } catch (error) {
-      console.error("Error fetching guesses:", error);
+      console.error("[getGuessesByAttempt] Error fetching guesses:", error);
       return [];
     }
   };
