@@ -91,32 +91,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { firstName, lastName, email, acceptedTerms, adsConsent } = req.body;
 
       const existing = await storage.getUserProfile(userId);
+      if (!existing) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+
       const now = new Date();
 
       const updatedProfile = await storage.upsertUserProfile({
         id: userId,
-        email,
-        firstName,
-        lastName,
+        email: email ?? existing.email,
+        firstName: firstName ?? existing.firstName,
+        lastName: lastName ?? existing.lastName,
         acceptedTerms:
-          acceptedTerms ?? existing?.acceptedTerms ?? false,
+          acceptedTerms ?? existing.acceptedTerms ?? false,
         adsConsent:
-          adsConsent ?? existing?.adsConsent ?? false,
+          adsConsent ?? existing.adsConsent ?? false,
         acceptedTermsAt:
           acceptedTerms !== undefined &&
-          acceptedTerms !== existing?.acceptedTerms
+          acceptedTerms !== existing.acceptedTerms
             ? now
-            : existing?.acceptedTermsAt
+            : existing.acceptedTermsAt
             ? new Date(existing.acceptedTermsAt)
             : null,
         adsConsentUpdatedAt:
           adsConsent !== undefined &&
-          adsConsent !== existing?.adsConsent
+          adsConsent !== existing.adsConsent
             ? now
-            : existing?.adsConsentUpdatedAt
+            : existing.adsConsentUpdatedAt
             ? new Date(existing.adsConsentUpdatedAt)
             : null,
-        emailVerified: existing?.emailVerified ?? false,
+        emailVerified: existing.emailVerified ?? false,
       });
 
       res.json(updatedProfile);
