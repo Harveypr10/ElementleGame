@@ -66,50 +66,69 @@ export function useGameData() {
       return await response.json();
     },
     onSuccess: () => {
-      // Invalidate game attempts cache because POST /api/guesses increments numGuesses
-      // This ensures Archive page shows updated guess counts for in-progress games
+      // Invalidate both caches:
+      // - game attempts cache (for updated numGuesses count)
+      // - all guesses cache (for updated guess data)
+      // This ensures Archive page shows updated status and guess counts
       queryClient.invalidateQueries({ queryKey: ["/api/game-attempts/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/guesses/all"] });
     },
   });
 
   // Get guesses for a specific game attempt
   const getGuessesByAttempt = async (gameAttemptId: number): Promise<Guess[]> => {
-    console.log('[getGuessesByAttempt] Called with gameAttemptId:', gameAttemptId, 'isAuthenticated:', isAuthenticated);
     if (!isAuthenticated) {
-      console.log('[getGuessesByAttempt] Not authenticated, returning empty array');
       return [];
     }
     try {
-      // Get fresh session to ensure valid token
-      console.log('[getGuessesByAttempt] Getting Supabase session from supabase instance...');
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
+      // Always refresh the session to get a fresh token
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
       if (sessionError || !session?.access_token) {
-        console.error('[getGuessesByAttempt] No valid session:', sessionError);
+        console.error("[getGuessesByAttempt] No valid session:", sessionError);
         return [];
       }
-      
-      console.log('[getGuessesByAttempt] Making API request with fresh token to /api/guesses/' + gameAttemptId);
+
       const response = await fetch(`/api/guesses/${gameAttemptId}`, {
-        credentials: "include",
         headers: {
           "Authorization": `Bearer ${session.access_token}`,
         },
       });
-      
-      console.log('[getGuessesByAttempt] Response received, status:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[getGuessesByAttempt] Request failed with status:', response.status, 'error:', errorText);
+        console.error("[getGuessesByAttempt] Request failed:", response.status, errorText);
         return [];
       }
-      
+
       const data = await response.json();
-      console.log('[getGuessesByAttempt] Data parsed, guesses count:', data.length);
+      console.log("[getGuessesByAttempt] Loaded guesses:", data.length);
       return data;
     } catch (error) {
       console.error("[getGuessesByAttempt] Error fetching guesses:", error);
+      return [];
+    }
+  };
+
+  const getAllGuesses = async (): Promise<Array<Guess & { puzzleId: number; result: string | null }>> => {
+    console.log("[getAllGuesses] Called, isAuthenticated:", isAuthenticated);
+    if (!isAuthenticated) {
+      console.log("[getAllGuesses] Not authenticated, returning empty array");
+      return [];
+    }
+    try {
+      console.log("[getAllGuesses] Fetching from /api/guesses/all");
+      const response = await apiRequest("GET", "/api/guesses/all");
+      console.log("[getAllGuesses] Response status:", response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[getAllGuesses] Request failed:", response.status, errorText);
+        return [];
+      }
+      const data = await response.json();
+      console.log("[getAllGuesses] Fetched", data.length, "guesses");
+      return data;
+    } catch (error) {
+      console.error("[getAllGuesses] Error fetching guesses:", error);
       return [];
     }
   };
@@ -137,6 +156,7 @@ export function useGameData() {
     updateGameAttempt: updateGameAttempt.mutateAsync,
     createGuess: createGuess.mutateAsync,
     getGuessesByAttempt,
+    getAllGuesses,
     isPuzzleCompleted,
     getInProgressAttempt,
     isCreatingAttempt: createGameAttempt.isPending,

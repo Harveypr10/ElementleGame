@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
@@ -31,18 +31,25 @@ interface DayStatus {
 
 export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps) {
   const { isAuthenticated } = useAuth();
-  const { gameAttempts, loadingAttempts } = useGameData();
+  const { gameAttempts, loadingAttempts, getAllGuesses } = useGameData();
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date(2025, 9, 1)); // October 2025
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
+  const { data: allGuesses } = useQuery({
+    queryKey: ["/api/guesses/all"],
+    queryFn: getAllGuesses,
+    enabled: isAuthenticated,
+    staleTime: 0,
+  });
 
-  // Explicitly refetch game attempts when Archive mounts
+  // Explicitly refetch game attempts and all guesses when Archive mounts
   // Archive is conditionally rendered and unmounts when navigating away,
   // so this effect runs every time user navigates to Archive
   // This ensures in-progress games show updated guess counts after playing
   useEffect(() => {
     if (isAuthenticated) {
       queryClient.refetchQueries({ queryKey: ["/api/game-attempts/user"] });
+      queryClient.refetchQueries({ queryKey: ["/api/guesses/all"] });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty array is intentional - runs on mount (which happens on every navigation to Archive)
@@ -72,21 +79,27 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
 
   // Background reconciliation with Supabase/localStorage
   useEffect(() => {
-    if (isAuthenticated && gameAttempts && !loadingAttempts) {
-      // Use Supabase game attempts ONLY for authenticated users
+    if (isAuthenticated && allGuesses && !loadingAttempts) {
+      console.log('[Archive] Building status map from allGuesses:', allGuesses.length, 'guesses');
       const statusMap: Record<string, DayStatus> = {};
-      
+
       puzzles.forEach(puzzle => {
-        // Find ANY attempt (including in-progress ones with result=null)
-        const attempt = gameAttempts.find(a => a.puzzleId === puzzle.id);
-        
-        if (attempt) {
+        // Find guesses for this puzzle
+        const guessesForPuzzle = allGuesses.filter(g => g.puzzleId === puzzle.id);
+        if (guessesForPuzzle.length > 0) {
+          const attemptResult = (guessesForPuzzle[0] as any).result ?? null;
+          console.log(`[Archive] Puzzle ${puzzle.id} (${puzzle.targetDate}):`, {
+            guessCount: guessesForPuzzle.length,
+            result: attemptResult,
+            completed: attemptResult !== null,
+            won: attemptResult === "won" || attemptResult === "win",
+            inProgress: attemptResult === null,
+          });
           statusMap[puzzle.targetDate] = {
-            completed: attempt.result !== null,
-            // Defensive normalization: handle both "won"/"lost" and "win"/"loss"
-            won: attempt.result === 'won' || attempt.result === 'win',
-            guessCount: attempt.numGuesses ?? 0,
-            inProgress: attempt.result === null && (attempt.numGuesses ?? 0) > 0
+            completed: attemptResult !== null,
+            won: attemptResult === "won" || attemptResult === "win",
+            guessCount: guessesForPuzzle.length,
+            inProgress: attemptResult === null,
           };
         }
       });
@@ -125,7 +138,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       
       setDayStatuses(statusMap);
     }
-  }, [isAuthenticated, gameAttempts, puzzles, currentMonth]);
+  }, [isAuthenticated, allGuesses, puzzles, currentMonth]);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();

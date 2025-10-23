@@ -381,6 +381,18 @@ app.get("/api/guesses/recent", verifySupabaseAuth, async (req: any, res) => {
   }
 });
 
+  app.get("/api/guesses/all", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const guesses = await storage.getAllGuessesWithPuzzleIds(userId);
+      res.json(guesses);
+    } catch (error) {
+      console.error("Error fetching all guesses:", error);
+      res.status(500).json({ error: "Failed to fetch all guesses" });
+    }
+  });
+
+
 app.get("/api/guesses/:gameAttemptId", verifySupabaseAuth, async (req: any, res) => {
   try {
     const userId = req.user.id;

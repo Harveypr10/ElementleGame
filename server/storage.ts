@@ -52,6 +52,7 @@ export interface IStorage {
   getGuessesByGameAttempt(gameAttemptId: number): Promise<Guess[]>;
   createGuess(guess: InsertGuess): Promise<Guess>;
   getRecentGuessesWithPuzzleIds(userId: string, since: string): Promise<Array<Guess & { puzzleId: number }>>;
+  getAllGuessesWithPuzzleIds(userId: string): Promise<Array<Guess & { puzzleId: number; result: string | null }>>;
 
   // User stats operations
   getUserStats(userId: string): Promise<UserStats | undefined>;
@@ -298,6 +299,25 @@ export class DatabaseStorage implements IStorage {
           gte(puzzles.date, since)
         )
       )
+      .orderBy(guesses.guessedAt);
+
+    return results;
+  }
+
+  async getAllGuessesWithPuzzleIds(userId: string): Promise<Array<Guess & { puzzleId: number; result: string | null }>> {
+    const results = await db
+      .select({
+        id: guesses.id,
+        gameAttemptId: guesses.gameAttemptId,
+        guessValue: guesses.guessValue,
+        feedbackResult: guesses.feedbackResult,
+        guessedAt: guesses.guessedAt,
+        puzzleId: gameAttempts.puzzleId,
+        result: gameAttempts.result, // include result so you know if it's won/lost/null
+      })
+      .from(guesses)
+      .innerJoin(gameAttempts, eq(guesses.gameAttemptId, gameAttempts.id))
+      .where(eq(gameAttempts.userId, userId))
       .orderBy(guesses.guessedAt);
 
     return results;

@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Mail, Info, Lock, FileText, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { clearUserCache } from "@/lib/localCache";
 
 interface SettingsPageProps {
@@ -17,6 +18,7 @@ interface SettingsPageProps {
 export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, onTerms, onAbout }: SettingsPageProps) {
   const { user, isAuthenticated, signOut } = useAuth();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   const menuItems = [
     {
@@ -66,8 +68,15 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, 
 
   const handleSignOut = async () => {
     try {
-      // Clear user-specific cached data
+      // Clear user-specific cached data from localStorage
       clearUserCache();
+      
+      // Clear React Query caches to prevent data leaks between users
+      queryClient.invalidateQueries({ queryKey: ["/api/game-attempts/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/guesses/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
       
       // Sign out from Supabase
       await signOut();

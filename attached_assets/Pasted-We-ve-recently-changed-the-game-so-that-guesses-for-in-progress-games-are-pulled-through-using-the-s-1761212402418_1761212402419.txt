@@ -1,0 +1,45 @@
+We’ve recently changed the game so that guesses for in‑progress games are pulled through using the same logic as completed (won/lost) games. Specifically:
+
+In storage.ts we added getAllGuessesWithPuzzleIds which returns guesses for all attempts (completed or not).
+
+In routes.ts we added /api/guesses/all to expose that unified dataset.
+
+In useGameData.ts we added getAllGuesses to call this endpoint.
+
+In ArchivePage.tsx we switched from using gameAttempts + /api/guesses/recent to using getAllGuesses so that incomplete games show in blue with their guess counts.
+
+In PlayPage.tsx we replaced calls to getGuessesByAttempt with getAllGuesses().filter(...) so that resuming an in‑progress game loads guesses the same way as completed games.
+
+Current issues after these changes:
+
+Archive now correctly shows incomplete games in blue with guess counts, but it no longer shows the correct green/red win/loss status for completed games.
+
+When clicking into an in‑progress game from Archive, the guesses are still not being pulled into the PlayPage grid (the attempt is found, but the guesses array is empty).
+
+There may be a type mismatch or missing result field in the data returned from /api/guesses/all that’s causing Archive not to detect completed vs in‑progress status properly.
+
+What we need you to check and fix:
+
+Verify that getAllGuessesWithPuzzleIds in storage.ts is returning both puzzleId and result for each guess row, so the frontend can distinguish between null (in progress), "won", and "lost".
+
+Ensure /api/guesses/all is returning that result field in its JSON response.
+
+In ArchivePage.tsx, update the status map logic so it uses the result field from guesses to set completed and won correctly, while still showing blue for in‑progress.
+
+In PlayPage.tsx, confirm that getAllGuesses().filter(g => g.gameAttemptId === attempt.id) actually returns the guesses for that attempt. If it’s empty, check whether the gameAttemptId is being returned correctly from the backend.
+
+Double‑check that React Query caches are being invalidated on logout so guesses from one user don’t leak into another.
+
+Goal:
+
+Archive should show:
+
+Green with ✓ and guess count for won games
+
+Red with ✗ for lost games
+
+Blue with guess count for in‑progress games
+
+Grey for untouched games
+
+PlayPage should load the actual guesses for both completed and in‑progress games using the unified /api/guesses/all logic.

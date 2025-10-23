@@ -61,7 +61,7 @@ export function PlayPage({
   onViewArchive,
 }: PlayPageProps) {
   const { user, isAuthenticated } = useAuth();
-  const { gameAttempts, getGuessesByAttempt, loadingAttempts } = useGameData();
+  const { gameAttempts, getAllGuesses, loadingAttempts } = useGameData();
   const { stats: supabaseStats } = useUserStats();
   const { settings } = useUserSettings();
   const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
@@ -130,7 +130,8 @@ export function PlayPage({
             
             if (!cachedGuesses) {
               // Cache miss - load from Supabase
-              attemptGuesses = await getGuessesByAttempt(completedAttempt.id);
+              const allGuesses = await getAllGuesses();
+              attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
               
               // Add to cache for next time
               if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
@@ -206,7 +207,8 @@ export function PlayPage({
             
             if (!cachedGuesses) {
               // Cache miss - load from Supabase
-              attemptGuesses = await getGuessesByAttempt(completedAttempt.id);
+              const allGuesses = await getAllGuesses();
+              attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
               
               // Add to cache for next time
               if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
@@ -294,9 +296,10 @@ export function PlayPage({
             // Set the current attempt ID so future guesses save to the correct attempt
             setCurrentGameAttemptId(inProgressAttempt.id);
             
-            // Load guesses from database
+            // Load guesses from unified dataset
             console.log('[loadInProgressGame] Loading guesses for attemptId:', inProgressAttempt.id);
-            const attemptGuesses = await getGuessesByAttempt(inProgressAttempt.id);
+            const allGuesses = await getAllGuesses();
+            const attemptGuesses = allGuesses.filter(g => g.gameAttemptId === inProgressAttempt.id);
             console.log('[loadInProgressGame] Loaded guesses:', attemptGuesses);
             
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
