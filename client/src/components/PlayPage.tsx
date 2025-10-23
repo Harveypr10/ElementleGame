@@ -15,6 +15,7 @@ import { useGuessCache } from "@/contexts/GuessCacheContext";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
 import { writeLocal, CACHE_KEYS } from "@/lib/localCache";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 interface PlayPageProps {
   targetDate: string;
@@ -296,11 +297,21 @@ export function PlayPage({
             // Set the current attempt ID so future guesses save to the correct attempt
             setCurrentGameAttemptId(inProgressAttempt.id);
             
-            // Load guesses from unified dataset by calling API directly
+            // Load guesses from unified dataset by calling API directly with auth
             console.log('[loadInProgressGame] Loading guesses for attemptId:', inProgressAttempt.id);
             try {
+              // Get Supabase session and add Authorization header
+              const supabase = await getSupabaseClient();
+              const { data: { session } } = await supabase.auth.getSession();
+              
+              const headers: HeadersInit = {};
+              if (session?.access_token) {
+                headers["Authorization"] = `Bearer ${session.access_token}`;
+              }
+              
               const response = await fetch('/api/guesses/all', {
                 credentials: 'include',
+                headers,
               });
               console.log('[loadInProgressGame] Fetch response status:', response.status);
               

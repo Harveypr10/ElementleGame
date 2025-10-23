@@ -131,3 +131,10 @@ Preferred communication style: Simple, everyday language.
 - Resilient to partial fetch failures (e.g., 401 responses during auth warm-up)
 - Reduced network requests and improved perceived performance
 - Seamless offline-to-online transitions with background reconciliation
+
+**In-Progress Game Loading Fix (October 23, 2025)**
+- Fixed critical authentication issue where PlayPage couldn't load guesses for in-progress games (result = NULL)
+- Root cause: PlayPage was calling `/api/guesses/all` with `fetch()` directly without the Supabase Authorization header
+- Solution: Import `getSupabaseClient`, retrieve session token, and include `Authorization: Bearer {token}` header
+- In-progress games now correctly load all saved guesses when users click on them from the Archive
+- Archive status display already working correctly - shows blue background with guess count for in-progress games
