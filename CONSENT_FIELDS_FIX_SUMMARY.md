@@ -159,9 +159,31 @@ adsConsentUpdatedAt: timestamp("ads_consent_updated_at", { withTimezone: true })
 3. **Set audit timestamps** (`_at` fields) whenever the corresponding boolean values change
 4. **Use conditional object building** instead of inline ternary operators for cleaner, more maintainable code
 
+## Additional Fix: CamelCase/Snake_case Alignment (October 23, 2025)
+
+### Problem
+After fixing the timestamp conversion issue, a new issue was discovered: the PrivacyPage toggle was failing with "Failed to update profile" because of naming convention mismatch:
+- Frontend sent: `{ adsConsent: true }` (camelCase)
+- Backend expected: `{ ads_consent: true }` (snake_case)
+
+### Solution
+Standardized on camelCase throughout the TypeScript/React layer:
+
+**Backend Changes (`server/routes.ts`):**
+- POST `/api/auth/signup`: Changed destructuring from `{ accepted_terms, ads_consent }` to `{ acceptedTerms, adsConsent }`
+- PATCH `/api/auth/profile`: Changed destructuring from `{ accepted_terms, ads_consent }` to `{ acceptedTerms, adsConsent }`
+- Internal logic still maps camelCase to snake_case DB columns correctly via Drizzle ORM
+
+**Frontend Changes (`client/src/components/AuthPage.tsx`):**
+- Updated `signInWithOtp` metadata to send `acceptedTerms` and `adsConsent` (instead of `accepted_terms` and `ads_consent`)
+- Updated profile PATCH request body to send `acceptedTerms` and `adsConsent`
+
+This ensures consistent camelCase naming in TypeScript/React while Drizzle ORM handles the mapping to snake_case database columns.
+
 ## Files Modified
 
-- `server/routes.ts` - Updated both POST `/api/auth/signup` and PATCH `/api/auth/profile` routes
+- `server/routes.ts` - Updated both POST `/api/auth/signup` and PATCH `/api/auth/profile` routes to accept camelCase
+- `client/src/components/AuthPage.tsx` - Updated to send camelCase in both signup and profile creation flows
 - No changes needed to `server/storage.ts` - the upsertUserProfile method was already correct
 - No changes needed to `shared/schema.ts` - schema was already correct
-- No changes needed to frontend - `client/src/components/AuthPage.tsx` was already sending the data correctly
+- No changes needed to `client/src/hooks/useProfile.ts` - already sending camelCase

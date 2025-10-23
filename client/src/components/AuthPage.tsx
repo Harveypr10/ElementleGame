@@ -113,8 +113,8 @@ const handleSubmit = async (e: React.FormEvent) => {
           data: {
             first_name: formData.firstName,
             last_name: formData.lastName,
-            accepted_terms: formData.acceptedTerms, // ✅ new
-            ads_consent: formData.adsConsent,       // ✅ new
+            acceptedTerms: formData.acceptedTerms,
+            adsConsent: formData.adsConsent,
           },
         },
       });
@@ -179,8 +179,8 @@ const handleSubmit = async (e: React.FormEvent) => {
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
-          accepted_terms: formData.acceptedTerms, // ✅ new
-          ads_consent: formData.adsConsent,       // ✅ new
+          acceptedTerms: formData.acceptedTerms,
+          adsConsent: formData.adsConsent,
         }),
       });
 

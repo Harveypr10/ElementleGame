@@ -120,10 +120,12 @@ Preferred communication style: Simple, everyday language.
 - Fixed critical bug where user consent flags and timestamps were not persisting during signup
 - Root cause: Drizzle ORM received timestamp strings instead of Date objects, causing "toISOString is not a function" error
 - Solutions implemented:
-  1. Updated POST `/api/auth/signup` to extract and persist `accepted_terms` and `ads_consent` from request body
+  1. Updated POST `/api/auth/signup` to extract and persist consent fields from request body
   2. Modified PATCH `/api/auth/profile` to convert existing timestamp strings to Date objects before passing to Drizzle
   3. Set audit timestamps (`accepted_terms_at`, `ads_consent_updated_at`) immediately when consents are accepted
+  4. Aligned naming convention: Backend now accepts camelCase (`acceptedTerms`, `adsConsent`) from frontend, maps internally to snake_case DB columns
 - Both signup and profile update flows now correctly persist consent preferences to database
+- PrivacyPage ads consent toggle now works correctly without "Failed to update profile" errors
 - See `CONSENT_FIELDS_FIX_SUMMARY.md` for detailed technical documentation
 
 **7 UX Improvements Implemented**

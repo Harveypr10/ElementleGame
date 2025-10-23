@@ -17,7 +17,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Server-side signup endpoint - creates both Supabase Auth user and profile
   app.post("/api/auth/signup", async (req, res) => {
     try {
-      const { email, password, firstName, lastName, accepted_terms, ads_consent } = req.body;
+      // Accept camelCase from frontend (TypeScript convention)
+      const { email, password, firstName, lastName, acceptedTerms, adsConsent } = req.body;
 
       // Create auth user - email verification will be required
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -42,15 +43,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: authData.user.email!,
         firstName,
         lastName,
-        acceptedTerms: accepted_terms ?? false,
-        adsConsent: ads_consent ?? false,
+        acceptedTerms: acceptedTerms ?? false,
+        adsConsent: adsConsent ?? false,
       };
 
       // Set timestamps for consents that were accepted
-      if (accepted_terms) {
+      if (acceptedTerms) {
         profileData.acceptedTermsAt = now;
       }
-      if (ads_consent) {
+      if (adsConsent) {
         profileData.adsConsentUpdatedAt = now;
       }
 
@@ -85,7 +86,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/auth/profile", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { firstName, lastName, email, accepted_terms, ads_consent } = req.body;
+      // Accept camelCase from frontend (TypeScript convention)
+      const { firstName, lastName, email, acceptedTerms, adsConsent } = req.body;
 
       // Load existing profile to compare
       const existing = await storage.getUserProfile(userId);
@@ -97,13 +99,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email,
         firstName,
         lastName,
-        acceptedTerms: accepted_terms ?? existing?.acceptedTerms ?? false,
-        adsConsent: ads_consent ?? existing?.adsConsent ?? false,
+        acceptedTerms: acceptedTerms ?? existing?.acceptedTerms ?? false,
+        adsConsent: adsConsent ?? existing?.adsConsent ?? false,
         emailVerified: existing?.emailVerified ?? false,
       };
 
       // Only set acceptedTermsAt when the value actually changes
-      if (accepted_terms !== undefined && accepted_terms !== existing?.acceptedTerms) {
+      if (acceptedTerms !== undefined && acceptedTerms !== existing?.acceptedTerms) {
         profileData.acceptedTermsAt = now;
       } else if (existing?.acceptedTermsAt) {
         // Convert existing timestamp string to Date object
@@ -111,7 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Only set adsConsentUpdatedAt when the value actually changes
-      if (ads_consent !== undefined && ads_consent !== existing?.adsConsent) {
+      if (adsConsent !== undefined && adsConsent !== existing?.adsConsent) {
         profileData.adsConsentUpdatedAt = now;
       } else if (existing?.adsConsentUpdatedAt) {
         // Convert existing timestamp string to Date object
