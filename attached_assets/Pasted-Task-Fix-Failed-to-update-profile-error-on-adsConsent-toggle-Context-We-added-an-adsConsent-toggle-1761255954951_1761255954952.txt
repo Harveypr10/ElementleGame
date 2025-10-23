@@ -1,0 +1,92 @@
+Task: Fix Failed to update profile error on adsConsent toggle
+Context
+
+We added an adsConsent toggle to PrivacyPage.tsx.
+
+The toggle calls updateProfile({ adsConsent: true/false }) via the useProfile hook.
+
+useProfile.ts PATCHes /api/auth/profile.
+
+Schema (schema.ts) defines:
+
+ts
+adsConsent: boolean("ads_consent").notNull().default(false),
+adsConsentUpdatedAt: timestamp("ads_consent_updated_at"),
+We’ve standardised on camelCase in frontend/backend (adsConsent, acceptedTerms), with Drizzle mapping to snake_case DB columns.
+
+Despite this, the client still throws Failed to update profile, which means the PATCH route is returning 500.
+
+What we need you to do
+
+Replace the PATCH route in server/routes.ts with the version below.
+
+It logs the request body.
+
+Destructures camelCase fields.
+
+Converts existing timestamp strings to Date before passing to Drizzle.
+
+Only updates _at fields when values change.
+
+Returns the updated profile or logs the real error.
+
+ts
+app.patch("/api/auth/profile", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    console.log("PATCH /api/auth/profile body:", req.body);
+
+    const userId = req.user.id;
+    const { firstName, lastName, email, acceptedTerms, adsConsent } = req.body;
+
+    const existing = await storage.getUserProfile(userId);
+    const now = new Date();
+
+    const updatedProfile = await storage.upsertUserProfile({
+      id: userId,
+      email,
+      firstName,
+      lastName,
+      acceptedTerms:
+        acceptedTerms ?? existing?.acceptedTerms ?? false,
+      adsConsent:
+        adsConsent ?? existing?.adsConsent ?? false,
+      acceptedTermsAt:
+        acceptedTerms !== undefined &&
+        acceptedTerms !== existing?.acceptedTerms
+          ? now
+          : existing?.acceptedTermsAt
+          ? new Date(existing.acceptedTermsAt)
+          : null,
+      adsConsentUpdatedAt:
+        adsConsent !== undefined &&
+        adsConsent !== existing?.adsConsent
+          ? now
+          : existing?.adsConsentUpdatedAt
+          ? new Date(existing.adsConsentUpdatedAt)
+          : null,
+      emailVerified: existing?.emailVerified ?? false,
+    });
+
+    res.json(updatedProfile);
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+Test end‑to‑end
+
+Toggle the checkbox on Privacy page.
+
+Confirm in Supabase that ads_consent flips and ads_consent_updated_at updates.
+
+No client error should appear.
+
+Acceptance criteria
+
+PATCH route logs show correct camelCase body.
+
+No runtime error in client.
+
+DB updates correctly.
+
+Timestamps only update when values change.

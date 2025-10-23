@@ -171,14 +171,65 @@ Standardized on camelCase throughout the TypeScript/React layer:
 
 **Backend Changes (`server/routes.ts`):**
 - POST `/api/auth/signup`: Changed destructuring from `{ accepted_terms, ads_consent }` to `{ acceptedTerms, adsConsent }`
-- PATCH `/api/auth/profile`: Changed destructuring from `{ accepted_terms, ads_consent }` to `{ acceptedTerms, adsConsent }`
-- Internal logic still maps camelCase to snake_case DB columns correctly via Drizzle ORM
+- PATCH `/api/auth/profile`: 
+  - Changed destructuring from `{ accepted_terms, ads_consent }` to `{ acceptedTerms, adsConsent }`
+  - Added request body logging for debugging: `console.log("PATCH /api/auth/profile body:", req.body)`
+  - Improved timestamp handling with explicit null fallback (instead of leaving undefined)
+  - Streamlined code with inline ternary operators for cleaner structure
+- Internal logic maps camelCase to snake_case DB columns via Drizzle ORM
 
 **Frontend Changes (`client/src/components/AuthPage.tsx`):**
 - Updated `signInWithOtp` metadata to send `acceptedTerms` and `adsConsent` (instead of `accepted_terms` and `ads_consent`)
 - Updated profile PATCH request body to send `acceptedTerms` and `adsConsent`
 
 This ensures consistent camelCase naming in TypeScript/React while Drizzle ORM handles the mapping to snake_case database columns.
+
+### Final PATCH Route Implementation
+
+```typescript
+app.patch("/api/auth/profile", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    console.log("PATCH /api/auth/profile body:", req.body);
+
+    const userId = req.user.id;
+    const { firstName, lastName, email, acceptedTerms, adsConsent } = req.body;
+
+    const existing = await storage.getUserProfile(userId);
+    const now = new Date();
+
+    const updatedProfile = await storage.upsertUserProfile({
+      id: userId,
+      email,
+      firstName,
+      lastName,
+      acceptedTerms:
+        acceptedTerms ?? existing?.acceptedTerms ?? false,
+      adsConsent:
+        adsConsent ?? existing?.adsConsent ?? false,
+      acceptedTermsAt:
+        acceptedTerms !== undefined &&
+        acceptedTerms !== existing?.acceptedTerms
+          ? now
+          : existing?.acceptedTermsAt
+          ? new Date(existing.acceptedTermsAt)
+          : null,
+      adsConsentUpdatedAt:
+        adsConsent !== undefined &&
+        adsConsent !== existing?.adsConsent
+          ? now
+          : existing?.adsConsentUpdatedAt
+          ? new Date(existing.adsConsentUpdatedAt)
+          : null,
+      emailVerified: existing?.emailVerified ?? false,
+    });
+
+    res.json(updatedProfile);
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+```
 
 ## Files Modified
 

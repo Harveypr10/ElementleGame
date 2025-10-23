@@ -85,42 +85,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/auth/profile", verifySupabaseAuth, async (req: any, res) => {
     try {
+      console.log("PATCH /api/auth/profile body:", req.body);
+
       const userId = req.user.id;
-      // Accept camelCase from frontend (TypeScript convention)
       const { firstName, lastName, email, acceptedTerms, adsConsent } = req.body;
 
-      // Load existing profile to compare
       const existing = await storage.getUserProfile(userId);
       const now = new Date();
 
-      // Build profile data conditionally - only include timestamp fields when actually changing them
-      const profileData: any = {
+      const updatedProfile = await storage.upsertUserProfile({
         id: userId,
         email,
         firstName,
         lastName,
-        acceptedTerms: acceptedTerms ?? existing?.acceptedTerms ?? false,
-        adsConsent: adsConsent ?? existing?.adsConsent ?? false,
+        acceptedTerms:
+          acceptedTerms ?? existing?.acceptedTerms ?? false,
+        adsConsent:
+          adsConsent ?? existing?.adsConsent ?? false,
+        acceptedTermsAt:
+          acceptedTerms !== undefined &&
+          acceptedTerms !== existing?.acceptedTerms
+            ? now
+            : existing?.acceptedTermsAt
+            ? new Date(existing.acceptedTermsAt)
+            : null,
+        adsConsentUpdatedAt:
+          adsConsent !== undefined &&
+          adsConsent !== existing?.adsConsent
+            ? now
+            : existing?.adsConsentUpdatedAt
+            ? new Date(existing.adsConsentUpdatedAt)
+            : null,
         emailVerified: existing?.emailVerified ?? false,
-      };
-
-      // Only set acceptedTermsAt when the value actually changes
-      if (acceptedTerms !== undefined && acceptedTerms !== existing?.acceptedTerms) {
-        profileData.acceptedTermsAt = now;
-      } else if (existing?.acceptedTermsAt) {
-        // Convert existing timestamp string to Date object
-        profileData.acceptedTermsAt = new Date(existing.acceptedTermsAt);
-      }
-
-      // Only set adsConsentUpdatedAt when the value actually changes
-      if (adsConsent !== undefined && adsConsent !== existing?.adsConsent) {
-        profileData.adsConsentUpdatedAt = now;
-      } else if (existing?.adsConsentUpdatedAt) {
-        // Convert existing timestamp string to Date object
-        profileData.adsConsentUpdatedAt = new Date(existing.adsConsentUpdatedAt);
-      }
-
-      const updatedProfile = await storage.upsertUserProfile(profileData);
+      });
 
       res.json(updatedProfile);
     } catch (error) {
