@@ -7,6 +7,7 @@ import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
+import { soundManager } from "@/lib/sounds";
 
 interface OptionsPageProps {
   onBack: () => void;
@@ -26,7 +27,9 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
     if (cachedSettings) {
       const size = (cachedSettings.textSize as "small" | "medium" | "large") || "medium";
       setTextSize(size);
-      setSoundsEnabled(cachedSettings.soundsEnabled ?? true);
+      const soundsEnabledValue = cachedSettings.soundsEnabled ?? true;
+      setSoundsEnabled(soundsEnabledValue);
+      soundManager.setEnabled(soundsEnabledValue); // Apply sound setting to manager
       setDarkMode(cachedSettings.darkMode ?? false);
       setCluesEnabled(cachedSettings.cluesEnabled ?? true);
       
@@ -45,7 +48,9 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       // Use Supabase settings for authenticated users
       const size = (settings.textSize as "small" | "medium" | "large") || "medium";
       setTextSize(size);
-      setSoundsEnabled(settings.soundsEnabled ?? true);
+      const soundsEnabledValue = settings.soundsEnabled ?? true;
+      setSoundsEnabled(soundsEnabledValue);
+      soundManager.setEnabled(soundsEnabledValue); // Apply sound setting to manager
       setDarkMode(settings.darkMode ?? false);
       setCluesEnabled(settings.cluesEnabled ?? true);
       
@@ -73,7 +78,9 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       }
       
       const storedSounds = localStorage.getItem("soundsEnabled");
-      if (storedSounds !== null) setSoundsEnabled(storedSounds === "true");
+      const soundsEnabledValue = storedSounds !== null ? storedSounds === "true" : true;
+      setSoundsEnabled(soundsEnabledValue);
+      soundManager.setEnabled(soundsEnabledValue); // Apply sound setting to manager
       
       const storedClues = localStorage.getItem("cluesEnabled");
       if (storedClues !== null) setCluesEnabled(storedClues === "true");
@@ -114,6 +121,7 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
 
   const handleSoundsToggle = async (checked: boolean) => {
     setSoundsEnabled(checked);
+    soundManager.setEnabled(checked); // Actually enable/disable the sound manager
     
     if (isAuthenticated) {
       await updateSettings({ soundsEnabled: checked });

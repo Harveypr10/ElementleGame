@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ChevronLeft } from "lucide-react";
@@ -54,6 +55,11 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
       const emailChanged = profileData.email !== profile?.email;
 
       // Update Supabase Auth user with proper email redirect URL for verification
+      // For email changes, Supabase requires emailRedirectTo in options
+      const updateOptions = emailChanged ? {
+        emailRedirectTo: window.location.origin,
+      } : undefined;
+
       const { error } = await supabase.auth.updateUser(
         {
           email: profileData.email,
@@ -62,9 +68,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
             last_name: profileData.lastName,
           },
         },
-        emailChanged ? {
-          emailRedirectTo: `${window.location.origin}/`,
-        } : undefined
+        updateOptions
       );
 
       if (error) throw error;
@@ -298,9 +302,8 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                   <Label htmlFor="currentPassword" data-testid="label-current-password">
                     Current Password
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="currentPassword"
-                    type="password"
                     data-testid="input-current-password"
                     value={passwordData.currentPassword}
                     onChange={(e) =>
@@ -314,9 +317,8 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                   <Label htmlFor="newPassword" data-testid="label-new-password">
                     New Password
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="newPassword"
-                    type="password"
                     data-testid="input-new-password"
                     value={passwordData.newPassword}
                     onChange={(e) =>
@@ -330,9 +332,8 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                   <Label htmlFor="confirmPassword" data-testid="label-confirm-password">
                     Confirm New Password
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="confirmPassword"
-                    type="password"
                     data-testid="input-confirm-password"
                     value={passwordData.confirmPassword}
                     onChange={(e) =>
