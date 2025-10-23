@@ -124,9 +124,10 @@ Preferred communication style: Simple, everyday language.
   2. Modified PATCH `/api/auth/profile` to convert existing timestamp strings to Date objects before passing to Drizzle
   3. Set audit timestamps (`accepted_terms_at`, `ads_consent_updated_at`) immediately when consents are accepted
   4. Aligned naming convention: Backend now accepts camelCase (`acceptedTerms`, `adsConsent`) from frontend, maps internally to snake_case DB columns
+  5. **Client-side auth fix**: Added Supabase Authorization header to `patchProfile` function in `useProfile.ts` (was getting 401 Unauthorized)
 - Both signup and profile update flows now correctly persist consent preferences to database
 - PrivacyPage ads consent toggle now works correctly without "Failed to update profile" errors
-- See `CONSENT_FIELDS_FIX_SUMMARY.md` for detailed technical documentation
+- See `CONSENT_FIELDS_FIX_SUMMARY.md` and `CLIENT_SIDE_AUTH_FIX.md` for detailed technical documentation
 
 **7 UX Improvements Implemented**
 1. **OTP Verification Screen**: Changed from center to top alignment (pt-8) for better mobile keyboard visibility

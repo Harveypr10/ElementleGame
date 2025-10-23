@@ -1,19 +1,41 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useAuth } from "./useAuth";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { UserProfile } from "@shared/schema";
 
 // Helper to PATCH profile
 async function patchProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
+  const supabase = await getSupabaseClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session?.access_token) {
+    console.error("[patchProfile] No valid session");
+    throw new Error("Not authenticated");
+  }
+
+  console.log("[patchProfile] Sending PATCH with body:", updates);
+  
   const res = await fetch("/api/auth/profile", {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${session.access_token}`,
+    },
     body: JSON.stringify(updates),
   });
+  
+  console.log("[patchProfile] Response status:", res.status);
+  
   if (!res.ok) {
+    const errorText = await res.text();
+    console.error("[patchProfile] Request failed:", res.status, errorText);
     throw new Error("Failed to update profile");
   }
-  return res.json();
+  
+  const data = await res.json();
+  console.log("[patchProfile] Response body:", data);
+  return data;
 }
 
 export function useProfile() {
