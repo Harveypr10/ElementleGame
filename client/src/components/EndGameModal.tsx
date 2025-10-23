@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { Home, BarChart3, Archive } from "lucide-react";
 import { formatFullDateWithOrdinal, formatDateWithOrdinal } from "@/lib/dateFormat";
 import { soundManager } from "@/lib/sounds";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 
 interface EndGameModalProps {
   isOpen: boolean;
@@ -36,7 +38,12 @@ export function EndGameModal({
   onViewStats,
   onViewArchive,
 }: EndGameModalProps) {
+  const { isAuthenticated } = useAuth();
+  const { profile } = useProfile();
   const [showConfetti, setShowConfetti] = useState(false);
+
+  // Check if Archive should be disabled (authenticated users with unverified email)
+  const isArchiveDisabled = isAuthenticated && profile && !profile.emailVerified;
 
   useEffect(() => {
     if (isOpen) {
@@ -153,10 +160,16 @@ export function EndGameModal({
               <Button
                 variant="warning"
                 className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm"
-                onClick={onViewArchive}
+                onClick={isArchiveDisabled ? undefined : onViewArchive}
+                disabled={isArchiveDisabled}
                 data-testid="button-archive"
               >
-                <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Archive</span>
+                <div className="flex flex-col items-start flex-1">
+                  <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Archive</span>
+                  {isArchiveDisabled && (
+                    <span className="text-xs text-gray-600">Verify email to unlock</span>
+                  )}
+                </div>
                 <div className="flex-shrink-0 flex items-center">
                   <img
                     src={librarianHamsterYellow}
