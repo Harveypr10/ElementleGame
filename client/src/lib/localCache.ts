@@ -42,16 +42,21 @@ export function clearUserCache(): void {
   
   userKeys.forEach(key => removeLocal(key));
   
-  // Clear archive caches (all months)
+  // Clear archive caches and in-progress puzzle data
   try {
     const allKeys = Object.keys(localStorage);
     allKeys.forEach(key => {
+      // Clear cached archive data
       if (key.startsWith('cached-archive-')) {
+        removeLocal(key);
+      }
+      // Clear in-progress puzzle data (critical for multi-user scenarios)
+      if (key.startsWith('puzzle-progress-')) {
         removeLocal(key);
       }
     });
   } catch (error) {
-    console.error('Error clearing archive caches:', error);
+    console.error('Error clearing archive caches and puzzle progress:', error);
   }
 }
 
