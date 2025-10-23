@@ -20,7 +20,7 @@ export function TermsPage({ onBack }: TermsPageProps) {
         </button>
 
         <div className="flex flex-col items-center">
-          <h1 className="text-4xl font-bold text-gray-700">Terms of Use</h1>
+          <h1 className="text-4xl font-bold">Terms of Use</h1>
         </div>
 
         {/* Spacer to balance layout */}

@@ -14,6 +14,8 @@ import whiteTickBlue from "@assets/White-Tick-Blue.svg";
 import whiteCrossBlue from "@assets/White-Cross-Blue.svg";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import greyCogIcon from "@assets/Grey-Cog-Grey_1760979822772.png";
+import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
+import whiteCogIcon from "@assets/White-Cog-DarkMode.svg";
 
 interface TodayOutcome {
   date: string;
@@ -217,31 +219,58 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     <div className="min-h-screen p-4">
       <div className="max-w-md mx-auto">
         <div className="flex items-center justify-between mb-2">
+          {/* Help button with dark mode swap */}
           <button
             onClick={() => setShowHelp(true)}
             data-testid="button-help"
             className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
-            <img src={greyHelpIcon} alt="Help" className="h-9 w-9" />
+            <img
+              src={greyHelpIcon}
+              alt="Help"
+              className="h-9 w-9 block dark:hidden"
+            />
+            <img
+              src={whiteHelpIcon}
+              alt="Help"
+              className="h-9 w-9 hidden dark:block"
+            />
           </button>
 
-          <h1 className="text-5xl font-bold text-foreground" data-testid="text-title">
+          {/* Title */}
+          <h1
+            className="text-5xl font-bold text-foreground"
+            data-testid="text-title"
+          >
             Elementle
           </h1>
 
+          {/* Settings button with dark mode swap */}
           <button
             onClick={onOpenSettings}
             disabled={!onOpenSettings}
             data-testid="button-settings"
             className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
           >
-            <img src={greyCogIcon} alt="Settings" className="h-9 w-9" />
+            <img
+              src={greyCogIcon}
+              alt="Settings"
+              className="h-9 w-9 block dark:hidden"
+            />
+            <img
+              src={whiteCogIcon}
+              alt="Settings"
+              className="h-9 w-9 hidden dark:block"
+            />
           </button>
         </div>
-        
+
         <div className="flex justify-end pr-2 mb-16">
           {isAuthenticated && user ? (
-            <span className="text-sm font-medium" data-testid="text-user-name">
+            <span
+              className="text-sm font-medium"
+              data-testid="text-user-name"
+            >
               {user.user_metadata?.first_name || "User"}
             </span>
           ) : (
@@ -256,6 +285,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             </Button>
           )}
         </div>
+
 
         <div className="w-full space-y-3">
         {menuItems.map((item, index) => (

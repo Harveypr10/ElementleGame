@@ -20,7 +20,7 @@ export function PrivacyPage({ onBack }: PrivacyPageProps) {
         </button>
 
         <div className="flex flex-col items-center">
-          <h1 className="text-4xl font-bold text-gray-700">Privacy Policy</h1>
+          <h1 className="text-4xl font-bold">Privacy Policy</h1>
         </div>
 
         {/* Spacer to balance layout */}

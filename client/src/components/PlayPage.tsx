@@ -13,6 +13,7 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
+import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
 import { writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
@@ -832,8 +833,20 @@ export function PlayPage({
           data-testid="button-help"
           className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <img src={greyHelpIcon} alt="Help" className="h-9 w-9" />
+          {/* Light mode icon */}
+          <img
+            src={greyHelpIcon}
+            alt="Help"
+            className="h-9 w-9 block dark:hidden"
+          />
+          {/* Dark mode icon */}
+          <img
+            src={whiteHelpIcon}
+            alt="Help"
+            className="h-9 w-9 hidden dark:block"
+          />
         </button>
+
       </div>
 
       <div className="flex-1 flex flex-col justify-between">

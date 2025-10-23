@@ -99,7 +99,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, 
           </button>
 
           <div className="flex flex-col items-center">
-            <h1 className="text-4xl font-bold text-gray-700">Settings</h1>
+            <h1 className="text-4xl font-bold">Settings</h1>
           </div>
 
           {/* Spacer to balance layout */}

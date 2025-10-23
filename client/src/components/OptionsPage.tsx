@@ -158,7 +158,7 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
             <ChevronLeft className="h-9 w-9 text-gray-700" />
           </button>
 
-          <h1 className="text-4xl font-bold text-gray-700">Options</h1>
+          <h1 className="text-4xl font-bold">Options</h1>
 
           <div className="w-14" />
         </div>

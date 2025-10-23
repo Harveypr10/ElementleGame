@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import happyHamster from "@assets/Celebration-Hamster-Grey.svg";
 import sadHamster from "@assets/Commiseration-Hamster-Grey.svg";
+import happyHamsterDark from "@assets/Celebration-Hamster-DarkMode.svg";
+import sadHamsterDark from "@assets/Commiseration-Hamster-DarkMode.svg";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
@@ -70,12 +72,22 @@ export function EndGameModal({
           </h2>
 
           <div className="relative flex justify-center my-4">
+            {/* Light mode hamster */}
             <img
               src={isWin ? happyHamster : sadHamster}
               alt={isWin ? "Happy hamster" : "Sad hamster"}
-              className={`${isWin ? "max-w-[150px]" : "max-w-[150px]"} w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""}`}
+              className={`${isWin ? "max-w-[150px]" : "max-w-[150px]"} w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""} block dark:hidden`}
               data-testid="hamster-image"
             />
+
+            {/* Dark mode hamster */}
+            <img
+              src={isWin ? happyHamsterDark : sadHamsterDark}
+              alt={isWin ? "Happy hamster dark" : "Sad hamster dark"}
+              className={`${isWin ? "max-w-[150px]" : "max-w-[150px]"} w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""} hidden dark:block`}
+              data-testid="hamster-image-dark"
+            />
+
             {showConfetti && (
               <div className="confetti-container">
                 {Array.from({ length: 20 }).map((_, i) => (

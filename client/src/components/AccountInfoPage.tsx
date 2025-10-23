@@ -263,7 +263,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         </button>
 
         <div className="flex flex-col items-center">
-          <h1 className="text-4xl font-bold text-gray-700">Account Info</h1>
+          <h1 className="text-4xl font-bold">Account Info</h1>
         </div>
 
         {/* Spacer to balance layout */}
