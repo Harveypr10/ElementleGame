@@ -106,12 +106,16 @@ export function OTPVerificationScreen({
     setLoading(true);
     try {
       // For signInWithOtp-based signup, use 'email' type instead of 'signup'
+      const verifyType = type === "signup" ? "email" : "email_change";
+      console.log('[OTP] Verifying OTP with type:', verifyType, 'for email:', email);
+      
       const { data, error} = await supabase.auth.verifyOtp({
         email,
         token: code,
-        type: type === "signup" ? "email" : "email_change",
+        type: verifyType,
       });
 
+      console.log('[OTP] verifyOtp result:', error ? `Error: ${error.message}` : 'Success');
       if (error) throw error;
 
       if (data.session) {
@@ -165,6 +169,8 @@ export function OTPVerificationScreen({
         });
       } else {
         // Resend OTP via email
+        console.log('[OTP] Resending OTP via email to:', email, 'shouldCreateUser:', type === "signup");
+        
         const { error } = await supabase.auth.signInWithOtp({
           email,
           options: {
@@ -172,6 +178,7 @@ export function OTPVerificationScreen({
           },
         });
 
+        console.log('[OTP] Resend result:', error ? `Error: ${error.message}` : 'Success - check email');
         if (error) throw error;
 
         toast({

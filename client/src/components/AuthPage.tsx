@@ -19,7 +19,7 @@ interface AuthPageProps {
 }
 
 export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword }: AuthPageProps) {
-  const { signIn, signUp } = useAuth();
+  const { signIn} = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -76,6 +76,9 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
     try {
       if (mode === "signup") {
         // Send OTP code to email (this sends a 6-digit code, not a confirmation link)
+        console.log('[AUTH] Calling signInWithOtp for signup with email:', formData.email);
+        console.log('[AUTH] Parameters: { shouldCreateUser: true, emailRedirectTo: undefined }');
+        
         const { error } = await supabase.auth.signInWithOtp({
           email: formData.email,
           options: {
@@ -88,6 +91,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
           },
         });
 
+        console.log('[AUTH] signInWithOtp result:', error ? `Error: ${error.message}` : 'Success - check email for OTP code');
         if (error) throw error;
 
         // Show OTP verification screen
