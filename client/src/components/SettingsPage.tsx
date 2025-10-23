@@ -71,12 +71,9 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, 
       // Clear user-specific cached data from localStorage
       clearUserCache();
       
-      // Clear React Query caches to prevent data leaks between users
-      queryClient.invalidateQueries({ queryKey: ["/api/game-attempts/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/guesses/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
+      // Clear ALL React Query caches to prevent data leaks between users
+      // Using clear() removes all cached data, not just invalidating it
+      queryClient.clear();
       
       // Sign out from Supabase
       await signOut();
