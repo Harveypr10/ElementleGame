@@ -148,31 +148,45 @@ Preferred communication style: Simple, everyday language.
    - Includes resend button with 15-second cooldown timer
    - Cancel button returns to previous screen without saving changes
 
-2. **Sign-up Flow with OTP**
-   - Uses `supabase.auth.signUp()` to create pending user and send OTP code
-   - User enters verification code in OTPVerificationScreen
-   - After successful verification, creates user profile in database via PATCH `/api/auth/profile`
+2. **Sign-up Flow with OTP (Fixed October 23, 2025)**
+   - Uses `supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })` to send 6-digit email codes
+   - Password is NEVER stored in user metadata (security fix)
+   - After OTP verification, sets password via `auth.updateUser({ password })` from local component state
+   - Creates user profile in database via PATCH `/api/auth/profile`
    - On cancel, no account is created - user returns to signup form with data intact
-   - Removed email link sending from server `/api/auth/signup` endpoint
+   - Verification type: `type: 'email'` for signInWithOtp-based signup
 
-3. **Email Change Flow with OTP**
+3. **Country Code Selector for SMS (Added October 23, 2025)**
+   - Added country code dropdown with 10 common countries (UK, US, France, Germany, Spain, Italy, Australia, India, China, Japan)
+   - Defaults to +44 (United Kingdom)
+   - User enters local phone number without country code prefix
+   - Automatically removes leading zeros from local numbers
+   - Intelligent E.164 phone number parsing:
+     - Matches against known country codes first
+     - Falls back to dynamic regex extraction for unlisted countries: `/^(\+\d{1,3})(\d+)$/`
+     - Preserves arbitrary international prefixes (e.g., +353 for Ireland)
+     - Prevents country code duplication when resending SMS
+   - Full E.164 format constructed: `${countryCode}${cleanedLocalNumber}`
+   - Clear instructions: "Enter your local number without the country code. For UK numbers, omit the leading 0."
+
+4. **Email Change Flow with OTP**
    - Uses `supabase.auth.updateUser({ email })` to initiate email change
    - Supabase sends OTP to new email address
    - User verifies code in OTPVerificationScreen
    - After verification, email updated in both Supabase Auth and database
    - On cancel, email resets to original value
 
-4. **Archive Access**
+5. **Archive Access**
    - Removed all email verification checks
    - Archive now accessible to all authenticated users immediately after signup
    - Simplified user experience without verification gating
 
-5. **Password Visibility Toggle (Safari Mobile Fix)**
+6. **Password Visibility Toggle (Safari Mobile Fix)**
    - Created `PasswordInput` component with Eye/EyeOff toggle button
    - Replaced all password Input fields in AuthPage and AccountInfoPage
    - Resolves Safari mobile compatibility issues with password visibility
 
-6. **Sound Toggle Functionality**
+7. **Sound Toggle Functionality**
    - Added `soundManager.setEnabled()` calls throughout OptionsPage:
      - Cache load useEffect
      - Supabase/localStorage reconciliation useEffect
