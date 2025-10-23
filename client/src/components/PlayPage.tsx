@@ -268,21 +268,39 @@ export function PlayPage({
     let mounted = true;
     
     const loadInProgressGame = async () => {
+      console.log('[loadInProgressGame] Starting...', {
+        viewOnly,
+        gameOver,
+        loadingAttempts,
+        isAuthenticated,
+        puzzleId,
+        gameAttemptsLength: gameAttempts?.length
+      });
+      
       if (!viewOnly && !gameOver && !loadingAttempts) {
         if (isAuthenticated && gameAttempts && puzzleId) {
+          console.log('[loadInProgressGame] Looking for in-progress attempt for puzzleId:', puzzleId, 'type:', typeof puzzleId);
+          console.log('[loadInProgressGame] gameAttempts:', gameAttempts.map(a => ({ id: a.id, puzzleId: a.puzzleId, result: a.result, numGuesses: a.numGuesses })));
+          
           // For authenticated users, load from database
           const inProgressAttempt = gameAttempts.find(
             attempt => attempt.puzzleId === puzzleId && attempt.result === null && (attempt.numGuesses ?? 0) > 0
           );
           
+          console.log('[loadInProgressGame] Found in-progress attempt:', inProgressAttempt);
+          
           if (inProgressAttempt && mounted) {
+            console.log('[loadInProgressGame] Setting currentGameAttemptId to:', inProgressAttempt.id);
             // Set the current attempt ID so future guesses save to the correct attempt
             setCurrentGameAttemptId(inProgressAttempt.id);
             
             // Load guesses from database
+            console.log('[loadInProgressGame] Loading guesses for attemptId:', inProgressAttempt.id);
             const attemptGuesses = await getGuessesByAttempt(inProgressAttempt.id);
+            console.log('[loadInProgressGame] Loaded guesses:', attemptGuesses);
             
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
+              console.log('[loadInProgressGame] Recalculating feedback for', attemptGuesses.length, 'guesses');
               // Recalculate feedback for each guess (don't use stored feedbackResult)
               const freshGuessRecords: GuessRecord[] = [];
               const freshFeedbackArrays: CellFeedback[][] = [];
@@ -298,10 +316,14 @@ export function PlayPage({
                 newKeyStates = updateKeyStates(guess.guessValue, feedback, newKeyStates);
               });
               
+              console.log('[loadInProgressGame] Setting state with', freshFeedbackArrays.length, 'guesses');
               setGuesses(freshFeedbackArrays);
               setGuessRecords(freshGuessRecords);
               setKeyStates(newKeyStates);
               setWrongGuessCount(attemptGuesses.filter(g => g.guessValue !== targetDate).length);
+              console.log('[loadInProgressGame] State updated successfully');
+            } else {
+              console.log('[loadInProgressGame] No guesses to load or component unmounted');
             }
           }
         } else if (!isAuthenticated) {
