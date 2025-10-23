@@ -296,37 +296,52 @@ export function PlayPage({
             // Set the current attempt ID so future guesses save to the correct attempt
             setCurrentGameAttemptId(inProgressAttempt.id);
             
-            // Load guesses from unified dataset
+            // Load guesses from unified dataset by calling API directly
             console.log('[loadInProgressGame] Loading guesses for attemptId:', inProgressAttempt.id);
-            const allGuesses = await getAllGuesses();
-            const attemptGuesses = allGuesses.filter(g => g.gameAttemptId === inProgressAttempt.id);
-            console.log('[loadInProgressGame] Loaded guesses:', attemptGuesses);
-            
-            if (mounted && attemptGuesses && attemptGuesses.length > 0) {
-              console.log('[loadInProgressGame] Recalculating feedback for', attemptGuesses.length, 'guesses');
-              // Recalculate feedback for each guess (don't use stored feedbackResult)
-              const freshGuessRecords: GuessRecord[] = [];
-              const freshFeedbackArrays: CellFeedback[][] = [];
-              let newKeyStates = {};
-              
-              attemptGuesses.forEach(guess => {
-                const feedback = calculateFeedbackForGuess(guess.guessValue, newKeyStates);
-                freshFeedbackArrays.push(feedback);
-                freshGuessRecords.push({
-                  guessValue: guess.guessValue,
-                  feedbackResult: feedback
-                });
-                newKeyStates = updateKeyStates(guess.guessValue, feedback, newKeyStates);
+            try {
+              const response = await fetch('/api/guesses/all', {
+                credentials: 'include',
               });
+              console.log('[loadInProgressGame] Fetch response status:', response.status);
               
-              console.log('[loadInProgressGame] Setting state with', freshFeedbackArrays.length, 'guesses');
-              setGuesses(freshFeedbackArrays);
-              setGuessRecords(freshGuessRecords);
-              setKeyStates(newKeyStates);
-              setWrongGuessCount(attemptGuesses.filter(g => g.guessValue !== targetDate).length);
-              console.log('[loadInProgressGame] State updated successfully');
-            } else {
-              console.log('[loadInProgressGame] No guesses to load or component unmounted');
+              if (!response.ok) {
+                console.error('[loadInProgressGame] Failed to fetch guesses:', response.status);
+                throw new Error('Failed to fetch guesses');
+              }
+              
+              const allGuesses = await response.json();
+              console.log('[loadInProgressGame] Fetched all guesses:', allGuesses.length);
+              const attemptGuesses = allGuesses.filter((g: any) => g.gameAttemptId === inProgressAttempt.id);
+              console.log('[loadInProgressGame] Filtered guesses for attempt:', attemptGuesses);
+              
+              if (mounted && attemptGuesses && attemptGuesses.length > 0) {
+                console.log('[loadInProgressGame] Recalculating feedback for', attemptGuesses.length, 'guesses');
+                // Recalculate feedback for each guess (don't use stored feedbackResult)
+                const freshGuessRecords: GuessRecord[] = [];
+                const freshFeedbackArrays: CellFeedback[][] = [];
+                let newKeyStates = {};
+                
+                attemptGuesses.forEach((guess: any) => {
+                  const feedback = calculateFeedbackForGuess(guess.guessValue, newKeyStates);
+                  freshFeedbackArrays.push(feedback);
+                  freshGuessRecords.push({
+                    guessValue: guess.guessValue,
+                    feedbackResult: feedback
+                  });
+                  newKeyStates = updateKeyStates(guess.guessValue, feedback, newKeyStates);
+                });
+                
+                console.log('[loadInProgressGame] Setting state with', freshFeedbackArrays.length, 'guesses');
+                setGuesses(freshFeedbackArrays);
+                setGuessRecords(freshGuessRecords);
+                setKeyStates(newKeyStates);
+                setWrongGuessCount(attemptGuesses.filter((g: any) => g.guessValue !== targetDate).length);
+                console.log('[loadInProgressGame] State updated successfully');
+              } else {
+                console.log('[loadInProgressGame] No guesses to load or component unmounted');
+              }
+            } catch (error) {
+              console.error('[loadInProgressGame] Error loading guesses:', error);
             }
           }
         } else if (!isAuthenticated) {

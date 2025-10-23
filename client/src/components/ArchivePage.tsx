@@ -31,25 +31,19 @@ interface DayStatus {
 
 export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps) {
   const { isAuthenticated } = useAuth();
-  const { gameAttempts, loadingAttempts, getAllGuesses } = useGameData();
+  const { gameAttempts, loadingAttempts } = useGameData();
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date(2025, 9, 1)); // October 2025
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
-  const { data: allGuesses } = useQuery({
-    queryKey: ["/api/guesses/all"],
-    queryFn: getAllGuesses,
-    enabled: isAuthenticated,
-    staleTime: 0,
-  });
 
-  // Explicitly refetch game attempts and all guesses when Archive mounts
+  // Explicitly refetch game attempts when Archive mounts
   // Archive is conditionally rendered and unmounts when navigating away,
   // so this effect runs every time user navigates to Archive
   // This ensures in-progress games show updated guess counts after playing
   useEffect(() => {
     if (isAuthenticated) {
+      console.log('[Archive] Refetching game attempts on mount');
       queryClient.refetchQueries({ queryKey: ["/api/game-attempts/user"] });
-      queryClient.refetchQueries({ queryKey: ["/api/guesses/all"] });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty array is intentional - runs on mount (which happens on every navigation to Archive)
@@ -79,27 +73,32 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
 
   // Background reconciliation with Supabase/localStorage
   useEffect(() => {
-    if (isAuthenticated && allGuesses && !loadingAttempts) {
-      console.log('[Archive] Building status map from allGuesses:', allGuesses.length, 'guesses');
+    if (isAuthenticated && gameAttempts && !loadingAttempts) {
+      console.log('[Archive] Building status map from gameAttempts:', gameAttempts.length, 'attempts');
       const statusMap: Record<string, DayStatus> = {};
 
-      puzzles.forEach(puzzle => {
-        // Find guesses for this puzzle
-        const guessesForPuzzle = allGuesses.filter(g => g.puzzleId === puzzle.id);
-        if (guessesForPuzzle.length > 0) {
-          const attemptResult = (guessesForPuzzle[0] as any).result ?? null;
+      // Build status map from gameAttempts (which has result and numGuesses)
+      gameAttempts.forEach(attempt => {
+        // Find the puzzle for this attempt
+        const puzzle = puzzles.find(p => p.id === attempt.puzzleId);
+        if (puzzle) {
+          const isCompleted = attempt.result !== null;
+          const isWon = attempt.result === "won";
+          const isInProgress = attempt.result === null && (attempt.numGuesses ?? 0) > 0;
+          
           console.log(`[Archive] Puzzle ${puzzle.id} (${puzzle.targetDate}):`, {
-            guessCount: guessesForPuzzle.length,
-            result: attemptResult,
-            completed: attemptResult !== null,
-            won: attemptResult === "won" || attemptResult === "win",
-            inProgress: attemptResult === null,
+            guessCount: attempt.numGuesses,
+            result: attempt.result,
+            completed: isCompleted,
+            won: isWon,
+            inProgress: isInProgress,
           });
+          
           statusMap[puzzle.targetDate] = {
-            completed: attemptResult !== null,
-            won: attemptResult === "won" || attemptResult === "win",
-            guessCount: guessesForPuzzle.length,
-            inProgress: attemptResult === null,
+            completed: isCompleted,
+            won: isWon,
+            guessCount: attempt.numGuesses ?? 0,
+            inProgress: isInProgress,
           };
         }
       });
@@ -138,7 +137,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       
       setDayStatuses(statusMap);
     }
-  }, [isAuthenticated, allGuesses, puzzles, currentMonth]);
+  }, [isAuthenticated, gameAttempts, puzzles, currentMonth, loadingAttempts]);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
