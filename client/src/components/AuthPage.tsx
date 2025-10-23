@@ -31,6 +31,8 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
     confirmPassword: "",
     firstName: "",
     lastName: "",
+    acceptedTerms: false,
+    adsConsent: false
   });
 
   // Refs for automatic field progression
@@ -48,6 +50,8 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
       confirmPassword: "",
       firstName: "",
       lastName: "",
+      acceptedTerms: false,
+      adsConsent: false,
     });
   }, [mode]);
 
@@ -93,8 +97,11 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
             data: {
               first_name: formData.firstName,
               last_name: formData.lastName,
+              accepted_terms: formData.acceptedTerms,
+              ads_consent: formData.adsConsent,
               // DO NOT store password in metadata - keep it in local component state only
             },
+
           },
         });
 
@@ -157,7 +164,10 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
+          accepted_terms: formData.acceptedTerms,
+          ads_consent: formData.adsConsent,
         }),
+
       });
 
       if (!response.ok) {
@@ -322,6 +332,43 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
               </div>
             )}
 
+            {mode === "signup" && (
+              <div className="space-y-4">
+                <div className="flex items-start space-x-2">
+                  <input
+                    id="acceptedTerms"
+                    type="checkbox"
+                    checked={formData.acceptedTerms}
+                    onChange={(e) =>
+                      setFormData({ ...formData, acceptedTerms: e.target.checked })
+                    }
+                    required
+                    className="mt-1"
+                  />
+                  <label htmlFor="acceptedTerms" className="text-sm">
+                    I accept the{" "}
+                    <a href="/terms" className="text-primary underline">Terms of Service</a> and{" "}
+                    <a href="/privacy" className="text-primary underline">Privacy Policy</a>.
+                  </label>
+                </div>
+
+                <div className="flex items-start space-x-2">
+                  <input
+                    id="adsConsent"
+                    type="checkbox"
+                    checked={formData.adsConsent}
+                    onChange={(e) =>
+                      setFormData({ ...formData, adsConsent: e.target.checked })
+                    }
+                    className="mt-1"
+                  />
+                  <label htmlFor="adsConsent" className="text-sm">
+                    I agree to receive tailored ads and promotional content (optional).
+                  </label>
+                </div>
+              </div>
+            )}
+            
             <Button 
               type="submit" 
               className="w-full" 

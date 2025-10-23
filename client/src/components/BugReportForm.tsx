@@ -76,16 +76,16 @@ export function BugReportForm({ onBack }: BugReportFormProps) {
             <ChevronLeft className="h-9 w-9 text-gray-700" />
           </button>
 
-          <h1 className="text-4xl font-bold text-gray-700">Report a Bug</h1>
+          <h1 className="text-4xl font-bold">Report a Bug</h1>
 
           <div className="w-14" />
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Describe the Bug</CardTitle>
+            <CardTitle>Thank you!</CardTitle>
             <CardDescription>
-              Help us fix issues by describing what went wrong
+              Your feedback helps us quickly fix issues — please describe what happened
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -105,7 +105,7 @@ export function BugReportForm({ onBack }: BugReportFormProps) {
                 <Label htmlFor="description" data-testid="label-description">Describe the bug</Label>
                 <Textarea
                   id="description"
-                  placeholder="What happened? What did you expect to happen?"
+                  placeholder="What happened? What did you expect to happen? What device and browser are you using?"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="min-h-[150px]"

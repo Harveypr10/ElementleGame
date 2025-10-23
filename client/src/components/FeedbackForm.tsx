@@ -79,16 +79,16 @@ export function FeedbackForm({ onBack }: FeedbackFormProps) {
             <ChevronLeft className="h-9 w-9 text-gray-700" />
           </button>
 
-          <h1 className="text-4xl font-bold text-gray-700">Feedback</h1>
+          <h1 className="text-4xl font-bold">Feedback</h1>
 
           <div className="w-14" />
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Share Your Thoughts</CardTitle>
+            <CardTitle>How are we doing?</CardTitle>
             <CardDescription>
-              Let us know how we can improve Elementle
+              Tell us what you enjoy and how we can make Elementle even better
             </CardDescription>
           </CardHeader>
           <CardContent>
