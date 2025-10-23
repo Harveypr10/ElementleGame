@@ -1,10 +1,10 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-const databaseUrl = process.env.SUPABASE_DATABASE_URL;
+const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error("SUPABASE_DATABASE_URL must be set to your Supabase Postgres connection string");
+  throw new Error("DATABASE_URL must be set to your Supabase Postgres connection string");
 }
 
 const client = postgres(databaseUrl, { ssl: 'require', prepare: false });

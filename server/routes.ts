@@ -34,14 +34,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: authError?.message || 'Failed to create user' });
       }
 
-      // Create user profile with email verification status
+      // Create user profile with email verification status (initially unverified)
       await storage.upsertUserProfile({
         id: authData.user.id,
         email: authData.user.email!,
         firstName,
         lastName,
-        emailVerified: !!authData.user.email_confirmed_at,
+        emailVerified: false, // Always start as unverified
       });
+
+      // Send verification email using Supabase Auth
+      // This generates and sends the verification link to the user's email
+      const { error: emailError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'signup',
+        email: authData.user.email!,
+        password, // Required for signup type links
+        options: {
+          redirectTo: `${req.get('origin') || 'http://localhost:5000'}/`,
+        }
+      });
+
+      if (emailError) {
+        console.error('Error sending verification email:', emailError);
+        // Don't fail signup if email fails - user is created, just log it
+      }
 
       res.json({ user: authData.user });
     } catch (error) {

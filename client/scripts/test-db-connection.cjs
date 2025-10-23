@@ -1,9 +1,9 @@
 // client/scripts/test-db-connection.cjs
 const { Client } = require("pg");
 
-const connectionString = process.env.SUPABASE_DATABASE_URL;
+const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-  console.error("❌ Missing SUPABASE_DATABASE_URL env var");
+  console.error("❌ Missing DATABASE_URL env var");
   process.exit(1);
 }
 
