@@ -3,9 +3,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft, Mail, Smartphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from "@/lib/SupabaseProvider";
+
+// Common country codes for phone numbers
+const COUNTRY_CODES = [
+  { code: "+44", name: "United Kingdom", flag: "🇬🇧" },
+  { code: "+1", name: "United States/Canada", flag: "🇺🇸" },
+  { code: "+33", name: "France", flag: "🇫🇷" },
+  { code: "+49", name: "Germany", flag: "🇩🇪" },
+  { code: "+34", name: "Spain", flag: "🇪🇸" },
+  { code: "+39", name: "Italy", flag: "🇮🇹" },
+  { code: "+61", name: "Australia", flag: "🇦🇺" },
+  { code: "+91", name: "India", flag: "🇮🇳" },
+  { code: "+86", name: "China", flag: "🇨🇳" },
+  { code: "+81", name: "Japan", flag: "🇯🇵" },
+];
 
 interface OTPVerificationScreenProps {
   email: string;
@@ -25,7 +40,44 @@ export function OTPVerificationScreen({
   const supabase = useSupabase();
   const { toast } = useToast();
   const [code, setCode] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState(phone || "");
+  
+  // Parse existing phone number if provided (E.164 format: +CountryCode LocalNumber)
+  const parsePhoneNumber = (fullPhone: string) => {
+    if (!fullPhone) return { code: "+44", local: "" };
+    
+    // If already in E.164 format (starts with +)
+    if (fullPhone.startsWith("+")) {
+      // Try to match against known country codes
+      for (const country of COUNTRY_CODES) {
+        if (fullPhone.startsWith(country.code)) {
+          return {
+            code: country.code,
+            local: fullPhone.slice(country.code.length),
+          };
+        }
+      }
+      
+      // If no match found in known codes, extract country code dynamically
+      // Country codes are 1-3 digits after the +
+      const match = fullPhone.match(/^(\+\d{1,3})(\d+)$/);
+      if (match) {
+        return {
+          code: match[1], // Extracted country code (e.g., "+353")
+          local: match[2], // Remaining digits
+        };
+      }
+      
+      // Fallback: treat entire number as local (shouldn't happen with valid E.164)
+      return { code: "+44", local: fullPhone.slice(1) };
+    }
+    
+    // Otherwise, treat as local number with UK default
+    return { code: "+44", local: fullPhone };
+  };
+  
+  const { code: initialCode, local: initialLocal } = parsePhoneNumber(phone || "");
+  const [phoneNumber, setPhoneNumber] = useState(initialLocal);
+  const [countryCode, setCountryCode] = useState(initialCode);
   const [showPhoneInput, setShowPhoneInput] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(15);
   const [loading, setLoading] = useState(false);
@@ -53,10 +105,11 @@ export function OTPVerificationScreen({
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
+      // For signInWithOtp-based signup, use 'email' type instead of 'signup'
+      const { data, error} = await supabase.auth.verifyOtp({
         email,
         token: code,
-        type: type === "signup" ? "signup" : "email_change",
+        type: type === "signup" ? "email" : "email_change",
       });
 
       if (error) throw error;
@@ -95,16 +148,20 @@ export function OTPVerificationScreen({
           return;
         }
 
+        // Combine country code with phone number (remove any leading zeros from local number)
+        const cleanNumber = phoneNumber.replace(/^0+/, ''); // Remove leading zeros
+        const fullPhoneNumber = `${countryCode}${cleanNumber}`;
+
         // Send OTP via SMS
         const { error } = await supabase.auth.signInWithOtp({
-          phone: phoneNumber,
+          phone: fullPhoneNumber,
         });
 
         if (error) throw error;
 
         toast({
           title: "Code sent!",
-          description: `A new verification code has been sent to ${phoneNumber}`,
+          description: `A new verification code has been sent to ${fullPhoneNumber}`,
         });
       } else {
         // Resend OTP via email
@@ -167,7 +224,7 @@ export function OTPVerificationScreen({
             <CardDescription>
               {deliveryMethod === "email"
                 ? `We've sent a 6-digit code to ${email}. Please check your inbox and enter the code below.`
-                : `We've sent a 6-digit code to ${phoneNumber}. Please check your messages and enter the code below.`}
+                : `We've sent a 6-digit code to ${countryCode}${phoneNumber.replace(/^0+/, '')}. Please check your messages and enter the code below.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -190,19 +247,53 @@ export function OTPVerificationScreen({
 
             {showPhoneInput && (
               <div className="space-y-2">
+                <Label htmlFor="country-code" data-testid="label-country-code">
+                  Country
+                </Label>
+                <Select
+                  value={countryCode}
+                  onValueChange={setCountryCode}
+                >
+                  <SelectTrigger
+                    id="country-code"
+                    data-testid="select-country-code"
+                    className="w-full"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRY_CODES.map((country) => (
+                      <SelectItem
+                        key={country.code}
+                        value={country.code}
+                        data-testid={`option-country-${country.code}`}
+                      >
+                        {country.flag} {country.name} ({country.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 <Label htmlFor="phone" data-testid="label-phone-number">
                   Phone Number
                 </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  data-testid="input-phone-number"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+1234567890"
-                />
+                <div className="flex gap-2">
+                  <div className="flex items-center justify-center px-3 border rounded-md bg-muted text-muted-foreground">
+                    {countryCode}
+                  </div>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    inputMode="numeric"
+                    data-testid="input-phone-number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                    placeholder="7700900000"
+                    className="flex-1"
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  Include country code (e.g., +1 for US)
+                  Enter your local number without the country code. For UK numbers, omit the leading 0.
                 </p>
               </div>
             )}

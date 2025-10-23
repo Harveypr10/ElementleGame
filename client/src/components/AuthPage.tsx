@@ -75,15 +75,15 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
 
     try {
       if (mode === "signup") {
-        // Use sign-up with OTP - creates pending user and sends verification code
-        const { error } = await supabase.auth.signUp({
+        // Send OTP code to email (this sends a 6-digit code, not a confirmation link)
+        const { error } = await supabase.auth.signInWithOtp({
           email: formData.email,
-          password: formData.password,
           options: {
-            emailRedirectTo: window.location.origin,
+            shouldCreateUser: true,
             data: {
               first_name: formData.firstName,
               last_name: formData.lastName,
+              // DO NOT store password in metadata - keep it in local component state only
             },
           },
         });
@@ -94,7 +94,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
         setShowOTPVerification(true);
         toast({
           title: "Verification code sent!",
-          description: `Please check ${formData.email} for your code`,
+          description: `Please check ${formData.email} for your 6-digit code`,
         });
       } else {
         await signIn(formData.email, formData.password);
@@ -116,7 +116,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   };
 
   const handleOTPVerified = async () => {
-    // After OTP verification, create the user profile in database
+    // After OTP verification, set password and create the user profile in database
     setLoading(true);
     try {
       // Get the session to verify user is authenticated
@@ -124,6 +124,15 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
       
       if (!session) {
         throw new Error("No session after verification");
+      }
+
+      // Set the password for the account (OTP login creates passwordless account)
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password: formData.password,
+      });
+
+      if (passwordError) {
+        throw passwordError;
       }
 
       // Create user profile in database
