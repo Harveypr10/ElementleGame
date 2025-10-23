@@ -77,10 +77,10 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
         });
       } else {
         await signIn(formData.email, formData.password);
-        toast({
-          title: "Welcome back!",
-          description: "You've successfully signed in.",
-        });
+        //toast({
+        //  title: "Welcome back!",
+        //  description: "You've successfully signed in.",
+        //});
       }
       onSuccess();
     } catch (error: any) {
