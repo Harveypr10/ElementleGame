@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Mail, Info, Lock, FileText, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Bug, MessageSquare, Info, Lock, FileText, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -10,12 +10,14 @@ interface SettingsPageProps {
   onBack: () => void;
   onOpenOptions: () => void;
   onAccountInfo: () => void;
+  onBugReport?: () => void;
+  onFeedback?: () => void;
   onPrivacy?: () => void;
   onTerms?: () => void;
   onAbout?: () => void;
 }
 
-export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, onTerms, onAbout }: SettingsPageProps) {
+export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport, onFeedback, onPrivacy, onTerms, onAbout }: SettingsPageProps) {
   const { user, isAuthenticated, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -40,11 +42,16 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onPrivacy, 
       testId: "button-options-from-settings",
     },
     {
-      icon: Mail,
-      label: "Support",
-      description: "Bug report & feedback",
-      onClick: () => alert("Support page coming soon"),
-      testId: "button-support",
+      icon: Bug,
+      label: "Report a Bug",
+      onClick: onBugReport || (() => alert("Bug report coming soon")),
+      testId: "button-bug-report",
+    },
+    {
+      icon: MessageSquare,
+      label: "Feedback",
+      onClick: onFeedback || (() => alert("Feedback form coming soon")),
+      testId: "button-feedback",
     },
     {
       icon: Info,

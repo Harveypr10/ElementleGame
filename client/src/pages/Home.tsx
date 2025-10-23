@@ -13,11 +13,13 @@ import AccountInfoPage from "@/components/AccountInfoPage";
 import { PrivacyPage } from "@/components/PrivacyPage";
 import { TermsPage } from "@/components/TermsPage";
 import { AboutPage } from "@/components/AboutPage";
+import { BugReportForm } from "@/components/BugReportForm";
+import { FeedbackForm } from "@/components/FeedbackForm";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useQuery } from "@tanstack/react-query";
 
-type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about";
+type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback";
 
 interface Puzzle {
   id: number;
@@ -292,6 +294,8 @@ export default function Home() {
             setCurrentScreen("options");
           }}
           onAccountInfo={() => setCurrentScreen("account-info")}
+          onBugReport={() => setCurrentScreen("bug-report")}
+          onFeedback={() => setCurrentScreen("feedback")}
           onPrivacy={() => setCurrentScreen("privacy")}
           onTerms={() => setCurrentScreen("terms")}
           onAbout={() => setCurrentScreen("about")}
@@ -308,6 +312,14 @@ export default function Home() {
         <AccountInfoPage 
           onBack={() => setCurrentScreen("settings")}
         />
+      )}
+
+      {currentScreen === "bug-report" && (
+        <BugReportForm onBack={() => setCurrentScreen("settings")} />
+      )}
+
+      {currentScreen === "feedback" && (
+        <FeedbackForm onBack={() => setCurrentScreen("settings")} />
       )}
 
       {currentScreen === "privacy" && (

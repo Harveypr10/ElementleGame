@@ -371,6 +371,7 @@ export class DatabaseStorage implements IStorage {
         id: gameAttempts.id,
         result: gameAttempts.result,
         puzzleDate: puzzles.date,
+        completedAt: gameAttempts.completedAt,
       })
       .from(gameAttempts)
       .innerJoin(puzzles, eq(gameAttempts.puzzleId, puzzles.id))
@@ -394,6 +395,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Calculate current streak - check consecutive days ending at or before today
+    // IMPORTANT: Only count puzzles played on their actual date (not archive puzzles played later)
     const allCompletedAttempts = [...completedAttempts, ...lostAttempts].sort((a, b) => 
       new Date(b.puzzleDate).getTime() - new Date(a.puzzleDate).getTime()
     );
@@ -402,10 +404,21 @@ export class DatabaseStorage implements IStorage {
     let maxStreak = 0;
     let tempStreak = 0;
     
-    // Build map of dates to results
+    // Build map of dates to results, filtering for puzzles played on their actual day
     const dateMap = new Map<string, string>();
     for (const attempt of allCompletedAttempts) {
-      dateMap.set(attempt.puzzleDate, attempt.result || '');
+      // Only count if puzzle was completed on the same day as its puzzle date
+      const completedDate = new Date(attempt.completedAt || '');
+      const puzzleDate = new Date(attempt.puzzleDate);
+      
+      // Normalize both dates to midnight for comparison
+      completedDate.setHours(0, 0, 0, 0);
+      puzzleDate.setHours(0, 0, 0, 0);
+      
+      // Only add to map if completed on the correct day (archive puzzles don't count)
+      if (completedDate.getTime() === puzzleDate.getTime()) {
+        dateMap.set(attempt.puzzleDate, attempt.result || '');
+      }
     }
 
     // Calculate current streak from today backwards
@@ -413,11 +426,22 @@ export class DatabaseStorage implements IStorage {
     today.setHours(0, 0, 0, 0);
     let checkDate = new Date(today);
     
+    // Check if user played yesterday's puzzle - if not, streak is broken
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    
+    // If today's puzzle isn't played yet, start checking from yesterday
+    const todayStr = today.toISOString().split('T')[0];
+    if (!dateMap.has(todayStr)) {
+      checkDate = new Date(yesterday);
+    }
+    
     while (true) {
       const dateStr = checkDate.toISOString().split('T')[0];
       const result = dateMap.get(dateStr);
       
-      if (!result) break; // No game played this day
+      if (!result) break; // No game played this day - streak broken
       if (result === 'won') {
         currentStreak++;
       } else {

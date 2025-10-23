@@ -1,0 +1,10 @@
+Further fixes:
+- Verify Code screen to be justified to the top of the screen, not aligned to the centre
+- When entering account details, when tab or enter on a box filled in e.g. First Name filled in, the next box is reached with it ready to type straight into without a further click
+- Remove the original password show function for when on a website, and just keep the new one that works on web and on mobile (two currently show on the laptop Edge version)
+- Move the pop up messages that appear during the sign-up process to the bottom of the screen
+- Change the first object that is "live" on the GameSelection screen away from the help icon and onto the "Play today's puzzle" button
+- Change it so the Streak is only built by solving today's puzzle, and is not incremented by solving an archive puzzle that isn't for today's date. When the user returns the next day, if they haven't done the "today's puzzle" from the day before then their streak is set back to zero and starts again. Max streak should
+- In Settings, to the right of "Support" split the "Report a Bug" and "Feedback" into two, one above the other, over to the right hand side, with two slightly smaller chevrons next to them, that link to the following screens:
+	- Create a "Report a Bug" form with the user's email defaulted in at the top and a box labelled "Describe the bug" for them to enter a description of the bug, and an attachment button so they can add a picture or file to explain the problem. When they click "Send" it get sent as an email to the no-reply@dobl.uk email address with the user's email address and the word "Bug" in the title
+	- Create a "Feedback" form with the user's email defaulted in at the top and a box for them to enter their feedback, below which there is a Do you like playing Elementle? and a 5 star clickable image below, so they can set the number of stars to match their rating, going from outline yellow to filled in yellow for the one they click on and the ones before. When they click "Send" it get sent as an email to the no-reply@dobl.uk email address with the user's email address and the word "Feedback" in the title

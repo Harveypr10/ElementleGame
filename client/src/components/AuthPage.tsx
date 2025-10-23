@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,13 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
     firstName: "",
     lastName: "",
   });
+
+  // Refs for automatic field progression
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
 
   // Reset form when mode changes to prevent stale data
   useEffect(() => {
@@ -213,20 +220,34 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
                 <div className="space-y-2">
                   <Label htmlFor="firstName" data-testid="label-firstname">First Name</Label>
                   <Input
+                    ref={firstNameRef}
                     id="firstName"
                     data-testid="input-firstname"
                     value={formData.firstName}
                     onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && formData.firstName) {
+                        e.preventDefault();
+                        lastNameRef.current?.focus();
+                      }
+                    }}
                     required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName" data-testid="label-lastname">Last Name</Label>
                   <Input
+                    ref={lastNameRef}
                     id="lastName"
                     data-testid="input-lastname"
                     value={formData.lastName}
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && formData.lastName) {
+                        e.preventDefault();
+                        emailRef.current?.focus();
+                      }
+                    }}
                     required
                   />
                 </div>
@@ -236,11 +257,18 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
             <div className="space-y-2">
               <Label htmlFor="email" data-testid="label-email">Email</Label>
               <Input
+                ref={emailRef}
                 id="email"
                 type="email"
                 data-testid="input-email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && formData.email) {
+                    e.preventDefault();
+                    passwordRef.current?.focus();
+                  }
+                }}
                 required
               />
             </div>
@@ -248,10 +276,18 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
             <div className="space-y-2">
               <Label htmlFor="password" data-testid="label-password">Password</Label>
               <PasswordInput
+                ref={passwordRef}
                 id="password"
                 data-testid="input-password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && formData.password && mode === 'signup') {
+                    e.preventDefault();
+                    confirmPasswordRef.current?.focus();
+                  }
+                }}
+                autoComplete="new-password"
                 required
               />
               {mode === "signup" && (
@@ -275,10 +311,12 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" data-testid="label-confirm-password">Confirm Password</Label>
                 <PasswordInput
+                  ref={confirmPasswordRef}
                   id="confirmPassword"
                   data-testid="input-confirm-password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  autoComplete="new-password"
                   required
                 />
               </div>

@@ -3,10 +3,12 @@ import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface PasswordInputProps
-  extends Omit<React.ComponentProps<"input">, "type"> {}
+  extends Omit<React.ComponentProps<"input">, "type"> {
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+}
 
 const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, onKeyDown, ...props }, ref) => {
     const [showPassword, setShowPassword] = React.useState(false);
 
     return (
@@ -18,6 +20,7 @@ const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputProps>(
             className
           )}
           ref={ref}
+          onKeyDown={onKeyDown}
           {...props}
         />
         <button

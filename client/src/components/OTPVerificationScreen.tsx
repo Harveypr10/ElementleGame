@@ -209,7 +209,7 @@ export function OTPVerificationScreen({
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-4">
+    <div className="min-h-screen flex flex-col p-4 pt-8">
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
           <button

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { HelpDialog } from "./HelpDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,6 +43,12 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
   const [showHelp, setShowHelp] = useState(false);
   const [todayPuzzleStatus, setTodayPuzzleStatus] = useState<'not-played' | 'solved' | 'failed'>('not-played');
   const [guessCount, setGuessCount] = useState<number>(0);
+  const playButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Auto-focus the Play button on mount instead of help icon
+  useEffect(() => {
+    playButtonRef.current?.focus();
+  }, []);
 
   // Load from cache immediately on mount for instant rendering
   useEffect(() => {
@@ -291,6 +297,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         {menuItems.map((item, index) => (
           <motion.button
             key={item.testId}
+            ref={index === 0 ? playButtonRef : null}
             className={`w-full ${item.height} flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md ${item.disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
             style={{ backgroundColor: item.bgColor }}
             onClick={item.disabled ? undefined : item.onClick}
