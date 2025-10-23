@@ -170,9 +170,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
 
   const playContent = getPlayButtonContent();
 
-  // Check if Archive should be disabled (authenticated users with unverified email)
-  const isArchiveDisabled = isAuthenticated && profile && !profile.emailVerified;
-
   const menuItems = [
     { 
       title: playContent.title,
@@ -186,13 +183,13 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     },
     { 
       title: "Archive",
-      subtitle: isArchiveDisabled ? "Verify your email to unlock" : "",
+      subtitle: "",
       image: librarianHamsterYellow,
       bgColor: "#FFD429",
-      onClick: isArchiveDisabled ? undefined : onViewArchive,
+      onClick: onViewArchive,
       testId: "button-archive",
       height: "h-24",
-      disabled: isArchiveDisabled
+      disabled: false
     },
     { 
       title: "Stats",

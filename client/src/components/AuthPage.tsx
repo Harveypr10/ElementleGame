@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
+import { OTPVerificationScreen } from "./OTPVerificationScreen";
+import { useSupabase } from "@/lib/SupabaseProvider";
 
 interface AuthPageProps {
   mode: "login" | "signup" | "forgot-password";
@@ -18,8 +20,10 @@ interface AuthPageProps {
 
 export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword }: AuthPageProps) {
   const { signIn, signUp } = useAuth();
+  const supabase = useSupabase();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
   
   const [formData, setFormData] = useState({
     email: "",
@@ -71,19 +75,35 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
 
     try {
       if (mode === "signup") {
-        await signUp(formData.email, formData.password, formData.firstName, formData.lastName);
+        // Use sign-up with OTP - creates pending user and sends verification code
+        const { error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: {
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+            },
+          },
+        });
+
+        if (error) throw error;
+
+        // Show OTP verification screen
+        setShowOTPVerification(true);
         toast({
-          title: "Account created!",
-          description: "Welcome to Elementle!",
+          title: "Verification code sent!",
+          description: `Please check ${formData.email} for your code`,
         });
       } else {
         await signIn(formData.email, formData.password);
-        //toast({
-        //  title: "Welcome back!",
-        //  description: "You've successfully signed in.",
-        //});
       }
-      onSuccess();
+      
+      // Only call onSuccess for login, not signup (signup success happens after OTP verification)
+      if (mode !== "signup") {
+        onSuccess();
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -94,6 +114,71 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
       setLoading(false);
     }
   };
+
+  const handleOTPVerified = async () => {
+    // After OTP verification, create the user profile in database
+    setLoading(true);
+    try {
+      // Get the session to verify user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("No session after verification");
+      }
+
+      // Create user profile in database
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create profile');
+      }
+
+      toast({
+        title: "Account created!",
+        description: "Welcome to Elementle!",
+      });
+      onSuccess();
+    } catch (error: any) {
+      toast({
+        title: "Error creating account",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelVerification = () => {
+    setShowOTPVerification(false);
+    toast({
+      title: "Verification cancelled",
+      description: "You can edit your details and try again",
+    });
+  };
+
+  // Show OTP verification screen for signup
+  if (mode === "signup" && showOTPVerification) {
+    return (
+      <OTPVerificationScreen
+        email={formData.email}
+        type="signup"
+        onVerified={handleOTPVerified}
+        onCancel={handleCancelVerification}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">

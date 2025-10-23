@@ -34,30 +34,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: authError?.message || 'Failed to create user' });
       }
 
-      // Create user profile with email verification status (initially unverified)
+      // Create user profile
       await storage.upsertUserProfile({
         id: authData.user.id,
         email: authData.user.email!,
         firstName,
         lastName,
-        emailVerified: false, // Always start as unverified
       });
-
-      // Send verification email using Supabase Auth
-      // This generates and sends the verification link to the user's email
-      const { error: emailError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'signup',
-        email: authData.user.email!,
-        password, // Required for signup type links
-        options: {
-          redirectTo: `${req.get('origin') || 'http://localhost:5000'}/`,
-        }
-      });
-
-      if (emailError) {
-        console.error('Error sending verification email:', emailError);
-        // Don't fail signup if email fails - user is created, just log it
-      }
 
       res.json({ user: authData.user });
     } catch (error) {
@@ -78,20 +61,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Profile not found" });
       }
 
-      // Sync email verification status from Supabase Auth
-      const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId);
-      if (authUser?.user && authUser.user.email_confirmed_at) {
-        const emailVerified = !!authUser.user.email_confirmed_at;
-        if (profile.emailVerified !== emailVerified) {
-          // Update profile with verified status
-          await storage.upsertUserProfile({
-            ...profile,
-            emailVerified,
-          });
-          profile.emailVerified = emailVerified;
-        }
-      }
-
       res.json(profile);
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -104,19 +73,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const { firstName, lastName, email } = req.body;
 
-      // Get current profile to check if email changed
-      const currentProfile = await storage.getUserProfile(userId);
-      const emailChanged = currentProfile && currentProfile.email !== email;
-
       // Update profile in database
-      // IMPORTANT: Never trust client-provided emailVerified
-      // Always set to false if email changed, let Supabase Auth sync handle verification
       const updatedProfile = await storage.upsertUserProfile({
         id: userId,
         email,
         firstName,
         lastName,
-        emailVerified: emailChanged ? false : (currentProfile?.emailVerified ?? false),
       });
 
       res.json(updatedProfile);

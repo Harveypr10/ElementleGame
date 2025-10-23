@@ -4,14 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { queryClient } from "@/lib/queryClient";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
+import { OTPVerificationScreen } from "./OTPVerificationScreen";
 
 interface AccountInfoPageProps {
   onBack: () => void;
@@ -23,6 +23,8 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const { profile } = useProfile();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [originalEmail, setOriginalEmail] = useState("");
   
   const [profileData, setProfileData] = useState({
     firstName: "",
@@ -38,6 +40,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         lastName: profile.lastName || "",
         email: profile.email || "",
       });
+      setOriginalEmail(profile.email || "");
     }
   }, [profile]);
 
@@ -52,29 +55,75 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     setLoading(true);
 
     try {
-      const emailChanged = profileData.email !== profile?.email;
+      const emailChanged = profileData.email !== originalEmail;
 
-      // Update Supabase Auth user with proper email redirect URL for verification
-      // For email changes, Supabase requires emailRedirectTo in options
-      const updateOptions = emailChanged ? {
-        emailRedirectTo: window.location.origin,
-      } : undefined;
-
-      const { error } = await supabase.auth.updateUser(
-        {
+      if (emailChanged) {
+        // Initiate email change - Supabase will send OTP to new email
+        const { error } = await supabase.auth.updateUser({
           email: profileData.email,
+        });
+
+        if (error) throw error;
+
+        // Show OTP verification screen
+        setShowOTPVerification(true);
+        toast({
+          title: "Verification code sent!",
+          description: `Please check ${profileData.email} for your verification code`,
+        });
+      } else {
+        // No email change, just update name fields
+        const { error } = await supabase.auth.updateUser({
           data: {
             first_name: profileData.firstName,
             last_name: profileData.lastName,
           },
-        },
-        updateOptions
-      );
+        });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // Update user profile in database via API
-      // Server will handle emailVerified logic based on email change
+        // Update user profile in database via API
+        const response = await fetch('/api/auth/profile', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+          body: JSON.stringify({
+            firstName: profileData.firstName,
+            lastName: profileData.lastName,
+            email: profileData.email,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update profile in database');
+        }
+
+        await queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
+
+        toast({
+          title: "Profile updated!",
+          description: "Your profile information has been saved.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOTPVerified = async () => {
+    // After OTP verification, email is already updated in Supabase Auth
+    // Just need to update the profile in our database
+    setLoading(true);
+    try {
+      // Update user profile in database with new email
       const response = await fetch('/api/auth/profile', {
         method: 'PATCH',
         headers: {
@@ -92,29 +141,36 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         throw new Error('Failed to update profile in database');
       }
 
-      // Invalidate profile query to refetch updated verification status
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
 
-      if (emailChanged) {
-        toast({
-          title: "Email verification required",
-          description: "Please check your new email inbox for a verification link. Archive will be disabled until verified.",
-        });
-      } else {
-        toast({
-          title: "Profile updated!",
-          description: "Your profile information has been saved.",
-        });
-      }
+      setShowOTPVerification(false);
+      setOriginalEmail(profileData.email); // Update the original email reference
+      toast({
+        title: "Email updated!",
+        description: "Your email address has been successfully changed.",
+      });
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update profile",
+        title: "Error updating email",
+        description: error.message || "Failed to update email",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelEmailChange = () => {
+    // Reset email to original value
+    setProfileData({
+      ...profileData,
+      email: originalEmail,
+    });
+    setShowOTPVerification(false);
+    toast({
+      title: "Email change cancelled",
+      description: "Your email has not been changed",
+    });
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -183,6 +239,18 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     }
   };
 
+  // Show OTP verification screen for email change
+  if (showOTPVerification) {
+    return (
+      <OTPVerificationScreen
+        email={profileData.email}
+        type="email_change"
+        onVerified={handleOTPVerified}
+        onCancel={handleCancelEmailChange}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col p-4">
       <div className="flex items-center justify-between mb-6">
@@ -245,20 +313,9 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email" data-testid="label-email">
-                      Email
-                    </Label>
-                    {profile?.emailVerified ? (
-                      <Badge variant="default" className="text-xs" data-testid="badge-email-verified">
-                        Verified
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-xs" data-testid="badge-email-unverified">
-                        Not Verified
-                      </Badge>
-                    )}
-                  </div>
+                  <Label htmlFor="email" data-testid="label-email">
+                    Email
+                  </Label>
                   <Input
                     id="email"
                     type="email"
@@ -269,11 +326,6 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                     }
                     required
                   />
-                  {!profile?.emailVerified && (
-                    <p className="text-xs text-muted-foreground" data-testid="text-email-verification-warning">
-                      Please verify your email to access all features. Check your inbox for the verification link.
-                    </p>
-                  )}
                 </div>
 
                 <Button

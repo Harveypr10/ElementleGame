@@ -1,0 +1,74 @@
+Task: Replace Email Link Verification with Email/SMS OTP Code Flow
+We want to remove the current email verification link flow and replace it with an OTP code–based verification flow (via email or SMS). This should apply both to new user sign‑up and to email address changes in the Profile Information screen.
+
+Sign‑Up Flow
+User clicks “Sign Up”.
+
+User enters their details (including email) and clicks “Sign Up”.
+
+Instead of sending a verification link, the system:
+
+Sends a 6‑digit OTP code to the user’s email.
+
+Takes the user to a new verification screen that:
+
+Explains in user‑friendly language that a code has been emailed.
+
+Provides an input box for the code.
+
+Offers an option to enter a mobile number to receive the code via SMS instead.
+
+Includes a resend code button, enabled after a 15‑second countdown.
+
+Includes a Cancel button that returns the user to the Sign‑Up screen with their details still populated so they can edit them.
+
+If the user enters the code correctly:
+
+The account is created and verified.
+
+The user is taken to the GameSelectionPage as normal.
+
+If the user cancels or abandons the verification:
+
+No account is created.
+
+They are returned to the Sign‑Up screen with their details intact.
+
+Profile Information – Change Email Flow
+User edits their email address and clicks “Save Changes”.
+
+Instead of sending a verification link, the system:
+
+Sends a 6‑digit OTP code to the new email.
+
+Shows the same verification screen as above, with options for email or SMS delivery, resend after 15 seconds, and cancel.
+
+If the user enters the code correctly:
+
+The email address is updated.
+
+If the user cancels or fails verification:
+
+The email address is reset to the original value.
+
+No changes are saved.
+
+The “Verified” flag should be removed from the Profile Information screen entirely (no longer displayed).
+
+Technical Notes
+Use Supabase Auth’s signInWithOtp / verifyOtp methods for both email and SMS.
+
+Ensure the OTP flow is consistent across sign‑up and email change.
+
+Handle resend logic with a 15‑second cooldown timer.
+
+Ensure cancellation cleanly rolls back to the previous state (no partial accounts or half‑saved emails).
+
+Deliverables
+Updated Sign‑Up flow with OTP verification screen.
+
+Updated Profile Information email change flow with OTP verification screen.
+
+Removal of the “Verified” flag from Profile Information.
+
+Tested flows for both email and SMS OTP delivery.

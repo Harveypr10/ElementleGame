@@ -42,9 +42,6 @@ export function EndGameModal({
   const { profile } = useProfile();
   const [showConfetti, setShowConfetti] = useState(false);
 
-  // Check if Archive should be disabled (authenticated users with unverified email)
-  const isArchiveDisabled = isAuthenticated && profile && !profile.emailVerified;
-
   useEffect(() => {
     if (isOpen) {
       // Play appropriate sound when modal opens
@@ -160,15 +157,11 @@ export function EndGameModal({
               <Button
                 variant="warning"
                 className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm"
-                onClick={isArchiveDisabled ? undefined : onViewArchive}
-                disabled={isArchiveDisabled}
+                onClick={onViewArchive}
                 data-testid="button-archive"
               >
                 <div className="flex flex-col items-start flex-1">
                   <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Archive</span>
-                  {isArchiveDisabled && (
-                    <span className="text-xs text-gray-600">Verify email to unlock</span>
-                  )}
                 </div>
                 <div className="flex-shrink-0 flex items-center">
                   <img
