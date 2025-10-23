@@ -139,29 +139,40 @@ Preferred communication style: Simple, everyday language.
 - In-progress games now correctly load all saved guesses when users click on them from the Archive
 - Archive status display already working correctly - shows blue background with guess count for in-progress games
 
-**Email Verification & UX Improvements (October 23, 2025)**
+**OTP Verification System (October 23, 2025)**
 
-1. **Sign-up Email Verification Flow**
-   - Sign-up now sends verification email via Supabase `generateLink()` API
-   - Users are logged in immediately with `emailVerified: false` status
-   - Profile endpoint syncs verification status from Supabase Auth `email_confirmed_at` field
+1. **Replaced Email Link Verification with OTP**
+   - Removed `emailVerified` field from database schema and all UI components
+   - Created `OTPVerificationScreen` component with 6-digit code input
+   - Supports both email and SMS delivery options with toggle
+   - Includes resend button with 15-second cooldown timer
+   - Cancel button returns to previous screen without saving changes
 
-2. **Archive Access Control**
-   - EndGameModal: Added email verification check with "Verify email to unlock" message
-   - GameSelectionPage: Archive button already had verification check
-   - Unverified users blocked from Archive until they verify their email
+2. **Sign-up Flow with OTP**
+   - Uses `supabase.auth.signUp()` to create pending user and send OTP code
+   - User enters verification code in OTPVerificationScreen
+   - After successful verification, creates user profile in database via PATCH `/api/auth/profile`
+   - On cancel, no account is created - user returns to signup form with data intact
+   - Removed email link sending from server `/api/auth/signup` endpoint
 
-3. **Email Change Verification**
-   - Fixed `emailRedirectTo` to use `window.location.origin` (without trailing slash)
-   - Ensures verification links redirect correctly to app after email change
-   - Server properly syncs `emailVerified` status from Supabase Auth
+3. **Email Change Flow with OTP**
+   - Uses `supabase.auth.updateUser({ email })` to initiate email change
+   - Supabase sends OTP to new email address
+   - User verifies code in OTPVerificationScreen
+   - After verification, email updated in both Supabase Auth and database
+   - On cancel, email resets to original value
 
-4. **Password Visibility Toggle (Safari Mobile Fix)**
+4. **Archive Access**
+   - Removed all email verification checks
+   - Archive now accessible to all authenticated users immediately after signup
+   - Simplified user experience without verification gating
+
+5. **Password Visibility Toggle (Safari Mobile Fix)**
    - Created `PasswordInput` component with Eye/EyeOff toggle button
    - Replaced all password Input fields in AuthPage and AccountInfoPage
    - Resolves Safari mobile compatibility issues with password visibility
 
-5. **Sound Toggle Functionality**
+6. **Sound Toggle Functionality**
    - Added `soundManager.setEnabled()` calls throughout OptionsPage:
      - Cache load useEffect
      - Supabase/localStorage reconciliation useEffect
