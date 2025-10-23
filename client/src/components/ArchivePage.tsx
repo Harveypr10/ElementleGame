@@ -184,7 +184,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             status?.completed && status.won && "bg-green-100 dark:bg-green-900/30",
             status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30",
             status?.inProgress && "bg-blue-100 dark:bg-blue-900/30",
-            !status?.completed && isPlayable && "bg-gray-100 dark:bg-gray-800",
+            !status?.completed && !status?.inProgress && isPlayable && "bg-gray-100 dark:bg-gray-800",
             (!puzzle || isFuture) && "bg-background opacity-40",
             isToday && "ring-2 ring-primary"
           )}

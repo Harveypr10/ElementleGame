@@ -265,26 +265,117 @@ export function PlayPage({
 
   // Load in-progress guesses when resuming a puzzle
   useEffect(() => {
-    if (!viewOnly && !gameOver) {
-      const inProgressKey = `puzzle-progress-${targetDate}`;
-      const savedProgress = localStorage.getItem(inProgressKey);
-      
-      if (savedProgress) {
-        const progress = JSON.parse(savedProgress);
-        if (progress.guessRecords && Array.isArray(progress.guessRecords)) {
-          const feedbackArrays = progress.guessRecords.map((gr: GuessRecord) => gr.feedbackResult);
-          setGuesses(feedbackArrays);
-          setGuessRecords(progress.guessRecords);
-          setWrongGuessCount(progress.wrongGuessCount || 0);
+    let mounted = true;
+    
+    const loadInProgressGame = async () => {
+      if (!viewOnly && !gameOver && !loadingAttempts) {
+        if (isAuthenticated && gameAttempts && puzzleId) {
+          // For authenticated users, load from database
+          const inProgressAttempt = gameAttempts.find(
+            attempt => attempt.puzzleId === puzzleId && attempt.result === null && (attempt.numGuesses ?? 0) > 0
+          );
           
-          // Restore key states
-          if (progress.keyStates) {
-            setKeyStates(progress.keyStates);
+          if (inProgressAttempt && mounted) {
+            // Set the current attempt ID so future guesses save to the correct attempt
+            setCurrentGameAttemptId(inProgressAttempt.id);
+            
+            // Load guesses from database
+            const attemptGuesses = await getGuessesByAttempt(inProgressAttempt.id);
+            
+            if (mounted && attemptGuesses && attemptGuesses.length > 0) {
+              // Recalculate feedback for each guess (don't use stored feedbackResult)
+              const freshGuessRecords: GuessRecord[] = [];
+              const freshFeedbackArrays: CellFeedback[][] = [];
+              let newKeyStates = {};
+              
+              attemptGuesses.forEach(guess => {
+                const feedback = calculateFeedbackForGuess(guess.guessValue, newKeyStates);
+                freshFeedbackArrays.push(feedback);
+                freshGuessRecords.push({
+                  guessValue: guess.guessValue,
+                  feedbackResult: feedback
+                });
+                newKeyStates = updateKeyStates(guess.guessValue, feedback, newKeyStates);
+              });
+              
+              setGuesses(freshFeedbackArrays);
+              setGuessRecords(freshGuessRecords);
+              setKeyStates(newKeyStates);
+              setWrongGuessCount(attemptGuesses.filter(g => g.guessValue !== targetDate).length);
+            }
+          }
+        } else if (!isAuthenticated) {
+          // For guest users, load from localStorage
+          const inProgressKey = `puzzle-progress-${targetDate}`;
+          const savedProgress = localStorage.getItem(inProgressKey);
+          
+          if (savedProgress && mounted) {
+            const progress = JSON.parse(savedProgress);
+            if (progress.guessRecords && Array.isArray(progress.guessRecords)) {
+              const feedbackArrays = progress.guessRecords.map((gr: GuessRecord) => gr.feedbackResult);
+              setGuesses(feedbackArrays);
+              setGuessRecords(progress.guessRecords);
+              setWrongGuessCount(progress.wrongGuessCount || 0);
+              
+              // Restore key states
+              if (progress.keyStates) {
+                setKeyStates(progress.keyStates);
+              }
+            }
           }
         }
       }
+    };
+    
+    loadInProgressGame();
+    
+    return () => { mounted = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewOnly, targetDate, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
+  
+  // Helper function to calculate feedback without updating state
+  const calculateFeedbackForGuess = (guess: string, currentKeyStates: Record<string, KeyState>): CellFeedback[] => {
+    const feedback: CellFeedback[] = [];
+    
+    for (let i = 0; i < 6; i++) {
+      const guessDigit = guess[i];
+      const targetDigit = targetDate[i];
+      
+      if (guessDigit === targetDigit) {
+        feedback.push({ digit: guessDigit, state: "correct" });
+      } else if (targetDate.includes(guessDigit)) {
+        const arrow = parseInt(guessDigit) < parseInt(targetDigit) ? "up" : "down";
+        feedback.push({ digit: guessDigit, state: "inSequence", arrow });
+      } else {
+        const arrow = parseInt(guessDigit) < parseInt(targetDigit) ? "up" : "down";
+        feedback.push({ digit: guessDigit, state: "notInSequence", arrow });
+      }
     }
-  }, [viewOnly, targetDate]);
+    
+    return feedback;
+  };
+  
+  // Helper function to update key states without modifying state
+  const updateKeyStates = (guess: string, feedback: CellFeedback[], currentKeyStates: Record<string, KeyState>): Record<string, KeyState> => {
+    const newKeyStates = { ...currentKeyStates };
+    
+    for (let i = 0; i < 6; i++) {
+      const guessDigit = guess[i];
+      const cellFeedback = feedback[i];
+      
+      if (cellFeedback.state === "correct") {
+        newKeyStates[guessDigit] = "correct";
+      } else if (cellFeedback.state === "inSequence") {
+        if (newKeyStates[guessDigit] !== "correct") {
+          newKeyStates[guessDigit] = "inSequence";
+        }
+      } else if (cellFeedback.state === "notInSequence") {
+        newKeyStates[guessDigit] = "ruledOut";
+      }
+    }
+    
+    return newKeyStates;
+  };
 
   const calculateFeedback = (guess: string): CellFeedback[] => {
     const feedback: CellFeedback[] = [];
