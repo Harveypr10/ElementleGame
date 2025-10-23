@@ -17,7 +17,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Server-side signup endpoint - creates both Supabase Auth user and profile
   app.post("/api/auth/signup", async (req, res) => {
     try {
-      const { email, password, firstName, lastName } = req.body;
+      const { email, password, firstName, lastName, accepted_terms, ads_consent } = req.body;
 
       // Create auth user - email verification will be required
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -34,13 +34,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: authError?.message || 'Failed to create user' });
       }
 
-      // Create user profile
-      await storage.upsertUserProfile({
+      const now = new Date();
+
+      // Create user profile with consent fields
+      const profileData: any = {
         id: authData.user.id,
         email: authData.user.email!,
         firstName,
         lastName,
-      });
+        acceptedTerms: accepted_terms ?? false,
+        adsConsent: ads_consent ?? false,
+      };
+
+      // Set timestamps for consents that were accepted
+      if (accepted_terms) {
+        profileData.acceptedTermsAt = now;
+      }
+      if (ads_consent) {
+        profileData.adsConsentUpdatedAt = now;
+      }
+
+      await storage.upsertUserProfile(profileData);
 
       res.json({ user: authData.user });
     } catch (error) {
@@ -71,15 +85,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/auth/profile", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { firstName, lastName, email } = req.body;
+      const { firstName, lastName, email, accepted_terms, ads_consent } = req.body;
 
-      // Update profile in database
-      const updatedProfile = await storage.upsertUserProfile({
+      // Load existing profile to compare
+      const existing = await storage.getUserProfile(userId);
+      const now = new Date();
+
+      // Build profile data conditionally - only include timestamp fields when actually changing them
+      const profileData: any = {
         id: userId,
         email,
         firstName,
         lastName,
-      });
+        acceptedTerms: accepted_terms ?? existing?.acceptedTerms ?? false,
+        adsConsent: ads_consent ?? existing?.adsConsent ?? false,
+        emailVerified: existing?.emailVerified ?? false,
+      };
+
+      // Only set acceptedTermsAt when the value actually changes
+      if (accepted_terms !== undefined && accepted_terms !== existing?.acceptedTerms) {
+        profileData.acceptedTermsAt = now;
+      } else if (existing?.acceptedTermsAt) {
+        // Convert existing timestamp string to Date object
+        profileData.acceptedTermsAt = new Date(existing.acceptedTermsAt);
+      }
+
+      // Only set adsConsentUpdatedAt when the value actually changes
+      if (ads_consent !== undefined && ads_consent !== existing?.adsConsent) {
+        profileData.adsConsentUpdatedAt = now;
+      } else if (existing?.adsConsentUpdatedAt) {
+        // Convert existing timestamp string to Date object
+        profileData.adsConsentUpdatedAt = new Date(existing.adsConsentUpdatedAt);
+      }
+
+      const updatedProfile = await storage.upsertUserProfile(profileData);
 
       res.json(updatedProfile);
     } catch (error) {
@@ -87,6 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
+
 
   // Puzzle routes (public)
   app.get("/api/puzzles", async (req, res) => {

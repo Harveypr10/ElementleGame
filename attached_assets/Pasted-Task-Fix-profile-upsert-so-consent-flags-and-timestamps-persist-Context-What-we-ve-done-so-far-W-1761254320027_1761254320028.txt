@@ -1,0 +1,62 @@
+Task: Fix profile upsert so consent flags and timestamps persist
+Context / What we’ve done so far
+
+We extended user_profiles in shared/schema.ts to include:
+
+acceptedTerms (boolean, default false)
+
+adsConsent (boolean, default false)
+
+acceptedTermsAt (timestamp)
+
+adsConsentUpdatedAt (timestamp)
+
+emailVerified (boolean, default false)
+
+We updated insertUserProfileSchema to make the timestamp and emailVerified fields optional.
+
+We modified DatabaseStorage.upsertUserProfile in server/storage.ts to filter out undefined values before updating, so existing timestamps aren’t overwritten with nulls.
+
+We updated the PATCH route in server/routes.ts to accept accepted_terms and ads_consent from the client, and to set the _at timestamps when values change.
+
+Current behaviour
+
+Supabase Auth user is created successfully.
+
+The /api/auth/profile PATCH call fails with “Failed to create profile”.
+
+In Supabase, the new user row is created, but:
+
+accepted_terms and ads_consent remain false
+
+accepted_terms_at and ads_consent_updated_at remain NULL
+
+So the consent fields are not being persisted.
+
+What we need you to do
+
+Investigate the PATCH route in server/routes.ts
+
+Confirm that accepted_terms and ads_consent are being destructured from req.body.
+
+Ensure the route is passing those values (and computed timestamps) into storage.upsertUserProfile.
+
+Check DatabaseStorage.upsertUserProfile in server/storage.ts
+
+Verify that cleanData is being built correctly and includes the consent/timestamp fields when provided.
+
+Confirm that Drizzle is mapping camelCase (acceptedTermsAt) to the correct snake_case column (accepted_terms_at) in Postgres.
+
+Test end-to-end
+
+Create a new account with the consent boxes ticked.
+
+Verify in Supabase that accepted_terms = true and accepted_terms_at has a timestamp.
+
+Same for ads_consent and ads_consent_updated_at.
+
+Expected outcome
+
+When a user signs up and ticks the boxes, both the boolean flags and the _at timestamps are persisted in user_profiles.
+
+The PATCH route no longer throws “Failed to create profile”.

@@ -8,6 +8,27 @@
       "when": 1761167364318,
       "tag": "0000_silly_shadowcat",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1761252008963,
+      "tag": "0001_sparkling_sway",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1761252564325,
+      "tag": "0002_flowery_hulk",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1761252718010,
+      "tag": "0003_chief_colossus",
+      "breakpoints": true
     }
   ]
 }

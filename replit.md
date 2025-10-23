@@ -114,6 +114,27 @@ Preferred communication style: Simple, everyday language.
 - LocalStorage-based statistics tracking (games played, won, streak, guess distribution)
 - 5-attempt limit per puzzle with directional hints for incorrect digits
 
+## Recent Changes (October 23, 2025)
+
+**Consent Fields Persistence Fix**
+- Fixed critical bug where user consent flags and timestamps were not persisting during signup
+- Root cause: Drizzle ORM received timestamp strings instead of Date objects, causing "toISOString is not a function" error
+- Solutions implemented:
+  1. Updated POST `/api/auth/signup` to extract and persist `accepted_terms` and `ads_consent` from request body
+  2. Modified PATCH `/api/auth/profile` to convert existing timestamp strings to Date objects before passing to Drizzle
+  3. Set audit timestamps (`accepted_terms_at`, `ads_consent_updated_at`) immediately when consents are accepted
+- Both signup and profile update flows now correctly persist consent preferences to database
+- See `CONSENT_FIELDS_FIX_SUMMARY.md` for detailed technical documentation
+
+**7 UX Improvements Implemented**
+1. **OTP Verification Screen**: Changed from center to top alignment (pt-8) for better mobile keyboard visibility
+2. **Signup Form Field Progression**: Implemented Enter key navigation across all fields using refs
+3. **Password Visibility Toggle**: Created unified PasswordInput component for Safari mobile compatibility
+4. **Toast Notifications**: Moved from top-0 to bottom-0 to prevent keyboard occlusion during signup
+5. **GameSelection Auto-Focus**: Play button automatically receives focus on page load for better accessibility
+6. **Streak Logic**: Fixed to only count puzzles completed on their actual date (not archive puzzles played later)
+7. **Bug Report & Feedback Forms**: Split Support into two separate forms with mailto: links (functional without backend email service)
+
 ## Recent Changes (October 2025)
 
 **Preload & Local Cache System Implementation**

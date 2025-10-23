@@ -19,12 +19,12 @@ interface AuthPageProps {
 }
 
 export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword }: AuthPageProps) {
-  const { signIn} = useAuth();
+  const { signIn } = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -32,7 +32,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
     firstName: "",
     lastName: "",
     acceptedTerms: false,
-    adsConsent: false
+    adsConsent: false,
   });
 
   // Refs for automatic field progression
@@ -42,96 +42,113 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
 
+  // Load saved adsConsent from localStorage on mount
+  useEffect(() => {
+    const savedAdsConsent = localStorage.getItem("adsConsent");
+    if (savedAdsConsent !== null) {
+      setFormData((prev) => ({
+        ...prev,
+        adsConsent: savedAdsConsent === "true",
+      }));
+    }
+  }, []);
+
+  // Persist adsConsent to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("adsConsent", String(formData.adsConsent));
+  }, [formData.adsConsent]);
+
   // Reset form when mode changes to prevent stale data
   useEffect(() => {
-    setFormData({
+    setFormData((prev) => ({
       email: "",
       password: "",
       confirmPassword: "",
       firstName: "",
       lastName: "",
-      acceptedTerms: false,
-      adsConsent: false,
-    });
+      acceptedTerms: false,   // always reset
+      adsConsent: prev.adsConsent, // preserve previous choice
+    }));
   }, [mode]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate password for signup
-    if (mode === "signup") {
-      // Check if passwords match first for clearer feedback
-      if (formData.password !== formData.confirmPassword) {
-        toast({
-          title: "Passwords don't match",
-          description: "Please make sure both passwords are the same.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Then check password strength
-      const validation = validatePassword(formData.password);
-      if (!validation.valid) {
-        toast({
-          title: "Invalid Password",
-          description: validation.errors.join(', '),
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    
-    setLoading(true);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    try {
-      if (mode === "signup") {
-        // Send OTP code to email (this sends a 6-digit code, not a confirmation link)
-        console.log('[AUTH] Calling signInWithOtp for signup');
-        console.log('[AUTH] Parameters: { shouldCreateUser: true, emailRedirectTo: undefined }');
-        
-        const { error } = await supabase.auth.signInWithOtp({
-          email: formData.email,
-          options: {
-            shouldCreateUser: true,
-            data: {
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-              accepted_terms: formData.acceptedTerms,
-              ads_consent: formData.adsConsent,
-              // DO NOT store password in metadata - keep it in local component state only
-            },
-
-          },
-        });
-
-        console.log('[AUTH] signInWithOtp result:', error ? `Error: ${error.message}` : 'Success - OTP sent');
-        if (error) throw error;
-
-        // Show OTP verification screen
-        setShowOTPVerification(true);
-        toast({
-          title: "Verification code sent!",
-          description: `Please check ${formData.email} for your 6-digit code`,
-        });
-      } else {
-        await signIn(formData.email, formData.password);
-      }
-      
-      // Only call onSuccess for login, not signup (signup success happens after OTP verification)
-      if (mode !== "signup") {
-        onSuccess();
-      }
-    } catch (error: any) {
+  // Validate password for signup
+  if (mode === "signup") {
+    // Check if passwords match first for clearer feedback
+    if (formData.password !== formData.confirmPassword) {
       toast({
-        title: "Error",
-        description: error.message || "Authentication failed",
+        title: "Passwords don't match",
+        description: "Please make sure both passwords are the same.",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+
+    // Then check password strength
+    const validation = validatePassword(formData.password);
+    if (!validation.valid) {
+      toast({
+        title: "Invalid Password",
+        description: validation.errors.join(", "),
+        variant: "destructive",
+      });
+      return;
+    }
+  }
+
+  setLoading(true);
+
+  try {
+    if (mode === "signup") {
+      // Send OTP code to email (this sends a 6-digit code, not a confirmation link)
+      console.log("[AUTH] Calling signInWithOtp for signup");
+      console.log("[AUTH] Parameters: { shouldCreateUser: true, emailRedirectTo: undefined }");
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: formData.email,
+        options: {
+          shouldCreateUser: true,
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            accepted_terms: formData.acceptedTerms, // ✅ new
+            ads_consent: formData.adsConsent,       // ✅ new
+          },
+        },
+      });
+
+      console.log(
+        "[AUTH] signInWithOtp result:",
+        error ? `Error: ${error.message}` : "Success - OTP sent"
+      );
+      if (error) throw error;
+
+      // Show OTP verification screen
+      setShowOTPVerification(true);
+      toast({
+        title: "Verification code sent!",
+        description: `Please check ${formData.email} for your 6-digit code`,
+      });
+    } else {
+      await signIn(formData.email, formData.password);
+    }
+
+    // Only call onSuccess for login, not signup (signup success happens after OTP verification)
+    if (mode !== "signup") {
+      onSuccess();
+    }
+  } catch (error: any) {
+    toast({
+      title: "Error",
+      description: error.message || "Authentication failed",
+      variant: "destructive",
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleOTPVerified = async () => {
     // After OTP verification, set password and create the user profile in database
@@ -139,7 +156,6 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
     try {
       // Get the session to verify user is authenticated
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
         throw new Error("No session after verification");
       }
@@ -148,30 +164,28 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
       const { error: passwordError } = await supabase.auth.updateUser({
         password: formData.password,
       });
-
       if (passwordError) {
         throw passwordError;
       }
 
-      // Create user profile in database
-      const response = await fetch('/api/auth/profile', {
-        method: 'PATCH',
+      // Create or update user profile in database
+      const response = await fetch("/api/auth/profile", {
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
-          accepted_terms: formData.acceptedTerms,
-          ads_consent: formData.adsConsent,
+          accepted_terms: formData.acceptedTerms, // ✅ new
+          ads_consent: formData.adsConsent,       // ✅ new
         }),
-
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create profile');
+        throw new Error("Failed to create profile");
       }
 
       toast({
@@ -189,6 +203,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
       setLoading(false);
     }
   };
+
 
   const handleCancelVerification = () => {
     setShowOTPVerification(false);

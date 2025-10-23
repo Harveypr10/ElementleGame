@@ -19,19 +19,38 @@ import { z } from "zod";
 // User profiles table - extends Supabase Auth users
 // References auth.users(id) from Supabase Auth
 export const userProfiles = pgTable("user_profiles", {
-  id: uuid("id").primaryKey(), // References auth.users(id) in Supabase
+  id: uuid("id").primaryKey(),
   email: varchar("email").notNull(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   isAdmin: boolean("is_admin").default(false),
+
+  // Current consent flags
+  acceptedTerms: boolean("accepted_terms").notNull().default(false),
+  adsConsent: boolean("ads_consent").notNull().default(false),
+
+  // Audit timestamps (keep these)
+  acceptedTermsAt: timestamp("accepted_terms_at", { withTimezone: true }),
+  adsConsentUpdatedAt: timestamp("ads_consent_updated_at", { withTimezone: true }),
+
+  // Email verification mirror from Supabase Auth
+  emailVerified: boolean("email_verified").default(false),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+export const insertUserProfileSchema = createInsertSchema(userProfiles)
+.omit({
   createdAt: true,
   updatedAt: true,
+})
+.extend({
+  acceptedTermsAt: z.date().optional().nullable(),
+  adsConsentUpdatedAt: z.date().optional().nullable(),
+  emailVerified: z.boolean().optional(),
 });
+
 
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
