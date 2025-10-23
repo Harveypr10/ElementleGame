@@ -76,7 +76,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
     try {
       if (mode === "signup") {
         // Send OTP code to email (this sends a 6-digit code, not a confirmation link)
-        console.log('[AUTH] Calling signInWithOtp for signup with email:', formData.email);
+        console.log('[AUTH] Calling signInWithOtp for signup');
         console.log('[AUTH] Parameters: { shouldCreateUser: true, emailRedirectTo: undefined }');
         
         const { error } = await supabase.auth.signInWithOtp({
@@ -91,7 +91,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
           },
         });
 
-        console.log('[AUTH] signInWithOtp result:', error ? `Error: ${error.message}` : 'Success - check email for OTP code');
+        console.log('[AUTH] signInWithOtp result:', error ? `Error: ${error.message}` : 'Success - OTP sent');
         if (error) throw error;
 
         // Show OTP verification screen

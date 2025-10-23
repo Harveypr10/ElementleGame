@@ -73,16 +73,16 @@ await supabase.auth.signInWithOtp({
 4. Look for these log messages:
 
 ```
-[AUTH] Calling signInWithOtp for signup with email: user@example.com
+[AUTH] Calling signInWithOtp for signup
 [AUTH] Parameters: { shouldCreateUser: true, emailRedirectTo: undefined }
-[AUTH] signInWithOtp result: Success - check email for OTP code
+[AUTH] signInWithOtp result: Success - OTP sent
 ```
 
 5. Check your email - you should now receive a **6-digit OTP code** instead of a magic link
 6. Enter the code and look for:
 
 ```
-[OTP] Verifying OTP with type: email for email: user@example.com
+[OTP] Verifying OTP with type: email
 [OTP] verifyOtp result: Success
 ```
 
