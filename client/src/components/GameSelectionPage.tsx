@@ -288,7 +288,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
 
         </div>
 
-        <div className="w-full space-y-3">
+        <div className="w-full space-y-4">
           {/* Play button */}
           <motion.button
             ref={playButtonRef}
@@ -349,7 +349,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
           </motion.button>
 
           {/* Stats + Options row */}
-          <div className="flex space-x-3">
+          <div className="flex space-x-4">
             {[
               {
                 title: "Stats",
@@ -368,7 +368,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             ].map((item, index) => (
               <motion.button
                 key={item.testId}
-                className="flex-1 h-24 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                 style={{ backgroundColor: item.bgColor }}
                 onClick={item.onClick}
                 data-testid={item.testId}
@@ -382,7 +382,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
                 <img
                   src={item.image}
                   alt={item.title}
-                  className="max-h-20 w-auto object-contain mt-2"
+                  className="max-h-[72px] w-auto object-contain mt-4"
                 />
               </motion.button>
             ))}
