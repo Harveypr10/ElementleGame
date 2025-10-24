@@ -15,7 +15,7 @@ interface InputGridProps {
   maxGuesses: number;
 }
 
-const PLACEHOLDERS = ["M", "M", "D", "D", "Y", "Y"];
+const PLACEHOLDERS = ["D", "D", "M", "M", "Y", "Y"];
 
 export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps) {
   const getCellClasses = (state: CellState) => {
