@@ -43,23 +43,24 @@ export function EndGameModal({
   const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showRain, setShowRain] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      // Play appropriate sound when modal opens
       if (isWin) {
         soundManager.playCelebration();
         setShowConfetti(true);
-        // Keep confetti showing while modal is open
+        setShowRain(false);
       } else {
         soundManager.playCommiseration();
+        setShowRain(true);
+        setShowConfetti(false);
       }
     } else {
-      // Hide confetti when modal closes
       setShowConfetti(false);
+      setShowRain(false);
     }
   }, [isOpen, isWin]);
-
 
   if (!isOpen) return null;
 
@@ -98,6 +99,22 @@ export function EndGameModal({
                       left: `${Math.random() * 100}%`,
                       animationDelay: `${Math.random() * 0.5}s`,
                       backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ec4899'][Math.floor(Math.random() * 4)],
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {showRain && (
+              <div className="rain-container">
+                {Array.from({ length: 40 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="raindrop"
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      animationDuration: `${1 + Math.random() * 1.5}s`,
+                      animationDelay: `${Math.random() * 2}s`,
                     }}
                   />
                 ))}
@@ -229,6 +246,35 @@ export function EndGameModal({
             opacity: 1;
           }
         }
+
+        .rain-container {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 100%;
+          pointer-events: none;
+          overflow: hidden;
+        }
+
+        .raindrop {
+          position: absolute;
+          top: -20px;
+          width: 2px;
+          height: 12px;
+          background: linear-gradient(to bottom, #60a5fa, #3b82f6); /* light to darker blue */
+          opacity: 0.7;
+          border-radius: 1px;
+          animation: rain-fall linear infinite;
+        }
+
+        @keyframes rain-fall {
+          to {
+            transform: translateY(110vh);
+            opacity: 0.2;
+          }
+        }
+        
       `}</style>
     </div>
   );

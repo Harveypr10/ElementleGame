@@ -815,7 +815,7 @@ export function PlayPage({
 
   return (
     <div className="min-h-screen flex flex-col p-4">
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex items-center justify-between mb-0">
         <button
           onClick={onBack}
           data-testid="button-back"
@@ -851,7 +851,7 @@ export function PlayPage({
 
       <div className="flex-1 flex flex-col justify-between">
         <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="w-full max-w-md space-y-1 sm:space-y-2">
+          <div className="w-full max-w-md space-y-0.5 sm:space-y-1">
             {cluesEnabled && (
               <div className="text-center">
                 <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">

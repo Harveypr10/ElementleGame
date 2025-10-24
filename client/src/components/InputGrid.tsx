@@ -15,6 +15,8 @@ interface InputGridProps {
   maxGuesses: number;
 }
 
+const PLACEHOLDERS = ["M", "M", "D", "D", "Y", "Y"];
+
 export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps) {
   const getCellClasses = (state: CellState) => {
     switch (state) {
@@ -50,57 +52,78 @@ export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps)
     <div className="space-y-2 w-full" data-testid="input-grid">
       {rows.map((row, rowIdx) => (
         <div key={rowIdx} className="flex gap-2 justify-center">
-          {row.map((cell, cellIdx) => (
-            <div
-              key={`${rowIdx}-${cellIdx}`}
-              className="relative flex-1 aspect-square max-w-16"
-              style={{ perspective: "1000px" }}
-              data-testid={`cell-${rowIdx}-${cellIdx}`}
-            >
-              <AnimatePresence mode="wait">
-                {cell.state !== "empty" ? (
-                  <motion.div
-                    key={`${rowIdx}-${cellIdx}-${cell.state}`}
-                    className={`
-                      absolute inset-0
-                      flex items-center justify-center
-                      border-2 rounded-md
-                      text-3xl sm:text-4xl font-semibold
-                      ${getCellClasses(cell.state)}
-                    `}
-                    initial={{ rotateX: 90, opacity: 0 }}
-                    animate={{ rotateX: 0, opacity: 1 }}
-                    exit={{ rotateX: -90, opacity: 0 }}
-                    transition={{ duration: 1, delay: cellIdx * 0.25 }}
-                  >
-                    {cell.digit}
-                    {cell.arrow && (
-                      <div className="absolute top-0.5 right-0.5">
-                        {cell.arrow === "up" ? (
-                          <ArrowUp className="h-4 w-4 sm:h-5 sm:w-5" />
-                        ) : (
-                          <ArrowDown className="h-4 w-4 sm:h-5 sm:w-5" />
+          {row.map((cell, cellIdx) => {
+            const isActiveRow = rowIdx === guesses.length;
+            const showPlaceholder = isActiveRow && !cell.digit;
+
+            return (
+              <div
+                key={`${rowIdx}-${cellIdx}`}
+                className="relative flex-1 aspect-square max-w-16"
+                style={{ perspective: "1000px" }}
+                data-testid={`cell-${rowIdx}-${cellIdx}`}
+              >
+                <AnimatePresence mode="wait">
+                  {cell.state !== "empty" ? (
+                    <motion.div
+                      key={`${rowIdx}-${cellIdx}-${cell.state}`}
+                      className={`
+                        absolute inset-0
+                        flex items-center justify-center
+                        border-2 rounded-md
+                        text-3xl sm:text-4xl font-semibold
+                        ${getCellClasses(cell.state)}
+                      `}
+                      initial={{ rotateX: 90, opacity: 0 }}
+                      animate={{ rotateX: 0, opacity: 1 }}
+                      exit={{ rotateX: -90, opacity: 0 }}
+                      transition={{ duration: 1, delay: cellIdx * 0.25 }}
+                    >
+                      {cell.digit}
+                      {cell.arrow && (
+                        <div className="absolute top-0.5 right-0.5">
+                          {cell.arrow === "up" ? (
+                            <ArrowUp className="h-4 w-4 sm:h-5 sm:w-5" />
+                          ) : (
+                            <ArrowDown className="h-4 w-4 sm:h-5 sm:w-5" />
+                          )}
+                        </div>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <div
+                      key={`${rowIdx}-${cellIdx}-empty`}
+                      className={`
+                        absolute inset-0
+                        flex items-center justify-center
+                        border-2 rounded-md
+                        text-3xl sm:text-4xl font-semibold
+                        ${getCellClasses(cell.state)}
+                      `}
+                    >
+                      {/* Show entered digit if present */}
+                      {cell.digit}
+
+                      {/* Placeholder if active row and empty */}
+                      <AnimatePresence>
+                        {showPlaceholder && (
+                          <motion.span
+                            key={`ph-${rowIdx}-${cellIdx}`}
+                            className="absolute text-muted-foreground opacity-30 text-lg font-normal pointer-events-none select-none"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 0.3, transition: { duration: 0.2 } }}   // fade in
+                            exit={{ opacity: 0, transition: { duration: 0 } }}          // instant out
+                          >
+                            {PLACEHOLDERS[cellIdx]}
+                          </motion.span>
                         )}
-                      </div>
-                    )}
-                  </motion.div>
-                ) : (
-                  <div
-                    key={`${rowIdx}-${cellIdx}-empty`}
-                    className={`
-                      absolute inset-0
-                      flex items-center justify-center
-                      border-2 rounded-md
-                      text-3xl sm:text-4xl font-semibold
-                      ${getCellClasses(cell.state)}
-                    `}
-                  >
-                    {cell.digit}
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </AnimatePresence>
+              </div>
+            );
+          })}
         </div>
       ))}
     </div>
