@@ -289,123 +289,123 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         </div>
       </div>
 
-      {/* Main content flexes vertically */}
-      <div className="flex-grow flex">
-        <div className="max-w-md mx-auto w-full flex flex-col">
-          <div className="space-y-4">
-            {/* Play button */}
-            <motion.button
-              ref={playButtonRef}
-              className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-              style={{ backgroundColor: "#7DAAE8" }}
-              onClick={onPlayGame}
-              data-testid="button-play"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-            >
-              <div className="flex flex-col items-start justify-center text-left">
-                <span className="text-xl font-bold text-gray-800">
-                  {playContent.title}
-                </span>
-                {playContent.subtitle && (
-                  <span className="text-sm font-medium text-gray-700 mt-0.5">
-                    {playContent.subtitle}
-                  </span>
-                )}
-              </div>
-              <div className="flex-shrink-0 flex items-center">
-                <img
-                  src={playContent.image}
-                  alt={playContent.title}
-                  className={`w-auto object-contain ${
-                    playContent.image === whiteTickBlue || playContent.image === whiteCrossBlue
-                      ? "max-h-16"
-                      : "max-h-20"
-                  }`}
-                />
-              </div>
-            </motion.button>
-
-            {/* Archive button */}
-            <motion.button
-              className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-              style={{ backgroundColor: "#FFD429" }}
-              onClick={onViewArchive}
-              data-testid="button-archive"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
-            >
-              <div className="flex flex-col items-start justify-center text-left">
-                <span className="text-xl font-bold text-gray-800">Archive</span>
-                <span className="text-sm font-medium text-gray-700 mt-0.5">
-                  {totalGames} total games played
-                </span>
-              </div>
-              <div className="flex-shrink-0 flex items-center">
-                <img
-                  src={librarianHamsterYellow}
-                  alt="Archive"
-                  className="max-h-20 w-auto object-contain"
-                />
-              </div>
-            </motion.button>
-
-            {/* Stats + Options row */}
-            <div className="flex space-x-4">
-              {[
-                {
-                  title: "Stats",
-                  image: mathsHamsterGreen,
-                  bgColor: "#A4DB57",
-                  onClick: onViewStats,
-                  testId: "button-stats",
-                },
-                {
-                  title: "Options",
-                  image: mechanicHamsterGrey,
-                  bgColor: "#C4C9D4",
-                  onClick: onOpenOptions,
-                  testId: "button-options",
-                },
-              ].map((item, index) => (
-                <motion.button
-                  key={item.testId}
-                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: item.bgColor }}
-                  onClick={item.onClick}
-                  data-testid={item.testId}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.25,
-                    delay: 0.3 + index * 0.15,
-                    ease: "easeOut",
-                  }}
-                >
-                  <span className="text-xl font-bold text-gray-800 text-center">
-                    {item.title}
-                  </span>
-                  <img
-                    src={item.image}
-                    alt={item.title}
-                    className="max-h-[72px] w-auto object-contain mt-4"
-                  />
-                </motion.button>
-              ))}
-            </div>
-          </div>
-
-          {/* Spacer to offset buttons upward on tall screens */}
-          <div className="flex-grow max-h-32" />
-        </div>
+{/* Main content flexes vertically */}
+<div className="flex-grow flex items-center">
+  {/* Group: buttons + invisible spacer */}
+  <div className="max-w-md mx-auto w-full flex flex-col items-stretch space-y-4 mt-6">
+    {/* Play button */}
+    <motion.button
+      ref={playButtonRef}
+      className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+      style={{ backgroundColor: "#7DAAE8" }}
+      onClick={onPlayGame}
+      data-testid="button-play"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+    >
+      <div className="flex flex-col items-start justify-center text-left">
+        <span className="text-xl font-bold text-gray-800">
+          {playContent.title}
+        </span>
+        {playContent.subtitle && (
+          <span className="text-sm font-medium text-gray-700 mt-0.5">
+            {playContent.subtitle}
+          </span>
+        )}
       </div>
+      <div className="flex-shrink-0 flex items-center">
+        <img
+          src={playContent.image}
+          alt={playContent.title}
+          className={`w-auto object-contain ${
+            playContent.image === whiteTickBlue || playContent.image === whiteCrossBlue
+              ? "max-h-16"
+              : "max-h-20"
+          }`}
+        />
+      </div>
+    </motion.button>
 
-      <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
+    {/* Archive button */}
+    <motion.button
+      className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+      style={{ backgroundColor: "#FFD429" }}
+      onClick={onViewArchive}
+      data-testid="button-archive"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
+    >
+      <div className="flex flex-col items-start justify-center text-left">
+        <span className="text-xl font-bold text-gray-800">Archive</span>
+        <span className="text-sm font-medium text-gray-700 mt-0.5">
+          {totalGames} total games played
+        </span>
+      </div>
+      <div className="flex-shrink-0 flex items-center">
+        <img
+          src={librarianHamsterYellow}
+          alt="Archive"
+          className="max-h-20 w-auto object-contain"
+        />
+      </div>
+    </motion.button>
+
+    {/* Stats + Options row */}
+    <div className="flex space-x-4">
+      {[
+        {
+          title: "Stats",
+          image: mathsHamsterGreen,
+          bgColor: "#A4DB57",
+          onClick: onViewStats,
+          testId: "button-stats",
+        },
+        {
+          title: "Options",
+          image: mechanicHamsterGrey,
+          bgColor: "#C4C9D4",
+          onClick: onOpenOptions,
+          testId: "button-options",
+        },
+      ].map((item, index) => (
+        <motion.button
+          key={item.testId}
+          className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+          style={{ backgroundColor: item.bgColor }}
+          onClick={item.onClick}
+          data-testid={item.testId}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.25,
+            delay: 0.3 + index * 0.15,
+            ease: "easeOut",
+          }}
+        >
+          <span className="text-xl font-bold text-gray-800 text-center">
+            {item.title}
+          </span>
+          <img
+            src={item.image}
+            alt={item.title}
+            className="max-h-[72px] w-auto object-contain mt-4"
+          />
+        </motion.button>
+      ))}
     </div>
-  );
+
+    {/* Invisible spacer to push buttons upward on tall screens */}
+    <div className="h-24" />
+  </div>
+</div>
+
+<HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
+</div>
+);
 }
+
 
 
 
