@@ -290,9 +290,9 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       </div>
 
 {/* Main content flexes vertically */}
-<div className="flex-grow flex items-center">
+<div className="flex-grow flex flex-col justify-center">
   {/* Group: buttons + invisible spacer */}
-  <div className="max-w-md mx-auto w-full flex flex-col items-stretch space-y-4 mt-6">
+  <div className="max-w-md mx-auto w-full flex flex-col items-stretch space-y-4 mt-1">
     {/* Play button */}
     <motion.button
       ref={playButtonRef}
@@ -405,6 +405,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
 </div>
 );
 }
+
 
 
 
