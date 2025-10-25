@@ -58,6 +58,7 @@ export interface IStorage {
   getUserStats(userId: string): Promise<UserStats | undefined>;
   upsertUserStats(stats: InsertUserStats): Promise<UserStats>;
   recalculateUserStats(userId: string): Promise<UserStats>;
+  getUserPercentileRanking(userId: string): Promise<number>;
 
   // Admin export operations
   getAllGameAttemptsForExport(): Promise<any[]>;
@@ -479,6 +480,36 @@ export class DatabaseStorage implements IStorage {
       maxStreak,
       guessDistribution,
     });
+  }
+
+  async getUserPercentileRanking(userId: string): Promise<number> {
+    // Get all users with their stats, ordered by games won (descending)
+    const allUserStats = await db
+      .select({
+        userId: userStats.userId,
+        gamesWon: userStats.gamesWon,
+      })
+      .from(userStats)
+      .orderBy(desc(userStats.gamesWon));
+
+    if (allUserStats.length === 0) {
+      return 100; // If no stats, user is in top 100%
+    }
+
+    // Find user's position (1-based)
+    const userPosition = allUserStats.findIndex(stat => stat.userId === userId);
+    
+    if (userPosition === -1) {
+      // User not found in rankings
+      return 100;
+    }
+
+    // Calculate percentile: (position / total) * 100
+    // Position is 0-based, so add 1 for 1-based ranking
+    const percentile = ((userPosition + 1) / allUserStats.length) * 100;
+    
+    // Round to 1 decimal place
+    return Math.round(percentile * 10) / 10;
   }
 
   // Admin export operations

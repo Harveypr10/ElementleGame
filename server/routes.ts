@@ -472,6 +472,17 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  app.get("/api/stats/percentile", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const percentile = await storage.getUserPercentileRanking(userId);
+      res.json({ percentile });
+    } catch (error) {
+      console.error("Error fetching percentile:", error);
+      res.status(500).json({ error: "Failed to fetch percentile" });
+    }
+  });
+
   // Admin export route
   app.get("/api/admin/export", verifySupabaseAuth, requireAdmin, async (req, res) => {
     try {
