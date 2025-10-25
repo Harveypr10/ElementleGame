@@ -28,6 +28,7 @@ interface PlayPageProps {
   maxGuesses?: number;
   viewOnly?: boolean;
   puzzleId?: number;
+  puzzleDate?: string; // The date this puzzle should be played (YYYY-MM-DD format)
   fromArchive?: boolean;
   showCelebrationFirst?: boolean;
   hasOpenedCelebration?: boolean;
@@ -53,6 +54,7 @@ export function PlayPage({
   maxGuesses = 5,
   viewOnly = false,
   puzzleId,
+  puzzleDate,
   fromArchive = false,
   showCelebrationFirst = false,
   hasOpenedCelebration = false,
@@ -67,6 +69,19 @@ export function PlayPage({
   const { stats: supabaseStats } = useUserStats();
   const { settings } = useUserSettings();
   const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
+  
+  // Helper function to check if this puzzle is today's puzzle
+  const isPlayingTodaysPuzzle = (): boolean => {
+    if (!puzzleDate) return false;
+    
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayDate = `${year}-${month}-${day}`;
+    
+    return puzzleDate === todayDate;
+  };
   const [currentInput, setCurrentInput] = useState("");
   const [guesses, setGuesses] = useState<CellFeedback[][]>([]);
   const [keyStates, setKeyStates] = useState<Record<string, KeyState>>({});
@@ -526,8 +541,8 @@ export function PlayPage({
         // Complete game attempt and recalculate stats from database (use attemptId, not state)
         await completeGameAttempt(attemptId, true, newGuesses.length);
         
-        // Show streak celebration only for today's puzzle (not archive)
-        if (!fromArchive) {
+        // Show streak celebration only when playing today's puzzle (regardless of access method)
+        if (isPlayingTodaysPuzzle()) {
           const statsRes = await apiRequest("GET", "/api/stats");
           if (statsRes.ok) {
             const freshStats = await statsRes.json();
@@ -542,8 +557,8 @@ export function PlayPage({
         // Guest user: use localStorage stats
         await updateStats(true, newGuesses.length, newGuessRecords);
         
-        // Show streak celebration only for today's puzzle (not archive)
-        if (!fromArchive) {
+        // Show streak celebration only when playing today's puzzle (regardless of access method)
+        if (isPlayingTodaysPuzzle()) {
           const stats = JSON.parse(localStorage.getItem("elementle-stats") || "{}");
           if (stats.currentStreak) {
             setCurrentStreak(stats.currentStreak);
@@ -552,8 +567,8 @@ export function PlayPage({
         }
       }
       
-      // Cache today's outcome (only if not from archive)
-      if (!fromArchive) {
+      // Cache today's outcome (only if playing today's puzzle)
+      if (isPlayingTodaysPuzzle()) {
         writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
           date: targetDate,
           puzzleId: puzzleId,
@@ -580,8 +595,8 @@ export function PlayPage({
         await updateStats(false, newGuesses.length, newGuessRecords);
       }
       
-      // Cache today's outcome (only if not from archive)
-      if (!fromArchive) {
+      // Cache today's outcome (only if playing today's puzzle)
+      if (isPlayingTodaysPuzzle()) {
         writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
           date: targetDate,
           puzzleId: puzzleId,
