@@ -120,6 +120,26 @@ Preferred communication style: Simple, everyday language.
 - LocalStorage-based statistics tracking (games played, won, streak, guess distribution)
 - 5-attempt limit per puzzle with directional hints for incorrect digits
 
+## Recent Changes (October 25, 2025)
+
+**Personalized Welcome Messaging on GameSelectionPage**
+- Implemented time-based greeting system using local browser time:
+  - "Good morning" (05:00-11:59)
+  - "Good afternoon" (12:00-17:59)
+  - "Good evening" (18:00-04:59)
+- Personalized greeting includes user's first name from profile
+- Conditional messaging based on daily play status:
+  - **Before playing**: Shows streak encouragement with current streak count (e.g., "You're on a 3-day streak! Keep it going!")
+  - **After playing**: Shows percentile ranking among all players (e.g., "You've beaten 85.7% of all players!")
+- Created new API endpoint `GET /api/stats/percentile` that calculates user ranking:
+  - Percentile = (users_with_fewer_wins / total_users) × 100
+  - Protected by Supabase authentication
+  - Returns JSON: `{percentile: number}`
+- Fixed authentication on stats API calls by including `Authorization: Bearer {token}` header
+- Uses `getSupabaseClient()` from `client/src/lib/supabaseClient.ts` to retrieve session tokens
+- Greeting only displays for authenticated users
+- Streak detection uses puzzle's actual date property, not navigation path
+
 ## Recent Changes (October 23, 2025)
 
 **Consent Fields Persistence Fix**
