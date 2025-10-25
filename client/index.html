@@ -24,33 +24,37 @@
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#000000" />
 
-    <!-- Cross-platform icons -->
+    <!-- Cross-platform favicons -->
     <link
       rel="icon"
       type="image/png"
       sizes="32x32"
-      href="/attached_assets/Icon-192.png"
+      href="/Icon-192.png"
     />
     <link
       rel="icon"
       type="image/png"
       sizes="16x16"
-      href="/attached_assets/Icon-192.png"
+      href="/Icon-192.png"
     />
 
     <!-- iOS specific -->
     <link
       rel="apple-touch-icon"
       sizes="180x180"
-      href="/attached_assets/Icon-180.png"
+      href="/Icon-180.png"
     />
 
-    <!-- Windows tiles (optional, for completeness) -->
+    <!-- Windows tiles (optional) -->
     <meta name="msapplication-TileColor" content="#000000" />
     <meta
       name="msapplication-TileImage"
-      content="/attached_assets/Icon-192.png"
+      content="/Icon-192.png"
     />
+
+    <!-- Enable standalone mode on iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   </head>
   <body>
     <div id="root"></div>
