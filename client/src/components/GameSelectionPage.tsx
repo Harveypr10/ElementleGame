@@ -253,7 +253,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       case 'solved':
         return {
           title: "Today's puzzle solved!",
-          subtitle: `${guessCount} ${guessCount === 1 ? 'guess' : 'guesses'}`,
+          subtitle: `Solved in ${guessCount} ${guessCount === 1 ? 'guess' : 'guesses'}`,
           image: whiteTickBlue
         };
       case 'failed':
@@ -391,13 +391,13 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
           return (
             <div className="text-center mb-6 sm:mb-12" data-testid="intro-message">
               <div 
-                className="text-2xl font-bold text-gray-700 dark:text-gray-300 mb-1"
+                className="text-2xl font-bold text-gray-700 dark:text-gray-300 mb-1 text-left"
                 data-testid="intro-first-line"
               >
                 {introMessage.firstLine}
               </div>
               <div 
-                className="text-lg text-gray-600 dark:text-gray-400"
+                className="text-lg text-gray-600 dark:text-gray-400 text-left"
                 data-testid="intro-second-line"
               >
                 {introMessage.secondLine}
