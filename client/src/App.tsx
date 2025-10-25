@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SupabaseProvider } from "@/lib/SupabaseProvider";
 import { PreloadProvider } from "@/lib/PreloadProvider";
+import { SettingsProvider } from "@/lib/SettingsProvider";
 import { GuessCacheProvider } from "@/contexts/GuessCacheContext";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/not-found";
@@ -68,13 +69,15 @@ function App() {
     <SupabaseProvider>
       <QueryClientProvider client={queryClient}>
         <PreloadProvider>
-          <GuessCacheProvider>
-            <TooltipProvider>
-              <Toaster />
-                <RoutePersistence />
-              <Router />
-            </TooltipProvider>
-          </GuessCacheProvider>
+          <SettingsProvider>
+            <GuessCacheProvider>
+              <TooltipProvider>
+                <Toaster />
+                  <RoutePersistence />
+                <Router />
+              </TooltipProvider>
+            </GuessCacheProvider>
+          </SettingsProvider>
         </PreloadProvider>
       </QueryClientProvider>
     </SupabaseProvider>
