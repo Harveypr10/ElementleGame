@@ -525,9 +525,31 @@ export function PlayPage({
       if (isAuthenticated && attemptId) {
         // Complete game attempt and recalculate stats from database (use attemptId, not state)
         await completeGameAttempt(attemptId, true, newGuesses.length);
+        
+        // Show streak celebration only for today's puzzle (not archive)
+        if (!fromArchive) {
+          const statsRes = await apiRequest("GET", "/api/stats");
+          if (statsRes.ok) {
+            const freshStats = await statsRes.json();
+            console.log('[Win] Fresh stats loaded for streak celebration:', freshStats);
+            if (freshStats.currentStreak) {
+              setCurrentStreak(freshStats.currentStreak);
+              setShowStreakCelebration(true);
+            }
+          }
+        }
       } else if (!isAuthenticated) {
         // Guest user: use localStorage stats
         await updateStats(true, newGuesses.length, newGuessRecords);
+        
+        // Show streak celebration only for today's puzzle (not archive)
+        if (!fromArchive) {
+          const stats = JSON.parse(localStorage.getItem("elementle-stats") || "{}");
+          if (stats.currentStreak) {
+            setCurrentStreak(stats.currentStreak);
+            setShowStreakCelebration(true);
+          }
+        }
       }
       
       // Cache today's outcome (only if not from archive)
@@ -722,17 +744,6 @@ export function PlayPage({
       const { queryClient } = await import("@/lib/queryClient");
       await queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
-      
-      // Reload stats to show streak celebration if won
-      if (won) {
-        const statsRes = await apiRequest("GET", "/api/stats");
-        const freshStats = await statsRes.json();
-        console.log('[completeGameAttempt] Fresh stats loaded:', freshStats);
-        if (freshStats.currentStreak) {
-          setCurrentStreak(freshStats.currentStreak);
-          setShowStreakCelebration(true);
-        }
-      }
     } catch (error) {
       console.error("[completeGameAttempt] Error:", error);
     }
@@ -791,10 +802,6 @@ export function PlayPage({
       }
       
       console.log('[updateStats] Updated distribution:', currentStats.guessDistribution);
-      
-      // Show streak celebration
-      setCurrentStreak(currentStats.currentStreak);
-      setShowStreakCelebration(true);
     } else {
       currentStats.currentStreak = 0;
     }
