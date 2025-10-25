@@ -6,6 +6,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { motion } from "framer-motion";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
@@ -43,6 +44,8 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
   const [showHelp, setShowHelp] = useState(false);
   const [todayPuzzleStatus, setTodayPuzzleStatus] = useState<'not-played' | 'solved' | 'failed'>('not-played');
   const [guessCount, setGuessCount] = useState<number>(0);
+  const [currentStreak, setCurrentStreak] = useState<number>(0);
+  const [percentile, setPercentile] = useState<number | null>(null);
   const playButtonRef = useRef<HTMLButtonElement>(null);
 
   // Auto-focus the Play button on mount instead of help icon
@@ -69,6 +72,66 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       }
     }
   }, []); // Run once on mount for instant rendering
+
+  // Fetch user stats for streak information
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const fetchStats = async () => {
+      try {
+        // Get Supabase session for auth header
+        const supabase = await getSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) return;
+
+        const response = await fetch('/api/stats', {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+        if (response.ok) {
+          const stats = await response.json();
+          setCurrentStreak(stats.currentStreak || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    };
+
+    fetchStats();
+  }, [isAuthenticated, user]);
+
+  // Fetch percentile ranking if user has played today
+  useEffect(() => {
+    if (!isAuthenticated || !user || todayPuzzleStatus === 'not-played') return;
+
+    const fetchPercentile = async () => {
+      try {
+        // Get Supabase session for auth header
+        const supabase = await getSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) return;
+
+        const response = await fetch('/api/stats/percentile', {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setPercentile(data.percentile);
+        }
+      } catch (error) {
+        console.error('Error fetching percentile:', error);
+      }
+    };
+
+    fetchPercentile();
+  }, [isAuthenticated, user, todayPuzzleStatus]);
 
   // Background reconciliation with Supabase/localStorage
   useEffect(() => {
@@ -151,6 +214,38 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     };
     
     return `${dayName} ${getOrdinal(date)} ${month}`;
+  };
+
+  // Get time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return "Good morning";
+    if (hour >= 12 && hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
+
+  // Get intro message based on play status
+  const getIntroMessage = () => {
+    if (!isAuthenticated) {
+      return null; // No message for guests
+    }
+
+    if (todayPuzzleStatus === 'not-played') {
+      // User hasn't played today
+      const greeting = getGreeting();
+      const streakMessage = currentStreak === 0
+        ? "Start your streak with today's puzzle"
+        : `Continue your streak of ${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} in a row`;
+      
+      return { firstLine: greeting, secondLine: streakMessage };
+    } else {
+      // User has played today
+      const percentileMessage = percentile !== null
+        ? `You're in the top ${percentile}% of players - play the archive to boost your ranking`
+        : "Play the archive to boost your ranking";
+      
+      return { firstLine: "Welcome back", secondLine: percentileMessage };
+    }
   };
 
   const getPlayButtonContent = () => {
@@ -274,7 +369,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
           </button>
         </div>
 
-        <div className="flex justify-end pr-2 mb-6 sm:mb-16">
+        <div className="flex justify-end pr-2 mb-4">
           {!isAuthenticated && (
             <Button
               variant="ghost"
@@ -287,6 +382,29 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             </Button>
           )}
         </div>
+
+        {/* Intro message */}
+        {(() => {
+          const introMessage = getIntroMessage();
+          if (!introMessage) return null;
+          
+          return (
+            <div className="text-center mb-6 sm:mb-12" data-testid="intro-message">
+              <div 
+                className="text-base font-bold text-gray-700 dark:text-gray-300 mb-1"
+                data-testid="intro-first-line"
+              >
+                {introMessage.firstLine}
+              </div>
+              <div 
+                className="text-sm text-gray-600 dark:text-gray-400"
+                data-testid="intro-second-line"
+              >
+                {introMessage.secondLine}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
 {/* Main content flexes vertically */}
