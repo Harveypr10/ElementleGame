@@ -95,6 +95,12 @@ Preferred communication style: Simple, everyday language.
 **Asset Management**
 - Generated hamster character images stored in attached_assets/generated_images/
 - Images imported via Vite's asset handling system with @assets alias
+- **PWA Static Assets** (October 25, 2025):
+  - PWA manifest and icons stored in `client/public/` directory
+  - Files in `client/public/` are served at root URL without fingerprinting
+  - Includes: manifest.json, Icon-180.png, Icon-192.png, Icon-512.png
+  - Essential for iOS Safari home screen app icon support
+  - Vite automatically copies these to build output during production builds
 
 ### Application Structure
 
