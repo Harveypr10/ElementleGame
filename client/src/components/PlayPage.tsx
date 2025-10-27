@@ -398,20 +398,22 @@ export function PlayPage({
                 let newKeyStates = {};
                 
                 attemptGuesses.forEach((guess: any) => {
-                  const feedback = calculateFeedbackForGuess(guess.guessValue, newKeyStates);
+                  // Convert canonical format (YYYY-MM-DD) to display format (DDMMYY/MMDDYY)
+                  const displayFormat = formatCanonicalDate(guess.guessValue);
+                  const feedback = calculateFeedbackForGuess(displayFormat, newKeyStates);
                   freshFeedbackArrays.push(feedback);
                   freshGuessRecords.push({
-                    guessValue: guess.guessValue,
+                    guessValue: displayFormat,
                     feedbackResult: feedback
                   });
-                  newKeyStates = updateKeyStates(guess.guessValue, feedback, newKeyStates);
+                  newKeyStates = updateKeyStates(displayFormat, feedback, newKeyStates);
                 });
                 
                 console.log('[loadInProgressGame] Setting state with', freshFeedbackArrays.length, 'guesses');
                 setGuesses(freshFeedbackArrays);
                 setGuessRecords(freshGuessRecords);
                 setKeyStates(newKeyStates);
-                setWrongGuessCount(attemptGuesses.filter((g: any) => g.guessValue !== formattedAnswer).length);
+                setWrongGuessCount(freshFeedbackArrays.length - freshFeedbackArrays.filter(fb => fb.every(cell => cell.state === 'correct')).length);
                 console.log('[loadInProgressGame] State updated successfully');
               } else {
                 console.log('[loadInProgressGame] No guesses to load or component unmounted');
