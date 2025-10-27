@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence } from "framer-motion";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback";
 

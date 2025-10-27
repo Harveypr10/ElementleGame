@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,7 +9,6 @@ import { SettingsProvider } from "@/lib/SettingsProvider";
 import { GuessCacheProvider } from "@/contexts/GuessCacheContext";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/not-found";
-import { AnimatePresence } from "framer-motion";
 
 import { OptionsPage } from "@/components/OptionsPage";
 import { SettingsPage } from "@/components/SettingsPage";
@@ -20,12 +19,9 @@ import { StreakCelebrationPopup } from "@/components/StreakCelebrationPopup";
 import { RoutePersistence } from "./lib/RoutePersistence";
 
 function Router() {
-  const [location] = useLocation();
-  
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <Switch location={location} key={location}>
-        <Route path="/" component={Home} />
+    <Switch>
+      <Route path="/" component={Home} />
 
       {/* 🔹 Preview routes for direct access */}
       <Route path="/options">
@@ -64,8 +60,7 @@ function Router() {
       </Route>
 
       <Route component={NotFound} />
-      </Switch>
-    </AnimatePresence>
+    </Switch>
   );
 }
 
