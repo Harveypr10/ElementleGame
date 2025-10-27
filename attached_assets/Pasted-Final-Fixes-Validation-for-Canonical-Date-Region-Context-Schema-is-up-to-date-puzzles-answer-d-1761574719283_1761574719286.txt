@@ -1,0 +1,93 @@
+Final Fixes & Validation for Canonical Date + Region
+Context
+Schema is up to date:
+
+puzzles.answer_date_canonical DATE NOT NULL is the canonical answer field.
+
+user_profiles.region exists and is persisted at signup.
+
+user_settings has date_format_preference, use_region_default, and digit_preference.
+
+guesses.guess_value is now a proper DATE (with invalid legacy values cleaned up).
+
+Core components (PlayPage, EndGameModal, ArchivePage, GameSelectionPage, OptionsPage) have been migrated to use the new date system.
+
+What needs fixing / adding
+1. EndGameModal answer display
+Ensure the answer date is displayed using the formatAnswerDate helper (useUserDateFormat).
+
+Must respect region + 6/8 digit preference.
+
+Verify both win and lose flows.
+
+2. Region setting in Account Info
+Add a Region field to the Account Info page:
+
+Show the region selected at signup.
+
+Allow the user to change it via dropdown (UK/US selectable for now).
+
+On change, show a confirmation modal:
+
+Message: “Changing your region will change the puzzles you see going forward. Your past game history will not be affected.”
+
+Buttons: Confirm / Cancel.
+
+If confirmed, PATCH /api/auth/profile with the new region.
+
+3. Region info at signup
+On the signup form, add an info icon (“i”) next to the Region dropdown.
+
+Tooltip text: “Puzzle questions are based on your geographical region.”
+
+4. Guess handling & validation
+Input validation:
+
+As the user types into the PlayPage grid, check whether the digits entered form a valid date.
+
+Only when the final digit is entered and the date is valid should the Enter button become enabled.
+
+If the date is invalid (e.g. 31/02/2020), keep the Enter button disabled.
+
+Storage:
+
+Always record guesses as a full DATE in guesses.guess_value.
+
+In 6‑digit mode, auto‑populate the first two digits of the year from the canonical answer before saving.
+
+In 8‑digit mode, use the full input directly.
+
+Validation:
+
+Compare the guessed DATE against puzzles.answer_date_canonical.
+
+5. Help section update
+Update the Help/How to Play section with a clear explanation, e.g.:
+
+“The Enter button will only activate once you’ve entered a complete and valid date. If the date you type doesn’t exist (like 31/02/2020), you won’t be able to submit it.”
+
+Deliverable
+EndGameModal shows the correct formatted answer.
+
+Account Info page supports region view/change with confirmation modal.
+
+Signup Region dropdown has info tooltip.
+
+PlayPage grid:
+
+Dynamically supports 6 or 8 digits.
+
+Validates input as a real date before enabling Enter.
+
+Stores guesses as proper DATE values.
+
+Help section updated with explanation of the Enter button behaviour.
+
+Next steps after fixes
+Once these fixes are tested and stable:
+
+Drop legacy puzzles.target_date and puzzles.answer_date varchar columns.
+
+Drop guesses.feedback_result.
+
+Rename puzzles.answer_date_canonical → answer_date.
