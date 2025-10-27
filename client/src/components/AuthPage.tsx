@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
@@ -302,7 +303,23 @@ const handleSubmit = async (e: React.FormEvent) => {
             
             {mode === "signup" && (
               <div className="space-y-2">
-                <Label htmlFor="region" data-testid="label-region">Region</Label>
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="region" data-testid="label-region">Region</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        type="button" 
+                        className="inline-flex items-center justify-center w-4 h-4 text-xs rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted transition-colors"
+                        data-testid="button-region-info"
+                      >
+                        i
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Puzzle questions are based on your geographical region</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <Select
                   value={formData.region}
                   onValueChange={(value) => setFormData({ ...formData, region: value })}

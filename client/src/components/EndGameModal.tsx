@@ -43,6 +43,7 @@ export function EndGameModal({
 }: EndGameModalProps) {
   const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
+  const { formatWithOrdinal } = useUserDateFormat();
   const [showConfetti, setShowConfetti] = useState(false);
   const [showRain, setShowRain] = useState(false);
 
@@ -128,7 +129,7 @@ export function EndGameModal({
               className="text-2xl font-bold truncate max-w-full overflow-hidden text-ellipsis"
               data-testid="text-target-date"
             >
-              {formatFullDateWithOrdinal(answerDateCanonical)}
+              {formatWithOrdinal(answerDateCanonical)}
             </p>
 
             <div className="bg-muted p-4 rounded-lg space-y-2">
