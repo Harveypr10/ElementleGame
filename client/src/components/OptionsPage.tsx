@@ -9,6 +9,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { soundManager } from "@/lib/sounds";
+import { motion } from "framer-motion";
+import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 
 interface OptionsPageProps {
   onBack: () => void;
@@ -186,7 +188,13 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-4">
+    <motion.div 
+      className="min-h-screen flex flex-col p-4"
+      initial={pageVariants.slideRight.initial}
+      animate={pageVariants.slideRight.animate}
+      exit={pageVariants.slideRight.exit}
+      transition={pageTransition}
+    >
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
           <button
@@ -298,6 +306,6 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
           </p>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

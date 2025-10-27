@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearUserCache } from "@/lib/localCache";
+import { motion } from "framer-motion";
+import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -94,7 +96,13 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-4">
+    <motion.div 
+      className="min-h-screen flex flex-col p-4"
+      initial={pageVariants.slideDown.initial}
+      animate={pageVariants.slideDown.animate}
+      exit={pageVariants.slideDown.exit}
+      transition={pageTransition}
+    >
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
           <button
@@ -147,6 +155,6 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
           </Button>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

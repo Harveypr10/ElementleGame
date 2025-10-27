@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
+import { motion } from "framer-motion";
+import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 
 interface ArchivePageProps {
   onBack: () => void;
@@ -245,7 +247,13 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
   const canGoNext = currentMonth < currentMonthDate;
 
   return (
-    <div className="min-h-screen flex flex-col p-4">
+    <motion.div 
+      className="min-h-screen flex flex-col p-4"
+      initial={pageVariants.fadeIn.initial}
+      animate={pageVariants.fadeIn.animate}
+      exit={pageVariants.fadeIn.exit}
+      transition={pageTransition}
+    >
       <div className="flex items-center justify-between mb-8">
         <button
           onClick={onBack}
@@ -297,6 +305,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
           {renderCalendar()}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

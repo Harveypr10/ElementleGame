@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useGameData } from "@/hooks/useGameData";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
+import { motion } from "framer-motion";
+import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 
 interface StatsPageProps {
   onBack: () => void;
@@ -136,7 +138,13 @@ export function StatsPage({ onBack }: StatsPageProps) {
     : 0;
 
   return (
-    <div className="min-h-screen flex flex-col p-4">
+    <motion.div 
+      className="min-h-screen flex flex-col p-4"
+      initial={pageVariants.slideLeft.initial}
+      animate={pageVariants.slideLeft.animate}
+      exit={pageVariants.slideLeft.exit}
+      transition={pageTransition}
+    >
       <div className="flex items-center justify-between mb-8">
         <button
           onClick={onBack}
@@ -278,6 +286,6 @@ export function StatsPage({ onBack }: StatsPageProps) {
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
