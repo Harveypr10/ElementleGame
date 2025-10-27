@@ -199,7 +199,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     }
   }, [isAuthenticated, gameAttempts, loadingAttempts, todayPuzzleId, todayPuzzleAnswerDateCanonical]);
 
-  // Format today's date as "Monday 20th Oct"
+   // Format today's date as "Monday 20th Oct"
   const getFormattedDate = () => {
     const today = new Date();
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -251,6 +251,18 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     }
   };
 
+  // Render intro message block
+  const renderIntroMessage = () => {
+    const intro = getIntroMessage();
+    if (!intro) return null;
+    return (
+      <div className="text-center mb-4">
+        <p className="text-lg font-bold text-gray-800">{intro.firstLine}</p>
+        <p className="text-sm text-gray-600">{intro.secondLine}</p>
+      </div>
+    );
+  };
+
   const getPlayButtonContent = () => {
     switch (todayPuzzleStatus) {
       case 'solved':
@@ -273,6 +285,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         };
     }
   };
+
 
   const playContent = getPlayButtonContent();
 
@@ -321,132 +334,130 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     },
   ];
 
-    return (
-    <div className="flex flex-col min-h-screen p-4">
-      {/* Header stays at the top */}
-      <div className="max-w-md mx-auto w-full">
-        <div className="flex items-center justify-between mb-2">
-          {/* Help button with dark mode swap */}
-          <button
-            onClick={() => setShowHelp(true)}
-            data-testid="button-help"
-            className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            <img
-              src={greyHelpIcon}
-              alt="Help"
-              className="h-9 w-9 block dark:hidden"
-            />
-            <img
-              src={whiteHelpIcon}
-              alt="Help"
-              className="h-9 w-9 hidden dark:block"
-            />
-          </button>
+return (
+  <div className="flex flex-col min-h-screen p-4">
+    {/* Header stays at the top */}
+    <div className="max-w-md mx-auto w-full">
+      <div className="flex items-center justify-between mb-2">
+        {/* Help button with dark mode swap */}
+        <button
+          onClick={() => setShowHelp(true)}
+          data-testid="button-help"
+          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        >
+          <img
+            src={greyHelpIcon}
+            alt="Help"
+            className="h-9 w-9 block dark:hidden"
+          />
+          <img
+            src={whiteHelpIcon}
+            alt="Help"
+            className="h-9 w-9 hidden dark:block"
+          />
+        </button>
 
-          {/* Title */}
-          <h1
-            className="text-4xl sm:text-5xl font-bold text-foreground"
-            data-testid="text-title"
-          >
-            Elementle
-          </h1>
+        {/* Title */}
+        <h1
+          className="text-4xl sm:text-5xl font-bold text-foreground"
+          data-testid="text-title"
+        >
+          Elementle
+        </h1>
 
-          {/* Settings button with dark mode swap */}
-          <button
-            onClick={onOpenSettings}
-            disabled={!onOpenSettings}
-            data-testid="button-settings"
-            className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
-          >
-            <img
-              src={greyCogIcon}
-              alt="Settings"
-              className="h-9 w-9 block dark:hidden"
-            />
-            <img
-              src={whiteCogIcon}
-              alt="Settings"
-              className="h-9 w-9 hidden dark:block"
-            />
-          </button>
-        </div>
-
-        <div className="flex justify-end pr-2 mb-4">
-          {!isAuthenticated && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onLogin}
-              data-testid="link-login"
-              className="text-sm"
-            >
-              Login
-            </Button>
-          )}
-        </div>
-
-        {/* Intro message */}
-        {(() => {
-          const introMessage = getIntroMessage();
-          if (!introMessage) return null;
-          
-          return (
-            <div className="text-center mb-6 sm:mb-12" data-testid="intro-message">
-              <div 
-                className="text-2xl font-bold text-gray-700 dark:text-gray-300 mb-1 text-left"
-                data-testid="intro-first-line"
-              >
-                {introMessage.firstLine}
-              </div>
-              <div 
-                className="text-lg text-gray-600 dark:text-gray-400 text-left"
-                data-testid="intro-second-line"
-              >
-                {introMessage.secondLine}
-              </div>
-            </div>
-          );
-        })()}
+        {/* Settings button with dark mode swap */}
+        <button
+          onClick={onOpenSettings}
+          disabled={!onOpenSettings}
+          data-testid="button-settings"
+          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
+        >
+          <img
+            src={greyCogIcon}
+            alt="Settings"
+            className="h-9 w-9 block dark:hidden"
+          />
+          <img
+            src={whiteCogIcon}
+            alt="Settings"
+            className="h-9 w-9 hidden dark:block"
+          />
+        </button>
       </div>
 
-{/* Main content flexes vertically */}
-<div className="flex-grow flex flex-col justify-center">
-  {/* Group: buttons + invisible spacer */}
-  <div className="max-w-md mx-auto w-full flex flex-col items-stretch space-y-4 mt-1">
-    {/* Play button */}
-    <motion.button
-      ref={playButtonRef}
-      className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-      style={{ backgroundColor: "#7DAAE8" }}
-      onClick={onPlayGame}
-      data-testid="button-play"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
-    >
-      <div className="flex flex-col items-start justify-center text-left">
-        <span className="text-xl font-bold text-gray-800">
-          {playContent.title}
-        </span>
-        {playContent.subtitle && (
-          <span className="text-sm font-medium text-gray-700 mt-0.5">
-            {playContent.subtitle}
-          </span>
+      <div className="flex justify-end pr-2 mb-4">
+        {!isAuthenticated && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onLogin}
+            data-testid="link-login"
+            className="text-sm"
+          >
+            Login
+          </Button>
         )}
       </div>
-      <div className="flex-shrink-0 flex items-center">
-        <img
-          src={playContent.image}
-          alt={playContent.title}
-          className={`w-auto object-contain ${
-            playContent.image === whiteTickBlue || playContent.image === whiteCrossBlue
-              ? "max-h-16"
-              : "max-h-20"
-          }`}
-        />
-      </div>
-    </motion.button>
+    </div>
+
+    {/* Main content flexes vertically */}
+    <div className="flex-grow flex flex-col justify-center">
+      {/* Intro message now appears above the buttons */}
+      {(() => {
+        const introMessage = getIntroMessage();
+        if (!introMessage) return null;
+        return (
+          <div
+            className="text-center mb-6"
+            data-testid="intro-message"
+          >
+            <div
+              className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2"
+              data-testid="intro-first-line"
+            >
+              {introMessage.firstLine}
+            </div>
+            <div
+              className="text-lg sm:text-xl text-gray-600 dark:text-gray-400"
+              data-testid="intro-second-line"
+            >
+              {introMessage.secondLine}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Group: buttons + invisible spacer */}
+      <div className="max-w-md mx-auto w-full flex flex-col items-stretch space-y-4 mt-1">
+        {/* Play button */}
+        <motion.button
+          ref={playButtonRef}
+          className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+          style={{ backgroundColor: "#7DAAE8" }}
+          onClick={onPlayGame}
+          data-testid="button-play"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+        >
+          <div className="flex flex-col items-start justify-center text-left">
+            <span className="text-xl font-bold text-gray-800">
+              {playContent.title}
+            </span>
+            {playContent.subtitle && (
+              <span className="text-sm font-medium text-gray-700 mt-0.5">
+                {playContent.subtitle}
+              </span>
+            )}
+          </div>
+          <div className="flex-shrink-0 flex items-center">
+            <img
+              src={playContent.image}
+              alt={playContent.title}
+              className="max-h-20 w-auto object-contain"
+            />
+          </div>
+        </motion.button>
 
     {/* Archive button */}
     <motion.button

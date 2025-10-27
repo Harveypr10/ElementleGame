@@ -947,8 +947,11 @@ export function PlayPage({
         <div className="flex-1 flex flex-col items-center justify-center">
           <div className="w-full max-w-md space-y-0.5 sm:space-y-1">
             {cluesEnabled && (
-              <div className="text-center">
-                <h3 className="text-xl font-semibold text-foreground" data-testid="text-event-title">
+              <div className="text-center mb-3">
+                <h3
+                  className="text-xl font-semibold text-foreground"
+                  data-testid="text-event-title"
+                >
                   {eventTitle}
                 </h3>
               </div>
