@@ -13,6 +13,8 @@ import { soundManager } from "@/lib/sounds";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
+import { motion } from "framer-motion";
+import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 
 interface EndGameModalProps {
   isOpen: boolean;
@@ -67,7 +69,14 @@ export function EndGameModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-background z-50 overflow-y-auto" data-testid="end-game-modal">
+    <motion.div 
+      className="fixed inset-0 bg-background z-50 overflow-y-auto" 
+      data-testid="end-game-modal"
+      initial={pageVariants.fadeIn.initial}
+      animate={pageVariants.fadeIn.animate}
+      exit={pageVariants.fadeIn.exit}
+      transition={pageTransition}
+    >
       <div className="min-h-screen p-4 pt-8">
         <div className="w-full max-w-md mx-auto space-y-6">
           <h2 className="text-center text-3xl font-bold">
@@ -278,6 +287,6 @@ export function EndGameModal({
         }
         
       `}</style>
-    </div>
+    </motion.div>
   );
 }

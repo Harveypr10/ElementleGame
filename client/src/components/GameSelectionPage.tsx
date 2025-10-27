@@ -310,7 +310,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
 
   const playContent = getPlayButtonContent();
 
-  const totalGames = gameAttempts?.length || 0;
+  const totalGames = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
 
   const menuItems = [
     { 
