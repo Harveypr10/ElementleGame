@@ -19,6 +19,8 @@ import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
 import { writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { motion } from "framer-motion";
+import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 
 interface PlayPageProps {
   answerDateCanonical: string; // YYYY-MM-DD format - the canonical historical date
@@ -930,8 +932,16 @@ export function PlayPage({
     );
   }
 
+  const animationVariant = fromArchive ? pageVariants.slideUp : pageVariants.fadeIn;
+
   return (
-    <div className="min-h-screen flex flex-col p-4">
+    <motion.div 
+      className="min-h-screen flex flex-col p-4"
+      initial={animationVariant.initial}
+      animate={animationVariant.animate}
+      exit={animationVariant.exit}
+      transition={pageTransition}
+    >
       <div className="flex items-center justify-between mb-0">
         <button
           onClick={onBack}
@@ -1069,6 +1079,6 @@ export function PlayPage({
           onDismiss={() => setShowStreakCelebration(false)}
         />
       )}
-    </div>
+    </motion.div>
   );
 }
