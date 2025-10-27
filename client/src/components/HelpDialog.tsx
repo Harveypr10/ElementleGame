@@ -24,6 +24,9 @@ export function HelpDialog({ isOpen, onClose }: HelpDialogProps) {
             <p className="mb-4">
               Guess the historical date in DDMMYY format. You have 5 attempts to find the correct date.
             </p>
+            <p className="mb-4 text-muted-foreground">
+              <span className="font-semibold text-foreground">Note:</span> The Enter button will only activate once you've entered a complete and valid date. If the date you type doesn't exist (like 31/02/2020), you won't be able to submit it.
+            </p>
             <p className="font-semibold mb-2">After each guess, the boxes will change color:</p>
           </div>
 

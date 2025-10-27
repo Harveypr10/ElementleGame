@@ -4,6 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -25,11 +36,14 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [loading, setLoading] = useState(false);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [originalEmail, setOriginalEmail] = useState("");
+  const [showRegionConfirm, setShowRegionConfirm] = useState(false);
+  const [pendingRegion, setPendingRegion] = useState<string | null>(null);
   
   const [profileData, setProfileData] = useState({
     firstName: "",
     lastName: "",
     email: "",
+    region: "",
   });
 
   // Load profile data when available
@@ -39,6 +53,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         firstName: profile.firstName || "",
         lastName: profile.lastName || "",
         email: profile.email || "",
+        region: profile.region || "GB",
       });
       setOriginalEmail(profile.email || "");
     }
@@ -49,6 +64,58 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     newPassword: "",
     confirmPassword: "",
   });
+
+  const handleRegionChange = (newRegion: string) => {
+    setPendingRegion(newRegion);
+    setShowRegionConfirm(true);
+  };
+
+  const handleConfirmRegionChange = async () => {
+    if (!pendingRegion) return;
+
+    setLoading(true);
+    setShowRegionConfirm(false);
+
+    try {
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+        body: JSON.stringify({
+          region: pendingRegion,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update region');
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
+
+      setProfileData({ ...profileData, region: pendingRegion });
+      setPendingRegion(null);
+
+      toast({
+        title: "Region updated!",
+        description: "Your region preference has been saved.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update region",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelRegionChange = () => {
+    setPendingRegion(null);
+    setShowRegionConfirm(false);
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,6 +395,27 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="region" data-testid="label-region-account">
+                    Region
+                  </Label>
+                  <Select
+                    value={profileData.region}
+                    onValueChange={handleRegionChange}
+                  >
+                    <SelectTrigger id="region" data-testid="select-region-account">
+                      <SelectValue placeholder="Select your region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="GB" data-testid="option-region-uk-account">United Kingdom (DD/MM/YY)</SelectItem>
+                      <SelectItem value="US" data-testid="option-region-us-account">United States (MM/DD/YY)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground" data-testid="text-region-help-account">
+                    This determines how dates are displayed in the game
+                  </p>
+                </div>
+
                 <Button
                   type="submit"
                   className="w-full"
@@ -408,6 +496,26 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           </Card>
         </div>
       </div>
+
+      {/* Region Change Confirmation Dialog */}
+      <AlertDialog open={showRegionConfirm} onOpenChange={setShowRegionConfirm}>
+        <AlertDialogContent data-testid="alert-region-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change Region?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Changing your region will change the puzzles you see going forward. Your past game history will not be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelRegionChange} data-testid="button-cancel-region-change">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRegionChange} data-testid="button-confirm-region-change">
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
