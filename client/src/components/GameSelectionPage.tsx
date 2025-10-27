@@ -33,11 +33,10 @@ interface GameSelectionPageProps {
   onOpenOptions?: () => void;
   onLogin?: () => void;
   todayPuzzleId?: number;
-  todayPuzzleTargetDate?: string;
-  todayPuzzleAnswerDate?: string;
+  todayPuzzleAnswerDateCanonical?: string; // YYYY-MM-DD format - the canonical date
 }
 
-export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin, todayPuzzleId, todayPuzzleTargetDate }: GameSelectionPageProps) {
+export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin, todayPuzzleId, todayPuzzleAnswerDateCanonical }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const { profile } = useProfile();
   const { gameAttempts, loadingAttempts } = useGameData();
@@ -60,7 +59,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     if (cachedOutcome) {
       // Check if cache is for today's puzzle
       const isCacheForToday = cachedOutcome.puzzleId === todayPuzzleId || 
-                              cachedOutcome.date === todayPuzzleTargetDate;
+                              cachedOutcome.date === todayPuzzleAnswerDateCanonical;
       
       if (isCacheForToday) {
         if (cachedOutcome.isWin) {
@@ -135,7 +134,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
 
   // Background reconciliation with Supabase/localStorage
   useEffect(() => {
-    if (!todayPuzzleId && !todayPuzzleTargetDate) return;
+    if (!todayPuzzleId && !todayPuzzleAnswerDateCanonical) return;
 
     if (isAuthenticated && gameAttempts && !loadingAttempts) {
       // Use Supabase game attempts ONLY for authenticated users
@@ -157,7 +156,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         
         // Update cache with fresh data from Supabase
         writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
-          date: todayPuzzleTargetDate || '',
+          date: todayPuzzleAnswerDateCanonical || '',
           puzzleId: todayPuzzleId,
           isWin,
           guessCount: count,
@@ -165,13 +164,13 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       } else {
         setTodayPuzzleStatus('not-played');
       }
-    } else if (!isAuthenticated && todayPuzzleTargetDate) {
+    } else if (!isAuthenticated && todayPuzzleAnswerDateCanonical) {
       // Use localStorage ONLY for guest users
       const storedStats = localStorage.getItem("elementle-stats");
       if (storedStats) {
         const stats = JSON.parse(storedStats);
         const completions = stats.puzzleCompletions || {};
-        const completion = completions[todayPuzzleTargetDate];
+        const completion = completions[todayPuzzleAnswerDateCanonical];
         
         if (completion && completion.completed) {
           const count = Array.isArray(completion.guesses) ? completion.guesses.length : completion.guesses;
@@ -185,7 +184,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
           
           // Update cache with fresh data from localStorage
           writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
-            date: todayPuzzleTargetDate,
+            date: todayPuzzleAnswerDateCanonical,
             isWin: completion.won,
             guessCount: count,
           });
@@ -194,7 +193,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         }
       }
     }
-  }, [isAuthenticated, gameAttempts, loadingAttempts, todayPuzzleId, todayPuzzleTargetDate]);
+  }, [isAuthenticated, gameAttempts, loadingAttempts, todayPuzzleId, todayPuzzleAnswerDateCanonical]);
 
   // Format today's date as "Monday 20th Oct"
   const getFormattedDate = () => {

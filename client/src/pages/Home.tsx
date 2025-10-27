@@ -17,6 +17,7 @@ import { BugReportForm } from "@/components/BugReportForm";
 import { FeedbackForm } from "@/components/FeedbackForm";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
+import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useQuery } from "@tanstack/react-query";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback";
@@ -24,8 +25,7 @@ type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "s
 interface Puzzle {
   id: number;
   date: string;
-  targetDate: string;
-  answerDate?: string;
+  answerDateCanonical: string; // YYYY-MM-DD format - the canonical historical date
   eventTitle: string;
   eventDescription: string;
   clue1?: string;
@@ -35,6 +35,7 @@ interface Puzzle {
 export default function Home() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const { gameAttempts, loadingAttempts } = useGameData();
+  const { formatCanonicalDate } = useUserDateFormat();
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -107,7 +108,9 @@ export default function Home() {
       const storedStats = localStorage.getItem("elementle-stats");
       if (storedStats) {
         const stats = JSON.parse(storedStats);
-        const completion = stats.puzzleCompletions?.[puzzle.targetDate];
+        // Format the canonical date to match the key format used in localStorage
+        const formattedAnswer = formatCanonicalDate(puzzle.answerDateCanonical);
+        const completion = stats.puzzleCompletions?.[formattedAnswer];
         isCompleted = !!(completion && completion.completed);
       }
     }
@@ -147,7 +150,9 @@ export default function Home() {
         const storedStats = localStorage.getItem("elementle-stats");
         if (storedStats) {
           const stats = JSON.parse(storedStats);
-          const completion = stats.puzzleCompletions?.[todayPuzzle.targetDate];
+          // Format canonical date to match the key format used in localStorage
+          const formattedAnswer = formatCanonicalDate(todayPuzzle.answerDateCanonical);
+          const completion = stats.puzzleCompletions?.[formattedAnswer];
           isCompleted = !!(completion && completion.completed);
         }
       }
@@ -234,8 +239,7 @@ export default function Home() {
           }}
           onLogin={() => setCurrentScreen("login")}
           todayPuzzleId={getDailyPuzzle()?.id}
-          todayPuzzleTargetDate={getDailyPuzzle()?.targetDate}
-          todayPuzzleAnswerDate={getDailyPuzzle()?.answerDate}
+          todayPuzzleAnswerDateCanonical={getDailyPuzzle()?.answerDateCanonical}
         />
       )}
 
@@ -243,8 +247,7 @@ export default function Home() {
         <PlayPage
           puzzleId={currentPuzzle.id}
           puzzleDate={currentPuzzle.date}
-          targetDate={currentPuzzle.targetDate}
-          answerDate={currentPuzzle.answerDate}
+          answerDateCanonical={currentPuzzle.answerDateCanonical}
           eventTitle={currentPuzzle.eventTitle}
           eventDescription={currentPuzzle.eventDescription}
           clue1={currentPuzzle.clue1}

@@ -491,12 +491,11 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
 
       if (format === "csv") {
         // Convert to CSV
-        const headers = ["User Email", "Puzzle Date", "Target Date", "Answer Date","Event Title", "Result", "Guesses", "Completed At", "Guess Details"];
+        const headers = ["User Email", "Puzzle Date", "Answer Date (Canonical)", "Event Title", "Result", "Guesses", "Completed At", "Guess Details"];
         const rows = data.map((row: any) => [
           row.userEmail || "guest",
           row.puzzleDate,
-          row.targetDate,
-          row.answerDate || "",
+          row.answerDateCanonical || "",
           row.eventTitle,
           row.result,
           row.numGuesses,

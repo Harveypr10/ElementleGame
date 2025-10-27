@@ -6,6 +6,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
+import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 
 interface ArchivePageProps {
@@ -14,7 +15,7 @@ interface ArchivePageProps {
   puzzles: Array<{
     id: number;
     date: string;
-    targetDate: string;
+    answerDateCanonical: string; // YYYY-MM-DD format - the canonical historical date
     eventTitle: string;
     eventDescription: string;
     clue1?: string;
@@ -32,6 +33,7 @@ interface DayStatus {
 export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps) {
   const { isAuthenticated } = useAuth();
   const { gameAttempts, loadingAttempts } = useGameData();
+  const { formatCanonicalDate } = useUserDateFormat();
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date(2025, 9, 1)); // October 2025
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
@@ -59,7 +61,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       
       cachedMonthData.forEach((puzzle: any) => {
         if (puzzle.completed) {
-          statusMap[puzzle.targetDate] = {
+          statusMap[puzzle.answerDateCanonical] = {
             completed: true,
             won: puzzle.won || false,
             guessCount: puzzle.guessCount || 0
@@ -86,7 +88,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
           const isWon = attempt.result === "won";
           const isInProgress = attempt.result === null && (attempt.numGuesses ?? 0) > 0;
           
-          console.log(`[Archive] Puzzle ${puzzle.id} (${puzzle.targetDate}):`, {
+          console.log(`[Archive] Puzzle ${puzzle.id} (${puzzle.answerDateCanonical}):`, {
             guessCount: attempt.numGuesses,
             result: attempt.result,
             completed: isCompleted,
@@ -94,7 +96,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
             inProgress: isInProgress,
           });
           
-          statusMap[puzzle.targetDate] = {
+          statusMap[puzzle.answerDateCanonical] = {
             completed: isCompleted,
             won: isWon,
             guessCount: attempt.numGuesses ?? 0,
@@ -109,9 +111,9 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
       const monthPuzzles = puzzles.map(puzzle => ({
         ...puzzle,
-        completed: statusMap[puzzle.targetDate]?.completed || false,
-        won: statusMap[puzzle.targetDate]?.won || false,
-        guessCount: statusMap[puzzle.targetDate]?.guessCount || 0,
+        completed: statusMap[puzzle.answerDateCanonical]?.completed || false,
+        won: statusMap[puzzle.answerDateCanonical]?.won || false,
+        guessCount: statusMap[puzzle.answerDateCanonical]?.guessCount || 0,
       }));
       writeLocal(`${CACHE_KEYS.ARCHIVE_PREFIX}${monthKey}`, monthPuzzles);
     } else if (!isAuthenticated) {
@@ -123,10 +125,12 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       const completions = stats.puzzleCompletions || {};
       
       puzzles.forEach(puzzle => {
-        const completion = completions[puzzle.targetDate];
+        // Format canonical date to match the key format used in localStorage
+        const formattedAnswer = formatCanonicalDate(puzzle.answerDateCanonical);
+        const completion = completions[formattedAnswer];
         
         if (completion) {
-          statusMap[puzzle.targetDate] = {
+          statusMap[puzzle.answerDateCanonical] = {
             completed: completion.completed || false,
             won: completion.won || false,
             guessCount: completion.guessCount,
@@ -163,7 +167,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
     const puzzle = getPuzzleForDay(day);
     if (!puzzle) return null;
     
-    return dayStatuses[puzzle.targetDate] || null;
+    return dayStatuses[puzzle.answerDateCanonical] || null;
   };
 
   const renderCalendar = () => {

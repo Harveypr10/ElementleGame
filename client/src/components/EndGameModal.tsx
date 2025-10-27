@@ -12,12 +12,13 @@ import { formatFullDateWithOrdinal, formatDateWithOrdinal } from "@/lib/dateForm
 import { soundManager } from "@/lib/sounds";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 
 interface EndGameModalProps {
   isOpen: boolean;
   isWin: boolean;
-  targetDate: string;
-  answerDate?: string;
+  answerDateCanonical: string; // YYYY-MM-DD format - the canonical historical date
+  formattedAnswer: string; // The formatted answer in user's preference (e.g., "010125" or "01011925")
   eventTitle: string;
   eventDescription: string;
   numGuesses?: number;
@@ -30,8 +31,8 @@ interface EndGameModalProps {
 export function EndGameModal({
   isOpen,
   isWin,
-  targetDate,
-  answerDate,
+  answerDateCanonical,
+  formattedAnswer,
   eventTitle,
   eventDescription,
   numGuesses,
@@ -127,7 +128,7 @@ export function EndGameModal({
               className="text-2xl font-bold truncate max-w-full overflow-hidden text-ellipsis"
               data-testid="text-target-date"
             >
-              {answerDate ? formatFullDateWithOrdinal(answerDate) : "Unknown date"}
+              {formatFullDateWithOrdinal(answerDateCanonical)}
             </p>
 
             <div className="bg-muted p-4 rounded-lg space-y-2">

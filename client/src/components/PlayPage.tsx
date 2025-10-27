@@ -12,6 +12,7 @@ import { useGameData } from "@/hooks/useGameData";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
+import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
@@ -19,8 +20,7 @@ import { writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 interface PlayPageProps {
-  targetDate: string;
-  answerDate?: string;
+  answerDateCanonical: string; // YYYY-MM-DD format - the canonical historical date
   eventTitle: string;
   eventDescription: string;
   clue1?: string;
@@ -45,8 +45,7 @@ interface GuessRecord {
 }
 
 export function PlayPage({
-  targetDate,
-  answerDate,
+  answerDateCanonical,
   eventTitle,
   eventDescription,
   clue1,
@@ -69,6 +68,19 @@ export function PlayPage({
   const { stats: supabaseStats } = useUserStats();
   const { settings } = useUserSettings();
   const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
+  
+  // Get user's date format preferences
+  const {
+    formatCanonicalDate,
+    parseUserDate,
+    validateGuess,
+    formatWithOrdinal,
+    placeholders,
+    numDigits
+  } = useUserDateFormat();
+  
+  // Format the answer in user's preferred format (e.g., "010125" or "01011925")
+  const formattedAnswer = formatCanonicalDate(answerDateCanonical);
   
   // Helper function to check if this puzzle is today's puzzle
   const isPlayingTodaysPuzzle = (): boolean => {
@@ -107,7 +119,7 @@ export function PlayPage({
     }
   }, [isAuthenticated, settings]);
 
-  // Reset state when targetDate changes
+  // Reset state when answerDateCanonical changes
   // Note: This runs before loadCompletedPuzzle, so completed puzzles will reload their guesses after reset
   useEffect(() => {
     setCurrentInput("");
@@ -119,7 +131,7 @@ export function PlayPage({
     setGuessRecords([]);
     setCurrentGameAttemptId(null);
     setShowEndModal(false);
-  }, [targetDate]);
+  }, [answerDateCanonical]);
 
   // Check if puzzle is already completed and redirect if needed
   useEffect(() => {
@@ -176,7 +188,7 @@ export function PlayPage({
           const storedStats = localStorage.getItem("elementle-stats");
           if (storedStats) {
             const stats = JSON.parse(storedStats);
-            const completion = stats.puzzleCompletions?.[targetDate];
+            const completion = stats.puzzleCompletions?.[formattedAnswer];
             
             if (completion && completion.completed && mounted) {
               // Puzzle already completed - set to view-only mode
@@ -197,7 +209,7 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetDate, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
+  }, [formattedAnswer, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
 
   // Load completed puzzle guesses for view-only mode
   useEffect(() => {
@@ -253,7 +265,7 @@ export function PlayPage({
           const storedStats = localStorage.getItem("elementle-stats");
           if (storedStats) {
             const stats = JSON.parse(storedStats);
-            const completion = stats.puzzleCompletions?.[targetDate];
+            const completion = stats.puzzleCompletions?.[formattedAnswer];
             
             if (completion && mounted) {
               setGameOver(true);
@@ -273,7 +285,7 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOnly, targetDate, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
+  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
 
   // Auto-open celebration modal when returning from stats for completed archive puzzles
   useEffect(() => {
@@ -362,7 +374,7 @@ export function PlayPage({
                 setGuesses(freshFeedbackArrays);
                 setGuessRecords(freshGuessRecords);
                 setKeyStates(newKeyStates);
-                setWrongGuessCount(attemptGuesses.filter((g: any) => g.guessValue !== targetDate).length);
+                setWrongGuessCount(attemptGuesses.filter((g: any) => g.guessValue !== formattedAnswer).length);
                 console.log('[loadInProgressGame] State updated successfully');
               } else {
                 console.log('[loadInProgressGame] No guesses to load or component unmounted');
@@ -373,7 +385,7 @@ export function PlayPage({
           }
         } else if (!isAuthenticated) {
           // For guest users, load from localStorage
-          const inProgressKey = `puzzle-progress-${targetDate}`;
+          const inProgressKey = `puzzle-progress-${formattedAnswer}`;
           const savedProgress = localStorage.getItem(inProgressKey);
           
           if (savedProgress && mounted) {
@@ -398,19 +410,19 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOnly, targetDate, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
+  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
   
   // Helper function to calculate feedback without updating state
   const calculateFeedbackForGuess = (guess: string, currentKeyStates: Record<string, KeyState>): CellFeedback[] => {
     const feedback: CellFeedback[] = [];
     
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < numDigits; i++) {
       const guessDigit = guess[i];
-      const targetDigit = targetDate[i];
+      const targetDigit = formattedAnswer[i];
       
       if (guessDigit === targetDigit) {
         feedback.push({ digit: guessDigit, state: "correct" });
-      } else if (targetDate.includes(guessDigit)) {
+      } else if (formattedAnswer.includes(guessDigit)) {
         const arrow = parseInt(guessDigit) < parseInt(targetDigit) ? "up" : "down";
         feedback.push({ digit: guessDigit, state: "inSequence", arrow });
       } else {
@@ -426,7 +438,7 @@ export function PlayPage({
   const updateKeyStates = (guess: string, feedback: CellFeedback[], currentKeyStates: Record<string, KeyState>): Record<string, KeyState> => {
     const newKeyStates = { ...currentKeyStates };
     
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < numDigits; i++) {
       const guessDigit = guess[i];
       const cellFeedback = feedback[i];
       
@@ -448,14 +460,14 @@ export function PlayPage({
     const feedback: CellFeedback[] = [];
     const newKeyStates = { ...keyStates };
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < numDigits; i++) {
       const guessDigit = guess[i];
-      const targetDigit = targetDate[i];
+      const targetDigit = formattedAnswer[i];
       
       if (guessDigit === targetDigit) {
         feedback.push({ digit: guessDigit, state: "correct" });
         newKeyStates[guessDigit] = "correct";
-      } else if (targetDate.includes(guessDigit)) {
+      } else if (formattedAnswer.includes(guessDigit)) {
         const arrow = parseInt(guessDigit) < parseInt(targetDigit) ? "up" : "down";
         feedback.push({ digit: guessDigit, state: "inSequence", arrow });
         if (newKeyStates[guessDigit] !== "correct") {
@@ -478,12 +490,12 @@ export function PlayPage({
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (currentInput.length !== 6 || gameOver) return;
+    if (currentInput.length !== numDigits || gameOver) return;
 
     const feedback = calculateFeedback(currentInput);
     const newGuesses = [...guesses, feedback];
     const newGuessRecords = [...guessRecords, { guessValue: currentInput, feedbackResult: feedback }];
-    const newWrongGuessCount = currentInput !== targetDate ? wrongGuessCount + 1 : wrongGuessCount;
+    const newWrongGuessCount = currentInput !== formattedAnswer ? wrongGuessCount + 1 : wrongGuessCount;
     const currentGuess = { guessValue: currentInput, feedbackResult: feedback };
     
     setGuesses(newGuesses);
@@ -495,7 +507,7 @@ export function PlayPage({
       const storedStats = localStorage.getItem("elementle-stats");
       const stats = storedStats ? JSON.parse(storedStats) : { puzzleCompletions: {} };
 
-      const completion = stats.puzzleCompletions[targetDate] || {
+      const completion = stats.puzzleCompletions[formattedAnswer] || {
         completed: false,
         won: false,
         guessCount: 0,
@@ -507,7 +519,7 @@ export function PlayPage({
       completion.completed = false; // still in progress
       completion.won = false;
 
-      stats.puzzleCompletions[targetDate] = completion;
+      stats.puzzleCompletions[formattedAnswer] = completion;
       localStorage.setItem("elementle-stats", JSON.stringify(stats));
     }
     
@@ -523,14 +535,14 @@ export function PlayPage({
       }
     }
 
-    const isWinningGuess = currentInput === targetDate;
+    const isWinningGuess = currentInput === formattedAnswer;
     const isLosingGuess = !isWinningGuess && newGuesses.length >= maxGuesses;
 
     if (isWinningGuess) {
       // Game won
       setIsWin(true);
       setGameOver(true);
-      localStorage.removeItem(`puzzle-progress-${targetDate}`);
+      localStorage.removeItem(`puzzle-progress-${formattedAnswer}`);
       
       // Delay showing modal by 4 seconds to show animations
       setTimeout(() => {
@@ -570,7 +582,7 @@ export function PlayPage({
       // Cache today's outcome (only if playing today's puzzle)
       if (isPlayingTodaysPuzzle()) {
         writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
-          date: targetDate,
+          date: answerDateCanonical,
           puzzleId: puzzleId,
           isWin: true,
           guessCount: newGuesses.length,
@@ -580,7 +592,7 @@ export function PlayPage({
       // Game lost
       setIsWin(false);
       setGameOver(true);
-      localStorage.removeItem(`puzzle-progress-${targetDate}`);
+      localStorage.removeItem(`puzzle-progress-${formattedAnswer}`);
       
       // Delay showing modal by 2 seconds to show final state
       setTimeout(() => {
@@ -598,7 +610,7 @@ export function PlayPage({
       // Cache today's outcome (only if playing today's puzzle)
       if (isPlayingTodaysPuzzle()) {
         writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
-          date: targetDate,
+          date: answerDateCanonical,
           puzzleId: puzzleId,
           isWin: false,
           guessCount: newGuesses.length,
@@ -607,11 +619,11 @@ export function PlayPage({
     } else {
       // Game in progress - save current state to localStorage
       setWrongGuessCount(newWrongGuessCount);
-      const inProgressKey = `puzzle-progress-${targetDate}`;
+      const inProgressKey = `puzzle-progress-${formattedAnswer}`;
       const newKeyStates = { ...keyStates };
       
       // Update key states from the feedback we just calculated
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < numDigits; i++) {
         const digit = currentInput[i];
         const state = feedback[i].state;
         if (state === "correct") {
@@ -629,7 +641,7 @@ export function PlayPage({
         keyStates: newKeyStates
       }));
     }
-  }, [currentInput, gameOver, guesses, guessRecords, targetDate, maxGuesses, keyStates, wrongGuessCount, isAuthenticated, puzzleId, currentGameAttemptId]);
+  }, [currentInput, gameOver, guesses, guessRecords, formattedAnswer, maxGuesses, keyStates, wrongGuessCount, isAuthenticated, puzzleId, currentGameAttemptId, numDigits]);
 
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
     if (gameOver || viewOnly) return;
@@ -794,13 +806,13 @@ export function PlayPage({
       currentStats.puzzleCompletions = {};
     }
 
-    // Use targetDate as the key (historical event date) to match archive lookup
-    currentStats.puzzleCompletions[targetDate] = {
+    // Use formattedAnswer as the key (formatted date) to match user's format
+    currentStats.puzzleCompletions[formattedAnswer] = {
       completed: true,
       won,
       guessCount: numGuesses,
       guesses: allGuessRecords,
-      puzzleTargetDate: targetDate,
+      puzzleTargetDate: answerDateCanonical,
       date: new Date().toISOString()
     };
 
@@ -886,13 +898,15 @@ export function PlayPage({
               guesses={guesses}
               currentInput={currentInput}
               maxGuesses={maxGuesses}
+              numDigits={numDigits}
+              placeholders={placeholders}
             />
             
             {gameOver && !isWin && (
               <div className="w-full mt-12">
                 <p className="text-center text-sm text-muted-foreground mb-3">Correct answer:</p>
                 <div className="flex gap-2 justify-center">
-                  {targetDate.split('').map((digit, i) => (
+                  {formattedAnswer.split('').map((digit, i) => (
                     <div
                       key={i}
                       className="flex-1 aspect-square"
@@ -951,8 +965,8 @@ export function PlayPage({
       <EndGameModal
         isOpen={showCelebrationFirst ? showCelebrationModal : showEndModal}
         isWin={isWin}
-        targetDate={targetDate}
-        answerDate={answerDate}
+        answerDateCanonical={answerDateCanonical}
+        formattedAnswer={formattedAnswer}
         eventTitle={eventTitle}
         eventDescription={eventDescription}
         numGuesses={guesses.length}
