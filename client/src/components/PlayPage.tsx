@@ -13,6 +13,7 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
+import { parseUserDateWithContext } from "@/lib/dateFormat";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
@@ -115,6 +116,7 @@ export function PlayPage({
     if (currentInput.length !== numDigits) {
       return false;
     }
+    // parseUserDate from useUserDateFormat already has format baked in
     return parseUserDate(currentInput) !== null;
   }, [currentInput, numDigits, parseUserDate]);
 
@@ -179,10 +181,14 @@ export function PlayPage({
             
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
               // Recalculate feedback client-side (not stored in DB)
+              // Convert canonical guesses from DB to user's display format
               let newKeyStates: Record<string, KeyState> = {};
               const feedbackArrays = attemptGuesses.map(guess => {
-                const feedback = calculateFeedbackForGuess(guess.guessValue, newKeyStates);
-                newKeyStates = updateKeyStates(guess.guessValue, feedback, newKeyStates);
+                // Convert canonical format (YYYY-MM-DD) to user's format (e.g., DDMMYY)
+                // Use formatCanonicalDate from useUserDateFormat which has format baked in
+                const displayFormat = formatCanonicalDate(guess.guessValue);
+                const feedback = calculateFeedbackForGuess(displayFormat, newKeyStates);
+                newKeyStates = updateKeyStates(displayFormat, feedback, newKeyStates);
                 return feedback;
               });
               setGuesses(feedbackArrays);
@@ -192,9 +198,11 @@ export function PlayPage({
               const records: GuessRecord[] = [];
               let recordKeyStates: Record<string, KeyState> = {};
               for (const guess of attemptGuesses) {
-                const feedback = calculateFeedbackForGuess(guess.guessValue, recordKeyStates);
-                recordKeyStates = updateKeyStates(guess.guessValue, feedback, recordKeyStates);
-                records.push({ guessValue: guess.guessValue, feedbackResult: feedback });
+                // Convert canonical format to user's display format
+                const displayFormat = formatCanonicalDate(guess.guessValue);
+                const feedback = calculateFeedbackForGuess(displayFormat, recordKeyStates);
+                recordKeyStates = updateKeyStates(displayFormat, feedback, recordKeyStates);
+                records.push({ guessValue: displayFormat, feedbackResult: feedback });
               }
               setGuessRecords(records);
             }
@@ -263,10 +271,14 @@ export function PlayPage({
             
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
               // Recalculate feedback client-side (not stored in DB)
+              // Convert canonical guesses from DB to user's display format
               let newKeyStates: Record<string, KeyState> = {};
               const feedbackArrays = attemptGuesses.map(guess => {
-                const feedback = calculateFeedbackForGuess(guess.guessValue, newKeyStates);
-                newKeyStates = updateKeyStates(guess.guessValue, feedback, newKeyStates);
+                // Convert canonical format (YYYY-MM-DD) to user's format (e.g., DDMMYY)
+                // Use formatCanonicalDate from useUserDateFormat which has format baked in
+                const displayFormat = formatCanonicalDate(guess.guessValue);
+                const feedback = calculateFeedbackForGuess(displayFormat, newKeyStates);
+                newKeyStates = updateKeyStates(displayFormat, feedback, newKeyStates);
                 return feedback;
               });
               setGuesses(feedbackArrays);
@@ -276,9 +288,11 @@ export function PlayPage({
               const records: GuessRecord[] = [];
               let recordKeyStates: Record<string, KeyState> = {};
               for (const guess of attemptGuesses) {
-                const feedback = calculateFeedbackForGuess(guess.guessValue, recordKeyStates);
-                recordKeyStates = updateKeyStates(guess.guessValue, feedback, recordKeyStates);
-                records.push({ guessValue: guess.guessValue, feedbackResult: feedback });
+                // Convert canonical format to user's display format
+                const displayFormat = formatCanonicalDate(guess.guessValue);
+                const feedback = calculateFeedbackForGuess(displayFormat, recordKeyStates);
+                recordKeyStates = updateKeyStates(displayFormat, feedback, recordKeyStates);
+                records.push({ guessValue: displayFormat, feedbackResult: feedback });
               }
               setGuessRecords(records);
             }
@@ -519,7 +533,14 @@ export function PlayPage({
     const newGuesses = [...guesses, feedback];
     const newGuessRecords = [...guessRecords, { guessValue: currentInput, feedbackResult: feedback }];
     const newWrongGuessCount = currentInput !== formattedAnswer ? wrongGuessCount + 1 : wrongGuessCount;
+    
+    // Convert user input to canonical format for database storage
+    const canonicalGuess = parseUserDateWithContext(currentInput, dateFormat, answerDateCanonical);
+    
+    // For local state, keep the user-formatted version
     const currentGuess = { guessValue: currentInput, feedbackResult: feedback };
+    // For database storage, use canonical format
+    const dbGuess = { guessValue: canonicalGuess || currentInput, feedbackResult: feedback };
     
     setGuesses(newGuesses);
     setGuessRecords(newGuessRecords);
@@ -552,9 +573,9 @@ export function PlayPage({
       // Create or get game attempt on first guess
       attemptId = await createOrGetGameAttempt();
       
-      // Save this guess to database
+      // Save this guess to database (using canonical format)
       if (attemptId) {
-        await saveGuessToDatabase(attemptId, currentGuess);
+        await saveGuessToDatabase(attemptId, dbGuess);
       }
     }
 

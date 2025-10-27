@@ -18,6 +18,8 @@ interface InputGridProps {
 
 export function InputGrid({ guesses, currentInput, maxGuesses, placeholders = ["D", "D", "M", "M", "Y", "Y"] }: InputGridProps) {
   const numCells = placeholders.length; // Support 6 or 8 cells
+  const is8Digit = numCells === 8; // Check if in 8-digit mode
+  
   const getCellClasses = (state: CellState) => {
     switch (state) {
       case "correct":
@@ -59,7 +61,7 @@ export function InputGrid({ guesses, currentInput, maxGuesses, placeholders = ["
             return (
               <div
                 key={`${rowIdx}-${cellIdx}`}
-                className="relative flex-1 aspect-square max-w-16"
+                className="relative flex-1 aspect-square max-w-16 min-h-12 sm:min-h-14"
                 style={{ perspective: "1000px" }}
                 data-testid={`cell-${rowIdx}-${cellIdx}`}
               >
@@ -73,6 +75,7 @@ export function InputGrid({ guesses, currentInput, maxGuesses, placeholders = ["
                         border-2 rounded-md
                         text-3xl sm:text-4xl font-semibold
                         ${getCellClasses(cell.state)}
+                        ${is8Digit && cell.arrow ? 'pt-1' : ''}
                       `}
                       initial={{ rotateX: 90, opacity: 0 }}
                       animate={{ rotateX: 0, opacity: 1 }}

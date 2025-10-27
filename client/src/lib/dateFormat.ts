@@ -88,6 +88,57 @@ function isCalendarDateValid(day: number, month: number, year: number): boolean 
 }
 
 /**
+ * Parse a user-entered date string based on format with answer context
+ * Uses the actual answer's century for 2-digit years instead of hardcoded logic
+ * Returns canonical format (YYYY-MM-DD) or null if invalid
+ */
+export function parseUserDateWithContext(
+  input: string,
+  format: DateFormatPreference,
+  answerCanonical: string
+): string | null {
+  const expectedLength = format.endsWith('yyyy') ? 8 : 6;
+  if (input.length !== expectedLength) {
+    return null;
+  }
+  
+  let day: string, month: string, year: string;
+  
+  if (format.startsWith('dd')) {
+    // DD/MM format
+    day = input.slice(0, 2);
+    month = input.slice(2, 4);
+    year = input.slice(4);
+  } else {
+    // MM/DD format
+    month = input.slice(0, 2);
+    day = input.slice(2, 4);
+    year = input.slice(4);
+  }
+  
+  // Expand 2-digit year to 4-digit using answer's century
+  if (year.length === 2) {
+    // Extract century from answer (e.g., "1925-01-01" -> "19")
+    const answerYear = answerCanonical.split('-')[0];
+    const century = answerYear.slice(0, 2);
+    year = `${century}${year}`;
+  }
+  
+  // Parse to integers
+  const dayNum = parseInt(day, 10);
+  const monthNum = parseInt(month, 10);
+  const yearNum = parseInt(year, 10);
+  
+  // Validate that this is a real calendar date
+  if (!isCalendarDateValid(dayNum, monthNum, yearNum)) {
+    return null;
+  }
+  
+  // Return in canonical format
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+/**
  * Parse a user-entered date string based on format
  * Returns canonical format (YYYY-MM-DD) or null if invalid
  */
