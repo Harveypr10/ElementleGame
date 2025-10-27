@@ -34,8 +34,10 @@ export function useUserDateFormat() {
     (settings?.digitPreference || cachedSettings.digitPreference) as '6' | '8' | undefined
   );
 
-  // Check if we're still loading initial data
-  const isLoading = settingsLoading || profileLoading;
+  // Only consider it loading if we have no data at all (not even cached)
+  // If we have cached data, we can render immediately even if server data is loading
+  const hasAnyData = settings || profile || cachedSettings.region;
+  const isLoading = (settingsLoading || profileLoading) && !hasAnyData;
 
   const placeholders = getPlaceholders(dateFormat);
   const formatDisplay = getFormatDisplay(dateFormat);
