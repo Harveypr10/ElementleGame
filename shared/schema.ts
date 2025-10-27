@@ -142,8 +142,7 @@ export type GameAttempt = typeof gameAttempts.$inferSelect;
 export const guesses = pgTable("guesses", {
   id: serial("id").primaryKey(),
   gameAttemptId: integer("game_attempt_id").notNull().references(() => gameAttempts.id, { onDelete: "cascade" }),
-  guessValue: varchar("guess_value", { length: 6 }).notNull(), // DDMMYY format
-  feedbackResult: jsonb("feedback_result").notNull(), // Array of CellFeedback objects
+  guessValue: varchar("guess_value", { length: 6 }).notNull(), // DDMMYY format - stored as date string
   guessedAt: timestamp("guessed_at").defaultNow(),
 });
 
