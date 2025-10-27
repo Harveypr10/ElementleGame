@@ -75,11 +75,11 @@ export class DatabaseStorage implements IStorage {
     // Strip out undefined values so they don’t clobber existing DB values
     const cleanData = Object.fromEntries(
       Object.entries(profileData).filter(([_, v]) => v !== undefined)
-    );
+    ) as Partial<InsertUserProfile>;
 
     const [profile] = await db
       .insert(userProfiles)
-      .values(cleanData)
+      .values(cleanData as InsertUserProfile)
       .onConflictDoUpdate({
         target: userProfiles.id,
         set: {

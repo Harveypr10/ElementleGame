@@ -8,6 +8,10 @@ interface UpdateUserSettingsData {
   soundsEnabled?: boolean;
   darkMode?: boolean;
   cluesEnabled?: boolean;
+  dateFormatPreference?: string;
+  useRegionDefault?: boolean;
+  digitPreference?: string;
+  categoryPreferences?: any;
 }
 
 export function useUserSettings() {

@@ -13,11 +13,11 @@ interface InputGridProps {
   guesses: CellFeedback[][];
   currentInput: string;
   maxGuesses: number;
+  placeholders?: string[]; // Dynamic placeholders based on date format
 }
 
-const PLACEHOLDERS = ["D", "D", "M", "M", "Y", "Y"];
-
-export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps) {
+export function InputGrid({ guesses, currentInput, maxGuesses, placeholders = ["D", "D", "M", "M", "Y", "Y"] }: InputGridProps) {
+  const numCells = placeholders.length; // Support 6 or 8 cells
   const getCellClasses = (state: CellState) => {
     switch (state) {
       case "correct":
@@ -36,7 +36,7 @@ export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps)
       return guesses[i];
     } else if (i === guesses.length) {
       const cells: CellFeedback[] = [];
-      for (let j = 0; j < 6; j++) {
+      for (let j = 0; j < numCells; j++) {
         cells.push({
           digit: currentInput[j] || "",
           state: "empty",
@@ -44,7 +44,7 @@ export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps)
       }
       return cells;
     } else {
-      return Array(6).fill({ digit: "", state: "empty" });
+      return Array(numCells).fill({ digit: "", state: "empty" });
     }
   });
 
@@ -114,7 +114,7 @@ export function InputGrid({ guesses, currentInput, maxGuesses }: InputGridProps)
                             animate={{ opacity: 0.3, transition: { duration: 0.2 } }}   // fade in
                             exit={{ opacity: 0, transition: { duration: 0 } }}          // instant out
                           >
-                            {PLACEHOLDERS[cellIdx]}
+                            {placeholders[cellIdx]}
                           </motion.span>
                         )}
                       </AnimatePresence>
