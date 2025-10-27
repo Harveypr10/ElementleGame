@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import streakHamster from "@assets/Streak-Hamster-Black.svg";
 import { soundManager } from "@/lib/sounds";
+import { motion } from "framer-motion";
+import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 
 interface StreakCelebrationPopupProps {
   streak: number;
@@ -20,10 +22,14 @@ export function StreakCelebrationPopup({ streak, onDismiss }: StreakCelebrationP
   }, [onDismiss]);
 
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black backdrop-blur-sm"
       onClick={onDismiss}
       data-testid="streak-celebration-overlay"
+      initial={pageVariants.fadeIn.initial}
+      animate={pageVariants.fadeIn.animate}
+      exit={pageVariants.fadeIn.exit}
+      transition={pageTransition}
     >
       <div
         className="cursor-pointer p-8 max-w-sm w-full mx-4 text-center"
@@ -73,6 +79,6 @@ export function StreakCelebrationPopup({ streak, onDismiss }: StreakCelebrationP
           </p>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
