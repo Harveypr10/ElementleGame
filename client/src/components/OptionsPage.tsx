@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
@@ -20,6 +21,8 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [cluesEnabled, setCluesEnabled] = useState(true);
+  const [digitPreference, setDigitPreference] = useState<"6" | "8">("6");
+  const [useRegionDefault, setUseRegionDefault] = useState(true);
 
   // Load settings from cache first for instant rendering
   useEffect(() => {
@@ -32,6 +35,8 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       soundManager.setEnabled(soundsEnabledValue); // Apply sound setting to manager
       setDarkMode(cachedSettings.darkMode ?? false);
       setCluesEnabled(cachedSettings.cluesEnabled ?? true);
+      setDigitPreference(cachedSettings.digitPreference || "6");
+      setUseRegionDefault(cachedSettings.useRegionDefault ?? true);
       
       // Apply settings to DOM
       document.documentElement.style.setProperty(
@@ -53,6 +58,8 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       soundManager.setEnabled(soundsEnabledValue); // Apply sound setting to manager
       setDarkMode(settings.darkMode ?? false);
       setCluesEnabled(settings.cluesEnabled ?? true);
+      setDigitPreference((settings.digitPreference as "6" | "8") || "6");
+      setUseRegionDefault(settings.useRegionDefault ?? true);
       
       // Apply settings to DOM
       document.documentElement.style.setProperty(
@@ -84,6 +91,12 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       
       const storedClues = localStorage.getItem("cluesEnabled");
       if (storedClues !== null) setCluesEnabled(storedClues === "true");
+      
+      const storedDigitPref = localStorage.getItem("digitPreference");
+      if (storedDigitPref) setDigitPreference(storedDigitPref as "6" | "8");
+      
+      const storedUseRegionDefault = localStorage.getItem("useRegionDefault");
+      if (storedUseRegionDefault !== null) setUseRegionDefault(storedUseRegionDefault === "true");
     }
   }, [isAuthenticated, settings]);
 
@@ -143,6 +156,32 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, cluesEnabled: checked });
     } else {
       localStorage.setItem("cluesEnabled", String(checked));
+    }
+  };
+
+  const handleDigitPreferenceChange = async (value: "6" | "8") => {
+    setDigitPreference(value);
+    
+    if (isAuthenticated) {
+      await updateSettings({ digitPreference: value });
+      // Update cache after Supabase update
+      const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, digitPreference: value });
+    } else {
+      localStorage.setItem("digitPreference", value);
+    }
+  };
+
+  const handleUseRegionDefaultToggle = async (checked: boolean) => {
+    setUseRegionDefault(checked);
+    
+    if (isAuthenticated) {
+      await updateSettings({ useRegionDefault: checked });
+      // Update cache after Supabase update
+      const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, useRegionDefault: checked });
+    } else {
+      localStorage.setItem("useRegionDefault", String(checked));
     }
   };
 
@@ -230,6 +269,26 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
               onCheckedChange={handleCluesToggle}
               data-testid="switch-clues"
             />
+          </div>
+
+          <div className="space-y-4">
+            <Label className="text-base font-semibold">Date Format</Label>
+            <div className="flex gap-2">
+              {(["6", "8"] as const).map((digits) => (
+                <Button
+                  key={digits}
+                  variant={digitPreference === digits ? "default" : "outline"}
+                  onClick={() => handleDigitPreferenceChange(digits)}
+                  className="flex-1"
+                  data-testid={`button-digit-${digits}`}
+                >
+                  {digits} Digits
+                </Button>
+              ))}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Choose between 6-digit (DD/MM/YY) or 8-digit (DD/MM/YYYY) date format
+            </p>
           </div>
         </Card>
 

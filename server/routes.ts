@@ -88,7 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("PATCH /api/auth/profile body:", req.body);
 
       const userId = req.user.id;
-      const { firstName, lastName, email, acceptedTerms, adsConsent } = req.body;
+      const { firstName, lastName, email, region, acceptedTerms, adsConsent } = req.body;
 
       const existing = await storage.getUserProfile(userId);
       if (!existing) {
@@ -102,6 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: email ?? existing.email,
         firstName: firstName ?? existing.firstName,
         lastName: lastName ?? existing.lastName,
+        region: region ?? existing.region ?? null,
         acceptedTerms:
           acceptedTerms ?? existing.acceptedTerms ?? false,
         adsConsent:

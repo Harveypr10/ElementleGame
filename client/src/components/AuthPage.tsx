@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
@@ -31,6 +32,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
     confirmPassword: "",
     firstName: "",
     lastName: "",
+    region: "GB", // Default to UK
     acceptedTerms: false,
     adsConsent: false,
   });
@@ -66,6 +68,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
       confirmPassword: "",
       firstName: "",
       lastName: "",
+      region: "GB", // reset to default
       acceptedTerms: false,   // always reset
       adsConsent: prev.adsConsent, // preserve previous choice
     }));
@@ -168,8 +171,8 @@ const handleSubmit = async (e: React.FormEvent) => {
         throw passwordError;
       }
 
-      // Create or update user profile in database
-      const response = await fetch("/api/auth/profile", {
+      // Create or update user profile in database (including region)
+      const profileResponse = await fetch("/api/auth/profile", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -179,13 +182,31 @@ const handleSubmit = async (e: React.FormEvent) => {
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
+          region: formData.region, // Save region to profile
           acceptedTerms: formData.acceptedTerms,
           adsConsent: formData.adsConsent,
         }),
       });
 
-      if (!response.ok) {
+      if (!profileResponse.ok) {
         throw new Error("Failed to create profile");
+      }
+
+      // Create initial user settings with date format defaults
+      const settingsResponse = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          useRegionDefault: true, // Auto-detect format from region
+          digitPreference: "6", // Default to 6-digit format
+        }),
+      });
+
+      if (!settingsResponse.ok) {
+        console.warn("Failed to create settings, but profile was created");
       }
 
       toast({
@@ -276,6 +297,27 @@ const handleSubmit = async (e: React.FormEvent) => {
                     required
                   />
                 </div>
+              </div>
+            )}
+            
+            {mode === "signup" && (
+              <div className="space-y-2">
+                <Label htmlFor="region" data-testid="label-region">Region</Label>
+                <Select
+                  value={formData.region}
+                  onValueChange={(value) => setFormData({ ...formData, region: value })}
+                >
+                  <SelectTrigger id="region" data-testid="select-region">
+                    <SelectValue placeholder="Select your region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GB" data-testid="option-region-uk">United Kingdom (DD/MM/YY)</SelectItem>
+                    <SelectItem value="US" data-testid="option-region-us">United States (MM/DD/YY)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground" data-testid="text-region-help">
+                  This determines how dates are displayed in the game
+                </p>
               </div>
             )}
             
