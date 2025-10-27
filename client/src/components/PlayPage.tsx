@@ -818,6 +818,29 @@ export function PlayPage({
       const { queryClient } = await import("@/lib/queryClient");
       await queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
       await queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
+      
+      // Pre-load percentile and stats for instant rendering
+      try {
+        console.log('[completeGameAttempt] Pre-loading percentile and stats...');
+        
+        // Fetch and cache percentile
+        const percentileRes = await apiRequest("GET", "/api/stats/percentile");
+        if (percentileRes.ok) {
+          const percentileData = await percentileRes.json();
+          writeLocal(CACHE_KEYS.PERCENTILE, percentileData);
+          console.log('[completeGameAttempt] Percentile cached:', percentileData);
+        }
+        
+        // Fetch and cache stats
+        const statsRes = await apiRequest("GET", "/api/stats");
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          writeLocal(CACHE_KEYS.STATS, statsData);
+          console.log('[completeGameAttempt] Stats cached:', statsData);
+        }
+      } catch (error) {
+        console.error("[completeGameAttempt] Error pre-loading data:", error);
+      }
     } catch (error) {
       console.error("[completeGameAttempt] Error:", error);
     }

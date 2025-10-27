@@ -104,7 +104,17 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     fetchStats();
   }, [isAuthenticated, user]);
 
-  // Fetch percentile ranking if user has played today
+  // Load percentile from cache first for instant rendering
+  useEffect(() => {
+    if (!isAuthenticated || todayPuzzleStatus === 'not-played') return;
+    
+    const cachedPercentile = readLocal<{percentile: number}>(CACHE_KEYS.PERCENTILE);
+    if (cachedPercentile && typeof cachedPercentile.percentile === 'number') {
+      setPercentile(cachedPercentile.percentile);
+    }
+  }, []); // Run once on mount for instant rendering
+
+  // Fetch percentile ranking if user has played today (background refresh)
   useEffect(() => {
     if (!isAuthenticated || !user || todayPuzzleStatus === 'not-played') return;
 
@@ -125,6 +135,8 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         if (response.ok) {
           const data = await response.json();
           setPercentile(data.percentile);
+          // Update cache with fresh data
+          writeLocal(CACHE_KEYS.PERCENTILE, data);
         }
       } catch (error) {
         console.error('Error fetching percentile:', error);
@@ -243,9 +255,18 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       return { firstLine: greeting, secondLine: streakMessage };
     } else {
       // User has played today
-      const percentileMessage = percentile !== null
-        ? `You're in the top ${percentile}% of players - play the archive to boost your ranking`
-        : "Play the archive to boost your ranking";
+      let percentileMessage = "Play the archive to boost your ranking";
+      
+      if (percentile !== null) {
+        // Round down to nearest 5%
+        const roundedPercentile = Math.floor(percentile / 5) * 5;
+        
+        // Show percentage only if 50th percentile or above
+        if (percentile >= 50) {
+          percentileMessage = `You're in the top ${roundedPercentile}% of players - play the archive to boost your ranking`;
+        }
+        // Below 50th percentile: use the default message
+      }
       
       return { firstLine: "Welcome back", secondLine: percentileMessage };
     }
