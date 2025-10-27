@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { InputGrid, type CellFeedback } from "./InputGrid";
 import { NumericKeyboard, type KeyState } from "./NumericKeyboard";
 import { EndGameModal } from "./EndGameModal";
@@ -76,7 +76,8 @@ export function PlayPage({
     validateGuess,
     formatWithOrdinal,
     placeholders,
-    numDigits
+    numDigits,
+    dateFormat
   } = useUserDateFormat();
   
   // Format the answer in user's preferred format (e.g., "010125" or "01011925")
@@ -108,6 +109,14 @@ export function PlayPage({
   const [showCelebrationModal, setShowCelebrationModal] = useState(false);
   const [currentGameAttemptId, setCurrentGameAttemptId] = useState<number | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
+
+  // Check if current input is a valid date (memoized to avoid recomputation)
+  const isValidGuess = useMemo(() => {
+    if (currentInput.length !== numDigits) {
+      return false;
+    }
+    return parseUserDate(currentInput) !== null;
+  }, [currentInput, numDigits, parseUserDate]);
 
   // Load clues setting from Supabase or localStorage
   useEffect(() => {
@@ -169,17 +178,24 @@ export function PlayPage({
             }
             
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
+              // Recalculate feedback client-side (not stored in DB)
+              let newKeyStates: Record<string, KeyState> = {};
               const feedbackArrays = attemptGuesses.map(guess => {
-                const feedback = guess.feedbackResult as CellFeedback[];
+                const feedback = calculateFeedbackForGuess(guess.guessValue, newKeyStates);
+                newKeyStates = updateKeyStates(guess.guessValue, feedback, newKeyStates);
                 return feedback;
               });
               setGuesses(feedbackArrays);
+              setKeyStates(newKeyStates);
               
-              // Reconstruct guess records for display
-              const records = attemptGuesses.map(guess => ({
-                guessValue: guess.guessValue,
-                feedbackResult: guess.feedbackResult as CellFeedback[]
-              }));
+              // Reconstruct guess records for display with recalculated feedback
+              const records: GuessRecord[] = [];
+              let recordKeyStates: Record<string, KeyState> = {};
+              for (const guess of attemptGuesses) {
+                const feedback = calculateFeedbackForGuess(guess.guessValue, recordKeyStates);
+                recordKeyStates = updateKeyStates(guess.guessValue, feedback, recordKeyStates);
+                records.push({ guessValue: guess.guessValue, feedbackResult: feedback });
+              }
               setGuessRecords(records);
             }
           }
@@ -246,17 +262,24 @@ export function PlayPage({
             }
             
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
+              // Recalculate feedback client-side (not stored in DB)
+              let newKeyStates: Record<string, KeyState> = {};
               const feedbackArrays = attemptGuesses.map(guess => {
-                const feedback = guess.feedbackResult as CellFeedback[];
+                const feedback = calculateFeedbackForGuess(guess.guessValue, newKeyStates);
+                newKeyStates = updateKeyStates(guess.guessValue, feedback, newKeyStates);
                 return feedback;
               });
               setGuesses(feedbackArrays);
+              setKeyStates(newKeyStates);
               
-              // Reconstruct guess records for display
-              const records = attemptGuesses.map(guess => ({
-                guessValue: guess.guessValue,
-                feedbackResult: guess.feedbackResult as CellFeedback[]
-              }));
+              // Reconstruct guess records for display with recalculated feedback
+              const records: GuessRecord[] = [];
+              let recordKeyStates: Record<string, KeyState> = {};
+              for (const guess of attemptGuesses) {
+                const feedback = calculateFeedbackForGuess(guess.guessValue, recordKeyStates);
+                recordKeyStates = updateKeyStates(guess.guessValue, feedback, recordKeyStates);
+                records.push({ guessValue: guess.guessValue, feedbackResult: feedback });
+              }
               setGuessRecords(records);
             }
           }
@@ -898,7 +921,6 @@ export function PlayPage({
               guesses={guesses}
               currentInput={currentInput}
               maxGuesses={maxGuesses}
-              numDigits={numDigits}
               placeholders={placeholders}
             />
             
@@ -948,7 +970,7 @@ export function PlayPage({
           <div className="w-full max-w-md mx-auto pb-4">
             <NumericKeyboard
               onDigitPress={(digit) => {
-                if (currentInput.length < 6) {
+                if (currentInput.length < numDigits) {
                   setCurrentInput(currentInput + digit);
                 }
               }}
@@ -956,7 +978,7 @@ export function PlayPage({
               onClear={() => setCurrentInput("")}
               onEnter={handleSubmit}
               keyStates={keyStates}
-              canSubmit={currentInput.length === 6}
+              canSubmit={isValidGuess}
             />
           </div>
         )}

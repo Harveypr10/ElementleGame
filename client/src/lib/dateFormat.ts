@@ -66,6 +66,28 @@ export function formatCanonicalDate(
 }
 
 /**
+ * Helper function to validate that a date actually exists on the calendar
+ * Checks for invalid dates like Feb 31, leap years, etc.
+ */
+function isCalendarDateValid(day: number, month: number, year: number): boolean {
+  // Month must be 1-12
+  if (month < 1 || month > 12) {
+    return false;
+  }
+  
+  // Create a Date object (month is 0-indexed in JavaScript Date)
+  const date = new Date(year, month - 1, day);
+  
+  // Check if the date round-trips correctly
+  // If you set Feb 31, JavaScript will roll it to Mar 3
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
+/**
  * Parse a user-entered date string based on format
  * Returns canonical format (YYYY-MM-DD) or null if invalid
  */
@@ -99,12 +121,13 @@ export function parseUserDate(
     year = yearNum >= 50 ? `19${year}` : `20${year}`;
   }
   
-  // Basic validation
+  // Parse to integers
   const dayNum = parseInt(day, 10);
   const monthNum = parseInt(month, 10);
   const yearNum = parseInt(year, 10);
   
-  if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12 || yearNum < 1000) {
+  // Validate that this is a real calendar date
+  if (!isCalendarDateValid(dayNum, monthNum, yearNum)) {
     return null;
   }
   

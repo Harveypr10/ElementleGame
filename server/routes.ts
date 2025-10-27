@@ -362,11 +362,10 @@ app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
 
     console.log('[POST /api/guesses] Saving guess to database...');
     
-    // Save the guess
+    // Save the guess (feedback is calculated client-side, not stored)
     const guess = await storage.createGuess({
       gameAttemptId,
       guessValue: req.body.guessValue,
-      feedbackResult: req.body.feedbackResult,
     });
 
     console.log('[POST /api/guesses] Guess saved:', guess.id);
