@@ -7,6 +7,7 @@ import { useGameData } from "@/hooks/useGameData";
 import { motion } from "framer-motion";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
@@ -40,6 +41,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
   const { user, isAuthenticated } = useAuth();
   const { profile } = useProfile();
   const { gameAttempts, loadingAttempts } = useGameData();
+  const { formatCanonicalDate } = useUserDateFormat();
   const [showHelp, setShowHelp] = useState(false);
   const [todayPuzzleStatus, setTodayPuzzleStatus] = useState<'not-played' | 'solved' | 'failed'>('not-played');
   const [guessCount, setGuessCount] = useState<number>(0);
@@ -166,11 +168,13 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       }
     } else if (!isAuthenticated && todayPuzzleAnswerDateCanonical) {
       // Use localStorage ONLY for guest users
+      // IMPORTANT: Use formatted date as key (matches PlayPage localStorage keys)
+      const formattedAnswer = formatCanonicalDate(todayPuzzleAnswerDateCanonical);
       const storedStats = localStorage.getItem("elementle-stats");
       if (storedStats) {
         const stats = JSON.parse(storedStats);
         const completions = stats.puzzleCompletions || {};
-        const completion = completions[todayPuzzleAnswerDateCanonical];
+        const completion = completions[formattedAnswer];
         
         if (completion && completion.completed) {
           const count = Array.isArray(completion.guesses) ? completion.guesses.length : completion.guesses;
