@@ -1,0 +1,47 @@
+Preload Region & Date Format Before Rendering PlayPage
+Problem
+Currently, when a user’s region is set to US (mmdd) instead of UK (ddmm), the InputGrid and PlayPage initially render in the default format and then “flip” to the correct format once useUserDateFormat finishes loading. This causes a jarring re organisation of digits on screen.
+Required Outcome
+•	The correct date format (ddmm or mmdd, 6 or 8 digits) must be known before PlayPage and InputGrid render.
+•	When opening a new game, an in progress game, or a completed game, the grid and guesses should always display in the correct format immediately.
+•	If the user changes their region in Account Info, the new format should be applied on the next render, and localStorage should be updated so the preload is instant next time.
+Implementation Steps
+1. PreloadProvider
+•	Extend PreloadProvider.tsx to:
+o	Fetch the user profile/settings (including region and digit_preference) before rendering children.
+o	While loading, render a simple splash/loader instead of the game grid.
+o	Expose dateFormat and region via context so they are guaranteed available before PlayPage mounts.
+2. Gate PlayPage Rendering
+•	In PlayPage.tsx, gate rendering until dateFormat is ready:
+tsx
+const { settings, loading } = useUserSettings();
+const { dateFormat } = useUserDateFormat();
+
+if (loading || !dateFormat) {
+  return <div className="flex-1 flex items-center justify-center">Loading…</div>;
+}
+•	This ensures InputGrid never mounts with the wrong format.
+3. Always Convert Guesses Before Setting State
+•	In all puzzle loaders (loadCompletedPuzzle, loadViewOnlyPuzzle, loadInProgressGame):
+o	Always run guesses through formatCanonicalDate(guess.guessValue) before calling setGuesses or setGuessRecords.
+o	This guarantees guesses are displayed in the correct format immediately.
+4. LocalStorage Caching
+•	On first load, check localStorage for a cached region and digit_preference.
+o	If present, initialise useUserDateFormat with this cached value immediately, so the grid renders in the correct format even before the async fetch completes.
+•	When the server settings load, reconcile with the cached value.
+o	If they differ, update context and re render with the server value.
+•	When the user changes region in Account Info:
+o	Update Supabase profile as normal.
+o	Also update the cached region/digit_preference in localStorage so the preload is instant next time.
+Deliverables
+•	PreloadProvider ensures region/date format is resolved before PlayPage renders.
+•	PlayPage shows a loader until format is ready (no more live “flip” of digits).
+•	All guesses (new, in progress, completed) are converted to the correct format before being set in state.
+•	LocalStorage cache ensures instant correct format on first paint, even before async fetch.
+•	LocalStorage is updated whenever the user changes region/digit preference.
+Acceptance Criteria
+•	Switching between UK and US region no longer causes digits to shuffle live on screen.
+•	Opening an in progress or completed game always shows guesses in the correct format immediately.
+•	Changing region updates both Supabase and localStorage, and the new format is applied on next render without flicker.
+•	Works consistently for both 6 digit and 8 digit modes.
+

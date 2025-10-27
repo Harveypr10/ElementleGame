@@ -5,7 +5,7 @@ import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
-import whiteTickBlue from "@assets/White-Tick-Blue.svg";
+import whiteTickBlue from "@assets/Win-Hamster-Blue.svg";
 
 interface SplashScreenProps {
   onLogin: () => void;

@@ -3,6 +3,7 @@
  * Returns the effective date format based on user settings and region
  */
 
+import { useMemo } from "react";
 import { useUserSettings } from "./useUserSettings";
 import { useProfile } from "./useProfile";
 import {
@@ -15,18 +16,26 @@ import {
   validateGuess,
   formatCanonicalDateWithOrdinal
 } from "@/lib/dateFormat";
+import { getCachedFormatSettings } from "@/lib/formatCache";
 
 export function useUserDateFormat() {
-  const { settings } = useUserSettings();
-  const { profile } = useProfile();
+  const { settings, isLoading: settingsLoading } = useUserSettings();
+  const { profile, isLoading: profileLoading } = useProfile();
+
+  // Get cached values for instant initialization
+  const cachedSettings = useMemo(() => getCachedFormatSettings(), []);
 
   // Get effective date format based on user preferences
+  // Use cached values if server data isn't loaded yet
   const dateFormat: DateFormatPreference = getEffectiveDateFormat(
-    settings?.dateFormatPreference as DateFormatPreference | undefined,
-    settings?.useRegionDefault,
-    profile?.region,
-    settings?.digitPreference as '6' | '8' | undefined
+    (settings?.dateFormatPreference || cachedSettings.dateFormatPreference) as DateFormatPreference | undefined,
+    settings?.useRegionDefault ?? cachedSettings.useRegionDefault,
+    profile?.region || cachedSettings.region,
+    (settings?.digitPreference || cachedSettings.digitPreference) as '6' | '8' | undefined
   );
+
+  // Check if we're still loading initial data
+  const isLoading = settingsLoading || profileLoading;
 
   const placeholders = getPlaceholders(dateFormat);
   const formatDisplay = getFormatDisplay(dateFormat);
@@ -40,6 +49,7 @@ export function useUserDateFormat() {
     numDigits,
     isUK,
     isUS,
+    isLoading,
     
     // Display helpers
     placeholders,

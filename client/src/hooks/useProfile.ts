@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useAuth } from "./useAuth";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { UserProfile } from "@shared/schema";
+import { setCachedRegion } from "@/lib/formatCache";
 
 // Helper to PATCH profile
 async function patchProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
@@ -55,10 +56,21 @@ export function useProfile() {
     enabled: isAuthenticated,
   });
 
+  // Sync region to localStorage cache when it loads/changes
+  useEffect(() => {
+    if (profile?.region) {
+      setCachedRegion(profile.region);
+    }
+  }, [profile?.region]);
+
   // Mutation for updates
   const mutation = useMutation({
     mutationFn: patchProfile,
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update cache immediately with new region
+      if (data.region) {
+        setCachedRegion(data.region);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
     },
   });

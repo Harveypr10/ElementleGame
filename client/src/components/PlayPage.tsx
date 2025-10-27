@@ -78,7 +78,8 @@ export function PlayPage({
     formatWithOrdinal,
     placeholders,
     numDigits,
-    dateFormat
+    dateFormat,
+    isLoading: formatLoading
   } = useUserDateFormat();
   
   // Format the answer in user's preferred format (e.g., "010125" or "01011925")
@@ -893,6 +894,19 @@ export function PlayPage({
     setWrongGuessCount(0);
   };
 
+  // Show loading state until date format is ready
+  // This prevents the grid from rendering in the wrong format and then flipping
+  if (formatLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="text-center">
+          <div className="text-2xl font-bold mb-2">Loading...</div>
+          <div className="text-muted-foreground">Preparing your game</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col p-4">
       <div className="flex items-center justify-between mb-0">
@@ -954,7 +968,7 @@ export function PlayPage({
                   {formattedAnswer.split('').map((digit, i) => (
                     <div
                       key={i}
-                      className="flex-1 aspect-square"
+                      className="flex-1 basis-0 shrink min-h-[56px] sm:min-h-[64px]"
                       data-testid={`answer-container-${i}`}
                     >
                       <div

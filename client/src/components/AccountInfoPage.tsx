@@ -31,7 +31,7 @@ interface AccountInfoPageProps {
 export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const supabase = useSupabase();
   const { user } = useAuth();
-  const { profile } = useProfile();
+  const { profile, updateProfile } = useProfile();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
@@ -77,22 +77,11 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     setShowRegionConfirm(false);
 
     try {
-      const response = await fetch('/api/auth/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-        body: JSON.stringify({
-          region: pendingRegion,
-        }),
+      // Use the updateProfile mutation from useProfile hook
+      // This automatically updates localStorage cache via the hook's onSuccess
+      await updateProfile({
+        region: pendingRegion,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update region');
-      }
-
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
 
       setProfileData({ ...profileData, region: pendingRegion });
       setPendingRegion(null);
