@@ -293,7 +293,6 @@ export class DatabaseStorage implements IStorage {
         id: guesses.id,
         gameAttemptId: guesses.gameAttemptId,
         guessValue: guesses.guessValue,
-        feedbackResult: guesses.feedbackResult,
         guessedAt: guesses.guessedAt,
         puzzleId: gameAttempts.puzzleId,
       })
@@ -317,7 +316,6 @@ export class DatabaseStorage implements IStorage {
         id: guesses.id,
         gameAttemptId: guesses.gameAttemptId,
         guessValue: guesses.guessValue,
-        feedbackResult: guesses.feedbackResult,
         guessedAt: guesses.guessedAt,
         puzzleId: gameAttempts.puzzleId,
         result: gameAttempts.result, // include result so you know if it's won/lost/null
