@@ -1,0 +1,70 @@
+Switch to canonical answer_date
+Context (what we’ve already done)
+In the puzzles table we have added a new column: answer_date_canonical DATE NOT NULL
+
+We have backfilled this column from the old answer_date (varchar) and target_date (varchar).
+
+This column is now the single source of truth for the puzzle’s correct answer date.
+
+The old target_date and answer_date varchar columns are still present for now, but will be dropped once the app is stable.
+
+What we need you to do now
+Replace all app references to puzzles.answer_date and puzzles.target_date with puzzles.answer_date_canonical.
+
+This includes any queries, Supabase calls, and TypeScript types.
+
+The app should now only ever consume the canonical DATE field.
+
+Introduce a centralized date formatting helper (e.g. in dateFormat.ts):
+
+Input: answer_date_canonical (DATE), user_settings.date_format_preference, user_settings.use_region_default, user_profiles.region.
+
+Logic:
+
+If use_region_default = true:
+
+UK → ddmmyy
+
+US → mmddyy
+
+If use_region_default = false:
+
+Use the explicit date_format_preference (ddmmyy, ddmmyyyy, mmddyy, mmddyyyy).
+
+Output: correctly formatted string for display.
+
+Update all UI components that display or validate the answer date to use this helper:
+
+Celebration/commiseration screens (the “actual answer” shown to the user).
+
+Any validation logic that compares a guess to the correct answer.
+
+Archive/history views where past answers are shown.
+
+Ensure gameplay data remains intact:
+
+game_attempts and guesses continue to reference puzzles.id.
+
+No schema changes are required to those tables.
+
+Only the way the app reads and formats the answer date changes.
+
+What we will do afterwards
+Once the app is confirmed stable on answer_date_canonical, we will:
+
+Drop the legacy target_date and answer_date varchar columns.
+
+Rename answer_date_canonical → answer_date (final name).
+
+This will be a separate, later migration step — not part of this task.
+
+Deliverable
+A refactored app that:
+
+Reads only from puzzles.answer_date_canonical.
+
+Formats dates correctly per region/user preference.
+
+Displays the formatted date consistently across all relevant screens.
+
+No loss of gameplay data or disruption to existing user streaks.

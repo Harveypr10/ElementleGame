@@ -36,6 +36,11 @@ export const userProfiles = pgTable("user_profiles", {
   // Email verification mirror from Supabase Auth
   emailVerified: boolean("email_verified").default(false),
 
+  // Region and location fields
+  region: text("region"), // ISO country code (e.g., 'GB', 'US')
+  postcode: text("postcode"),
+  location: text("location"), // Stored as text for now (will be geometry later if needed)
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -58,9 +63,10 @@ export type UserProfile = typeof userProfiles.$inferSelect;
 // Puzzles table - contains historical events with dates and clues
 export const puzzles = pgTable("puzzles", {
   id: serial("id").primaryKey(),
-  date: date("date").notNull().unique(), // YYYY-MM-DD format
-  targetDate: varchar("target_date", { length: 6 }).notNull(), // DDMMYY format
-  answerDate: varchar("answer_date", { length: 20 }), // DD/MM/YYYY format - full historical date (nullable during transition)
+  date: date("date").notNull().unique(), // YYYY-MM-DD format - puzzle availability date
+  answerDateCanonical: date("answer_date_canonical").notNull(), // Canonical historical date (YYYY-MM-DD format)
+  targetDate: varchar("target_date", { length: 6 }).notNull(), // DDMMYY format - LEGACY, will be removed
+  answerDate: varchar("answer_date", { length: 20 }), // DD/MM/YYYY format - LEGACY, will be removed
   eventTitle: varchar("event_title", { length: 200 }).notNull(),
   eventDescription: text("event_description").notNull(),
   clue1: text("clue1"), // First clue shown after 2nd incorrect guess
@@ -84,6 +90,15 @@ export const userSettings = pgTable("user_settings", {
   soundsEnabled: boolean("sounds_enabled").default(true),
   darkMode: boolean("dark_mode").default(false),
   cluesEnabled: boolean("clues_enabled").default(true),
+  
+  // Date format preferences
+  dateFormatPreference: text("date_format_preference").default("ddmmyy"), // ddmmyy, mmddyy, ddmmyyyy, mmddyyyy
+  useRegionDefault: boolean("use_region_default").default(true), // Auto-detect from region
+  digitPreference: varchar("digit_preference", { length: 1 }).default("6"), // '6' or '8' for 6-digit vs 8-digit dates
+  
+  // Category preferences (for future use)
+  categoryPreferences: jsonb("category_preferences"),
+  
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -159,3 +174,26 @@ export const insertUserStatsSchema = createInsertSchema(userStats).omit({
 
 export type InsertUserStats = z.infer<typeof insertUserStatsSchema>;
 export type UserStats = typeof userStats.$inferSelect;
+
+// User subscriptions table - tracks Pro/Free tier status
+// Note: This table may already exist in database from previous manual operations
+// TODO: Align schema with existing table structure if needed
+export const userSubscriptions = pgTable("user_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().unique().references(() => userProfiles.id, { onDelete: "cascade" }),
+  tier: varchar("tier", { length: 20 }).notNull().default("free"), // 'free' or 'pro'
+  startDate: timestamp("start_date").defaultNow(),
+  endDate: timestamp("end_date"), // null for free tier or active subscriptions
+  autoRenew: boolean("auto_renew").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
+export type UserSubscription = typeof userSubscriptions.$inferSelect;

@@ -1,0 +1,119 @@
+Canonical Date + Region & Date Settings Integration
+Context (what’s already done)
+puzzles now has answer_date_canonical DATE NOT NULL, backfilled from legacy varchar fields.
+
+user_profiles now has region TEXT, postcode TEXT, and location geometry(Point, 4326).
+
+user_settings now has:
+
+date_format_preference TEXT (e.g. ddmmyy, mmddyy)
+
+use_region_default BOOLEAN
+
+category_preferences JSONB
+
+user_subscriptions table exists to track Pro/free tier status.
+
+Legacy target_date and answer_date varchar columns still exist but will be dropped later.
+
+What we need you to do
+1. Switch to canonical date
+Replace all app references to puzzles.answer_date and puzzles.target_date with puzzles.answer_date_canonical.
+
+Update Supabase queries, TypeScript types, and validation logic accordingly.
+
+Ensure game_attempts and guesses continue to reference puzzles.id (no schema changes there).
+
+2. Centralize date formatting
+Create a helper (e.g. dateFormat.ts) that takes:
+
+answer_date_canonical (DATE)
+
+user_settings.date_format_preference
+
+user_settings.use_region_default
+
+user_profiles.region
+
+Logic:
+
+If use_region_default = true:
+
+UK → ddmmyy
+
+US → mmddyy
+
+If use_region_default = false:
+
+Use explicit date_format_preference (ddmmyy, ddmmyyyy, mmddyy, mmddyyyy).
+
+Output: correctly formatted string for display.
+
+Checkpoints:
+
+Celebration/commiseration screens (the “actual answer” shown).
+
+Guess validation logic (compare guesses against canonical date).
+
+Archive/history views.
+
+3. Region selection on sign‑up
+On initial sign‑up, prompt the user to set their region.
+
+Pre‑populate with the device’s detected region (if available).
+
+Show a dropdown of all countries, but only UK and US should be selectable for now (and appear at the top).
+
+Store the selection in user_profiles.region.
+
+Pre‑set user_settings.date_format_preference based on region:
+
+UK → ddmmyy
+
+US → mmddyy
+
+4. Region & settings in options
+In the options/settings screen:
+
+Allow the user to change their region via the same dropdown (all countries listed, but only UK/US selectable).
+
+Allow the user to change date_format_preference explicitly between ddmmyy and mmddyy.
+
+Add a separate toggle for 6‑digit vs 8‑digit display:
+
+6‑digit = dd/mm/yy (UK) or mm/dd/yy (US).
+
+8‑digit = dd/mm/yyyy (UK) or mm/dd/yyyy (US).
+
+Show a short description under the toggle that adapts to the region (UK vs US explanation).
+
+5. Drive gameplay grid from settings
+The PlayGame answer grid should now be constructed dynamically based on settings:
+
+6 or 8 boxes per row depending on the toggle.
+
+Feint grey placeholders (DDMMYY or MMDDYY, DDMMYYYY or MMDDYYYY) shown in the grid to guide the user.
+
+When the user loses, the answer displayed at the bottom should use the same formatting rules.
+
+What we will do afterwards
+Once stable:
+
+Drop legacy target_date and answer_date varchar columns.
+
+Rename answer_date_canonical → answer_date.
+
+This will be a separate migration step, not part of this task.
+
+Deliverable
+App reads only from puzzles.answer_date_canonical.
+
+Dates formatted correctly per region/user preference.
+
+Region set on sign‑up, editable in options.
+
+Date format and 6/8 digit toggle available in options.
+
+PlayGame grid dynamically adapts to settings.
+
+No disruption to existing gameplay data or user streaks.
