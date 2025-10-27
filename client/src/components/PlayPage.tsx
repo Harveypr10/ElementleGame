@@ -233,7 +233,7 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formattedAnswer, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
+  }, [formattedAnswer, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat]);
 
   // Load completed puzzle guesses for view-only mode
   useEffect(() => {
@@ -322,7 +322,7 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
+  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat]);
 
   // Auto-open celebration modal when returning from stats for completed archive puzzles
   useEffect(() => {
@@ -447,7 +447,7 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId]);
+  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat]);
   
   // Helper function to calculate feedback without updating state
   const calculateFeedbackForGuess = (guess: string, currentKeyStates: Record<string, KeyState>): CellFeedback[] => {
