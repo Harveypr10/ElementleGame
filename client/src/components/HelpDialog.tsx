@@ -21,9 +21,12 @@ export function HelpDialog({ isOpen, onClose }: HelpDialogProps) {
 
         <div className="space-y-6 text-sm">
           <div>
-            <p className="mb-4">
-              Guess the historical date in DDMMYY format. You have 5 attempts to find the correct date.
-            </p>
+            <div className="mb-4">
+              <p className="font-bold">Guess the historical date</p>
+              <p className="text-muted-foreground">Format: DDMMYY - 6 digit mode</p>
+              <p className="text-muted-foreground">Format: DDMMYYYY - 8 digit mode</p>
+              <p className="mb-4">You have 5 attempts to find the correct date.</p>
+            </div>
             <p className="mb-4 text-muted-foreground">
               <span className="font-semibold text-foreground">Note:</span> The Enter button will only activate once you've entered a complete and valid date. If the date you type doesn't exist (like 31/02/2020), you won't be able to submit it.
             </p>
@@ -36,8 +39,8 @@ export function HelpDialog({ isOpen, onClose }: HelpDialogProps) {
                 2
               </div>
               <div className="flex-1">
-                <p className="font-medium">Green</p>
-                <p className="text-muted-foreground">The digit is correct and in the right position</p>
+                <p className="font-bold">Green</p>
+                <p className="text-muted-foreground">Digit correct and in right position</p>
               </div>
             </div>
 
@@ -47,8 +50,8 @@ export function HelpDialog({ isOpen, onClose }: HelpDialogProps) {
                 <ArrowUp className="absolute top-0.5 right-0.5 h-4 w-4" />
               </div>
               <div className="flex-1">
-                <p className="font-medium">Amber with Arrow</p>
-                <p className="text-muted-foreground">The digit appears in the date but in a different position. Arrow shows if the actual digit is higher ↑ or lower ↓</p>
+                <p className="font-bold">Amber with Arrow</p>
+                <p className="text-muted-foreground">Digit correct, but in different position. Actual digit is higher ↑ or lower ↓</p>
               </div>
             </div>
 
@@ -58,8 +61,8 @@ export function HelpDialog({ isOpen, onClose }: HelpDialogProps) {
                 <ArrowDown className="absolute top-0.5 right-0.5 h-4 w-4" />
               </div>
               <div className="flex-1">
-                <p className="font-medium">Grey with Arrow</p>
-                <p className="text-muted-foreground">The digit doesn't appear in the date. Arrow shows if the actual digit is higher ↑ or lower ↓</p>
+                <p className="font-bold">Grey with Arrow</p>
+                <p className="text-muted-foreground">Digit doesn't appear in answer. Actual digit is higher ↑ or lower ↓</p>
               </div>
             </div>
           </div>
@@ -67,18 +70,19 @@ export function HelpDialog({ isOpen, onClose }: HelpDialogProps) {
           <div className="bg-muted p-4 rounded-lg">
             <p className="font-semibold mb-2">Example:</p>
             <p className="text-muted-foreground">
-              If the answer is <span className="font-mono font-bold">200769</span> (July 20, 1969 - Moon Landing)
+              Moon Landing - 20th July 1969: answer in DDMMYY format is <span className="font-bold">200769</span>
             </p>
             <p className="text-muted-foreground mt-1">
-              Guess <span className="font-mono font-bold">250769</span> would show: first digit amber (2 is in date but wrong position), others green
+              Guess <span className="font-bold">270769</span> would show the second digit "7" in amber (in the date but wrong position), all others in green
             </p>
           </div>
 
           <div>
             <p className="font-semibold mb-2">Tips:</p>
             <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-              <li>Use the arrows to narrow down the correct digits</li>
-              <li>Pay attention to which digits turn green - they're in the right spot!</li>
+              <li>Arrows narrow down the possible digits</li>
+              <li>Amber digits are in at least one other place in the answer</li>
+              <li>Green digits are correct, but could still pop up somewhere else too!</li>
               <li>Each puzzle reveals a fascinating historical event</li>
             </ul>
           </div>
