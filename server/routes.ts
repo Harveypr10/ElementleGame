@@ -132,10 +132,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  // Puzzle routes (public)
-  app.get("/api/puzzles", async (req, res) => {
+  // Puzzle routes - REGION MODE (requires authentication for region context)
+  app.get("/api/puzzles", verifySupabaseAuth, async (req: any, res) => {
     try {
-      const puzzles = await storage.getAllPuzzles();
+      const userId = req.user.id;
+      const profile = await storage.getUserProfile(userId);
+      
+      // Default to 'GB' if no region set
+      const region = profile?.region || 'GB';
+      
+      const allocatedQuestions = await storage.getAllocatedQuestionsByRegion(region);
+      
+      // Transform to frontend-compatible format (keeping backward compatibility)
+      const puzzles = allocatedQuestions.map(aq => ({
+        id: aq.id, // This is now allocatedRegionId
+        date: aq.allocatedDate,
+        answerDateCanonical: aq.masterQuestion.answerDateCanonical,
+        eventTitle: aq.masterQuestion.eventTitle,
+        eventDescription: aq.masterQuestion.eventDescription,
+        clue1: aq.masterQuestion.clue1,
+        clue2: aq.masterQuestion.clue2,
+        // Region-specific fields
+        region: aq.region,
+        allocatedRegionId: aq.id,
+        masterQuestionId: aq.masterQuestionId,
+      }));
+      
       res.json(puzzles);
     } catch (error) {
       console.error("Error fetching puzzles:", error);
@@ -143,12 +165,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/puzzles/:date", async (req, res) => {
+  app.get("/api/puzzles/:date", verifySupabaseAuth, async (req: any, res) => {
     try {
-      const puzzle = await storage.getPuzzleByDate(req.params.date);
-      if (!puzzle) {
+      const userId = req.user.id;
+      const profile = await storage.getUserProfile(userId);
+      
+      const region = profile?.region || 'GB';
+      const allocatedQuestion = await storage.getAllocatedQuestionByRegionAndDate(region, req.params.date);
+      
+      if (!allocatedQuestion) {
         return res.status(404).json({ error: "Puzzle not found" });
       }
+      
+      // Transform to frontend-compatible format
+      const puzzle = {
+        id: allocatedQuestion.id,
+        date: allocatedQuestion.allocatedDate,
+        answerDateCanonical: allocatedQuestion.masterQuestion.answerDateCanonical,
+        eventTitle: allocatedQuestion.masterQuestion.eventTitle,
+        eventDescription: allocatedQuestion.masterQuestion.eventDescription,
+        clue1: allocatedQuestion.masterQuestion.clue1,
+        clue2: allocatedQuestion.masterQuestion.clue2,
+        region: allocatedQuestion.region,
+        allocatedRegionId: allocatedQuestion.id,
+        masterQuestionId: allocatedQuestion.masterQuestionId,
+      };
+      
       res.json(puzzle);
     } catch (error) {
       console.error("Error fetching puzzle:", error);
@@ -182,16 +224,17 @@ app.post("/api/settings", verifySupabaseAuth, async (req: any, res) => {
   }
 });
 
-// Game attempt routes
+// Game attempt routes - REGION MODE
 app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const puzzleId = req.body.puzzleId;
+    // Frontend now sends allocatedRegionId (but may still send puzzleId for compatibility)
+    const allocatedRegionId = req.body.allocatedRegionId || req.body.puzzleId;
 
-    console.log('[POST /api/game-attempts] Request:', { userId, puzzleId, numGuesses: req.body.numGuesses, result: req.body.result });
+    console.log('[POST /api/game-attempts] Request:', { userId, allocatedRegionId, numGuesses: req.body.numGuesses, result: req.body.result });
 
-    if (!puzzleId) {
-      return res.status(400).json({ error: "Missing puzzleId in body" });
+    if (!allocatedRegionId) {
+      return res.status(400).json({ error: "Missing allocatedRegionId in body" });
     }
 
     // Defensive normalization: convert legacy "win"/"loss" to "won"/"lost"
@@ -199,14 +242,19 @@ app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
     if (result === "win") result = "won";
     if (result === "loss") result = "lost";
 
-    // Try to find an existing open attempt
-    const existing = await storage.getOpenAttemptByUserAndPuzzle(userId, puzzleId);
+    // Try to find an existing attempt
+    const existing = await storage.getGameAttemptByUserAndAllocated(userId, allocatedRegionId);
 
     if (existing) {
-      console.log('[POST /api/game-attempts] Found existing open attempt:', { id: existing.id, numGuesses: existing.numGuesses });
+      console.log('[POST /api/game-attempts] Found existing attempt:', { id: existing.id, numGuesses: existing.numGuesses, result: existing.result });
       
-      // If client sends completion data (result), apply it along with numGuesses
-      // This handles cases where POST is used for completion instead of PATCH
+      // If attempt is already completed, don't allow mutation
+      if (existing.result !== null) {
+        console.log('[POST /api/game-attempts] Attempt is completed, returning without mutation');
+        return res.json(existing);
+      }
+      
+      // Update in-progress attempt
       const updates: any = {};
       
       if (result && result !== null) {
@@ -219,46 +267,19 @@ app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
       }
       
       if (Object.keys(updates).length > 0) {
-        const updated = await storage.updateGameAttempt(existing.id, updates);
+        const updated = await storage.updateGameAttemptRegion(existing.id, updates);
         console.log('[POST /api/game-attempts] Updated existing attempt:', { result: updated.result, numGuesses: updated.numGuesses });
         return res.json(updated);
       }
       
       return res.json(existing);
     }
-
-    console.log('[POST /api/game-attempts] No existing open attempt found, checking for ANY attempt...');
     
-    // Check if ANY attempt exists for this user/puzzle (including completed ones)
-    const anyAttempt = await storage.getGameAttemptByUserAndPuzzle(userId, puzzleId);
-    
-    if (anyAttempt) {
-      // An attempt exists (likely completed) - don't create a new one or overwrite it
-      console.log('[POST /api/game-attempts] Found existing attempt (possibly completed):', { 
-        id: anyAttempt.id, 
-        result: anyAttempt.result, 
-        numGuesses: anyAttempt.numGuesses 
-      });
-      
-      // If it's completed, don't allow mutation - just return it
-      if (anyAttempt.result !== null) {
-        console.log('[POST /api/game-attempts] Attempt is completed, returning without mutation');
-        return res.json(anyAttempt);
-      }
-      
-      // If somehow result is null but we didn't find it in getOpenAttemptByUserAndPuzzle
-      // (shouldn't happen, but defensive), update numGuesses if needed
-      if (typeof req.body.numGuesses === "number" && req.body.numGuesses > (anyAttempt.numGuesses ?? 0)) {
-        await storage.updateGameAttempt(anyAttempt.id, { numGuesses: req.body.numGuesses });
-      }
-      return res.json({ ...anyAttempt, numGuesses: Math.max(anyAttempt.numGuesses ?? 0, req.body.numGuesses ?? 0) });
-    }
-    
-    // No attempt exists at all - create a fresh one
+    // No attempt exists - create a fresh one
     console.log('[POST /api/game-attempts] No attempt exists, creating fresh one');
-    const gameAttempt = await storage.createGameAttempt({
+    const gameAttempt = await storage.createGameAttemptRegion({
       userId,
-      puzzleId,
+      allocatedRegionId,
       result: result ?? null,
       numGuesses: req.body.numGuesses ?? 0,
     });
@@ -275,8 +296,22 @@ app.post("/api/game-attempts", verifySupabaseAuth, async (req: any, res) => {
 app.get("/api/game-attempts/user", verifySupabaseAuth, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const attempts = await storage.getGameAttemptsByUser(userId);
-    res.json(attempts);
+    const attempts = await storage.getGameAttemptsByUserRegion(userId);
+    
+    // Transform to include puzzle-like fields for backward compatibility
+    const transformedAttempts = attempts.map(attempt => ({
+      ...attempt,
+      puzzleId: attempt.allocatedRegionId, // Backward compat
+      puzzle: {
+        id: attempt.allocatedQuestion.id,
+        date: attempt.allocatedQuestion.allocatedDate,
+        answerDateCanonical: attempt.allocatedQuestion.masterQuestion.answerDateCanonical,
+        eventTitle: attempt.allocatedQuestion.masterQuestion.eventTitle,
+        eventDescription: attempt.allocatedQuestion.masterQuestion.eventDescription,
+      },
+    }));
+    
+    res.json(transformedAttempts);
   } catch (error) {
     console.error("Error fetching game attempts:", error);
     res.status(500).json({ error: "Failed to fetch game attempts" });
@@ -291,7 +326,7 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
     console.log('[PATCH /api/game-attempts/:id] Request:', { id, userId, updates: req.body });
 
     // Verify ownership
-    const allAttempts = await storage.getGameAttemptsByUser(userId);
+    const allAttempts = await storage.getGameAttemptsByUserRegion(userId);
     const ownedAttempt = allAttempts.find(a => a.id === id);
 
     if (!ownedAttempt) {
@@ -315,6 +350,8 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
     delete updates.user_id;
     delete updates.puzzleId;
     delete updates.puzzle_id;
+    delete updates.allocatedRegionId;
+    delete updates.allocated_region_id;
 
     // Ensure numGuesses never decreases
     if (typeof updates.numGuesses === "number") {
@@ -323,7 +360,7 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
       console.log('[PATCH /api/game-attempts/:id] numGuesses:', { previous: previousNumGuesses, requested: req.body.numGuesses, final: updates.numGuesses });
     }
 
-    const gameAttempt = await storage.updateGameAttempt(id, updates);
+    const gameAttempt = await storage.updateGameAttemptRegion(id, updates);
     console.log('[PATCH /api/game-attempts/:id] Updated:', { result: gameAttempt.result, numGuesses: gameAttempt.numGuesses, completedAt: gameAttempt.completedAt });
     
     res.json(gameAttempt);
@@ -333,7 +370,7 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
   }
 });
 
-// Guess routes
+// Guess routes - REGION MODE
 app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
   try {
     const userId = req.user.id;
@@ -346,7 +383,7 @@ app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
     }
 
     // Verify ownership
-    const allAttempts = await storage.getGameAttemptsByUser(userId);
+    const allAttempts = await storage.getGameAttemptsByUserRegion(userId);
     const ownedAttempt = allAttempts.find(a => a.id === gameAttemptId);
 
     if (!ownedAttempt) {
@@ -363,18 +400,18 @@ app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
     console.log('[POST /api/guesses] Saving guess to database...');
     
     // Save the guess (feedback is calculated client-side, not stored)
-    const guess = await storage.createGuess({
-      gameAttemptId,
+    const guess = await storage.createGuessRegion({
+      gameAttemptRegionId: gameAttemptId,
       guessValue: req.body.guessValue,
     });
 
     console.log('[POST /api/guesses] Guess saved:', guess.id);
     
     // Increment num_guesses
-    await storage.incrementAttemptGuesses(gameAttemptId);
+    await storage.incrementAttemptGuessesRegion(gameAttemptId);
     
     // Read back to verify
-    const updatedAttempt = await storage.getGameAttempt(gameAttemptId);
+    const updatedAttempt = await storage.getGameAttemptRegion(gameAttemptId);
     console.log('[POST /api/guesses] After increment, numGuesses:', updatedAttempt?.numGuesses);
 
     res.json(guess);
@@ -384,7 +421,7 @@ app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
   }
 });
 
-// Get recent guesses with puzzle IDs for caching
+// Get recent guesses with allocated IDs for caching - REGION MODE
 app.get("/api/guesses/recent", verifySupabaseAuth, async (req: any, res) => {
   try {
     const userId = req.user.id;
@@ -394,8 +431,15 @@ app.get("/api/guesses/recent", verifySupabaseAuth, async (req: any, res) => {
       return res.status(400).json({ error: "Missing 'since' query parameter" });
     }
 
-    const guesses = await storage.getRecentGuessesWithPuzzleIds(userId, since);
-    res.json(guesses);
+    const guesses = await storage.getRecentGuessesWithAllocatedIdsRegion(userId, since);
+    
+    // Transform for backward compatibility
+    const transformedGuesses = guesses.map(g => ({
+      ...g,
+      puzzleId: g.allocatedRegionId, // Backward compat
+    }));
+    
+    res.json(transformedGuesses);
   } catch (error) {
     console.error("Error fetching recent guesses:", error);
     res.status(500).json({ error: "Failed to fetch recent guesses" });
@@ -405,8 +449,15 @@ app.get("/api/guesses/recent", verifySupabaseAuth, async (req: any, res) => {
   app.get("/api/guesses/all", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const guesses = await storage.getAllGuessesWithPuzzleIds(userId);
-      res.json(guesses);
+      const guesses = await storage.getAllGuessesWithAllocatedIdsRegion(userId);
+      
+      // Transform for backward compatibility
+      const transformedGuesses = guesses.map(g => ({
+        ...g,
+        puzzleId: g.allocatedRegionId, // Backward compat
+      }));
+      
+      res.json(transformedGuesses);
     } catch (error) {
       console.error("Error fetching all guesses:", error);
       res.status(500).json({ error: "Failed to fetch all guesses" });
@@ -420,14 +471,14 @@ app.get("/api/guesses/:gameAttemptId", verifySupabaseAuth, async (req: any, res)
     const gameAttemptId = parseInt(req.params.gameAttemptId);
 
     // Verify ownership
-    const allAttempts = await storage.getGameAttemptsByUser(userId);
+    const allAttempts = await storage.getGameAttemptsByUserRegion(userId);
     const ownedAttempt = allAttempts.find(a => a.id === gameAttemptId);
 
     if (!ownedAttempt) {
       return res.status(403).json({ error: "Forbidden: You do not own this game attempt" });
     }
 
-    const guesses = await storage.getGuessesByGameAttempt(gameAttemptId);
+    const guesses = await storage.getGuessesByGameAttemptRegion(gameAttemptId);
     res.json(guesses);
   } catch (error) {
     console.error("Error fetching guesses:", error);
@@ -435,11 +486,11 @@ app.get("/api/guesses/:gameAttemptId", verifySupabaseAuth, async (req: any, res)
   }
 });
 
-// Stats routes
+// Stats routes - REGION MODE
 app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const stats = await storage.getUserStats(userId);
+    const stats = await storage.getUserStatsRegion(userId);
     res.json(stats || {});
   } catch (error) {
     console.error("Error fetching stats:", error);
@@ -450,7 +501,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   app.post("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const stats = await storage.upsertUserStats({
+      const stats = await storage.upsertUserStatsRegion({
         userId,
         ...req.body,
       });
@@ -464,7 +515,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   app.post("/api/stats/recalculate", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const stats = await storage.recalculateUserStats(userId);
+      const stats = await storage.recalculateUserStatsRegion(userId);
       res.json(stats);
     } catch (error) {
       console.error("Error recalculating stats:", error);
@@ -475,7 +526,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   app.get("/api/stats/percentile", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const percentile = await storage.getUserPercentileRanking(userId);
+      const percentile = await storage.getUserPercentileRankingRegion(userId);
       res.json({ percentile });
     } catch (error) {
       console.error("Error fetching percentile:", error);
