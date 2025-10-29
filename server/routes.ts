@@ -353,7 +353,7 @@ app.get("/api/game-attempts/user", verifySupabaseAuth, async (req: any, res) => 
       puzzleId: attempt.allocatedRegionId, // Backward compat
       puzzle: {
         id: attempt.allocatedQuestion.id,
-        date: attempt.allocatedQuestion.allocatedDate,
+        date: attempt.allocatedQuestion.puzzleDate,
         answerDateCanonical: attempt.allocatedQuestion.masterQuestion.answerDateCanonical,
         eventTitle: attempt.allocatedQuestion.masterQuestion.eventTitle,
         eventDescription: attempt.allocatedQuestion.masterQuestion.eventDescription,
@@ -450,7 +450,7 @@ app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
     
     // Save the guess (feedback is calculated client-side, not stored)
     const guess = await storage.createGuessRegion({
-      gameAttemptRegionId: gameAttemptId,
+      gameAttemptId: gameAttemptId,
       guessValue: req.body.guessValue,
     });
 
