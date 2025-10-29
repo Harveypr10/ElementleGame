@@ -60,11 +60,11 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         firstName: profile.firstName || "",
         lastName: profile.lastName || "",
         email: profile.email || "",
-        region: profile.region || "UK",
+        region: profile.region || (regions && regions.length > 0 ? regions[0].code : ""),
       });
       setOriginalEmail(profile.email || "");
     }
-  }, [profile]);
+  }, [profile, regions]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",

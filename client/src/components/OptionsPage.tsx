@@ -24,6 +24,7 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [cluesEnabled, setCluesEnabled] = useState(true);
   const [digitPreference, setDigitPreference] = useState<"6" | "8">("6");
+  const [dateFormatOrder, setDateFormatOrder] = useState<"ddmm" | "mmdd">("ddmm");
   const [useRegionDefault, setUseRegionDefault] = useState(true);
 
   // Load settings from cache first for instant rendering
@@ -38,6 +39,12 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       setDarkMode(cachedSettings.darkMode ?? false);
       setCluesEnabled(cachedSettings.cluesEnabled ?? true);
       setDigitPreference(cachedSettings.digitPreference || "6");
+      
+      // Extract date format order from dateFormatPreference
+      const dateFormatPref = cachedSettings.dateFormatPreference || "ddmmyy";
+      const order = dateFormatPref.startsWith("dd") ? "ddmm" : "mmdd";
+      setDateFormatOrder(order);
+      
       setUseRegionDefault(cachedSettings.useRegionDefault ?? true);
       
       // Apply settings to DOM
@@ -61,6 +68,12 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       setDarkMode(settings.darkMode ?? false);
       setCluesEnabled(settings.cluesEnabled ?? true);
       setDigitPreference((settings.digitPreference as "6" | "8") || "6");
+      
+      // Extract date format order from dateFormatPreference
+      const dateFormatPref = settings.dateFormatPreference || "ddmmyy";
+      const order = dateFormatPref.startsWith("dd") ? "ddmm" : "mmdd";
+      setDateFormatOrder(order);
+      
       setUseRegionDefault(settings.useRegionDefault ?? true);
       
       // Apply settings to DOM
@@ -96,6 +109,9 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       
       const storedDigitPref = localStorage.getItem("digitPreference");
       if (storedDigitPref) setDigitPreference(storedDigitPref as "6" | "8");
+      
+      const storedDateFormatOrder = localStorage.getItem("dateFormatOrder");
+      if (storedDateFormatOrder) setDateFormatOrder(storedDateFormatOrder as "ddmm" | "mmdd");
       
       const storedUseRegionDefault = localStorage.getItem("useRegionDefault");
       if (storedUseRegionDefault !== null) setUseRegionDefault(storedUseRegionDefault === "true");
@@ -164,13 +180,40 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
   const handleDigitPreferenceChange = async (value: "6" | "8") => {
     setDigitPreference(value);
     
+    // Build the full dateFormatPreference based on order and digit count
+    const suffix = value === "6" ? "yy" : "yyyy";
+    const fullFormat = dateFormatOrder === "ddmm" ? `dd/mm/${suffix}` : `mm/dd/${suffix}`;
+    const dbFormat = fullFormat.replace(/\//g, ''); // Remove slashes for DB: ddmmyy, mmddyy, ddmmyyyy, mmddyyyy
+    
     if (isAuthenticated) {
-      await updateSettings({ digitPreference: value });
+      await updateSettings({ 
+        digitPreference: value,
+        dateFormatPreference: dbFormat
+      });
       // Update cache after Supabase update
       const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
-      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, digitPreference: value });
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, digitPreference: value, dateFormatPreference: dbFormat });
     } else {
       localStorage.setItem("digitPreference", value);
+      localStorage.setItem("dateFormatOrder", dateFormatOrder);
+    }
+  };
+
+  const handleDateFormatOrderChange = async (value: "ddmm" | "mmdd") => {
+    setDateFormatOrder(value);
+    
+    // Build the full dateFormatPreference based on order and digit count
+    const suffix = digitPreference === "6" ? "yy" : "yyyy";
+    const fullFormat = value === "ddmm" ? `dd/mm/${suffix}` : `mm/dd/${suffix}`;
+    const dbFormat = fullFormat.replace(/\//g, ''); // Remove slashes for DB: ddmmyy, mmddyy, ddmmyyyy, mmddyyyy
+    
+    if (isAuthenticated) {
+      await updateSettings({ dateFormatPreference: dbFormat });
+      // Update cache after Supabase update
+      const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, dateFormatPreference: dbFormat });
+    } else {
+      localStorage.setItem("dateFormatOrder", value);
     }
   };
 
@@ -295,7 +338,24 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
               ))}
             </div>
             <p className="text-sm text-muted-foreground">
-              Choose between 6-digit (DD/MM/YY) or 8-digit (DD/MM/YYYY) date format
+              Choose between 6-digit or 8-digit date format
+            </p>
+            
+            <div className="flex gap-2 mt-4">
+              {(["ddmm", "mmdd"] as const).map((order) => (
+                <Button
+                  key={order}
+                  variant={dateFormatOrder === order ? "default" : "outline"}
+                  onClick={() => handleDateFormatOrderChange(order)}
+                  className="flex-1"
+                  data-testid={`button-date-order-${order}`}
+                >
+                  {order === "ddmm" ? "DD/MM/YY" : "MM/DD/YY"}
+                </Button>
+              ))}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Choose date format order
             </p>
           </div>
         </Card>

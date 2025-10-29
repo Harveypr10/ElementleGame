@@ -41,7 +41,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
     confirmPassword: "",
     firstName: "",
     lastName: "",
-    region: "UK", // Default to UK
+    region: "", // Will be set from fetched regions
     acceptedTerms: false,
     adsConsent: false,
   });
@@ -52,6 +52,13 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
+
+  // Set default region from fetched regions
+  useEffect(() => {
+    if (regions && regions.length > 0 && !formData.region) {
+      setFormData(prev => ({ ...prev, region: regions[0].code }));
+    }
+  }, [regions]);
 
   // Load saved adsConsent from localStorage on mount
   useEffect(() => {
@@ -77,11 +84,11 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
       confirmPassword: "",
       firstName: "",
       lastName: "",
-      region: "UK", // reset to default
+      region: regions && regions.length > 0 ? regions[0].code : "", // Use first region from database
       acceptedTerms: false,   // always reset
       adsConsent: prev.adsConsent, // preserve previous choice
     }));
-  }, [mode]);
+  }, [mode, regions]);
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();

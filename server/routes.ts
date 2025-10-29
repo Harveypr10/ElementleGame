@@ -48,13 +48,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const now = new Date();
 
+      // Get the region's default date format
+      const regions = await storage.getRegions();
+      const finalRegion = region || (regions.length > 0 ? regions[0].code : null);
+      const selectedRegion = regions.find(r => r.code === finalRegion);
+      const defaultDateFormat = selectedRegion?.defaultDateFormat ?? 'ddmmyy';
+
       // Create user profile with consent fields and region
       const profileData: any = {
         id: authData.user.id,
         email: authData.user.email!,
         firstName,
         lastName,
-        region: region ?? 'UK', // Default to UK if not provided
+        region: finalRegion,
         acceptedTerms: acceptedTerms ?? false,
         adsConsent: adsConsent ?? false,
       };
@@ -68,11 +74,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.upsertUserProfile(profileData);
-
-      // Get the region's default date format
-      const regions = await storage.getRegions();
-      const selectedRegion = regions.find(r => r.code === (region ?? 'UK'));
-      const defaultDateFormat = selectedRegion?.defaultDateFormat ?? 'ddmmyy';
 
       // Create user settings with default date format preference based on region
       await storage.upsertUserSettings({
