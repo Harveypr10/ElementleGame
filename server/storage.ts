@@ -1120,7 +1120,7 @@ export class DatabaseStorage implements IStorage {
 
     // Calculate current streak
     const allCompletedAttempts = [...completedAttempts, ...lostAttempts].sort((a, b) => 
-      new Date(b.allocatedDate).getTime() - new Date(a.allocatedDate).getTime()
+      new Date(b.puzzleDate).getTime() - new Date(a.puzzleDate).getTime()
     );
 
     let currentStreak = 0;
@@ -1130,13 +1130,13 @@ export class DatabaseStorage implements IStorage {
     const dateMap = new Map<string, string>();
     for (const attempt of allCompletedAttempts) {
       const completedDate = new Date(attempt.completedAt || '');
-      const allocatedDate = new Date(attempt.allocatedDate);
+      const puzzleDate = new Date(attempt.puzzleDate);
       
       completedDate.setHours(0, 0, 0, 0);
-      allocatedDate.setHours(0, 0, 0, 0);
+      puzzleDate.setHours(0, 0, 0, 0);
       
-      if (completedDate.getTime() === allocatedDate.getTime()) {
-        dateMap.set(attempt.allocatedDate, attempt.result || '');
+      if (completedDate.getTime() === puzzleDate.getTime()) {
+        dateMap.set(attempt.puzzleDate, attempt.result || '');
       }
     }
 
