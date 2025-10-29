@@ -138,10 +138,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const profile = await storage.getUserProfile(userId);
       
-      // Default to 'GB' if no region set
-      const region = profile?.region || 'GB';
+      // Default to 'UK' if no region set
+      const region = profile?.region || 'UK';
       
-      console.log('[GET /api/puzzles] Fetching puzzles for region:', region, 'userId:', userId);
+      console.log('[GET /api/puzzles] User profile region:', profile?.region, '| Using region:', region, '| userId:', userId);
       
       const allocatedQuestions = await storage.getAllocatedQuestionsByRegion(region);
       
@@ -174,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const profile = await storage.getUserProfile(userId);
       
-      const region = profile?.region || 'GB';
+      const region = profile?.region || 'UK';
       const allocatedQuestion = await storage.getAllocatedQuestionByRegionAndDate(region, req.params.date);
       
       if (!allocatedQuestion) {
