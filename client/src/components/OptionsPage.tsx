@@ -185,17 +185,22 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
     const fullFormat = dateFormatOrder === "ddmm" ? `dd/mm/${suffix}` : `mm/dd/${suffix}`;
     const dbFormat = fullFormat.replace(/\//g, ''); // Remove slashes for DB: ddmmyy, mmddyy, ddmmyyyy, mmddyyyy
     
+    // When user explicitly changes digit preference, disable region default
+    setUseRegionDefault(false);
+    
     if (isAuthenticated) {
       await updateSettings({ 
         digitPreference: value,
-        dateFormatPreference: dbFormat
+        dateFormatPreference: dbFormat,
+        useRegionDefault: false
       });
       // Update cache after Supabase update
       const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
-      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, digitPreference: value, dateFormatPreference: dbFormat });
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, digitPreference: value, dateFormatPreference: dbFormat, useRegionDefault: false });
     } else {
       localStorage.setItem("digitPreference", value);
       localStorage.setItem("dateFormatOrder", dateFormatOrder);
+      localStorage.setItem("useRegionDefault", "false");
     }
   };
 
@@ -207,13 +212,20 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
     const fullFormat = value === "ddmm" ? `dd/mm/${suffix}` : `mm/dd/${suffix}`;
     const dbFormat = fullFormat.replace(/\//g, ''); // Remove slashes for DB: ddmmyy, mmddyy, ddmmyyyy, mmddyyyy
     
+    // When user explicitly changes date format order, disable region default
+    setUseRegionDefault(false);
+    
     if (isAuthenticated) {
-      await updateSettings({ dateFormatPreference: dbFormat });
+      await updateSettings({ 
+        dateFormatPreference: dbFormat,
+        useRegionDefault: false
+      });
       // Update cache after Supabase update
       const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
-      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, dateFormatPreference: dbFormat });
+      writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, dateFormatPreference: dbFormat, useRegionDefault: false });
     } else {
       localStorage.setItem("dateFormatOrder", value);
+      localStorage.setItem("useRegionDefault", "false");
     }
   };
 
