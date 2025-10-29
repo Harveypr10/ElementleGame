@@ -1,6 +1,7 @@
 import {
   userProfiles,
   userSettings,
+  regions,
   questionsMasterRegion,
   questionsAllocatedRegion,
   gameAttemptsRegion,
@@ -11,9 +12,7 @@ import {
   type Puzzle,
   type UserSettings,
   type InsertUserSettings,
-  type GameAttempt,
-  type Guess,
-  type UserStats,
+  type Region,
   type QuestionMasterRegion,
   type InsertQuestionMasterRegion,
   type QuestionAllocatedRegion,
@@ -40,6 +39,9 @@ export type GameAttemptWithAllocatedQuestion = GameAttemptRegion & {
 
 // Interface for storage operations
 export interface IStorage {
+  // Region operations
+  getRegions(): Promise<Region[]>;
+
   // User profile operations
   getUserProfile(id: string): Promise<UserProfile | undefined>;
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
@@ -117,6 +119,11 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Region operations
+  async getRegions(): Promise<Region[]> {
+    return await db.select().from(regions).orderBy(regions.name);
+  }
+
   // User profile operations
   async getUserProfile(id: string): Promise<UserProfile | undefined> {
     const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.id, id));
