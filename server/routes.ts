@@ -141,21 +141,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Default to 'GB' if no region set
       const region = profile?.region || 'GB';
       
+      console.log('[GET /api/puzzles] Fetching puzzles for region:', region, 'userId:', userId);
+      
       const allocatedQuestions = await storage.getAllocatedQuestionsByRegion(region);
+      
+      console.log('[GET /api/puzzles] Found allocated questions:', allocatedQuestions.length);
       
       // Transform to frontend-compatible format (keeping backward compatibility)
       const puzzles = allocatedQuestions.map(aq => ({
         id: aq.id, // This is now allocatedRegionId
-        date: aq.allocatedDate,
+        date: aq.puzzleDate,
         answerDateCanonical: aq.masterQuestion.answerDateCanonical,
         eventTitle: aq.masterQuestion.eventTitle,
         eventDescription: aq.masterQuestion.eventDescription,
-        clue1: aq.masterQuestion.clue1,
-        clue2: aq.masterQuestion.clue2,
+        clue1: null, // Clues removed in new schema
+        clue2: null, // Clues removed in new schema
         // Region-specific fields
         region: aq.region,
         allocatedRegionId: aq.id,
-        masterQuestionId: aq.masterQuestionId,
+        masterQuestionId: aq.questionId,
       }));
       
       res.json(puzzles);
@@ -180,15 +184,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Transform to frontend-compatible format
       const puzzle = {
         id: allocatedQuestion.id,
-        date: allocatedQuestion.allocatedDate,
+        date: allocatedQuestion.puzzleDate,
         answerDateCanonical: allocatedQuestion.masterQuestion.answerDateCanonical,
         eventTitle: allocatedQuestion.masterQuestion.eventTitle,
         eventDescription: allocatedQuestion.masterQuestion.eventDescription,
-        clue1: allocatedQuestion.masterQuestion.clue1,
-        clue2: allocatedQuestion.masterQuestion.clue2,
+        clue1: null, // Clues removed in new schema
+        clue2: null, // Clues removed in new schema
         region: allocatedQuestion.region,
         allocatedRegionId: allocatedQuestion.id,
-        masterQuestionId: allocatedQuestion.masterQuestionId,
+        masterQuestionId: allocatedQuestion.questionId,
       };
       
       res.json(puzzle);
