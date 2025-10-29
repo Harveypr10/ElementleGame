@@ -166,10 +166,11 @@ export type UserSubscription = typeof userSubscriptions.$inferSelect;
 export const questionsMasterRegion = pgTable("questions_master_region", {
   id: serial("id").primaryKey(),
   answerDateCanonical: date("answer_date_canonical").notNull(), // Canonical historical date (YYYY-MM-DD)
-  eventTitle: varchar("event_title", { length: 200 }).notNull(),
+  eventTitle: text("event_title").notNull(),
   eventDescription: text("event_description").notNull(),
-  clue1: text("clue1"), // First clue shown after 2nd incorrect guess
-  clue2: text("clue2"), // Second clue shown after 4th incorrect guess
+  regions: jsonb("regions"), // Regions this question is relevant for
+  categories: jsonb("categories").notNull(), // Categories this question belongs to
+  location: text("location"), // Geographic location relevant to the event
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -186,21 +187,19 @@ export const questionsAllocatedRegion = pgTable(
   "questions_allocated_region",
   {
     id: serial("id").primaryKey(),
-    masterQuestionId: integer("master_question_id").notNull().references(() => questionsMasterRegion.id, { onDelete: "cascade" }),
+    questionId: integer("question_id").notNull().references(() => questionsMasterRegion.id, { onDelete: "cascade" }),
     region: text("region").notNull(), // ISO country code (e.g., 'GB', 'US')
-    allocatedDate: date("allocated_date").notNull(), // The date this question is allocated for (YYYY-MM-DD)
-    createdAt: timestamp("created_at").defaultNow(),
+    puzzleDate: date("puzzle_date").notNull(), // The date this question is allocated for (YYYY-MM-DD)
   },
   (table) => {
     return {
-      regionDateUnique: unique().on(table.region, table.allocatedDate),
+      regionDateUnique: unique().on(table.region, table.puzzleDate),
     };
   }
 );
 
 export const insertQuestionAllocatedRegionSchema = createInsertSchema(questionsAllocatedRegion).omit({
   id: true,
-  createdAt: true,
 });
 
 export type InsertQuestionAllocatedRegion = z.infer<typeof insertQuestionAllocatedRegionSchema>;
@@ -237,7 +236,7 @@ export type GameAttemptRegion = typeof gameAttemptsRegion.$inferSelect;
 // Guesses (region) - Individual guesses for region mode
 export const guessesRegion = pgTable("guesses_region", {
   id: serial("id").primaryKey(),
-  gameAttemptRegionId: integer("game_attempt_region_id").notNull().references(() => gameAttemptsRegion.id, { onDelete: "cascade" }),
+  gameAttemptId: integer("game_attempt_id").notNull().references(() => gameAttemptsRegion.id, { onDelete: "cascade" }),
   guessValue: varchar("guess_value", { length: 8 }).notNull(), // Date string in user's format (DDMMYY or DDMMYYYY)
   guessedAt: timestamp("guessed_at").defaultNow(),
 });

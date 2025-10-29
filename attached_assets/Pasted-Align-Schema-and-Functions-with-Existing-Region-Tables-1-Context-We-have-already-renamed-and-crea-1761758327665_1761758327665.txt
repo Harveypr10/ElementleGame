@@ -1,0 +1,79 @@
+Align Schema and Functions with Existing Region Tables
+1. Context
+We have already renamed and created new tables in Supabase to support two parallel game modes (Region and User). The old tables, game_attempts, guesses, user_stats, have been renamed to game_attempts_region, guesses_region, user_stats_region. The previous puzzles table has been replaced with a new table structure of questions_master_region and questions_allocated_region, where by the questions for the puzzle_date are allocated in the questions_allocated_region table for the “region” specific to the user, that link to the questions_master_region data with questions_allocated_region.question_id matched to the questions_master_region.id, to allow the answer_date_canonical, event_title and event_description to be pulled through. The new tables are live and contain data.
+Important: We do not want to drop or recreate any of these tables, as they already hold migrated data. Instead, you need to update the codebase (schema.ts, storage.ts, and related functions) so that the app correctly maps to the existing Supabase structures. Ask me questions where you are unsure of what maps to what and I can clarify anything that is unclear.
+2. Current Tables and Field Structures
+Region Game (replacement for old tables)
+questions_master_region
+•	id (PK)
+•	answer_date_canonical (date)
+•	event_title (text)
+•	event_description (text)
+•	regions (jsonb)
+•	categories (jsonb, NOT NULL)
+•	location (text, nullable)
+•	created_at (timestamp)
+questions_allocated_region
+•	id (PK)
+•	puzzle_date (date)
+•	region (text)
+•	question_id (FK → questions_master_region.id)
+game_attempts_region (was game_attempts)
+•	id (PK)
+•	user_id (uuid, FK → user_profiles.id)
+•	allocated_region_id (FK → questions_allocated_region.id)
+•	result (varchar)
+•	num_guesses (int)
+•	started_at (timestamp)
+•	completed_at (timestamp)
+guesses_region (was guesses)
+•	id (PK)
+•	game_attempt_id (FK → game_attempts_region.id)
+•	guess_value (date)
+•	guessed_at (timestamp)
+user_stats_region (was user_stats)
+•	id (PK)
+•	user_id (uuid, FK → user_profiles.id)
+•	games_played (int)
+•	games_won (int)
+•	current_streak (int)
+•	max_streak (int)
+•	guess_distribution (jsonb)
+•	updated_at (timestamp)
+User Game (new, for later)
+•	questions_master_user
+•	questions_allocated_user
+•	game_attempts_user
+•	guesses_user
+•	user_stats_user
+(These mirror the region tables but are user specific. We will wire them up later once Region mode is stable.)
+Shared Tables
+•	user_profiles (includes region, postcode and location that will ater be used for the “user” version of the game)
+•	user_settings (with category_preferences jsonb added)
+•	user_subscriptions (new, will be used to store user subscription data, and already contains one row of test data)
+•	categories (new, will be used to store a list of categories that the user will be able to select from to be stored in user_settings .category_preferences
+3. What Replit Needs to Do
+1.	Update schema.ts
+o	Remove all references to the old tables, replacing with the new where applicable (game_attempts, guesses, user_stats).
+o	Define the new region tables exactly as they exist in Supabase (field names/types as listed above).
+o	Ensure foreign keys are correctly represented.
+2.	Update storage.ts and functions
+o	All functions that previously referenced game_attempts, guesses, user_stats must now reference game_attempts_region, guesses_region, user_stats_region.
+o	Ensure joins are updated to use allocated_region_id → questions_allocated_region.id → questions_master_region.id.
+3.	Update API routes
+o	GET /api/puzzles → use questions_allocated_region + questions_master_region.
+o	POST /api/game-attempts → insert into game_attempts_region.
+o	POST /api/guesses → insert into guesses_region.
+o	GET /api/stats → pull from user_stats_region.
+o	Archive, streaks, and EndGame modal must all use the new region tables.
+4.	Do not attempt to recreate or drop tables
+o	The tables already exist in Supabase with data.
+o	Your job is to align the codebase schema definitions and queries with what’s already there.
+4. Validation Criteria
+•	The app compiles and runs without schema errors.
+•	A user can play the daily puzzle exactly as before.
+•	Guesses are stored in guesses_region.
+•	Attempts are tracked in game_attempts_region.
+•	Stats and streaks update in user_stats_region.
+•	Archive view shows past region puzzles correctly.
+•	EndGame modal shows the correct answer and the user’s guess history.

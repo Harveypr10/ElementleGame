@@ -605,27 +605,27 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select({
         id: questionsAllocatedRegion.id,
-        masterQuestionId: questionsAllocatedRegion.masterQuestionId,
+        questionId: questionsAllocatedRegion.questionId,
         region: questionsAllocatedRegion.region,
-        allocatedDate: questionsAllocatedRegion.allocatedDate,
-        createdAt: questionsAllocatedRegion.createdAt,
+        puzzleDate: questionsAllocatedRegion.puzzleDate,
         masterQuestion_id: questionsMasterRegion.id,
         masterQuestion_answerDateCanonical: questionsMasterRegion.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterRegion.eventTitle,
         masterQuestion_eventDescription: questionsMasterRegion.eventDescription,
-        masterQuestion_clue1: questionsMasterRegion.clue1,
-        masterQuestion_clue2: questionsMasterRegion.clue2,
+        masterQuestion_regions: questionsMasterRegion.regions,
+        masterQuestion_categories: questionsMasterRegion.categories,
+        masterQuestion_location: questionsMasterRegion.location,
         masterQuestion_createdAt: questionsMasterRegion.createdAt,
       })
       .from(questionsAllocatedRegion)
       .innerJoin(
         questionsMasterRegion,
-        eq(questionsAllocatedRegion.masterQuestionId, questionsMasterRegion.id)
+        eq(questionsAllocatedRegion.questionId, questionsMasterRegion.id)
       )
       .where(
         and(
           eq(questionsAllocatedRegion.region, region),
-          eq(questionsAllocatedRegion.allocatedDate, date)
+          eq(questionsAllocatedRegion.puzzleDate, date)
         )
       );
 
@@ -634,17 +634,17 @@ export class DatabaseStorage implements IStorage {
     const result = results[0];
     return {
       id: result.id,
-      masterQuestionId: result.masterQuestionId,
+      questionId: result.questionId,
       region: result.region,
-      allocatedDate: result.allocatedDate,
-      createdAt: result.createdAt,
+      puzzleDate: result.puzzleDate,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
         eventTitle: result.masterQuestion_eventTitle,
         eventDescription: result.masterQuestion_eventDescription,
-        clue1: result.masterQuestion_clue1,
-        clue2: result.masterQuestion_clue2,
+        regions: result.masterQuestion_regions,
+        categories: result.masterQuestion_categories,
+        location: result.masterQuestion_location,
         createdAt: result.masterQuestion_createdAt,
       },
     };
@@ -654,39 +654,39 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select({
         id: questionsAllocatedRegion.id,
-        masterQuestionId: questionsAllocatedRegion.masterQuestionId,
+        questionId: questionsAllocatedRegion.questionId,
         region: questionsAllocatedRegion.region,
-        allocatedDate: questionsAllocatedRegion.allocatedDate,
-        createdAt: questionsAllocatedRegion.createdAt,
+        puzzleDate: questionsAllocatedRegion.puzzleDate,
         masterQuestion_id: questionsMasterRegion.id,
         masterQuestion_answerDateCanonical: questionsMasterRegion.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterRegion.eventTitle,
         masterQuestion_eventDescription: questionsMasterRegion.eventDescription,
-        masterQuestion_clue1: questionsMasterRegion.clue1,
-        masterQuestion_clue2: questionsMasterRegion.clue2,
+        masterQuestion_regions: questionsMasterRegion.regions,
+        masterQuestion_categories: questionsMasterRegion.categories,
+        masterQuestion_location: questionsMasterRegion.location,
         masterQuestion_createdAt: questionsMasterRegion.createdAt,
       })
       .from(questionsAllocatedRegion)
       .innerJoin(
         questionsMasterRegion,
-        eq(questionsAllocatedRegion.masterQuestionId, questionsMasterRegion.id)
+        eq(questionsAllocatedRegion.questionId, questionsMasterRegion.id)
       )
       .where(eq(questionsAllocatedRegion.region, region))
-      .orderBy(questionsAllocatedRegion.allocatedDate);
+      .orderBy(questionsAllocatedRegion.puzzleDate);
 
     return results.map(result => ({
       id: result.id,
-      masterQuestionId: result.masterQuestionId,
+      questionId: result.questionId,
       region: result.region,
-      allocatedDate: result.allocatedDate,
-      createdAt: result.createdAt,
+      puzzleDate: result.puzzleDate,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
         eventTitle: result.masterQuestion_eventTitle,
         eventDescription: result.masterQuestion_eventDescription,
-        clue1: result.masterQuestion_clue1,
-        clue2: result.masterQuestion_clue2,
+        regions: result.masterQuestion_regions,
+        categories: result.masterQuestion_categories,
+        location: result.masterQuestion_location,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -699,44 +699,44 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select({
         id: questionsAllocatedRegion.id,
-        masterQuestionId: questionsAllocatedRegion.masterQuestionId,
+        questionId: questionsAllocatedRegion.questionId,
         region: questionsAllocatedRegion.region,
-        allocatedDate: questionsAllocatedRegion.allocatedDate,
-        createdAt: questionsAllocatedRegion.createdAt,
+        puzzleDate: questionsAllocatedRegion.puzzleDate,
         masterQuestion_id: questionsMasterRegion.id,
         masterQuestion_answerDateCanonical: questionsMasterRegion.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterRegion.eventTitle,
         masterQuestion_eventDescription: questionsMasterRegion.eventDescription,
-        masterQuestion_clue1: questionsMasterRegion.clue1,
-        masterQuestion_clue2: questionsMasterRegion.clue2,
+        masterQuestion_regions: questionsMasterRegion.regions,
+        masterQuestion_categories: questionsMasterRegion.categories,
+        masterQuestion_location: questionsMasterRegion.location,
         masterQuestion_createdAt: questionsMasterRegion.createdAt,
       })
       .from(questionsAllocatedRegion)
       .innerJoin(
         questionsMasterRegion,
-        eq(questionsAllocatedRegion.masterQuestionId, questionsMasterRegion.id)
+        eq(questionsAllocatedRegion.questionId, questionsMasterRegion.id)
       )
       .where(
         and(
           eq(questionsAllocatedRegion.region, region),
-          gte(questionsAllocatedRegion.allocatedDate, since)
+          gte(questionsAllocatedRegion.puzzleDate, since)
         )
       )
-      .orderBy(questionsAllocatedRegion.allocatedDate);
+      .orderBy(questionsAllocatedRegion.puzzleDate);
 
     return results.map(result => ({
       id: result.id,
-      masterQuestionId: result.masterQuestionId,
+      questionId: result.questionId,
       region: result.region,
-      allocatedDate: result.allocatedDate,
-      createdAt: result.createdAt,
+      puzzleDate: result.puzzleDate,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
         eventTitle: result.masterQuestion_eventTitle,
         eventDescription: result.masterQuestion_eventDescription,
-        clue1: result.masterQuestion_clue1,
-        clue2: result.masterQuestion_clue2,
+        regions: result.masterQuestion_regions,
+        categories: result.masterQuestion_categories,
+        location: result.masterQuestion_location,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -774,16 +774,15 @@ export class DatabaseStorage implements IStorage {
         startedAt: gameAttemptsRegion.startedAt,
         completedAt: gameAttemptsRegion.completedAt,
         allocated_id: questionsAllocatedRegion.id,
-        allocated_masterQuestionId: questionsAllocatedRegion.masterQuestionId,
+        allocated_questionId: questionsAllocatedRegion.questionId,
         allocated_region: questionsAllocatedRegion.region,
-        allocated_allocatedDate: questionsAllocatedRegion.allocatedDate,
-        allocated_createdAt: questionsAllocatedRegion.createdAt,
+        allocated_puzzleDate: questionsAllocatedRegion.puzzleDate,
         master_id: questionsMasterRegion.id,
         master_answerDateCanonical: questionsMasterRegion.answerDateCanonical,
         master_eventTitle: questionsMasterRegion.eventTitle,
         master_eventDescription: questionsMasterRegion.eventDescription,
-        master_clue1: questionsMasterRegion.clue1,
-        master_clue2: questionsMasterRegion.clue2,
+        master_regions: questionsMasterRegion.regions,
+        master_categories: questionsMasterRegion.categories,
         master_createdAt: questionsMasterRegion.createdAt,
       })
       .from(gameAttemptsRegion)
@@ -793,7 +792,7 @@ export class DatabaseStorage implements IStorage {
       )
       .innerJoin(
         questionsMasterRegion,
-        eq(questionsAllocatedRegion.masterQuestionId, questionsMasterRegion.id)
+        eq(questionsAllocatedRegion.questionId, questionsMasterRegion.id)
       )
       .where(eq(gameAttemptsRegion.id, id));
 
@@ -810,17 +809,17 @@ export class DatabaseStorage implements IStorage {
       completedAt: result.completedAt,
       allocatedQuestion: {
         id: result.allocated_id,
-        masterQuestionId: result.allocated_masterQuestionId,
+        masterQuestionId: result.allocated_questionId,
         region: result.allocated_region,
-        allocatedDate: result.allocated_allocatedDate,
+        allocatedDate: result.allocated_puzzleDate,
         createdAt: result.allocated_createdAt,
         masterQuestion: {
           id: result.master_id,
           answerDateCanonical: result.master_answerDateCanonical,
           eventTitle: result.master_eventTitle,
           eventDescription: result.master_eventDescription,
-          clue1: result.master_clue1,
-          clue2: result.master_clue2,
+          regions: result.master_clue1,
+          categories: result.master_clue2,
           createdAt: result.master_createdAt,
         },
       },
@@ -838,16 +837,15 @@ export class DatabaseStorage implements IStorage {
         startedAt: gameAttemptsRegion.startedAt,
         completedAt: gameAttemptsRegion.completedAt,
         allocated_id: questionsAllocatedRegion.id,
-        allocated_masterQuestionId: questionsAllocatedRegion.masterQuestionId,
+        allocated_questionId: questionsAllocatedRegion.questionId,
         allocated_region: questionsAllocatedRegion.region,
-        allocated_allocatedDate: questionsAllocatedRegion.allocatedDate,
-        allocated_createdAt: questionsAllocatedRegion.createdAt,
+        allocated_puzzleDate: questionsAllocatedRegion.puzzleDate,
         master_id: questionsMasterRegion.id,
         master_answerDateCanonical: questionsMasterRegion.answerDateCanonical,
         master_eventTitle: questionsMasterRegion.eventTitle,
         master_eventDescription: questionsMasterRegion.eventDescription,
-        master_clue1: questionsMasterRegion.clue1,
-        master_clue2: questionsMasterRegion.clue2,
+        master_regions: questionsMasterRegion.regions,
+        master_categories: questionsMasterRegion.categories,
         master_createdAt: questionsMasterRegion.createdAt,
       })
       .from(gameAttemptsRegion)
@@ -857,10 +855,10 @@ export class DatabaseStorage implements IStorage {
       )
       .innerJoin(
         questionsMasterRegion,
-        eq(questionsAllocatedRegion.masterQuestionId, questionsMasterRegion.id)
+        eq(questionsAllocatedRegion.questionId, questionsMasterRegion.id)
       )
       .where(eq(gameAttemptsRegion.userId, userId))
-      .orderBy(desc(questionsAllocatedRegion.allocatedDate));
+      .orderBy(desc(questionsAllocatedRegion.puzzleDate));
 
     return results.map(result => ({
       id: result.id,
@@ -872,17 +870,17 @@ export class DatabaseStorage implements IStorage {
       completedAt: result.completedAt,
       allocatedQuestion: {
         id: result.allocated_id,
-        masterQuestionId: result.allocated_masterQuestionId,
+        masterQuestionId: result.allocated_questionId,
         region: result.allocated_region,
-        allocatedDate: result.allocated_allocatedDate,
+        allocatedDate: result.allocated_puzzleDate,
         createdAt: result.allocated_createdAt,
         masterQuestion: {
           id: result.master_id,
           answerDateCanonical: result.master_answerDateCanonical,
           eventTitle: result.master_eventTitle,
           eventDescription: result.master_eventDescription,
-          clue1: result.master_clue1,
-          clue2: result.master_clue2,
+          regions: result.master_clue1,
+          categories: result.master_clue2,
           createdAt: result.master_createdAt,
         },
       },
@@ -970,7 +968,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(guessesRegion)
-      .where(eq(guessesRegion.gameAttemptRegionId, gameAttemptId))
+      .where(eq(guessesRegion.gameAttemptId, gameAttemptId))
       .orderBy(guessesRegion.guessedAt);
   }
 
@@ -986,7 +984,7 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select({
         id: guessesRegion.id,
-        gameAttemptRegionId: guessesRegion.gameAttemptRegionId,
+        gameAttemptRegionId: guessesRegion.gameAttemptId,
         guessValue: guessesRegion.guessValue,
         guessedAt: guessesRegion.guessedAt,
         allocatedRegionId: gameAttemptsRegion.allocatedRegionId,
@@ -994,7 +992,7 @@ export class DatabaseStorage implements IStorage {
       .from(guessesRegion)
       .innerJoin(
         gameAttemptsRegion,
-        eq(guessesRegion.gameAttemptRegionId, gameAttemptsRegion.id)
+        eq(guessesRegion.gameAttemptId, gameAttemptsRegion.id)
       )
       .innerJoin(
         questionsAllocatedRegion,
@@ -1003,7 +1001,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(gameAttemptsRegion.userId, userId),
-          gte(questionsAllocatedRegion.allocatedDate, since)
+          gte(questionsAllocatedRegion.puzzleDate, since)
         )
       )
       .orderBy(guessesRegion.guessedAt);
@@ -1017,7 +1015,7 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select({
         id: guessesRegion.id,
-        gameAttemptRegionId: guessesRegion.gameAttemptRegionId,
+        gameAttemptRegionId: guessesRegion.gameAttemptId,
         guessValue: guessesRegion.guessValue,
         guessedAt: guessesRegion.guessedAt,
         allocatedRegionId: gameAttemptsRegion.allocatedRegionId,
@@ -1026,7 +1024,7 @@ export class DatabaseStorage implements IStorage {
       .from(guessesRegion)
       .innerJoin(
         gameAttemptsRegion,
-        eq(guessesRegion.gameAttemptRegionId, gameAttemptsRegion.id)
+        eq(guessesRegion.gameAttemptId, gameAttemptsRegion.id)
       )
       .where(eq(gameAttemptsRegion.userId, userId))
       .orderBy(guessesRegion.guessedAt);
@@ -1066,7 +1064,7 @@ export class DatabaseStorage implements IStorage {
         result: gameAttemptsRegion.result,
         numGuesses: gameAttemptsRegion.numGuesses,
         completedAt: gameAttemptsRegion.completedAt,
-        allocatedDate: questionsAllocatedRegion.allocatedDate,
+        puzzleDate: questionsAllocatedRegion.puzzleDate,
       })
       .from(gameAttemptsRegion)
       .innerJoin(
@@ -1079,14 +1077,14 @@ export class DatabaseStorage implements IStorage {
           eq(gameAttemptsRegion.result, 'won')
         )
       )
-      .orderBy(questionsAllocatedRegion.allocatedDate);
+      .orderBy(questionsAllocatedRegion.puzzleDate);
 
     // Get lost games
     const lostAttempts = await db
       .select({
         id: gameAttemptsRegion.id,
         result: gameAttemptsRegion.result,
-        allocatedDate: questionsAllocatedRegion.allocatedDate,
+        puzzleDate: questionsAllocatedRegion.puzzleDate,
         completedAt: gameAttemptsRegion.completedAt,
       })
       .from(gameAttemptsRegion)
