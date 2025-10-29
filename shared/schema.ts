@@ -60,7 +60,8 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles)
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
 
-// Puzzles table - contains historical events with dates and clues
+// LEGACY: Puzzles table - DEPRECATED, use questions_master_region instead
+// Keeping for backward compatibility during migration
 export const puzzles = pgTable("puzzles", {
   id: serial("id").primaryKey(),
   date: date("date").notNull().unique(), // YYYY-MM-DD format - puzzle availability date
@@ -196,3 +197,115 @@ export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions
 
 export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
 export type UserSubscription = typeof userSubscriptions.$inferSelect;
+
+// ============================================================================
+// REGION GAME MODE TABLES
+// ============================================================================
+
+// Questions master (region) - Canonical question bank for region mode
+export const questionsMasterRegion = pgTable("questions_master_region", {
+  id: serial("id").primaryKey(),
+  answerDateCanonical: date("answer_date_canonical").notNull(), // Canonical historical date (YYYY-MM-DD)
+  eventTitle: varchar("event_title", { length: 200 }).notNull(),
+  eventDescription: text("event_description").notNull(),
+  clue1: text("clue1"), // First clue shown after 2nd incorrect guess
+  clue2: text("clue2"), // Second clue shown after 4th incorrect guess
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertQuestionMasterRegionSchema = createInsertSchema(questionsMasterRegion).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertQuestionMasterRegion = z.infer<typeof insertQuestionMasterRegionSchema>;
+export type QuestionMasterRegion = typeof questionsMasterRegion.$inferSelect;
+
+// Questions allocated (region) - Daily puzzle allocations per region
+export const questionsAllocatedRegion = pgTable(
+  "questions_allocated_region",
+  {
+    id: serial("id").primaryKey(),
+    masterQuestionId: integer("master_question_id").notNull().references(() => questionsMasterRegion.id, { onDelete: "cascade" }),
+    region: text("region").notNull(), // ISO country code (e.g., 'GB', 'US')
+    allocatedDate: date("allocated_date").notNull(), // The date this question is allocated for (YYYY-MM-DD)
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => {
+    return {
+      regionDateUnique: unique().on(table.region, table.allocatedDate),
+    };
+  }
+);
+
+export const insertQuestionAllocatedRegionSchema = createInsertSchema(questionsAllocatedRegion).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertQuestionAllocatedRegion = z.infer<typeof insertQuestionAllocatedRegionSchema>;
+export type QuestionAllocatedRegion = typeof questionsAllocatedRegion.$inferSelect;
+
+// Game attempts (region) - User attempts for region mode puzzles
+export const gameAttemptsRegion = pgTable(
+  "game_attempts_region",
+  {
+    id: serial("id").primaryKey(),
+    userId: uuid("user_id").references(() => userProfiles.id, { onDelete: "cascade" }), // null for guest users
+    allocatedRegionId: integer("allocated_region_id").notNull().references(() => questionsAllocatedRegion.id),
+    result: varchar("result", { length: 10 }), // 'won' or 'lost' - null for in-progress
+    numGuesses: integer("num_guesses").default(0),
+    startedAt: timestamp("started_at").defaultNow(),
+    completedAt: timestamp("completed_at"), // null for in-progress games
+  },
+  (table) => {
+    return {
+      userAllocatedUnique: unique().on(table.userId, table.allocatedRegionId),
+    };
+  }
+);
+
+export const insertGameAttemptRegionSchema = createInsertSchema(gameAttemptsRegion).omit({
+  id: true,
+  startedAt: true,
+  completedAt: true,
+});
+
+export type InsertGameAttemptRegion = z.infer<typeof insertGameAttemptRegionSchema>;
+export type GameAttemptRegion = typeof gameAttemptsRegion.$inferSelect;
+
+// Guesses (region) - Individual guesses for region mode
+export const guessesRegion = pgTable("guesses_region", {
+  id: serial("id").primaryKey(),
+  gameAttemptRegionId: integer("game_attempt_region_id").notNull().references(() => gameAttemptsRegion.id, { onDelete: "cascade" }),
+  guessValue: varchar("guess_value", { length: 8 }).notNull(), // Date string in user's format (DDMMYY or DDMMYYYY)
+  guessedAt: timestamp("guessed_at").defaultNow(),
+});
+
+export const insertGuessRegionSchema = createInsertSchema(guessesRegion).omit({
+  id: true,
+  guessedAt: true,
+});
+
+export type InsertGuessRegion = z.infer<typeof insertGuessRegionSchema>;
+export type GuessRegion = typeof guessesRegion.$inferSelect;
+
+// User stats (region) - Aggregated statistics for region mode
+export const userStatsRegion = pgTable("user_stats_region", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().unique().references(() => userProfiles.id, { onDelete: "cascade" }),
+  gamesPlayed: integer("games_played").default(0),
+  gamesWon: integer("games_won").default(0),
+  currentStreak: integer("current_streak").default(0),
+  maxStreak: integer("max_streak").default(0),
+  guessDistribution: jsonb("guess_distribution").default({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }), // JSON object tracking wins by guess count
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserStatsRegionSchema = createInsertSchema(userStatsRegion).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertUserStatsRegion = z.infer<typeof insertUserStatsRegionSchema>;
+export type UserStatsRegion = typeof userStatsRegion.$inferSelect;

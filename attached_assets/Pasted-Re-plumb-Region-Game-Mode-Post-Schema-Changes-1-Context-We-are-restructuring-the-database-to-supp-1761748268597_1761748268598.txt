@@ -1,0 +1,117 @@
+Re‑plumb Region Game Mode (Post‑Schema Changes)
+1. Context
+We are restructuring the database to support two parallel game modes:
+
+Region Game (the existing daily puzzle, shared by all users in a region).
+
+User Game (a personalised version, seeded per user, to be wired up later).
+
+Important: We have already renamed and created the new tables in Supabase. The old table names no longer exist, so the current code is broken. Your task is to re‑plumb the code to use the new region‑specific tables so that the Region Game works exactly as it did before.
+
+2. Database Changes Already Made
+Renamed tables (old → new)
+game_attempts → game_attempts_region
+
+guesses → guesses_region
+
+user_stats → user_stats_region
+
+New user‑mode equivalents (for later)
+game_attempts_user
+
+guesses_user
+
+user_stats_user
+
+questions_master_user
+
+questions_allocated_user
+
+Region‑specific question pipeline (now live)
+questions_master_region (canonical question bank)
+
+questions_allocated_region (daily allocations per region)
+
+game_attempts_region (user attempts for region puzzles)
+
+guesses_region (individual guesses per attempt)
+
+user_stats_region (aggregated stats for region mode)
+
+Shared tables (unchanged)
+user_profiles
+
+user_settings (with category_preferences JSONB field added)
+
+user_subscriptions
+
+categories
+
+3. What Needs to Be Re‑Plumbed
+Every part of the app that previously referenced the old tables must now point to the new region‑specific ones. The behaviour should remain identical.
+
+a) PlayPage (today’s puzzle)
+Old: puzzles + game_attempts + guesses.
+
+New: questions_allocated_region + questions_master_region + game_attempts_region + guesses_region.
+
+b) Recording attempts
+Insert into game_attempts_region when a user starts a puzzle.
+
+Ensure uniqueness per (user_id, allocated_region_id).
+
+c) Recording guesses
+Insert into guesses_region, linked to the correct game_attempts_region.id.
+
+All guess history for in‑progress games should now come from guesses_region.
+
+d) Marking results
+Update game_attempts_region.result, num_guesses, and completed_at when the game ends.
+
+This mirrors the old behaviour, just with the renamed table.
+
+e) Archive screen
+Old: puzzles + game_attempts + guesses.
+
+New: questions_allocated_region + questions_master_region + game_attempts_region + guesses_region.
+
+Must show completed games only (won/lost), not in‑progress.
+
+f) Stats screen
+Old: user_stats.
+
+New: user_stats_region.
+
+Streaks, guess distributions, and totals should be calculated from game_attempts_region and guesses_region.
+
+g) Streaks
+Recalculate from game_attempts_region (using result and completed_at).
+
+Ensure streaks are isolated to the region mode.
+
+h) EndGame modal
+When showing the correct answer and user’s guesses, pull from questions_master_region and guesses_region.
+
+4. Validation Criteria
+When you’ve re‑plumbed the region mode:
+
+A user can play the daily puzzle exactly as before.
+
+Guesses are stored in guesses_region.
+
+Attempts are tracked in game_attempts_region.
+
+Stats and streaks update in user_stats_region.
+
+Archive view shows past region puzzles correctly.
+
+EndGame modal shows the correct answer and the user’s guess history from the new tables.
+
+5. Next Phase (not yet)
+Once the Region Game is stable, we will:
+
+Wire up the User Game equivalents (*_user tables).
+
+Add a toggle in the game selection screen to switch between “Region Game” and “User Game.”
+
+Ensure stats, streaks, and archives are isolated per mode
