@@ -60,8 +60,7 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles)
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
 
-// Puzzles table - LEGACY - kept for backward compatibility
-// New region mode uses questions_master_region and questions_allocated_region
+// Puzzles table - contains historical events with dates and clues
 export const puzzles = pgTable("puzzles", {
   id: serial("id").primaryKey(),
   date: date("date").notNull().unique(), // YYYY-MM-DD format - puzzle availability date
@@ -82,72 +81,6 @@ export const insertPuzzleSchema = createInsertSchema(puzzles).omit({
 
 export type InsertPuzzle = z.infer<typeof insertPuzzleSchema>;
 export type Puzzle = typeof puzzles.$inferSelect;
-
-// REGION MODE TABLES - New question pipeline for region-specific daily puzzles
-
-// Categories table for organizing questions
-export const categories = pgTable("categories", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 100 }).notNull().unique(),
-  description: text("description"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertCategorySchema = createInsertSchema(categories).omit({
-  id: true,
-  createdAt: true,
-});
-
-export type InsertCategory = z.infer<typeof insertCategorySchema>;
-export type Category = typeof categories.$inferSelect;
-
-// Master question bank for region mode
-export const questionsMasterRegion = pgTable("questions_master_region", {
-  id: serial("id").primaryKey(),
-  answerDateCanonical: date("answer_date_canonical").notNull(), // Historical date (YYYY-MM-DD format)
-  eventTitle: varchar("event_title", { length: 200 }).notNull(),
-  eventDescription: text("event_description").notNull(),
-  clue1: text("clue1"), // First clue shown after 2nd incorrect guess
-  clue2: text("clue2"), // Second clue shown after 4th incorrect guess
-  categoryId: integer("category_id").references(() => categories.id),
-  isActive: boolean("is_active").default(true), // Can be deactivated without deletion
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertQuestionMasterRegionSchema = createInsertSchema(questionsMasterRegion).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type InsertQuestionMasterRegion = z.infer<typeof insertQuestionMasterRegionSchema>;
-export type QuestionMasterRegion = typeof questionsMasterRegion.$inferSelect;
-
-// Daily question allocations for region mode
-export const questionsAllocatedRegion = pgTable(
-  "questions_allocated_region",
-  {
-    id: serial("id").primaryKey(),
-    questionId: integer("question_id").notNull().references(() => questionsMasterRegion.id),
-    region: text("region").notNull(), // ISO country code (e.g., 'GB', 'US')
-    allocatedDate: date("allocated_date").notNull(), // YYYY-MM-DD format - puzzle availability date
-    createdAt: timestamp("created_at").defaultNow(),
-  },
-  (table) => {
-    return {
-      regionDateUnique: unique().on(table.region, table.allocatedDate),
-    };
-  }
-);
-
-export const insertQuestionAllocatedRegionSchema = createInsertSchema(questionsAllocatedRegion).omit({
-  id: true,
-  createdAt: true,
-});
-
-export type InsertQuestionAllocatedRegion = z.infer<typeof insertQuestionAllocatedRegionSchema>;
-export type QuestionAllocatedRegion = typeof questionsAllocatedRegion.$inferSelect;
 
 // User settings table - stores preferences per user
 export const userSettings = pgTable("user_settings", {
