@@ -991,7 +991,7 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select({
         id: guessesRegion.id,
-        gameAttemptRegionId: guessesRegion.gameAttemptId,
+        gameAttemptId: guessesRegion.gameAttemptId,
         guessValue: guessesRegion.guessValue,
         guessedAt: guessesRegion.guessedAt,
         allocatedRegionId: gameAttemptsRegion.allocatedRegionId,
@@ -1022,7 +1022,7 @@ export class DatabaseStorage implements IStorage {
     const results = await db
       .select({
         id: guessesRegion.id,
-        gameAttemptRegionId: guessesRegion.gameAttemptId,
+        gameAttemptId: guessesRegion.gameAttemptId,
         guessValue: guessesRegion.guessValue,
         guessedAt: guessesRegion.guessedAt,
         allocatedRegionId: gameAttemptsRegion.allocatedRegionId,
