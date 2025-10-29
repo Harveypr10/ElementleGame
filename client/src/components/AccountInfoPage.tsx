@@ -23,6 +23,8 @@ import { useSupabase } from "@/lib/SupabaseProvider";
 import { queryClient } from "@/lib/queryClient";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 import { OTPVerificationScreen } from "./OTPVerificationScreen";
+import { useQuery } from "@tanstack/react-query";
+import type { Region } from "@shared/schema";
 
 interface AccountInfoPageProps {
   onBack: () => void;
@@ -39,6 +41,11 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [showRegionConfirm, setShowRegionConfirm] = useState(false);
   const [pendingRegion, setPendingRegion] = useState<string | null>(null);
   
+  // Fetch available regions
+  const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
+    queryKey: ['/api/regions'],
+  });
+  
   const [profileData, setProfileData] = useState({
     firstName: "",
     lastName: "",
@@ -53,7 +60,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         firstName: profile.firstName || "",
         lastName: profile.lastName || "",
         email: profile.email || "",
-        region: profile.region || "GB",
+        region: profile.region || "UK",
       });
       setOriginalEmail(profile.email || "");
     }
@@ -391,13 +398,24 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                   <Select
                     value={profileData.region}
                     onValueChange={handleRegionChange}
+                    disabled={regionsLoading}
                   >
                     <SelectTrigger id="region" data-testid="select-region-account">
-                      <SelectValue placeholder="Select your region" />
+                      <SelectValue placeholder={regionsLoading ? "Loading regions..." : "Select your region"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="GB" data-testid="option-region-uk-account">United Kingdom (DD/MM/YY)</SelectItem>
-                      <SelectItem value="US" data-testid="option-region-us-account">United States (MM/DD/YY)</SelectItem>
+                      {regions?.map((region) => {
+                        const formatDisplay = region.defaultDateFormat === 'ddmmyy' ? 'DD/MM/YY' : 'MM/DD/YY';
+                        return (
+                          <SelectItem 
+                            key={region.code} 
+                            value={region.code} 
+                            data-testid={`option-region-${region.code.toLowerCase()}-account`}
+                          >
+                            {region.name} ({formatDisplay})
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground" data-testid="text-region-help-account">
