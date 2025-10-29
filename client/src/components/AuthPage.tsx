@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 import { OTPVerificationScreen } from "./OTPVerificationScreen";
 import { useSupabase } from "@/lib/SupabaseProvider";
+import { useQuery } from "@tanstack/react-query";
+import type { Region } from "@shared/schema";
 
 interface AuthPageProps {
   mode: "login" | "signup" | "forgot-password";
@@ -27,13 +29,19 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const [loading, setLoading] = useState(false);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
 
+  // Fetch available regions
+  const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
+    queryKey: ['/api/regions'],
+    enabled: mode === 'signup',
+  });
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     confirmPassword: "",
     firstName: "",
     lastName: "",
-    region: "GB", // Default to UK
+    region: "UK", // Default to UK
     acceptedTerms: false,
     adsConsent: false,
   });
@@ -69,7 +77,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
       confirmPassword: "",
       firstName: "",
       lastName: "",
-      region: "GB", // reset to default
+      region: "UK", // reset to default
       acceptedTerms: false,   // always reset
       adsConsent: prev.adsConsent, // preserve previous choice
     }));
@@ -323,13 +331,24 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <Select
                   value={formData.region}
                   onValueChange={(value) => setFormData({ ...formData, region: value })}
+                  disabled={regionsLoading}
                 >
                   <SelectTrigger id="region" data-testid="select-region">
-                    <SelectValue placeholder="Select your region" />
+                    <SelectValue placeholder={regionsLoading ? "Loading regions..." : "Select your region"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="GB" data-testid="option-region-uk">United Kingdom (DD/MM/YY)</SelectItem>
-                    <SelectItem value="US" data-testid="option-region-us">United States (MM/DD/YY)</SelectItem>
+                    {regions?.map((region) => {
+                      const formatDisplay = region.defaultDateFormat === 'ddmmyy' ? 'DD/MM/YY' : 'MM/DD/YY';
+                      return (
+                        <SelectItem 
+                          key={region.code} 
+                          value={region.code} 
+                          data-testid={`option-region-${region.code.toLowerCase()}`}
+                        >
+                          {region.name} ({formatDisplay})
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground" data-testid="text-region-help">

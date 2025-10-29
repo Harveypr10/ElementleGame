@@ -29,7 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/signup", async (req, res) => {
     try {
       // Accept camelCase from frontend (TypeScript convention)
-      const { email, password, firstName, lastName, acceptedTerms, adsConsent } = req.body;
+      const { email, password, firstName, lastName, region, acceptedTerms, adsConsent } = req.body;
 
       // Create auth user - email verification will be required
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -48,12 +48,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const now = new Date();
 
-      // Create user profile with consent fields
+      // Create user profile with consent fields and region
       const profileData: any = {
         id: authData.user.id,
         email: authData.user.email!,
         firstName,
         lastName,
+        region: region ?? 'UK', // Default to UK if not provided
         acceptedTerms: acceptedTerms ?? false,
         adsConsent: adsConsent ?? false,
       };
@@ -67,6 +68,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.upsertUserProfile(profileData);
+
+      // Get the region's default date format
+      const regions = await storage.getRegions();
+      const selectedRegion = regions.find(r => r.code === (region ?? 'UK'));
+      const defaultDateFormat = selectedRegion?.defaultDateFormat ?? 'ddmmyy';
+
+      // Create user settings with default date format preference based on region
+      await storage.upsertUserSettings({
+        userId: authData.user.id,
+        dateFormatPreference: defaultDateFormat,
+        useRegionDefault: true,
+        digitPreference: '6',
+        soundsEnabled: true,
+        darkMode: false,
+        cluesEnabled: true,
+        categoryPreferences: null,
+      });
 
       res.json({ user: authData.user });
     } catch (error) {
@@ -228,9 +246,24 @@ app.get("/api/settings", verifySupabaseAuth, async (req: any, res) => {
 app.post("/api/settings", verifySupabaseAuth, async (req: any, res) => {
   try {
     const userId = req.user.id;
+    
+    // If dateFormatPreference is not provided, get it from user's region default
+    let dateFormatPreference = req.body.dateFormatPreference;
+    if (!dateFormatPreference && req.body.useRegionDefault !== false) {
+      const profile = await storage.getUserProfile(userId);
+      if (profile?.region) {
+        const regions = await storage.getRegions();
+        const userRegion = regions.find(r => r.code === profile.region);
+        if (userRegion) {
+          dateFormatPreference = userRegion.defaultDateFormat;
+        }
+      }
+    }
+    
     const settings = await storage.upsertUserSettings({
       userId,
       ...req.body,
+      dateFormatPreference: dateFormatPreference || req.body.dateFormatPreference || 'ddmmyy',
     });
     res.json(settings);
   } catch (error) {
