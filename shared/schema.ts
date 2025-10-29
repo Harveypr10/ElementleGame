@@ -167,12 +167,9 @@ export const regions = pgTable("regions", {
   code: text("code").primaryKey(), // ISO country code (e.g., 'UK', 'US')
   name: text("name").notNull(), // Display name (e.g., 'United Kingdom', 'United States')
   defaultDateFormat: text("default_date_format").notNull(), // Default date format preference (ddmmyy, mmddyy)
-  createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertRegionSchema = createInsertSchema(regions).omit({
-  createdAt: true,
-});
+export const insertRegionSchema = createInsertSchema(regions);
 
 export type InsertRegion = z.infer<typeof insertRegionSchema>;
 export type Region = typeof regions.$inferSelect;
