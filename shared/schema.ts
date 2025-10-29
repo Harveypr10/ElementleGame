@@ -162,6 +162,21 @@ export type UserSubscription = typeof userSubscriptions.$inferSelect;
 // REGION GAME MODE TABLES
 // ============================================================================
 
+// Regions table - Available regions/countries for puzzles
+export const regions = pgTable("regions", {
+  code: text("code").primaryKey(), // ISO country code (e.g., 'UK', 'US')
+  name: text("name").notNull(), // Display name (e.g., 'United Kingdom', 'United States')
+  defaultDateFormat: text("default_date_format").notNull(), // Default date format preference (ddmmyy, mmddyy)
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRegionSchema = createInsertSchema(regions).omit({
+  createdAt: true,
+});
+
+export type InsertRegion = z.infer<typeof insertRegionSchema>;
+export type Region = typeof regions.$inferSelect;
+
 // Questions master (region) - Canonical question bank for region mode
 export const questionsMasterRegion = pgTable("questions_master_region", {
   id: serial("id").primaryKey(),
