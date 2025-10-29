@@ -390,6 +390,10 @@ export function PlayPage({
               
               const allGuesses = await response.json();
               console.log('[loadInProgressGame] Fetched all guesses:', allGuesses.length);
+              if (allGuesses.length > 0) {
+                console.log('[loadInProgressGame] First guess structure:', Object.keys(allGuesses[0]));
+                console.log('[loadInProgressGame] First guess:', allGuesses[0]);
+              }
               const attemptGuesses = allGuesses.filter((g: any) => g.gameAttemptId === inProgressAttempt.id);
               console.log('[loadInProgressGame] Filtered guesses for attempt:', attemptGuesses);
               
