@@ -14,6 +14,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Get all available regions
+  app.get("/api/regions", async (req, res) => {
+    try {
+      const regions = await storage.getRegions();
+      res.json(regions);
+    } catch (error) {
+      console.error("Error fetching regions:", error);
+      res.status(500).json({ error: "Failed to fetch regions" });
+    }
+  });
+
   // Server-side signup endpoint - creates both Supabase Auth user and profile
   app.post("/api/auth/signup", async (req, res) => {
     try {
