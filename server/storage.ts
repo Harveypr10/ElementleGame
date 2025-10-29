@@ -1064,8 +1064,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async recalculateUserStatsRegion(userId: string): Promise<UserStatsRegion> {
-    console.log('[recalculateUserStatsRegion] Starting for userId:', userId);
-    
     // Get all completed game attempts for this user in region mode
     const completedAttempts = await db
       .select({
@@ -1087,8 +1085,6 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(questionsAllocatedRegion.puzzleDate);
-    
-    console.log('[recalculateUserStatsRegion] Found', completedAttempts.length, 'won attempts');
 
     // Get lost games
     const lostAttempts = await db
@@ -1139,22 +1135,10 @@ export class DatabaseStorage implements IStorage {
       completedDate.setHours(0, 0, 0, 0);
       puzzleDate.setHours(0, 0, 0, 0);
       
-      console.log('[recalculateUserStatsRegion] Attempt:', {
-        id: attempt.id,
-        result: attempt.result,
-        completedAt: attempt.completedAt,
-        puzzleDate: attempt.puzzleDate,
-        completedDateNormalized: completedDate.toISOString(),
-        puzzleDateNormalized: puzzleDate.toISOString(),
-        datesMatch: completedDate.getTime() === puzzleDate.getTime()
-      });
-      
       if (completedDate.getTime() === puzzleDate.getTime()) {
         dateMap.set(attempt.puzzleDate, attempt.result || '');
       }
     }
-    
-    console.log('[recalculateUserStatsRegion] DateMap built:', Array.from(dateMap.entries()));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1171,8 +1155,6 @@ export class DatabaseStorage implements IStorage {
       const dateStr = checkDate.toISOString().split('T')[0];
       const result = dateMap.get(dateStr);
       
-      console.log('[recalculateUserStatsRegion] Checking date:', dateStr, 'result:', result, 'currentStreak:', currentStreak);
-      
       if (!result) break;
       if (result === 'won') {
         currentStreak++;
@@ -1182,8 +1164,6 @@ export class DatabaseStorage implements IStorage {
       
       checkDate.setDate(checkDate.getDate() - 1);
     }
-    
-    console.log('[recalculateUserStatsRegion] Final currentStreak:', currentStreak);
 
     const sortedDates = Array.from(dateMap.keys()).sort();
     for (let i = 0; i < sortedDates.length; i++) {
