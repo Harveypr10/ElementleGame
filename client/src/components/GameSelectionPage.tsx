@@ -248,7 +248,7 @@ export function GameSelectionPage({
     }
 
     return (
-      <div className="w-full flex-shrink-0" style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
+      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show "Global" title */}
           {isDesktop && isAuthenticated && (
@@ -437,7 +437,7 @@ export function GameSelectionPage({
     }
 
     return (
-      <div className="w-full flex-shrink-0" style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
+      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show "Local" title */}
           {isDesktop && isAuthenticated && (
