@@ -13,7 +13,7 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
-import { parseUserDateWithContext } from "@/lib/dateFormat";
+import { parseUserDateWithContext, formatCanonicalDate as formatCanonicalDateUtil } from "@/lib/dateFormat";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
@@ -118,6 +118,29 @@ export function PlayPage({
 
   // Use locked digits if available, otherwise use user's current preference
   const activeNumDigits = lockedDigits ? parseInt(lockedDigits) : numDigits;
+
+  // Generate active placeholders based on locked digit mode
+  const activePlaceholders = useMemo(() => {
+    const yearDigits = activeNumDigits === 8 ? 4 : 2;
+    const yearPlaceholders = Array(yearDigits).fill('Y');
+    
+    // Respect the user's region preference (DD/MM or MM/DD)
+    if (dateFormat.startsWith('dd')) {
+      return ['D', 'D', 'M', 'M', ...yearPlaceholders];
+    } else {
+      return ['M', 'M', 'D', 'D', ...yearPlaceholders];
+    }
+  }, [activeNumDigits, dateFormat]);
+
+  // Format the answer in the active digit mode
+  const activeFormattedAnswer = useMemo(() => {
+    // Create a date format string that matches the active digit mode
+    const activeFormat = activeNumDigits === 8 
+      ? (dateFormat.startsWith('dd') ? 'ddmmyyyy' : 'mmddyyyy')
+      : (dateFormat.startsWith('dd') ? 'ddmmyy' : 'mmddyy');
+    
+    return formatCanonicalDateUtil(answerDateCanonical, activeFormat as any);
+  }, [answerDateCanonical, activeNumDigits, dateFormat]);
 
   // Check if current input is a valid date (memoized to avoid recomputation)
   const isValidGuess = useMemo(() => {
@@ -505,11 +528,11 @@ export function PlayPage({
     
     for (let i = 0; i < activeNumDigits; i++) {
       const guessDigit = guess[i];
-      const targetDigit = formattedAnswer[i];
+      const targetDigit = activeFormattedAnswer[i];
       
       if (guessDigit === targetDigit) {
         feedback.push({ digit: guessDigit, state: "correct" });
-      } else if (formattedAnswer.includes(guessDigit)) {
+      } else if (activeFormattedAnswer.includes(guessDigit)) {
         const arrow = parseInt(guessDigit) < parseInt(targetDigit) ? "up" : "down";
         feedback.push({ digit: guessDigit, state: "inSequence", arrow });
       } else {
@@ -549,12 +572,12 @@ export function PlayPage({
 
     for (let i = 0; i < activeNumDigits; i++) {
       const guessDigit = guess[i];
-      const targetDigit = formattedAnswer[i];
+      const targetDigit = activeFormattedAnswer[i];
       
       if (guessDigit === targetDigit) {
         feedback.push({ digit: guessDigit, state: "correct" });
         newKeyStates[guessDigit] = "correct";
-      } else if (formattedAnswer.includes(guessDigit)) {
+      } else if (activeFormattedAnswer.includes(guessDigit)) {
         const arrow = parseInt(guessDigit) < parseInt(targetDigit) ? "up" : "down";
         feedback.push({ digit: guessDigit, state: "inSequence", arrow });
         if (newKeyStates[guessDigit] !== "correct") {
@@ -582,7 +605,7 @@ export function PlayPage({
     const feedback = calculateFeedback(currentInput);
     const newGuesses = [...guesses, feedback];
     const newGuessRecords = [...guessRecords, { guessValue: currentInput, feedbackResult: feedback }];
-    const newWrongGuessCount = currentInput !== formattedAnswer ? wrongGuessCount + 1 : wrongGuessCount;
+    const newWrongGuessCount = currentInput !== activeFormattedAnswer ? wrongGuessCount + 1 : wrongGuessCount;
     
     // Convert user input to canonical format for database storage
     const canonicalGuess = parseUserDateWithContext(currentInput, dateFormat, answerDateCanonical);
@@ -629,7 +652,7 @@ export function PlayPage({
       }
     }
 
-    const isWinningGuess = currentInput === formattedAnswer;
+    const isWinningGuess = currentInput === activeFormattedAnswer;
     const isLosingGuess = !isWinningGuess && newGuesses.length >= maxGuesses;
 
     if (isWinningGuess) {
@@ -1039,14 +1062,14 @@ export function PlayPage({
               guesses={guesses}
               currentInput={currentInput}
               maxGuesses={maxGuesses}
-              placeholders={placeholders}
+              placeholders={activePlaceholders}
             />
             
             {gameOver && !isWin && (
               <div className="w-full mt-12">
                 <p className="text-center text-sm text-muted-foreground mb-3">Correct answer:</p>
                 <div className="flex gap-2 justify-center">
-                  {formattedAnswer.split('').map((digit, i) => (
+                  {activeFormattedAnswer.split('').map((digit, i) => (
                     <div
                       key={i}
                       className="flex-1 basis-0 shrink min-h-[56px] sm:min-h-[64px]"
@@ -1088,7 +1111,7 @@ export function PlayPage({
           <div className="w-full max-w-md mx-auto pb-4">
             <NumericKeyboard
               onDigitPress={(digit) => {
-                if (currentInput.length < numDigits) {
+                if (currentInput.length < activeNumDigits) {
                   setCurrentInput(currentInput + digit);
                 }
               }}
