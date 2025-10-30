@@ -63,7 +63,7 @@ export function GameSelectionPage({
   const { profile } = useProfile();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
-  const { containerRef, x, gameMode, snapTo, handleSwiping, handleSwiped, isDesktop } = useModeController();
+  const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController();
   const [showHelp, setShowHelp] = useState(false);
   const playButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -184,6 +184,7 @@ export function GameSelectionPage({
   };
 
   const swipeHandlers = useSwipeable({
+    onSwipeStart: () => handleSwipeStart(),
     onSwiping: (eventData) => handleSwiping(eventData.deltaX),
     onSwiped: (eventData) => {
       const velocity = eventData.velocity;

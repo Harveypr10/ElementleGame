@@ -7,6 +7,7 @@ export function useModeController() {
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState(false);
+  const swipeStartX = useRef<number>(0);
   
   const x = useMotionValue(0);
 
@@ -70,12 +71,17 @@ export function useModeController() {
     }
   }, [gameMode, containerWidth, x, isDesktop]);
 
+  const handleSwipeStart = useCallback(() => {
+    if (isDesktop || containerWidth === 0) return;
+    // Capture the current X position when swipe starts
+    swipeStartX.current = x.get();
+  }, [x, isDesktop, containerWidth]);
+
   const handleSwiping = useCallback((deltaX: number) => {
     if (isDesktop || containerWidth === 0) return;
     
-    const currentX = x.get();
-    // Reversed direction: dragging right (positive deltaX) moves content right (positive x)
-    const newX = Math.min(0, Math.max(-containerWidth, currentX + deltaX));
+    // Apply deltaX directly to the starting position for smooth 1:1 tracking
+    const newX = Math.min(0, Math.max(-containerWidth, swipeStartX.current + deltaX));
     x.set(newX);
   }, [x, containerWidth, isDesktop]);
 
@@ -108,6 +114,7 @@ export function useModeController() {
     x,
     gameMode,
     snapTo,
+    handleSwipeStart,
     handleSwiping,
     handleSwiped,
     isDesktop,
