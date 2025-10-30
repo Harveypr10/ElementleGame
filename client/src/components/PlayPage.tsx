@@ -800,8 +800,9 @@ export function PlayPage({
     try {
       console.log('[createOrGetGameAttempt] POSTing to find or create attempt for puzzleId:', puzzleId);
       
-      // POST to /api/game-attempts - server will find existing open attempt or create new one
-      const res = await apiRequest("POST", "/api/game-attempts", {
+      // POST to mode-aware endpoint - server will find existing open attempt or create new one
+      const endpoint = isLocalMode ? "/api/user/game-attempts" : "/api/game-attempts";
+      const res = await apiRequest("POST", endpoint, {
         puzzleId,
         result: null,
         numGuesses: 0
@@ -833,7 +834,8 @@ export function PlayPage({
         feedbackLength: guess.feedbackResult.length
       });
       
-      const res = await apiRequest("POST", "/api/guesses", {
+      const endpoint = isLocalMode ? "/api/user/guesses" : "/api/guesses";
+      const res = await apiRequest("POST", endpoint, {
         gameAttemptId,
         guessValue: guess.guessValue,
         feedbackResult: guess.feedbackResult
@@ -864,7 +866,8 @@ export function PlayPage({
       });
       
       // Update the game attempt with result and completion time
-      const patchRes = await apiRequest("PATCH", `/api/game-attempts/${gameAttemptId}`, {
+      const patchEndpoint = isLocalMode ? `/api/user/game-attempts/${gameAttemptId}` : `/api/game-attempts/${gameAttemptId}`;
+      const patchRes = await apiRequest("PATCH", patchEndpoint, {
         result: won ? "won" : "lost",
         numGuesses
       });
@@ -879,7 +882,8 @@ export function PlayPage({
 
       // Recalculate stats from database
       console.log('[completeGameAttempt] Recalculating stats...');
-      const recalcRes = await apiRequest("POST", "/api/stats/recalculate");
+      const recalcEndpoint = isLocalMode ? "/api/user/stats/recalculate" : "/api/stats/recalculate";
+      const recalcRes = await apiRequest("POST", recalcEndpoint);
       
       if (!recalcRes.ok) {
         console.error('[completeGameAttempt] Failed to recalculate stats:', recalcRes.status);
@@ -890,15 +894,18 @@ export function PlayPage({
 
       // Invalidate caches to refetch fresh data
       const { queryClient } = await import("@/lib/queryClient");
-      await queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
-      await queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
+      const statsQueryKey = isLocalMode ? ['/api/user/stats'] : ['/api/stats'];
+      const attemptsQueryKey = isLocalMode ? ['/api/user/game-attempts/user'] : ['/api/game-attempts/user'];
+      await queryClient.invalidateQueries({ queryKey: statsQueryKey });
+      await queryClient.invalidateQueries({ queryKey: attemptsQueryKey });
       
       // Pre-load percentile and stats for instant rendering
       try {
         console.log('[completeGameAttempt] Pre-loading percentile and stats...');
         
         // Fetch and cache percentile
-        const percentileRes = await apiRequest("GET", "/api/stats/percentile");
+        const percentileEndpoint = isLocalMode ? "/api/user/stats/percentile" : "/api/stats/percentile";
+        const percentileRes = await apiRequest("GET", percentileEndpoint);
         if (percentileRes.ok) {
           const percentileData = await percentileRes.json();
           writeLocal(CACHE_KEYS.PERCENTILE, percentileData);
@@ -906,7 +913,8 @@ export function PlayPage({
         }
         
         // Fetch and cache stats
-        const statsRes = await apiRequest("GET", "/api/stats");
+        const statsEndpoint = isLocalMode ? "/api/user/stats" : "/api/stats";
+        const statsRes = await apiRequest("GET", statsEndpoint);
         if (statsRes.ok) {
           const statsData = await statsRes.json();
           writeLocal(CACHE_KEYS.STATS, statsData);

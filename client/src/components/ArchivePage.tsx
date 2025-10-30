@@ -52,8 +52,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
       const queryKey = isLocalMode ? ["/api/user/game-attempts/user"] : ["/api/game-attempts/user"];
       queryClient.refetchQueries({ queryKey });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLocalMode]); // Refetch when mode changes or on mount
+  }, [isAuthenticated, isLocalMode, queryClient]);
 
   // Load from cache first for instant rendering
   useEffect(() => {
