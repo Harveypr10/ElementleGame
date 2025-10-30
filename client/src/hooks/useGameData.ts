@@ -118,11 +118,7 @@ export function useGameData() {
   };
 
   const getAllGuesses = async (): Promise<Array<Guess & { puzzleId: number; result: string | null }>> => {
-    console.log("[getAllGuesses] Called, isAuthenticated:", isAuthenticated);
-    if (!isAuthenticated) {
-      console.log("[getAllGuesses] Not authenticated, returning empty array");
-      return [];
-    }
+    console.log("[getAllGuesses] Called, isAuthenticated:", isAuthenticated, "isLocalMode:", isLocalMode);
     try {
       const allGuessesEndpoint = isLocalMode ? "/api/user/guesses/all" : "/api/guesses/all";
       console.log("[getAllGuesses] Fetching from", allGuessesEndpoint);

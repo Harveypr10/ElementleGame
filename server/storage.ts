@@ -200,7 +200,7 @@ export class DatabaseStorage implements IStorage {
       .insert(userProfiles)
       .values(cleanData as InsertUserProfile)
       .onConflictDoUpdate({
-        target: userProfiles.id,
+        target: [userProfiles.id],
         set: {
           ...cleanData,
           updatedAt: new Date(),
@@ -458,7 +458,7 @@ export class DatabaseStorage implements IStorage {
       .insert(userStats)
       .values(statsData)
       .onConflictDoUpdate({
-        target: userStats.userId,
+        target: [userStats.userId],
         set: {
           ...statsData,
           updatedAt: new Date(),
@@ -1114,7 +1114,7 @@ export class DatabaseStorage implements IStorage {
       .insert(userStatsRegion)
       .values(statsData)
       .onConflictDoUpdate({
-        target: userStatsRegion.userId,
+        target: [userStatsRegion.userId],
         set: {
           ...statsData,
           updatedAt: new Date(),
@@ -1748,7 +1748,7 @@ export class DatabaseStorage implements IStorage {
       .insert(userStatsUser)
       .values(statsData)
       .onConflictDoUpdate({
-        target: userStatsUser.userId,
+        target: [userStatsUser.userId],
         set: {
           ...statsData,
           updatedAt: new Date(),
