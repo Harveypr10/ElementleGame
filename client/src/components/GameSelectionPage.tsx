@@ -314,15 +314,10 @@ export function GameSelectionPage({
   // Extract ref from swipeHandlers to avoid duplicate ref warning
   const { ref: swipeRef, ...swipeProps } = swipeHandlers;
 
-  // Pane component to avoid code duplication
-  const renderPane = (mode: 'global' | 'local') => {
-    const isGlobal = mode === 'global';
-    const handlers = {
-      onPlay: isGlobal ? onPlayGame : (onPlayGameLocal || onPlayGame),
-      onArchive: isGlobal ? onViewArchive : (onViewArchiveLocal || onViewArchive),
-      onStats: isGlobal ? onViewStats : (onViewStatsLocal || onViewStats),
-      onOptions: isGlobal ? onOpenOptions : (onOpenOptionsLocal || onOpenOptions),
-    };
+  // Render Global Pane
+  const renderGlobalPane = () => {
+    const playContentGlobal = getPlayButtonContent();
+    const totalGamesGlobal = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
 
     return (
       <div className="w-full flex-shrink-0 px-4" style={{ width: isDesktop ? '50%' : '100%' }}>
@@ -343,44 +338,43 @@ export function GameSelectionPage({
             );
           })()}
 
-          {/* Buttons */}
           <div className="flex flex-col items-stretch space-y-4 mt-1">
-            {/* Play button */}
+            {/* Play Today's Puzzle (Global) */}
             <motion.button
-              ref={isGlobal ? playButtonRef : null}
+              ref={playButtonRef}
               className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
               style={{ backgroundColor: "#7DAAE8" }}
-              onClick={handlers.onPlay}
-              data-testid={isGlobal ? "button-play" : "button-play-local"}
+              onClick={onPlayGame}
+              data-testid="button-play"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">
-                  {playContent.title}
+                  {playContentGlobal.title}
                 </span>
-                {playContent.subtitle && (
+                {playContentGlobal.subtitle && (
                   <span className="text-sm font-medium text-gray-700 mt-0.5">
-                    {playContent.subtitle}
+                    {playContentGlobal.subtitle}
                   </span>
                 )}
               </div>
               <div className="flex-shrink-0 flex items-center">
                 <img
-                  src={playContent.image}
-                  alt={playContent.title}
+                  src={playContentGlobal.image}
+                  alt={playContentGlobal.title}
                   className="max-h-20 w-auto object-contain"
                 />
               </div>
             </motion.button>
 
-            {/* Archive button */}
+            {/* Archive (Global) */}
             <motion.button
               className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
               style={{ backgroundColor: "#FFD429" }}
-              onClick={handlers.onArchive}
-              data-testid={isGlobal ? "button-archive" : "button-archive-local"}
+              onClick={onViewArchive}
+              data-testid="button-archive"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
@@ -388,7 +382,7 @@ export function GameSelectionPage({
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">Archive</span>
                 <span className="text-sm font-medium text-gray-700 mt-0.5">
-                  {totalGames} total games played
+                  {totalGamesGlobal} total games played
                 </span>
               </div>
               <div className="flex-shrink-0 flex items-center">
@@ -400,136 +394,168 @@ export function GameSelectionPage({
               </div>
             </motion.button>
 
-            {/* Stats + Options row - responsive layout */}
-            {isDesktop ? (
-              // Desktop: Show all three buttons in full width
-              <div className="flex space-x-4">
-                {isGlobal ? (
-                  // Global Stats on left in Global pane
-                  <motion.button
-                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                    style={{ backgroundColor: "#A4DB57" }}
-                    onClick={handlers.onStats}
-                    data-testid="button-stats"
-                    layout
-                    transition={{ duration: 0.25 }}
-                  >
-                    <span className="text-xl font-bold text-gray-800 text-center">
-                      Global Stats
-                    </span>
-                    <img
-                      src={mathsHamsterGreen}
-                      alt="Global Stats"
-                      className="max-h-[72px] w-auto object-contain mt-4"
-                    />
-                  </motion.button>
-                ) : (
-                  // Local Stats on right in Local pane
-                  <motion.button
-                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                    style={{ backgroundColor: "#A4DB57" }}
-                    onClick={handlers.onStats}
-                    data-testid="button-stats-local"
-                    layout
-                    transition={{ duration: 0.25 }}
-                  >
-                    <span className="text-xl font-bold text-gray-800 text-center">
-                      Local Stats
-                    </span>
-                    <img
-                      src={mathsHamsterGreen}
-                      alt="Local Stats"
-                      className="max-h-[72px] w-auto object-contain mt-4"
-                    />
-                  </motion.button>
-                )}
-              </div>
-            ) : (
-              // Mobile: Stats + Options OR Options + Local Stats
-              <motion.div className="flex space-x-4" layout>
-                {isGlobal ? (
-                  <>
-                    {/* Global Stats */}
-                    <motion.button
-                      className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                      style={{ backgroundColor: "#A4DB57" }}
-                      onClick={handlers.onStats}
-                      data-testid="button-stats"
-                      layout
-                      transition={{ duration: 0.25 }}
-                    >
-                      <span className="text-xl font-bold text-gray-800 text-center">
-                        Global Stats
-                      </span>
-                      <img
-                        src={mathsHamsterGreen}
-                        alt="Global Stats"
-                        className="max-h-[72px] w-auto object-contain mt-4"
-                      />
-                    </motion.button>
-                    {/* Options */}
-                    <motion.button
-                      className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                      style={{ backgroundColor: "#C4C9D4" }}
-                      onClick={handlers.onOptions}
-                      data-testid="button-options"
-                      layout
-                      transition={{ duration: 0.25 }}
-                    >
-                      <span className="text-xl font-bold text-gray-800 text-center">
-                        Options
-                      </span>
-                      <img
-                        src={mechanicHamsterGrey}
-                        alt="Options"
-                        className="max-h-[72px] w-auto object-contain mt-4"
-                      />
-                    </motion.button>
-                  </>
-                ) : (
-                  <>
-                    {/* Options (moved left) */}
-                    <motion.button
-                      className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                      style={{ backgroundColor: "#C4C9D4" }}
-                      onClick={handlers.onOptions}
-                      data-testid="button-options-local"
-                      layout
-                      transition={{ duration: 0.25 }}
-                    >
-                      <span className="text-xl font-bold text-gray-800 text-center">
-                        Options
-                      </span>
-                      <img
-                        src={mechanicHamsterGrey}
-                        alt="Options"
-                        className="max-h-[72px] w-auto object-contain mt-4"
-                      />
-                    </motion.button>
-                    {/* Local Stats */}
-                    <motion.button
-                      className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                      style={{ backgroundColor: "#A4DB57" }}
-                      onClick={handlers.onStats}
-                      data-testid="button-stats-local"
-                      layout
-                      transition={{ duration: 0.25 }}
-                    >
-                      <span className="text-xl font-bold text-gray-800 text-center">
-                        Local Stats
-                      </span>
-                      <img
-                        src={mathsHamsterGreen}
-                        alt="Local Stats"
-                        className="max-h-[72px] w-auto object-contain mt-4"
-                      />
-                    </motion.button>
-                  </>
-                )}
-              </motion.div>
-            )}
+            {/* Global Stats + Options */}
+            <motion.div className="flex space-x-4" layout>
+              <motion.button
+                className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                style={{ backgroundColor: "#A4DB57" }}
+                onClick={onViewStats}
+                data-testid="button-stats"
+                layout
+                transition={{ duration: 0.25 }}
+              >
+                <span className="text-xl font-bold text-gray-800 text-center">
+                  Global Stats
+                </span>
+                <img
+                  src={mathsHamsterGreen}
+                  alt="Global Stats"
+                  className="max-h-[72px] w-auto object-contain mt-4"
+                />
+              </motion.button>
 
-            {/* Invisible spacer */}
+              <motion.button
+                className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                style={{ backgroundColor: "#C4C9D4" }}
+                onClick={onOpenOptions || onOpenOptionsLocal}
+                data-testid="button-options"
+                layout
+                transition={{ duration: 0.25 }}
+              >
+                <span className="text-xl font-bold text-gray-800 text-center">
+                  Options
+                </span>
+                <img
+                  src={mechanicHamsterGrey}
+                  alt="Options"
+                  className="max-h-[72px] w-auto object-contain mt-4"
+                />
+              </motion.button>
+            </motion.div>
+
+            <div className="h-24" />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render Local Pane
+  const renderLocalPane = () => {
+    // Use gameAttempts for now - will fetch correct data based on mode
+    const totalGamesLocal = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
+
+    return (
+      <div className="w-full flex-shrink-0 px-4" style={{ width: isDesktop ? '50%' : '100%' }}>
+        <div className="max-w-md mx-auto w-full">
+          {/* Intro message - same for both modes */}
+          {(() => {
+            const introMessage = getIntroMessage();
+            if (!introMessage) return null;
+            return (
+              <div className="text-center mb-6" data-testid="intro-message">
+                <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
+                  {introMessage.firstLine}
+                </div>
+                <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
+                  {introMessage.secondLine}
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="flex flex-col items-stretch space-y-4 mt-1">
+            {/* Play Today's Puzzle (Local) */}
+            <motion.button
+              className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+              style={{ backgroundColor: "#7DAAE8" }}
+              onClick={onPlayGameLocal || onPlayGame}
+              data-testid="button-play-local"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              <div className="flex flex-col items-start justify-center text-left">
+                <span className="text-xl font-bold text-gray-800">
+                  Play today's puzzle
+                </span>
+                <span className="text-sm font-medium text-gray-700 mt-0.5">
+                  Local mode
+                </span>
+              </div>
+              <div className="flex-shrink-0 flex items-center">
+                <img
+                  src={historianHamsterBlue}
+                  alt="Play Local Puzzle"
+                  className="max-h-20 w-auto object-contain"
+                />
+              </div>
+            </motion.button>
+
+            {/* Archive (Local) */}
+            <motion.button
+              className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+              style={{ backgroundColor: "#FFD429" }}
+              onClick={onViewArchiveLocal || onViewArchive}
+              data-testid="button-archive-local"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
+            >
+              <div className="flex flex-col items-start justify-center text-left">
+                <span className="text-xl font-bold text-gray-800">Archive</span>
+                <span className="text-sm font-medium text-gray-700 mt-0.5">
+                  {totalGamesLocal} total games played
+                </span>
+              </div>
+              <div className="flex-shrink-0 flex items-center">
+                <img
+                  src={librarianHamsterYellow}
+                  alt="Archive"
+                  className="max-h-20 w-auto object-contain"
+                />
+              </div>
+            </motion.button>
+
+            {/* Options + Local Stats */}
+            <motion.div className="flex space-x-4" layout>
+              <motion.button
+                className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                style={{ backgroundColor: "#C4C9D4" }}
+                onClick={onOpenOptionsLocal || onOpenOptions}
+                data-testid="button-options-local"
+                layout
+                transition={{ duration: 0.25 }}
+              >
+                <span className="text-xl font-bold text-gray-800 text-center">
+                  Options
+                </span>
+                <img
+                  src={mechanicHamsterGrey}
+                  alt="Options"
+                  className="max-h-[72px] w-auto object-contain mt-4"
+                />
+              </motion.button>
+
+              <motion.button
+                className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                style={{ backgroundColor: "#A4DB57" }}
+                onClick={onViewStatsLocal || onViewStats}
+                data-testid="button-stats-local"
+                layout
+                transition={{ duration: 0.25 }}
+              >
+                <span className="text-xl font-bold text-gray-800 text-center">
+                  Local Stats
+                </span>
+                <img
+                  src={mathsHamsterGreen}
+                  alt="Local Stats"
+                  className="max-h-[72px] w-auto object-contain mt-4"
+                />
+              </motion.button>
+            </motion.div>
+
             <div className="h-24" />
           </div>
         </div>
@@ -611,10 +637,10 @@ export function GameSelectionPage({
             }}
           >
             {/* Global Pane */}
-            {renderPane('global')}
+            {renderGlobalPane()}
 
             {/* Local Pane */}
-            {renderPane('local')}
+            {renderLocalPane()}
           </motion.div>
         </div>
       </div>
