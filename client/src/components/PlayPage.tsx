@@ -114,6 +114,7 @@ export function PlayPage({
   const [currentGameAttemptId, setCurrentGameAttemptId] = useState<number | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
   const [lockedDigits, setLockedDigits] = useState<string | null>(null);
+  const [digitsCheckComplete, setDigitsCheckComplete] = useState(false);
 
   // Use locked digits if available, otherwise use user's current preference
   const activeNumDigits = lockedDigits ? parseInt(lockedDigits) : numDigits;
@@ -150,6 +151,7 @@ export function PlayPage({
     setCurrentGameAttemptId(null);
     setShowEndModal(false);
     setLockedDigits(null);
+    setDigitsCheckComplete(false);
   }, [answerDateCanonical]);
 
   // Check if puzzle is already completed and redirect if needed
@@ -171,6 +173,13 @@ export function PlayPage({
             // Defensive normalization: handle both "won"/"lost" (current) and "win"/"loss" (legacy)
             const isWinResult = completedAttempt.result === "won" || completedAttempt.result === "win";
             setIsWin(isWinResult);
+            
+            // Lock digit mode from the completed attempt if it's set
+            if ((completedAttempt as any).digits) {
+              console.log('[loadCompletedPuzzle] Locking digit mode to:', (completedAttempt as any).digits);
+              setLockedDigits((completedAttempt as any).digits);
+            }
+            setDigitsCheckComplete(true);
             
             // Try to load guesses from cache first for faster loading
             const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId) : null;
@@ -214,6 +223,9 @@ export function PlayPage({
               }
               setGuessRecords(records);
             }
+          } else if (mounted) {
+            // No completed attempt found for authenticated users
+            setDigitsCheckComplete(true);
           }
         } else {
           // For guest users, check localStorage
@@ -232,6 +244,10 @@ export function PlayPage({
                 setGuessRecords(completion.guesses);
               }
             }
+          }
+          // For guest users, always mark digits check complete (no database to check)
+          if (mounted) {
+            setDigitsCheckComplete(true);
           }
         }
       }
@@ -261,6 +277,12 @@ export function PlayPage({
             // Defensive normalization: handle both "won"/"lost" (current) and "win"/"loss" (legacy)
             const isWinResult = completedAttempt.result === "won" || completedAttempt.result === "win";
             setIsWin(isWinResult);
+            
+            // Lock digit mode from the completed attempt if it's set
+            if ((completedAttempt as any).digits) {
+              console.log('[loadViewOnlyPuzzle] Locking digit mode to:', (completedAttempt as any).digits);
+              setLockedDigits((completedAttempt as any).digits);
+            }
             
             // Try to load guesses from cache first for faster loading
             const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId) : null;
@@ -375,6 +397,7 @@ export function PlayPage({
               console.log('[loadInProgressGame] Locking digit mode to:', (inProgressAttempt as any).digits);
               setLockedDigits((inProgressAttempt as any).digits);
             }
+            setDigitsCheckComplete(true);
             
             // Load guesses from unified dataset by calling API directly with auth
             console.log('[loadInProgressGame] Loading guesses for attemptId:', inProgressAttempt.id);
@@ -439,6 +462,9 @@ export function PlayPage({
             } catch (error) {
               console.error('[loadInProgressGame] Error loading guesses:', error);
             }
+          } else if (mounted) {
+            // No in-progress attempt found for authenticated users
+            setDigitsCheckComplete(true);
           }
         } else if (!isAuthenticated) {
           // For guest users, load from localStorage
@@ -458,6 +484,10 @@ export function PlayPage({
                 setKeyStates(progress.keyStates);
               }
             }
+          }
+          // For guest users, always mark digits check complete (no database to check)
+          if (mounted) {
+            setDigitsCheckComplete(true);
           }
         }
       }
@@ -934,9 +964,9 @@ export function PlayPage({
     setWrongGuessCount(0);
   };
 
-  // Show loading state until date format is ready
+  // Show loading state until date format and digit mode are ready
   // This prevents the grid from rendering in the wrong format and then flipping
-  if (formatLoading) {
+  if (formatLoading || !digitsCheckComplete) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <div className="text-center">
