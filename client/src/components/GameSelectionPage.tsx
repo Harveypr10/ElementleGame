@@ -322,21 +322,24 @@ export function GameSelectionPage({
     return (
       <div className="w-full flex-shrink-0 px-4" style={{ width: isDesktop ? '50%' : '100%' }}>
         <div className="max-w-md mx-auto w-full">
-          {/* Intro message */}
-          {(() => {
-            const introMessage = getIntroMessage();
-            if (!introMessage) return null;
-            return (
-              <div className="text-center mb-6" data-testid="intro-message">
-                <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
-                  {introMessage.firstLine}
-                </div>
-                <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
-                  {introMessage.secondLine}
-                </div>
+          {/* Desktop: Show "Global" title */}
+          {isDesktop && isAuthenticated && (
+            <div className="text-center mb-4">
+              <h2 className="text-2xl font-bold text-foreground">Global</h2>
+            </div>
+          )}
+          
+          {/* Mobile: Show intro message */}
+          {!isDesktop && isAuthenticated && getIntroMessage() && (
+            <div className="text-center mb-6" data-testid="intro-message">
+              <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
+                {getIntroMessage()?.firstLine}
               </div>
-            );
-          })()}
+              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
+                {getIntroMessage()?.secondLine}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col items-stretch space-y-4 mt-1">
             {/* Play Today's Puzzle (Global) */}
@@ -417,7 +420,7 @@ export function GameSelectionPage({
               <motion.button
                 className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                 style={{ backgroundColor: "#C4C9D4" }}
-                onClick={onOpenOptions || onOpenOptionsLocal}
+                onClick={onOpenOptions}
                 data-testid="button-options"
                 layout
                 transition={{ duration: 0.25 }}
@@ -448,28 +451,31 @@ export function GameSelectionPage({
     return (
       <div className="w-full flex-shrink-0 px-4" style={{ width: isDesktop ? '50%' : '100%' }}>
         <div className="max-w-md mx-auto w-full">
-          {/* Intro message - same for both modes */}
-          {(() => {
-            const introMessage = getIntroMessage();
-            if (!introMessage) return null;
-            return (
-              <div className="text-center mb-6" data-testid="intro-message">
-                <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
-                  {introMessage.firstLine}
-                </div>
-                <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
-                  {introMessage.secondLine}
-                </div>
+          {/* Desktop: Show "Local" title */}
+          {isDesktop && isAuthenticated && (
+            <div className="text-center mb-4">
+              <h2 className="text-2xl font-bold text-foreground">Local</h2>
+            </div>
+          )}
+          
+          {/* Mobile: Show intro message */}
+          {!isDesktop && isAuthenticated && getIntroMessage() && (
+            <div className="text-center mb-6" data-testid="intro-message-local">
+              <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+                {getIntroMessage()?.firstLine}
               </div>
-            );
-          })()}
+              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+                {getIntroMessage()?.secondLine}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col items-stretch space-y-4 mt-1">
             {/* Play Today's Puzzle (Local) */}
             <motion.button
               className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
               style={{ backgroundColor: "#7DAAE8" }}
-              onClick={onPlayGameLocal || onPlayGame}
+              onClick={onPlayGameLocal}
               data-testid="button-play-local"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -496,7 +502,7 @@ export function GameSelectionPage({
             <motion.button
               className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
               style={{ backgroundColor: "#FFD429" }}
-              onClick={onViewArchiveLocal || onViewArchive}
+              onClick={onViewArchiveLocal}
               data-testid="button-archive-local"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -522,7 +528,7 @@ export function GameSelectionPage({
               <motion.button
                 className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                 style={{ backgroundColor: "#C4C9D4" }}
-                onClick={onOpenOptionsLocal || onOpenOptions}
+                onClick={onOpenOptionsLocal}
                 data-testid="button-options-local"
                 layout
                 transition={{ duration: 0.25 }}
@@ -540,7 +546,7 @@ export function GameSelectionPage({
               <motion.button
                 className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                 style={{ backgroundColor: "#A4DB57" }}
-                onClick={onViewStatsLocal || onViewStats}
+                onClick={onViewStatsLocal}
                 data-testid="button-stats-local"
                 layout
                 transition={{ duration: 0.25 }}
@@ -602,9 +608,25 @@ export function GameSelectionPage({
           </div>
           
           {isAuthenticated && (
-            <div className="flex justify-center mb-4">
-              <ModeToggle onModeChange={(mode) => snapTo(mode)} />
-            </div>
+            <>
+              {/* Mobile: Show toggle */}
+              {!isDesktop && (
+                <div className="flex justify-center mb-4">
+                  <ModeToggle onModeChange={(mode) => snapTo(mode)} />
+                </div>
+              )}
+              
+              {/* Desktop: Show greeting */}
+              {isDesktop && (
+                <div className="flex justify-center mb-4">
+                  <div className="text-center">
+                    <div className="text-xl font-semibold text-foreground">
+                      {getGreeting()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
