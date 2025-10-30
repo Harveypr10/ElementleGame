@@ -39,7 +39,7 @@ export default function Home() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
-  const { isLocalMode } = useGameMode();
+  const { isLocalMode, setGameMode } = useGameMode();
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -178,6 +178,52 @@ export default function Home() {
     setCurrentScreen("play");
   };
 
+  // Global mode handlers (always use region data)
+  const handlePlayGlobal = () => {
+    setGameMode('global');
+    handlePlayToday();
+  };
+
+  const handleStatsGlobal = () => {
+    setGameMode('global');
+    setStatsReturnScreen("selection");
+    setCurrentScreen("stats");
+  };
+
+  const handleArchiveGlobal = () => {
+    setGameMode('global');
+    setCurrentScreen("archive");
+  };
+
+  const handleOptionsGlobal = () => {
+    setGameMode('global');
+    setPreviousScreen("selection");
+    setCurrentScreen("options");
+  };
+
+  // Local mode handlers (always use user data)
+  const handlePlayLocal = () => {
+    setGameMode('local');
+    handlePlayToday();
+  };
+
+  const handleStatsLocal = () => {
+    setGameMode('local');
+    setStatsReturnScreen("selection");
+    setCurrentScreen("stats");
+  };
+
+  const handleArchiveLocal = () => {
+    setGameMode('local');
+    setCurrentScreen("archive");
+  };
+
+  const handleOptionsLocal = () => {
+    setGameMode('local');
+    setPreviousScreen("selection");
+    setCurrentScreen("options");
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -231,30 +277,18 @@ export default function Home() {
 
       {currentScreen === "selection" && (
         <GameSelectionPage 
-          onPlayGame={handlePlayToday}
-          onViewStats={() => {
-            setStatsReturnScreen("selection");
-            setCurrentScreen("stats");
-          }}
-          onViewArchive={() => setCurrentScreen("archive")}
+          onPlayGame={handlePlayGlobal}
+          onViewStats={handleStatsGlobal}
+          onViewArchive={handleArchiveGlobal}
           onOpenSettings={() => setCurrentScreen("settings")}
-          onOpenOptions={() => {
-            setPreviousScreen("selection");
-            setCurrentScreen("options");
-          }}
+          onOpenOptions={handleOptionsGlobal}
           onLogin={() => setCurrentScreen("login")}
           todayPuzzleId={getDailyPuzzle()?.id}
           todayPuzzleAnswerDateCanonical={getDailyPuzzle()?.answerDateCanonical}
-          onPlayGameLocal={handlePlayToday}
-          onViewStatsLocal={() => {
-            setStatsReturnScreen("selection");
-            setCurrentScreen("stats");
-          }}
-          onViewArchiveLocal={() => setCurrentScreen("archive")}
-          onOpenOptionsLocal={() => {
-            setPreviousScreen("selection");
-            setCurrentScreen("options");
-          }}
+          onPlayGameLocal={handlePlayLocal}
+          onViewStatsLocal={handleStatsLocal}
+          onViewArchiveLocal={handleArchiveLocal}
+          onOpenOptionsLocal={handleOptionsLocal}
         />
       )}
 
