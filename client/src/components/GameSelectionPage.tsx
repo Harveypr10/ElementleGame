@@ -397,58 +397,15 @@ export function GameSelectionPage({
               </div>
             </motion.button>
 
-            {/* Mobile only: Global Stats (left) + Options (right) */}
-            {!isDesktop && gameMode === 'global' && (
-              <motion.div className="flex space-x-4" layout>
-                <motion.button
-                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#A4DB57" }}
-                  onClick={onViewStats}
-                  data-testid="button-stats"
-                  layout
-                  transition={{ duration: 0.3 }}
-                  key="global-stats"
-                >
-                  <span className="text-xl font-bold text-gray-800 text-center">
-                    Global Stats
-                  </span>
-                  <img
-                    src={mathsHamsterGreen}
-                    alt="Global Stats"
-                    className="max-h-[72px] w-auto object-contain mt-4"
-                  />
-                </motion.button>
-
-                <motion.button
-                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#C4C9D4" }}
-                  onClick={onOpenOptions}
-                  data-testid="button-options"
-                  layout
-                  transition={{ duration: 0.3 }}
-                  key="options-global"
-                >
-                  <span className="text-xl font-bold text-gray-800 text-center">
-                    Options
-                  </span>
-                  <img
-                    src={mechanicHamsterGrey}
-                    alt="Options"
-                    className="max-h-[72px] w-auto object-contain mt-4"
-                  />
-                </motion.button>
-              </motion.div>
-            )}
-            
-            {/* Desktop only: Just Global Stats */}
-            {isDesktop && (
+            {/* Mobile only: Global Stats button */}
+            {!isDesktop && (
               <motion.button
                 className="w-full h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                 style={{ backgroundColor: "#A4DB57" }}
                 onClick={onViewStats}
-                data-testid="button-stats"
+                data-testid="button-stats-global"
                 layout
-                transition={{ duration: 0.25 }}
+                transition={{ duration: 0.3 }}
               >
                 <span className="text-xl font-bold text-gray-800 text-center">
                   Global Stats
@@ -548,58 +505,15 @@ export function GameSelectionPage({
               </div>
             </motion.button>
 
-            {/* Mobile only: Options (left) + Local Stats (right) */}
-            {!isDesktop && gameMode === 'local' && (
-              <motion.div className="flex space-x-4" layout>
-                <motion.button
-                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#C4C9D4" }}
-                  onClick={onOpenOptionsLocal}
-                  data-testid="button-options-local"
-                  layout
-                  transition={{ duration: 0.3 }}
-                  key="options-local"
-                >
-                  <span className="text-xl font-bold text-gray-800 text-center">
-                    Options
-                  </span>
-                  <img
-                    src={mechanicHamsterGrey}
-                    alt="Options"
-                    className="max-h-[72px] w-auto object-contain mt-4"
-                  />
-                </motion.button>
-
-                <motion.button
-                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#A4DB57" }}
-                  onClick={onViewStatsLocal}
-                  data-testid="button-stats-local"
-                  layout
-                  transition={{ duration: 0.3 }}
-                  key="local-stats"
-                >
-                  <span className="text-xl font-bold text-gray-800 text-center">
-                    Local Stats
-                  </span>
-                  <img
-                    src={mathsHamsterGreen}
-                    alt="Local Stats"
-                    className="max-h-[72px] w-auto object-contain mt-4"
-                  />
-                </motion.button>
-              </motion.div>
-            )}
-            
-            {/* Desktop only: Just Local Stats */}
-            {isDesktop && (
+            {/* Mobile only: Local Stats button */}
+            {!isDesktop && (
               <motion.button
                 className="w-full h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                 style={{ backgroundColor: "#A4DB57" }}
                 onClick={onViewStatsLocal}
                 data-testid="button-stats-local"
                 layout
-                transition={{ duration: 0.25 }}
+                transition={{ duration: 0.3 }}
               >
                 <span className="text-xl font-bold text-gray-800 text-center">
                   Local Stats
@@ -684,76 +598,214 @@ export function GameSelectionPage({
       {/* Sliding Viewport Container */}
       <div className="flex-grow overflow-hidden relative">
         {isDesktop ? (
-          /* Desktop: Side-by-side layout with minimal gap */
-          <div className="h-full w-full relative">
-            <div className="h-full w-full flex gap-2 px-4">
-              {/* Global Pane - No Options button */}
-              <div className="flex-1 flex flex-col">
+          /* Desktop: Side-by-side layout centered around middle */
+          <div className="h-full w-full flex flex-col">
+            {/* Panes Container */}
+            <div className="flex-grow flex justify-center gap-2 px-4 overflow-hidden">
+              {/* Global Pane */}
+              <div className="w-full max-w-md flex flex-col">
                 {renderGlobalPane()}
               </div>
               
-              {/* Local Pane - No Options button */}
-              <div className="flex-1 flex flex-col">
+              {/* Local Pane */}
+              <div className="w-full max-w-md flex flex-col">
                 {renderLocalPane()}
               </div>
             </div>
             
-            {/* Desktop: Spanning Options Button */}
+            {/* Desktop: Three equal-width bottom buttons spanning both panes */}
             {isAuthenticated && (
-              <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10">
-                <motion.button
-                  className="h-40 w-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-lg hover:shadow-xl"
-                  style={{ backgroundColor: "#C4C9D4" }}
-                  onClick={onOpenOptions}
-                  data-testid="button-options-desktop"
-                  layout
-                  transition={{ duration: 0.25 }}
-                >
-                  <span className="text-xl font-bold text-gray-800 text-center">
-                    Options
-                  </span>
-                  <img
-                    src={mechanicHamsterGrey}
-                    alt="Options"
-                    className="max-h-[72px] w-auto object-contain mt-4"
-                  />
-                </motion.button>
+              <div className="flex-shrink-0 px-4 pb-24">
+                <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto flex gap-4">
+                  <motion.button
+                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    style={{ backgroundColor: "#A4DB57" }}
+                    onClick={onViewStats}
+                    data-testid="button-stats-desktop-global"
+                    layout
+                    transition={{ duration: 0.25 }}
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      Global Stats
+                    </span>
+                    <img
+                      src={mathsHamsterGreen}
+                      alt="Global Stats"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
+
+                  <motion.button
+                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    style={{ backgroundColor: "#C4C9D4" }}
+                    onClick={onOpenOptions}
+                    data-testid="button-options-desktop"
+                    layout
+                    transition={{ duration: 0.25 }}
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      Options
+                    </span>
+                    <img
+                      src={mechanicHamsterGrey}
+                      alt="Options"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
+
+                  <motion.button
+                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    style={{ backgroundColor: "#A4DB57" }}
+                    onClick={onViewStatsLocal}
+                    data-testid="button-stats-desktop-local"
+                    layout
+                    transition={{ duration: 0.25 }}
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      Local Stats
+                    </span>
+                    <img
+                      src={mathsHamsterGreen}
+                      alt="Local Stats"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
+                </div>
               </div>
             )}
           </div>
         ) : (
-          /* Mobile: Swipeable panes */
-          <div 
-            ref={(node) => {
-              // Set containerRef from hook
-              if (containerRef && 'current' in containerRef) {
-                (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-              }
-              // Set swipeRef
-              if (swipeRef) {
-                if (typeof swipeRef === 'function') {
-                  swipeRef(node);
-                } else if ('current' in swipeRef) {
-                  (swipeRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          /* Mobile: Swipeable panes with fixed Options button */
+          <div className="h-full w-full flex flex-col">
+            {/* Swipeable Content */}
+            <div 
+              ref={(node) => {
+                // Set containerRef from hook
+                if (containerRef && 'current' in containerRef) {
+                  (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
                 }
-              }
-            }}
-            className="h-full w-full overflow-hidden"
-            {...swipeProps}
-          >
-            <motion.div
-              className="flex h-full"
-              style={{ 
-                x: x,
-                width: '200%'
+                // Set swipeRef
+                if (swipeRef) {
+                  if (typeof swipeRef === 'function') {
+                    swipeRef(node);
+                  } else if ('current' in swipeRef) {
+                    (swipeRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+                  }
+                }
               }}
+              className="flex-grow overflow-hidden"
+              {...swipeProps}
             >
-              {/* Global Pane */}
-              {renderGlobalPane()}
+              <motion.div
+                className="flex h-full"
+                style={{ 
+                  x: x,
+                  width: '200%'
+                }}
+              >
+                {/* Global Pane */}
+                {renderGlobalPane()}
 
-              {/* Local Pane */}
-              {renderLocalPane()}
-            </motion.div>
+                {/* Local Pane */}
+                {renderLocalPane()}
+              </motion.div>
+            </div>
+
+            {/* Mobile: Fixed Options button that shifts position */}
+            {isAuthenticated && (
+              <div className="flex-shrink-0 px-4 pb-24">
+                <div className="max-w-md mx-auto">
+                  <motion.div 
+                    className="flex gap-4"
+                    layout
+                  >
+                    {/* Global mode: Stats on left, Options on right */}
+                    {gameMode === 'global' ? (
+                      <>
+                        <motion.button
+                          className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                          style={{ backgroundColor: "#A4DB57" }}
+                          onClick={onViewStats}
+                          data-testid="button-stats-mobile-global"
+                          layout
+                          layoutId="stats-button"
+                          transition={{ duration: 0.3 }}
+                        >
+                          <span className="text-xl font-bold text-gray-800 text-center">
+                            Global Stats
+                          </span>
+                          <img
+                            src={mathsHamsterGreen}
+                            alt="Global Stats"
+                            className="max-h-[72px] w-auto object-contain mt-4"
+                          />
+                        </motion.button>
+
+                        <motion.button
+                          className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                          style={{ backgroundColor: "#C4C9D4" }}
+                          onClick={onOpenOptions}
+                          data-testid="button-options-mobile"
+                          layout
+                          layoutId="options-button"
+                          transition={{ duration: 0.3 }}
+                        >
+                          <span className="text-xl font-bold text-gray-800 text-center">
+                            Options
+                          </span>
+                          <img
+                            src={mechanicHamsterGrey}
+                            alt="Options"
+                            className="max-h-[72px] w-auto object-contain mt-4"
+                          />
+                        </motion.button>
+                      </>
+                    ) : (
+                      /* Local mode: Options on left, Stats on right */
+                      <>
+                        <motion.button
+                          className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                          style={{ backgroundColor: "#C4C9D4" }}
+                          onClick={onOpenOptionsLocal}
+                          data-testid="button-options-mobile"
+                          layout
+                          layoutId="options-button"
+                          transition={{ duration: 0.3 }}
+                        >
+                          <span className="text-xl font-bold text-gray-800 text-center">
+                            Options
+                          </span>
+                          <img
+                            src={mechanicHamsterGrey}
+                            alt="Options"
+                            className="max-h-[72px] w-auto object-contain mt-4"
+                          />
+                        </motion.button>
+
+                        <motion.button
+                          className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                          style={{ backgroundColor: "#A4DB57" }}
+                          onClick={onViewStatsLocal}
+                          data-testid="button-stats-mobile-local"
+                          layout
+                          layoutId="stats-button"
+                          transition={{ duration: 0.3 }}
+                        >
+                          <span className="text-xl font-bold text-gray-800 text-center">
+                            Local Stats
+                          </span>
+                          <img
+                            src={mathsHamsterGreen}
+                            alt="Local Stats"
+                            className="max-h-[72px] w-auto object-contain mt-4"
+                          />
+                        </motion.button>
+                      </>
+                    )}
+                  </motion.div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
