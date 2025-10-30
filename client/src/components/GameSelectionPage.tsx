@@ -320,7 +320,7 @@ export function GameSelectionPage({
     const totalGamesGlobal = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
 
     return (
-      <div className="w-full flex-shrink-0 px-4" style={{ width: isDesktop ? '50%' : '100%' }}>
+      <div className="w-full flex-shrink-0" style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show "Global" title */}
           {isDesktop && isAuthenticated && (
@@ -431,7 +431,7 @@ export function GameSelectionPage({
     const totalGamesLocal = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
 
     return (
-      <div className="w-full flex-shrink-0 px-4" style={{ width: isDesktop ? '50%' : '100%' }}>
+      <div className="w-full flex-shrink-0" style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show "Local" title */}
           {isDesktop && isAuthenticated && (
@@ -616,7 +616,7 @@ export function GameSelectionPage({
             {/* Desktop: Three equal-width bottom buttons spanning both panes */}
             {isAuthenticated && (
               <div className="flex-shrink-0 px-4 pb-24">
-                <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto flex gap-4">
+                <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto flex gap-2">
                   <motion.button
                     className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                     style={{ backgroundColor: "#A4DB57" }}
