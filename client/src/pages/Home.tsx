@@ -245,6 +245,16 @@ export default function Home() {
           onLogin={() => setCurrentScreen("login")}
           todayPuzzleId={getDailyPuzzle()?.id}
           todayPuzzleAnswerDateCanonical={getDailyPuzzle()?.answerDateCanonical}
+          onPlayGameLocal={handlePlayToday}
+          onViewStatsLocal={() => {
+            setStatsReturnScreen("selection");
+            setCurrentScreen("stats");
+          }}
+          onViewArchiveLocal={() => setCurrentScreen("archive")}
+          onOpenOptionsLocal={() => {
+            setPreviousScreen("selection");
+            setCurrentScreen("options");
+          }}
         />
       )}
 

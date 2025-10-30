@@ -318,6 +318,7 @@ export function GameSelectionPage({
   const renderGlobalPane = () => {
     const playContentGlobal = getPlayButtonContent();
     const totalGamesGlobal = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
+    const introMessage = getIntroMessage();
 
     return (
       <div className="w-full flex-shrink-0" style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
@@ -329,14 +330,26 @@ export function GameSelectionPage({
             </div>
           )}
           
+          {/* Desktop: Show intro message between title and buttons */}
+          {isDesktop && isAuthenticated && introMessage && (
+            <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-global">
+              <div className="text-xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-global">
+                {introMessage.firstLine}
+              </div>
+              <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-global">
+                {introMessage.secondLine}
+              </div>
+            </div>
+          )}
+          
           {/* Mobile: Show intro message */}
-          {!isDesktop && isAuthenticated && getIntroMessage() && (
+          {!isDesktop && isAuthenticated && introMessage && (
             <div className="text-center mb-6" data-testid="intro-message">
               <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
-                {getIntroMessage()?.firstLine}
+                {introMessage.firstLine}
               </div>
               <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
-                {getIntroMessage()?.secondLine}
+                {introMessage.secondLine}
               </div>
             </div>
           )}
@@ -429,6 +442,12 @@ export function GameSelectionPage({
   const renderLocalPane = () => {
     // Use gameAttempts for now - will fetch correct data based on mode
     const totalGamesLocal = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
+    
+    // For Local mode, show simpler intro text
+    const localIntroMessage = isAuthenticated ? {
+      firstLine: "Welcome back",
+      secondLine: "Play your local puzzles"
+    } : null;
 
     return (
       <div className="w-full flex-shrink-0" style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
@@ -437,6 +456,18 @@ export function GameSelectionPage({
           {isDesktop && isAuthenticated && (
             <div className="text-center mb-4">
               <h2 className="text-2xl font-bold text-foreground">Local</h2>
+            </div>
+          )}
+          
+          {/* Desktop: Show intro message between title and buttons */}
+          {isDesktop && isAuthenticated && localIntroMessage && (
+            <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-local-desktop">
+              <div className="text-xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-local">
+                {localIntroMessage.firstLine}
+              </div>
+              <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-local">
+                {localIntroMessage.secondLine}
+              </div>
             </div>
           )}
           
