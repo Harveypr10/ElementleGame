@@ -754,7 +754,7 @@ export function GameSelectionPage({
                   // Position at same vertical level as Stats row in document flow
                   // Mobile: intro (~96px) + mt-1 (4px) + Play h-32 (128px) + gap (16px) + Archive h-24 (96px) + gap (16px)
                   // Total: 96 + 4 + 128 + 16 + 96 = 340px (Stats row starts at the last gap position)
-                  top: '340px'
+                  top: '350px'
                 }}
               >
                 <div className="max-w-md mx-auto relative h-40">
