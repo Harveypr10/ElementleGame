@@ -456,6 +456,18 @@ app.post("/api/guesses", verifySupabaseAuth, async (req: any, res) => {
 
     console.log('[POST /api/guesses] Guess saved:', guess.id);
     
+    // Lock digit mode on first guess if not already locked
+    if (ownedAttempt.digits === null || ownedAttempt.digits === undefined) {
+      const userSettings = await storage.getUserSettings(userId);
+      const digitPreference = userSettings?.digitPreference || '8';
+      
+      await storage.updateGameAttemptRegion(gameAttemptId, {
+        digits: digitPreference
+      });
+      
+      console.log('[POST /api/guesses] Locked digit mode to:', digitPreference);
+    }
+    
     // Increment num_guesses
     await storage.incrementAttemptGuessesRegion(gameAttemptId);
     
