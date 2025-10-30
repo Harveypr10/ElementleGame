@@ -18,6 +18,7 @@ import { FeedbackForm } from "@/components/FeedbackForm";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
+import { useGameMode } from "@/contexts/GameModeContext";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence } from "framer-motion";
 
@@ -31,12 +32,14 @@ interface Puzzle {
   eventDescription: string;
   clue1?: string;
   clue2?: string;
+  category?: string; // Only present in Local mode (user-specific puzzles)
 }
 
 export default function Home() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
+  const { isLocalMode } = useGameMode();
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -45,9 +48,10 @@ export default function Home() {
   const [showCelebrationFirst, setShowCelebrationFirst] = useState(false);
   const [hasOpenedCelebration, setHasOpenedCelebration] = useState(false);
   
-  // Fetch puzzles from API
+  // Fetch puzzles from API (mode-aware)
+  const puzzlesEndpoint = isLocalMode ? '/api/user/puzzles' : '/api/puzzles';
   const { data: puzzles = [], isLoading: puzzlesLoading } = useQuery<Puzzle[]>({
-    queryKey: ['/api/puzzles'],
+    queryKey: [puzzlesEndpoint],
   });
   
   useEffect(() => {
@@ -251,6 +255,7 @@ export default function Home() {
           answerDateCanonical={currentPuzzle.answerDateCanonical}
           eventTitle={currentPuzzle.eventTitle}
           eventDescription={currentPuzzle.eventDescription}
+          category={currentPuzzle.category}
           clue1={currentPuzzle.clue1}
           clue2={currentPuzzle.clue2}
           maxGuesses={5}

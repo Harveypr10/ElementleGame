@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useSupabase } from "@/lib/SupabaseProvider";
+import { useGameMode } from "@/contexts/GameModeContext";
 import type { GameAttempt, Guess } from "@shared/schema";
 
 interface CreateGameAttemptData {
@@ -26,43 +27,48 @@ export function useGameData() {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const supabase = useSupabase();
+  const { isLocalMode } = useGameMode();
 
-  // Get all game attempts for the current user
+  // Get all game attempts for the current user (mode-aware)
+  const endpoint = isLocalMode ? "/api/user/game-attempts/user" : "/api/game-attempts/user";
   const { data: gameAttempts, isLoading: loadingAttempts } = useQuery<GameAttempt[]>({
-    queryKey: ["/api/game-attempts/user"],
+    queryKey: [endpoint],
     enabled: isAuthenticated,
     staleTime: 0, // Always consider data stale to ensure refetch on Archive mount
   });
 
-  // Create a new game attempt
+  // Create a new game attempt (mode-aware)
   const createGameAttempt = useMutation({
     mutationFn: async (data: CreateGameAttemptData) => {
-      const response = await apiRequest("POST", "/api/game-attempts", data);
+      const createEndpoint = isLocalMode ? "/api/user/game-attempts" : "/api/game-attempts";
+      const response = await apiRequest("POST", createEndpoint, data);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/game-attempts/user"] });
+      queryClient.invalidateQueries({ queryKey: [endpoint] });
     },
   });
 
-  // Update an existing game attempt (when completing)
+  // Update an existing game attempt (when completing, mode-aware)
   const updateGameAttempt = useMutation({
     mutationFn: async (data: UpdateGameAttemptData) => {
-      const response = await apiRequest("PATCH", `/api/game-attempts/${data.id}`, {
+      const updateEndpoint = isLocalMode ? `/api/user/game-attempts/${data.id}` : `/api/game-attempts/${data.id}`;
+      const response = await apiRequest("PATCH", updateEndpoint, {
         result: data.result,
         numGuesses: data.numGuesses,
       });
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/game-attempts/user"] });
+      queryClient.invalidateQueries({ queryKey: [endpoint] });
     },
   });
 
-  // Create a guess
+  // Create a guess (mode-aware)
   const createGuess = useMutation({
     mutationFn: async (data: CreateGuessData) => {
-      const response = await apiRequest("POST", "/api/guesses", data);
+      const guessEndpoint = isLocalMode ? "/api/user/guesses" : "/api/guesses";
+      const response = await apiRequest("POST", guessEndpoint, data);
       return await response.json();
     },
     onSuccess: () => {
@@ -70,12 +76,13 @@ export function useGameData() {
       // - game attempts cache (for updated numGuesses count)
       // - all guesses cache (for updated guess data)
       // This ensures Archive page shows updated status and guess counts
-      queryClient.invalidateQueries({ queryKey: ["/api/game-attempts/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/guesses/all"] });
+      const allGuessesEndpoint = isLocalMode ? "/api/user/guesses/all" : "/api/guesses/all";
+      queryClient.invalidateQueries({ queryKey: [endpoint] });
+      queryClient.invalidateQueries({ queryKey: [allGuessesEndpoint] });
     },
   });
 
-  // Get guesses for a specific game attempt
+  // Get guesses for a specific game attempt (mode-aware)
   const getGuessesByAttempt = async (gameAttemptId: number): Promise<Guess[]> => {
     if (!isAuthenticated) {
       return [];
@@ -88,7 +95,8 @@ export function useGameData() {
         return [];
       }
 
-      const response = await fetch(`/api/guesses/${gameAttemptId}`, {
+      const guessesEndpoint = isLocalMode ? `/api/user/guesses/${gameAttemptId}` : `/api/guesses/${gameAttemptId}`;
+      const response = await fetch(guessesEndpoint, {
         headers: {
           "Authorization": `Bearer ${session.access_token}`,
         },
@@ -116,8 +124,9 @@ export function useGameData() {
       return [];
     }
     try {
-      console.log("[getAllGuesses] Fetching from /api/guesses/all");
-      const response = await apiRequest("GET", "/api/guesses/all");
+      const allGuessesEndpoint = isLocalMode ? "/api/user/guesses/all" : "/api/guesses/all";
+      console.log("[getAllGuesses] Fetching from", allGuessesEndpoint);
+      const response = await apiRequest("GET", allGuessesEndpoint);
       console.log("[getAllGuesses] Response status:", response.status);
       if (!response.ok) {
         const errorText = await response.text();

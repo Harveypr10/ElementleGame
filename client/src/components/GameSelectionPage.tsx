@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { HelpDialog } from "./HelpDialog";
+import { ModeToggle } from "./ModeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
+import { useGameMode } from "@/contexts/GameModeContext";
 import { motion } from "framer-motion";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
@@ -42,6 +44,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
   const { profile } = useProfile();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
+  const { isLocalMode } = useGameMode();
   const [showHelp, setShowHelp] = useState(false);
   const [todayPuzzleStatus, setTodayPuzzleStatus] = useState<'not-played' | 'solved' | 'failed'>('not-played');
   const [guessCount, setGuessCount] = useState<number>(0);
@@ -86,7 +89,8 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         
         if (!session) return;
 
-        const response = await fetch('/api/stats', {
+        const statsEndpoint = isLocalMode ? '/api/user/stats' : '/api/stats';
+        const response = await fetch(statsEndpoint, {
           credentials: 'include',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -102,7 +106,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     };
 
     fetchStats();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, isLocalMode]);
 
   // Load percentile from cache first for instant rendering
   useEffect(() => {
@@ -126,7 +130,8 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         
         if (!session) return;
 
-        const response = await fetch('/api/stats/percentile', {
+        const percentileEndpoint = isLocalMode ? '/api/user/stats/percentile' : '/api/stats/percentile';
+        const response = await fetch(percentileEndpoint, {
           credentials: 'include',
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -144,7 +149,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     };
 
     fetchPercentile();
-  }, [isAuthenticated, user, todayPuzzleStatus]);
+  }, [isAuthenticated, user, todayPuzzleStatus, isLocalMode]);
 
   // Background reconciliation with Supabase/localStorage
   useEffect(() => {
@@ -406,7 +411,7 @@ return (
         </button>
       </div>
 
-      <div className="flex justify-end pr-2 mb-4">
+      <div className="flex justify-end pr-2 mb-2">
         {!isAuthenticated && (
           <Button
             variant="ghost"
@@ -419,6 +424,13 @@ return (
           </Button>
         )}
       </div>
+      
+      {/* Mode Toggle (Global/Local) */}
+      {isAuthenticated && (
+        <div className="flex justify-center mb-4">
+          <ModeToggle />
+        </div>
+      )}
     </div>
 
     {/* Main content flexes vertically */}

@@ -13,6 +13,7 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
+import { useGameMode } from "@/contexts/GameModeContext";
 import { parseUserDateWithContext, formatCanonicalDate as formatCanonicalDateUtil } from "@/lib/dateFormat";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
@@ -26,6 +27,7 @@ interface PlayPageProps {
   answerDateCanonical: string; // YYYY-MM-DD format - the canonical historical date
   eventTitle: string;
   eventDescription: string;
+  category?: string; // Only present in Local mode (user-specific puzzles)
   clue1?: string;
   clue2?: string;
   maxGuesses?: number;
@@ -51,6 +53,7 @@ export function PlayPage({
   answerDateCanonical,
   eventTitle,
   eventDescription,
+  category,
   clue1,
   clue2,
   maxGuesses = 5,
@@ -71,6 +74,7 @@ export function PlayPage({
   const { stats: supabaseStats } = useUserStats();
   const { settings } = useUserSettings();
   const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
+  const { isLocalMode } = useGameMode();
   
   // Get user's date format preferences
   const {
@@ -1049,6 +1053,14 @@ export function PlayPage({
           <div className="w-full max-w-md space-y-0.5 sm:space-y-1">
             {cluesEnabled && (
               <div className="text-center mb-3">
+                {isLocalMode && category && (
+                  <div
+                    className="text-sm font-medium text-muted-foreground mb-1 uppercase tracking-wide"
+                    data-testid="text-category"
+                  >
+                    {category}
+                  </div>
+                )}
                 <h3
                   className="text-xl font-semibold text-foreground"
                   data-testid="text-event-title"

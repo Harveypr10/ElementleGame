@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { apiRequest } from "@/lib/queryClient";
+import { useGameMode } from "@/contexts/GameModeContext";
 import type { UserStats } from "@shared/schema";
 
 interface UpdateUserStatsData {
@@ -14,21 +15,23 @@ interface UpdateUserStatsData {
 export function useUserStats() {
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  const { isLocalMode } = useGameMode();
 
-  // Get user stats
+  // Get user stats (mode-aware)
+  const endpoint = isLocalMode ? "/api/user/stats" : "/api/stats";
   const { data: stats, isLoading } = useQuery<UserStats>({
-    queryKey: ["/api/stats"],
+    queryKey: [endpoint],
     enabled: isAuthenticated,
   });
 
-  // Update user stats
+  // Update user stats (mode-aware)
   const updateStats = useMutation({
     mutationFn: async (data: UpdateUserStatsData) => {
-      const response = await apiRequest("POST", "/api/stats", data);
+      const response = await apiRequest("POST", endpoint, data);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: [endpoint] });
     },
   });
 
