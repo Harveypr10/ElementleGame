@@ -744,9 +744,17 @@ export function GameSelectionPage({
               </motion.div>
             </div>
 
-            {/* Floating Options Button - moves slower than panes */}
+            {/* Floating Options Button - positioned to align with Stats row */}
             {isAuthenticated && containerWidth > 0 && (
-              <div className="absolute bottom-0 left-0 right-0 pb-24 px-4 pointer-events-none">
+              <div 
+                className="absolute left-0 right-0 px-4 pointer-events-none"
+                style={{
+                  // Calculate top position to match Stats row in document flow
+                  // Mobile: intro (mb-6) ~124px, mt-1 = 4px, Play h-32 = 128px, gap = 16px, Archive h-24 = 96px, gap = 16px
+                  // Total = 124 + 4 + 128 + 16 + 96 + 16 = 384px
+                  top: '384px'
+                }}
+              >
                 <div className="max-w-md mx-auto relative h-40">
                   <motion.button
                     className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
