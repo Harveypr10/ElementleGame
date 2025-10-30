@@ -11,6 +11,7 @@ import { useModeController } from "@/hooks/useModeController";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
+import { useQuery } from "@tanstack/react-query";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
@@ -64,167 +65,98 @@ export function GameSelectionPage({
   const { formatCanonicalDate } = useUserDateFormat();
   const { containerRef, x, gameMode, snapTo, handleSwiping, handleSwiped, isDesktop } = useModeController();
   const [showHelp, setShowHelp] = useState(false);
-  const [todayPuzzleStatus, setTodayPuzzleStatus] = useState<'not-played' | 'solved' | 'failed'>('not-played');
-  const [guessCount, setGuessCount] = useState<number>(0);
-  const [currentStreak, setCurrentStreak] = useState<number>(0);
-  const [percentile, setPercentile] = useState<number | null>(null);
   const playButtonRef = useRef<HTMLButtonElement>(null);
 
   const isLocalMode = gameMode === 'local';
+
+  // Authenticated fetch helper
+  const fetchAuthenticated = async (endpoint: string) => {
+    if (!isAuthenticated) return null;
+    const supabase = await getSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+    
+    const response = await fetch(endpoint, {
+      credentials: 'include',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+    });
+    if (!response.ok) throw new Error(`Failed to fetch ${endpoint}`);
+    return response.json();
+  };
+
+  // Fetch Global game attempts (always from region data)
+  const { data: globalGameAttempts = [] } = useQuery<any[]>({
+    queryKey: ['/api/game-attempts/user'],
+    queryFn: () => fetchAuthenticated('/api/game-attempts/user'),
+    enabled: isAuthenticated,
+  });
+
+  // Fetch Local game attempts (always from user data)
+  const { data: localGameAttempts = [] } = useQuery<any[]>({
+    queryKey: ['/api/user/game-attempts/user'],
+    queryFn: () => fetchAuthenticated('/api/user/game-attempts/user'),
+    enabled: isAuthenticated,
+  });
+
+  // Fetch Global stats
+  const { data: globalStats } = useQuery<any>({
+    queryKey: ['/api/stats'],
+    queryFn: () => fetchAuthenticated('/api/stats'),
+    enabled: isAuthenticated,
+  });
+
+  // Fetch Local stats  
+  const { data: localStats } = useQuery<any>({
+    queryKey: ['/api/user/stats'],
+    queryFn: () => fetchAuthenticated('/api/user/stats'),
+    enabled: isAuthenticated,
+  });
+
+  // Fetch Global percentile (always enabled when authenticated)
+  const { data: globalPercentileData } = useQuery<any>({
+    queryKey: ['/api/stats/percentile'],
+    queryFn: () => fetchAuthenticated('/api/stats/percentile'),
+    enabled: isAuthenticated,
+  });
+
+  // Fetch Local percentile (always enabled when authenticated)
+  const { data: localPercentileData } = useQuery<any>({
+    queryKey: ['/api/user/stats/percentile'],
+    queryFn: () => fetchAuthenticated('/api/user/stats/percentile'),
+    enabled: isAuthenticated,
+  });
+
+  // Helper function to compute play button status for a given set of attempts
+  const computePlayButtonStatus = (attempts: any[], puzzleId?: number) => {
+    if (!isAuthenticated || !puzzleId || !attempts) {
+      return { status: 'not-played' as const, count: 0 };
+    }
+
+    const todayAttempt = attempts.find(attempt => 
+      attempt.puzzleId === puzzleId && attempt.result !== null
+    );
+    
+    if (todayAttempt) {
+      const isWin = todayAttempt.result === 'won' || todayAttempt.result === 'win';
+      const count = todayAttempt.numGuesses ?? 0;
+      
+      return {
+        status: (isWin ? 'solved' : 'failed') as 'solved' | 'failed',
+        count
+      };
+    }
+    
+    return { status: 'not-played' as const, count: 0 };
+  };
 
   // Auto-focus the Play button on mount instead of help icon
   useEffect(() => {
     playButtonRef.current?.focus();
   }, []);
 
-  // Load from cache immediately on mount for instant rendering
-  useEffect(() => {
-    const cachedOutcome = readLocal<TodayOutcome>(CACHE_KEYS.TODAY_OUTCOME);
-    
-    if (cachedOutcome) {
-      const isCacheForToday = cachedOutcome.puzzleId === todayPuzzleId || 
-                              cachedOutcome.date === todayPuzzleAnswerDateCanonical;
-      
-      if (isCacheForToday) {
-        if (cachedOutcome.isWin) {
-          setTodayPuzzleStatus('solved');
-          setGuessCount(cachedOutcome.guessCount);
-        } else {
-          setTodayPuzzleStatus('failed');
-        }
-      }
-    }
-  }, []);
-
-  // Fetch user stats for streak information
-  useEffect(() => {
-    if (!isAuthenticated || !user) return;
-
-    const fetchStats = async () => {
-      try {
-        const supabase = await getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) return;
-
-        const statsEndpoint = isLocalMode ? '/api/user/stats' : '/api/stats';
-        const response = await fetch(statsEndpoint, {
-          credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
-        if (response.ok) {
-          const stats = await response.json();
-          setCurrentStreak(stats.currentStreak || 0);
-        }
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      }
-    };
-
-    fetchStats();
-  }, [isAuthenticated, user, isLocalMode]);
-
-  // Load percentile from cache first for instant rendering
-  useEffect(() => {
-    if (!isAuthenticated || todayPuzzleStatus === 'not-played') return;
-    
-    const cachedPercentile = readLocal<{percentile: number}>(CACHE_KEYS.PERCENTILE);
-    if (cachedPercentile && typeof cachedPercentile.percentile === 'number') {
-      setPercentile(cachedPercentile.percentile);
-    }
-  }, []);
-
-  // Fetch percentile ranking if user has played today (background refresh)
-  useEffect(() => {
-    if (!isAuthenticated || !user || todayPuzzleStatus === 'not-played') return;
-
-    const fetchPercentile = async () => {
-      try {
-        const supabase = await getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) return;
-
-        const percentileEndpoint = isLocalMode ? '/api/user/stats/percentile' : '/api/stats/percentile';
-        const response = await fetch(percentileEndpoint, {
-          credentials: 'include',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setPercentile(data.percentile);
-          writeLocal(CACHE_KEYS.PERCENTILE, data);
-        }
-      } catch (error) {
-        console.error('Error fetching percentile:', error);
-      }
-    };
-
-    fetchPercentile();
-  }, [isAuthenticated, user, todayPuzzleStatus, isLocalMode]);
-
-  // Background reconciliation with Supabase/localStorage
-  useEffect(() => {
-    if (!todayPuzzleId && !todayPuzzleAnswerDateCanonical) return;
-
-    if (isAuthenticated && gameAttempts && !loadingAttempts) {
-      const todayAttempt = gameAttempts.find(attempt => 
-        attempt.puzzleId === todayPuzzleId && attempt.result !== null
-      );
-      
-      if (todayAttempt) {
-        const isWin = todayAttempt.result === 'won' || todayAttempt.result === 'win';
-        const count = todayAttempt.numGuesses ?? 0;
-        
-        if (isWin) {
-          setTodayPuzzleStatus('solved');
-          setGuessCount(count);
-        } else {
-          setTodayPuzzleStatus('failed');
-        }
-        
-        writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
-          date: todayPuzzleAnswerDateCanonical || '',
-          puzzleId: todayPuzzleId,
-          isWin,
-          guessCount: count,
-        });
-      } else {
-        setTodayPuzzleStatus('not-played');
-      }
-    } else if (!isAuthenticated && todayPuzzleAnswerDateCanonical) {
-      const formattedAnswer = formatCanonicalDate(todayPuzzleAnswerDateCanonical);
-      const storedStats = localStorage.getItem("elementle-stats");
-      if (storedStats) {
-        const stats = JSON.parse(storedStats);
-        const completions = stats.puzzleCompletions || {};
-        const completion = completions[formattedAnswer];
-        
-        if (completion && completion.completed) {
-          const count = Array.isArray(completion.guesses) ? completion.guesses.length : completion.guesses;
-          
-          if (completion.won) {
-            setTodayPuzzleStatus('solved');
-            setGuessCount(count);
-          } else {
-            setTodayPuzzleStatus('failed');
-          }
-          
-          writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
-            date: todayPuzzleAnswerDateCanonical,
-            isWin: completion.won,
-            guessCount: count,
-          });
-        } else {
-          setTodayPuzzleStatus('not-played');
-        }
-      }
-    }
-  }, [isAuthenticated, gameAttempts, loadingAttempts, todayPuzzleId, todayPuzzleAnswerDateCanonical]);
+  // NOTE: Old shared state effects removed - each pane now independently fetches and computes its own data
 
   const getFormattedDate = () => {
     const today = new Date();
@@ -251,59 +183,6 @@ export function GameSelectionPage({
     return "Good evening";
   };
 
-  const getIntroMessage = () => {
-    if (!isAuthenticated) {
-      return null;
-    }
-
-    if (todayPuzzleStatus === 'not-played') {
-      const greeting = getGreeting();
-      const streakMessage = currentStreak === 0
-        ? "Start your streak with today's puzzle"
-        : `Continue your streak of ${currentStreak} ${currentStreak === 1 ? 'day' : 'days'} in a row`;
-      
-      return { firstLine: greeting, secondLine: streakMessage };
-    } else {
-      let percentileMessage = "Play the archive to boost your ranking";
-      
-      if (percentile !== null) {
-        const roundedPercentile = Math.floor(percentile / 5) * 5;
-        
-        if (percentile >= 50) {
-          percentileMessage = `You're in the top ${roundedPercentile}% of players - play the archive to boost your ranking`;
-        }
-      }
-      
-      return { firstLine: "Welcome back", secondLine: percentileMessage };
-    }
-  };
-
-  const getPlayButtonContent = () => {
-    switch (todayPuzzleStatus) {
-      case 'solved':
-        return {
-          title: "Today's puzzle solved!",
-          subtitle: `Solved in ${guessCount} ${guessCount === 1 ? 'guess' : 'guesses'}`,
-          image: whiteTickBlue
-        };
-      case 'failed':
-        return {
-          title: "Better luck tomorrow...",
-          subtitle: "",
-          image: whiteCrossBlue
-        };
-      default:
-        return {
-          title: "Play today's puzzle",
-          subtitle: getFormattedDate(),
-          image: historianHamsterBlue
-        };
-    }
-  };
-
-  const playContent = getPlayButtonContent();
-  const totalGames = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
-
   const swipeHandlers = useSwipeable({
     onSwiping: (eventData) => handleSwiping(eventData.deltaX),
     onSwiped: () => handleSwiped(),
@@ -316,9 +195,57 @@ export function GameSelectionPage({
 
   // Render Global Pane
   const renderGlobalPane = () => {
-    const playContentGlobal = getPlayButtonContent();
-    const totalGamesGlobal = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
-    const introMessage = getIntroMessage();
+    // Compute Global-specific data
+    const globalPlayStatus = computePlayButtonStatus(globalGameAttempts, todayPuzzleId);
+    const totalGamesGlobal = globalGameAttempts.filter(attempt => attempt.result === "won" || attempt.result === "lost").length;
+    const globalStreak = globalStats?.currentStreak || 0;
+    const globalPercentile = globalPercentileData?.percentile ?? null;
+
+    // Compute Global intro message
+    let globalIntroMessage = null;
+    if (isAuthenticated) {
+      if (globalPlayStatus.status === 'not-played') {
+        const greeting = getGreeting();
+        const streakMessage = globalStreak === 0
+          ? "Start your streak with today's puzzle"
+          : `Continue your streak of ${globalStreak} ${globalStreak === 1 ? 'day' : 'days'} in a row`;
+        globalIntroMessage = { firstLine: greeting, secondLine: streakMessage };
+      } else {
+        let percentileMessage = "Play the archive to boost your ranking";
+        if (globalPercentile !== null) {
+          const roundedPercentile = Math.floor(globalPercentile / 5) * 5;
+          if (globalPercentile >= 50) {
+            percentileMessage = `You're in the top ${roundedPercentile}% of players - play the archive to boost your ranking`;
+          }
+        }
+        globalIntroMessage = { firstLine: "Welcome back", secondLine: percentileMessage };
+      }
+    }
+
+    // Compute Global play button content
+    let playContentGlobal;
+    switch (globalPlayStatus.status) {
+      case 'solved':
+        playContentGlobal = {
+          title: "Today's puzzle solved!",
+          subtitle: `Solved in ${globalPlayStatus.count} ${globalPlayStatus.count === 1 ? 'guess' : 'guesses'}`,
+          image: whiteTickBlue
+        };
+        break;
+      case 'failed':
+        playContentGlobal = {
+          title: "Better luck tomorrow...",
+          subtitle: "",
+          image: whiteCrossBlue
+        };
+        break;
+      default:
+        playContentGlobal = {
+          title: "Play today's puzzle",
+          subtitle: getFormattedDate(),
+          image: historianHamsterBlue
+        };
+    }
 
     return (
       <div className="w-full flex-shrink-0" style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
@@ -331,25 +258,25 @@ export function GameSelectionPage({
           )}
           
           {/* Desktop: Show intro message between title and buttons */}
-          {isDesktop && isAuthenticated && introMessage && (
+          {isDesktop && isAuthenticated && globalIntroMessage && (
             <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-global">
               <div className="text-xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-global">
-                {introMessage.firstLine}
+                {globalIntroMessage.firstLine}
               </div>
               <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-global">
-                {introMessage.secondLine}
+                {globalIntroMessage.secondLine}
               </div>
             </div>
           )}
           
           {/* Mobile: Show intro message */}
-          {!isDesktop && isAuthenticated && introMessage && (
+          {!isDesktop && isAuthenticated && globalIntroMessage && (
             <div className="text-center mb-6" data-testid="intro-message">
               <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
-                {introMessage.firstLine}
+                {globalIntroMessage.firstLine}
               </div>
               <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
-                {introMessage.secondLine}
+                {globalIntroMessage.secondLine}
               </div>
             </div>
           )}
@@ -441,14 +368,53 @@ export function GameSelectionPage({
 
   // Render Local Pane
   const renderLocalPane = () => {
-    // Use gameAttempts for now - will fetch correct data based on mode
-    const totalGamesLocal = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
-    
-    // For Local mode, show simpler intro text
-    const localIntroMessage = isAuthenticated ? {
-      firstLine: "Welcome back",
-      secondLine: "Play your local puzzles"
-    } : null;
+    // Compute Local-specific data
+    const localPlayStatus = computePlayButtonStatus(localGameAttempts, todayPuzzleId);
+    const totalGamesLocal = localGameAttempts.filter(attempt => attempt.result === "won" || attempt.result === "lost").length;
+    const localStreak = localStats?.currentStreak || 0;
+    const localPercentile = localPercentileData?.percentile ?? null;
+
+    // Compute Local intro message
+    let localIntroMessage = null;
+    if (isAuthenticated) {
+      if (localPlayStatus.status === 'not-played') {
+        const greeting = getGreeting();
+        const streakMessage = localStreak === 0
+          ? "Start your streak with today's puzzle"
+          : `Continue your streak of ${localStreak} ${localStreak === 1 ? 'day' : 'days'} in a row`;
+        localIntroMessage = { firstLine: greeting, secondLine: streakMessage };
+      } else {
+        localIntroMessage = { 
+          firstLine: "Welcome back", 
+          secondLine: "Play your local puzzles" 
+        };
+      }
+    }
+
+    // Compute Local play button content
+    let playContentLocal;
+    switch (localPlayStatus.status) {
+      case 'solved':
+        playContentLocal = {
+          title: "Today's puzzle solved!",
+          subtitle: `Solved in ${localPlayStatus.count} ${localPlayStatus.count === 1 ? 'guess' : 'guesses'}`,
+          image: whiteTickBlue
+        };
+        break;
+      case 'failed':
+        playContentLocal = {
+          title: "Better luck tomorrow...",
+          subtitle: "",
+          image: whiteCrossBlue
+        };
+        break;
+      default:
+        playContentLocal = {
+          title: "Play today's puzzle",
+          subtitle: getFormattedDate(),
+          image: historianHamsterBlue
+        };
+    }
 
     return (
       <div className="w-full flex-shrink-0" style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
@@ -473,13 +439,13 @@ export function GameSelectionPage({
           )}
           
           {/* Mobile: Show intro message */}
-          {!isDesktop && isAuthenticated && getIntroMessage() && (
+          {!isDesktop && isAuthenticated && localIntroMessage && (
             <div className="text-center mb-6" data-testid="intro-message-local">
               <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2">
-                {getIntroMessage()?.firstLine}
+                {localIntroMessage.firstLine}
               </div>
               <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400">
-                {getIntroMessage()?.secondLine}
+                {localIntroMessage.secondLine}
               </div>
             </div>
           )}
@@ -497,16 +463,18 @@ export function GameSelectionPage({
             >
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">
-                  Play today's puzzle
+                  {playContentLocal.title}
                 </span>
-                <span className="text-sm font-medium text-gray-700 mt-0.5">
-                  Local mode
-                </span>
+                {playContentLocal.subtitle && (
+                  <span className="text-sm font-medium text-gray-700 mt-0.5">
+                    {playContentLocal.subtitle}
+                  </span>
+                )}
               </div>
               <div className="flex-shrink-0 flex items-center">
                 <img
-                  src={historianHamsterBlue}
-                  alt="Play Local Puzzle"
+                  src={playContentLocal.image}
+                  alt={playContentLocal.title}
                   className="max-h-20 w-auto object-contain"
                 />
               </div>
@@ -648,7 +616,7 @@ export function GameSelectionPage({
             
             {/* Desktop: Three equal-width bottom buttons spanning both panes */}
             {isAuthenticated && (
-              <div className="flex-shrink-0 px-4 pb-24">
+              <div className="flex-shrink-0 px-4 pb-24 mt-4">
                 <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto flex gap-2">
                   <motion.button
                     className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
