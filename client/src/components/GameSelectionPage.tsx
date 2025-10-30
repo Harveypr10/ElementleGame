@@ -363,26 +363,28 @@ export function GameSelectionPage({
               </div>
             </motion.button>
 
-            {/* Mobile only: Global Stats button */}
+            {/* Mobile only: Global Stats button - aligned with Options button */}
             {!isDesktop && (
-              <motion.button
-                className="w-full h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                style={{ backgroundColor: "#A4DB57" }}
-                onClick={onViewStats}
-                data-testid="button-stats-global"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
-              >
-                <span className="text-xl font-bold text-gray-800 text-center">
-                  Global Stats
-                </span>
-                <img
-                  src={mathsHamsterGreen}
-                  alt="Global Stats"
-                  className="max-h-[72px] w-auto object-contain mt-4"
-                />
-              </motion.button>
+              <div className="relative h-40">
+                <motion.button
+                  className="absolute left-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                  style={{ backgroundColor: "#A4DB57" }}
+                  onClick={onViewStats}
+                  data-testid="button-stats-global"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
+                >
+                  <span className="text-xl font-bold text-gray-800 text-center">
+                    Global Stats
+                  </span>
+                  <img
+                    src={mathsHamsterGreen}
+                    alt="Global Stats"
+                    className="max-h-[72px] w-auto object-contain mt-4"
+                  />
+                </motion.button>
+              </div>
             )}
 
             {/* Mobile only: Add bottom spacing */}
@@ -532,26 +534,28 @@ export function GameSelectionPage({
               </div>
             </motion.button>
 
-            {/* Mobile only: Local Stats button */}
+            {/* Mobile only: Local Stats button - aligned with Options button */}
             {!isDesktop && (
-              <motion.button
-                className="w-full h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                style={{ backgroundColor: "#A4DB57" }}
-                onClick={onViewStatsLocal}
-                data-testid="button-stats-local"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
-              >
-                <span className="text-xl font-bold text-gray-800 text-center">
-                  Local Stats
-                </span>
-                <img
-                  src={mathsHamsterGreen}
-                  alt="Local Stats"
-                  className="max-h-[72px] w-auto object-contain mt-4"
-                />
-              </motion.button>
+              <div className="relative h-40">
+                <motion.button
+                  className="absolute right-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                  style={{ backgroundColor: "#A4DB57" }}
+                  onClick={onViewStatsLocal}
+                  data-testid="button-stats-local"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
+                >
+                  <span className="text-xl font-bold text-gray-800 text-center">
+                    Local Stats
+                  </span>
+                  <img
+                    src={mathsHamsterGreen}
+                    alt="Local Stats"
+                    className="max-h-[72px] w-auto object-contain mt-4"
+                  />
+                </motion.button>
+              </div>
             )}
 
             {/* Mobile only: Add bottom spacing */}
