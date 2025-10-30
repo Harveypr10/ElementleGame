@@ -841,6 +841,7 @@ export class DatabaseStorage implements IStorage {
         allocatedRegionId: gameAttemptsRegion.allocatedRegionId,
         result: gameAttemptsRegion.result,
         numGuesses: gameAttemptsRegion.numGuesses,
+        digits: gameAttemptsRegion.digits,
         startedAt: gameAttemptsRegion.startedAt,
         completedAt: gameAttemptsRegion.completedAt,
         allocated_id: questionsAllocatedRegion.id,
