@@ -746,7 +746,7 @@ export function GameSelectionPage({
 
             {/* Floating Options Button - moves slower than panes */}
             {isAuthenticated && containerWidth > 0 && (
-              <div className="absolute bottom-24 left-0 right-0 px-4 pointer-events-none">
+              <div className="absolute bottom-0 left-0 right-0 pb-24 px-4 pointer-events-none">
                 <div className="max-w-md mx-auto relative h-40">
                   <motion.button
                     className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
