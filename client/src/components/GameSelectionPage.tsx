@@ -5,8 +5,9 @@ import { ModeToggle } from "./ModeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
-import { useGameMode } from "@/contexts/GameModeContext";
 import { motion } from "framer-motion";
+import { useSwipeable } from "react-swipeable";
+import { useModeController } from "@/hooks/useModeController";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
@@ -36,21 +37,40 @@ interface GameSelectionPageProps {
   onOpenOptions?: () => void;
   onLogin?: () => void;
   todayPuzzleId?: number;
-  todayPuzzleAnswerDateCanonical?: string; // YYYY-MM-DD format - the canonical date
+  todayPuzzleAnswerDateCanonical?: string;
+  onPlayGameLocal?: () => void;
+  onViewStatsLocal?: () => void;
+  onViewArchiveLocal?: () => void;
+  onOpenOptionsLocal?: () => void;
 }
 
-export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOpenSettings, onOpenOptions, onLogin, todayPuzzleId, todayPuzzleAnswerDateCanonical }: GameSelectionPageProps) {
+export function GameSelectionPage({ 
+  onPlayGame, 
+  onViewStats, 
+  onViewArchive, 
+  onOpenSettings, 
+  onOpenOptions, 
+  onLogin, 
+  todayPuzzleId, 
+  todayPuzzleAnswerDateCanonical,
+  onPlayGameLocal,
+  onViewStatsLocal,
+  onViewArchiveLocal,
+  onOpenOptionsLocal,
+}: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const { profile } = useProfile();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
-  const { isLocalMode } = useGameMode();
+  const { containerRef, x, gameMode, snapTo, handleSwiping, handleSwiped, isDesktop } = useModeController();
   const [showHelp, setShowHelp] = useState(false);
   const [todayPuzzleStatus, setTodayPuzzleStatus] = useState<'not-played' | 'solved' | 'failed'>('not-played');
   const [guessCount, setGuessCount] = useState<number>(0);
   const [currentStreak, setCurrentStreak] = useState<number>(0);
   const [percentile, setPercentile] = useState<number | null>(null);
   const playButtonRef = useRef<HTMLButtonElement>(null);
+
+  const isLocalMode = gameMode === 'local';
 
   // Auto-focus the Play button on mount instead of help icon
   useEffect(() => {
@@ -62,7 +82,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     const cachedOutcome = readLocal<TodayOutcome>(CACHE_KEYS.TODAY_OUTCOME);
     
     if (cachedOutcome) {
-      // Check if cache is for today's puzzle
       const isCacheForToday = cachedOutcome.puzzleId === todayPuzzleId || 
                               cachedOutcome.date === todayPuzzleAnswerDateCanonical;
       
@@ -75,7 +94,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         }
       }
     }
-  }, []); // Run once on mount for instant rendering
+  }, []);
 
   // Fetch user stats for streak information
   useEffect(() => {
@@ -83,7 +102,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
 
     const fetchStats = async () => {
       try {
-        // Get Supabase session for auth header
         const supabase = await getSupabaseClient();
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -116,7 +134,7 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     if (cachedPercentile && typeof cachedPercentile.percentile === 'number') {
       setPercentile(cachedPercentile.percentile);
     }
-  }, []); // Run once on mount for instant rendering
+  }, []);
 
   // Fetch percentile ranking if user has played today (background refresh)
   useEffect(() => {
@@ -124,7 +142,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
 
     const fetchPercentile = async () => {
       try {
-        // Get Supabase session for auth header
         const supabase = await getSupabaseClient();
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -140,7 +157,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         if (response.ok) {
           const data = await response.json();
           setPercentile(data.percentile);
-          // Update cache with fresh data
           writeLocal(CACHE_KEYS.PERCENTILE, data);
         }
       } catch (error) {
@@ -156,13 +172,11 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     if (!todayPuzzleId && !todayPuzzleAnswerDateCanonical) return;
 
     if (isAuthenticated && gameAttempts && !loadingAttempts) {
-      // Use Supabase game attempts ONLY for authenticated users
       const todayAttempt = gameAttempts.find(attempt => 
         attempt.puzzleId === todayPuzzleId && attempt.result !== null
       );
       
       if (todayAttempt) {
-        // Defensive normalization: handle both "won"/"lost" and "win"/"loss"
         const isWin = todayAttempt.result === 'won' || todayAttempt.result === 'win';
         const count = todayAttempt.numGuesses ?? 0;
         
@@ -173,7 +187,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
           setTodayPuzzleStatus('failed');
         }
         
-        // Update cache with fresh data from Supabase
         writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
           date: todayPuzzleAnswerDateCanonical || '',
           puzzleId: todayPuzzleId,
@@ -184,8 +197,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
         setTodayPuzzleStatus('not-played');
       }
     } else if (!isAuthenticated && todayPuzzleAnswerDateCanonical) {
-      // Use localStorage ONLY for guest users
-      // IMPORTANT: Use formatted date as key (matches PlayPage localStorage keys)
       const formattedAnswer = formatCanonicalDate(todayPuzzleAnswerDateCanonical);
       const storedStats = localStorage.getItem("elementle-stats");
       if (storedStats) {
@@ -203,7 +214,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
             setTodayPuzzleStatus('failed');
           }
           
-          // Update cache with fresh data from localStorage
           writeLocal(CACHE_KEYS.TODAY_OUTCOME, {
             date: todayPuzzleAnswerDateCanonical,
             isWin: completion.won,
@@ -216,7 +226,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     }
   }, [isAuthenticated, gameAttempts, loadingAttempts, todayPuzzleId, todayPuzzleAnswerDateCanonical]);
 
-   // Format today's date as "Monday 20th Oct"
   const getFormattedDate = () => {
     const today = new Date();
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -226,7 +235,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     const date = today.getDate();
     const month = months[today.getMonth()];
     
-    // Add ordinal suffix
     const getOrdinal = (n: number) => {
       const s = ["th", "st", "nd", "rd"];
       const v = n % 100;
@@ -236,7 +244,6 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     return `${dayName} ${getOrdinal(date)} ${month}`;
   };
 
-  // Get time-based greeting
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 12) return "Good morning";
@@ -244,14 +251,12 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     return "Good evening";
   };
 
-  // Get intro message based on play status
   const getIntroMessage = () => {
     if (!isAuthenticated) {
-      return null; // No message for guests
+      return null;
     }
 
     if (todayPuzzleStatus === 'not-played') {
-      // User hasn't played today
       const greeting = getGreeting();
       const streakMessage = currentStreak === 0
         ? "Start your streak with today's puzzle"
@@ -259,34 +264,18 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
       
       return { firstLine: greeting, secondLine: streakMessage };
     } else {
-      // User has played today
       let percentileMessage = "Play the archive to boost your ranking";
       
       if (percentile !== null) {
-        // Round down to nearest 5%
         const roundedPercentile = Math.floor(percentile / 5) * 5;
         
-        // Show percentage only if 50th percentile or above
         if (percentile >= 50) {
           percentileMessage = `You're in the top ${roundedPercentile}% of players - play the archive to boost your ranking`;
         }
-        // Below 50th percentile: use the default message
       }
       
       return { firstLine: "Welcome back", secondLine: percentileMessage };
     }
-  };
-
-  // Render intro message block
-  const renderIntroMessage = () => {
-    const intro = getIntroMessage();
-    if (!intro) return null;
-    return (
-      <div className="text-center mb-4">
-        <p className="text-lg font-bold text-gray-800">{intro.firstLine}</p>
-        <p className="text-sm text-gray-600">{intro.secondLine}</p>
-      </div>
-    );
   };
 
   const getPlayButtonContent = () => {
@@ -312,268 +301,319 @@ export function GameSelectionPage({ onPlayGame, onViewStats, onViewArchive, onOp
     }
   };
 
-
   const playContent = getPlayButtonContent();
-
   const totalGames = gameAttempts?.filter(attempt => attempt.result === "won" || attempt.result === "lost").length || 0;
 
-  const menuItems = [
-    { 
-      title: playContent.title,
-      subtitle: playContent.subtitle,
-      image: playContent.image,
-      bgColor: "#7DAAE8",
-      onClick: onPlayGame, 
-      testId: "button-play",
-      height: "h-32", // Taller play button
-      disabled: false
-    },
-    {
-      title: "Archive",
-      subtitle: `${totalGames} total games played`,
-      image: librarianHamsterYellow,
-      bgColor: "#FFD429",
-      onClick: onViewArchive,
-      testId: "button-archive",
-      height: "h-24",
-      disabled: false
-    },
-    { 
-      title: "Stats",
-      subtitle: "",
-      image: mathsHamsterGreen,
-      bgColor: "#A4DB57",
-      onClick: onViewStats,
-      testId: "button-stats",
-      height: "h-24",
-      disabled: false
-    },
-    { 
-      title: "Options",
-      subtitle: "",
-      image: mechanicHamsterGrey,
-      bgColor: "#C4C9D4",
-      onClick: onOpenOptions,
-      testId: "button-options",
-      height: "h-24",
-      disabled: false
-    },
-  ];
+  const swipeHandlers = useSwipeable({
+    onSwiping: (eventData) => handleSwiping(eventData.deltaX),
+    onSwiped: () => handleSwiped(),
+    trackMouse: true,
+    preventScrollOnSwipe: true,
+  });
 
-return (
-  <div className="flex flex-col min-h-screen p-4">
-    {/* Header stays at the top */}
-    <div className="max-w-md mx-auto w-full">
-      <div className="flex items-center justify-between mb-2">
-        {/* Help button with dark mode swap */}
-        <button
-          onClick={() => setShowHelp(true)}
-          data-testid="button-help"
-          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        >
-          <img
-            src={greyHelpIcon}
-            alt="Help"
-            className="h-9 w-9 block dark:hidden"
-          />
-          <img
-            src={whiteHelpIcon}
-            alt="Help"
-            className="h-9 w-9 hidden dark:block"
-          />
-        </button>
+  // Extract ref from swipeHandlers to avoid duplicate ref warning
+  const { ref: swipeRef, ...swipeProps } = swipeHandlers;
 
-        {/* Title */}
-        <h1
-          className="text-4xl sm:text-5xl font-bold text-foreground"
-          data-testid="text-title"
-        >
-          Elementle
-        </h1>
+  // Pane component to avoid code duplication
+  const renderPane = (mode: 'global' | 'local') => {
+    const isGlobal = mode === 'global';
+    const handlers = {
+      onPlay: isGlobal ? onPlayGame : (onPlayGameLocal || onPlayGame),
+      onArchive: isGlobal ? onViewArchive : (onViewArchiveLocal || onViewArchive),
+      onStats: isGlobal ? onViewStats : (onViewStatsLocal || onViewStats),
+      onOptions: isGlobal ? onOpenOptions : (onOpenOptionsLocal || onOpenOptions),
+    };
 
-        {/* Settings button with dark mode swap */}
-        <button
-          onClick={onOpenSettings}
-          disabled={!onOpenSettings}
-          data-testid="button-settings"
-          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
-        >
-          <img
-            src={greyCogIcon}
-            alt="Settings"
-            className="h-9 w-9 block dark:hidden"
-          />
-          <img
-            src={whiteCogIcon}
-            alt="Settings"
-            className="h-9 w-9 hidden dark:block"
-          />
-        </button>
-      </div>
+    return (
+      <div className="w-full flex-shrink-0 px-4" style={{ width: isDesktop ? '50%' : '100%' }}>
+        <div className="max-w-md mx-auto w-full">
+          {/* Intro message */}
+          {(() => {
+            const introMessage = getIntroMessage();
+            if (!introMessage) return null;
+            return (
+              <div className="text-center mb-6" data-testid="intro-message">
+                <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
+                  {introMessage.firstLine}
+                </div>
+                <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
+                  {introMessage.secondLine}
+                </div>
+              </div>
+            );
+          })()}
 
-      <div className="flex justify-end pr-2 mb-2">
-        {!isAuthenticated && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onLogin}
-            data-testid="link-login"
-            className="text-sm"
-          >
-            Login
-          </Button>
-        )}
-      </div>
-      
-      {/* Mode Toggle (Global/Local) */}
-      {isAuthenticated && (
-        <div className="flex justify-center mb-4">
-          <ModeToggle />
-        </div>
-      )}
-    </div>
-
-    {/* Main content flexes vertically */}
-    <div className="flex-grow flex flex-col justify-center">
-      {/* Intro message now appears above the buttons */}
-      {(() => {
-        const introMessage = getIntroMessage();
-        if (!introMessage) return null;
-        return (
-          <div
-            className="text-center mb-6"
-            data-testid="intro-message"
-          >
-            <div
-              className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2"
-              data-testid="intro-first-line"
+          {/* Buttons */}
+          <div className="flex flex-col items-stretch space-y-4 mt-1">
+            {/* Play button */}
+            <motion.button
+              ref={isGlobal ? playButtonRef : null}
+              className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+              style={{ backgroundColor: "#7DAAE8" }}
+              onClick={handlers.onPlay}
+              data-testid={isGlobal ? "button-play" : "button-play-local"}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
             >
-              {introMessage.firstLine}
-            </div>
-            <div
-              className="text-lg sm:text-xl text-gray-600 dark:text-gray-400"
-              data-testid="intro-second-line"
+              <div className="flex flex-col items-start justify-center text-left">
+                <span className="text-xl font-bold text-gray-800">
+                  {playContent.title}
+                </span>
+                {playContent.subtitle && (
+                  <span className="text-sm font-medium text-gray-700 mt-0.5">
+                    {playContent.subtitle}
+                  </span>
+                )}
+              </div>
+              <div className="flex-shrink-0 flex items-center">
+                <img
+                  src={playContent.image}
+                  alt={playContent.title}
+                  className="max-h-20 w-auto object-contain"
+                />
+              </div>
+            </motion.button>
+
+            {/* Archive button */}
+            <motion.button
+              className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+              style={{ backgroundColor: "#FFD429" }}
+              onClick={handlers.onArchive}
+              data-testid={isGlobal ? "button-archive" : "button-archive-local"}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
             >
-              {introMessage.secondLine}
-            </div>
+              <div className="flex flex-col items-start justify-center text-left">
+                <span className="text-xl font-bold text-gray-800">Archive</span>
+                <span className="text-sm font-medium text-gray-700 mt-0.5">
+                  {totalGames} total games played
+                </span>
+              </div>
+              <div className="flex-shrink-0 flex items-center">
+                <img
+                  src={librarianHamsterYellow}
+                  alt="Archive"
+                  className="max-h-20 w-auto object-contain"
+                />
+              </div>
+            </motion.button>
+
+            {/* Stats + Options row - responsive layout */}
+            {isDesktop ? (
+              // Desktop: Show all three buttons in full width
+              <div className="flex space-x-4">
+                {isGlobal ? (
+                  // Global Stats on left in Global pane
+                  <motion.button
+                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    style={{ backgroundColor: "#A4DB57" }}
+                    onClick={handlers.onStats}
+                    data-testid="button-stats"
+                    layout
+                    transition={{ duration: 0.25 }}
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      Global Stats
+                    </span>
+                    <img
+                      src={mathsHamsterGreen}
+                      alt="Global Stats"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
+                ) : (
+                  // Local Stats on right in Local pane
+                  <motion.button
+                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    style={{ backgroundColor: "#A4DB57" }}
+                    onClick={handlers.onStats}
+                    data-testid="button-stats-local"
+                    layout
+                    transition={{ duration: 0.25 }}
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      Local Stats
+                    </span>
+                    <img
+                      src={mathsHamsterGreen}
+                      alt="Local Stats"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
+                )}
+              </div>
+            ) : (
+              // Mobile: Stats + Options OR Options + Local Stats
+              <motion.div className="flex space-x-4" layout>
+                {isGlobal ? (
+                  <>
+                    {/* Global Stats */}
+                    <motion.button
+                      className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                      style={{ backgroundColor: "#A4DB57" }}
+                      onClick={handlers.onStats}
+                      data-testid="button-stats"
+                      layout
+                      transition={{ duration: 0.25 }}
+                    >
+                      <span className="text-xl font-bold text-gray-800 text-center">
+                        Global Stats
+                      </span>
+                      <img
+                        src={mathsHamsterGreen}
+                        alt="Global Stats"
+                        className="max-h-[72px] w-auto object-contain mt-4"
+                      />
+                    </motion.button>
+                    {/* Options */}
+                    <motion.button
+                      className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                      style={{ backgroundColor: "#C4C9D4" }}
+                      onClick={handlers.onOptions}
+                      data-testid="button-options"
+                      layout
+                      transition={{ duration: 0.25 }}
+                    >
+                      <span className="text-xl font-bold text-gray-800 text-center">
+                        Options
+                      </span>
+                      <img
+                        src={mechanicHamsterGrey}
+                        alt="Options"
+                        className="max-h-[72px] w-auto object-contain mt-4"
+                      />
+                    </motion.button>
+                  </>
+                ) : (
+                  <>
+                    {/* Options (moved left) */}
+                    <motion.button
+                      className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                      style={{ backgroundColor: "#C4C9D4" }}
+                      onClick={handlers.onOptions}
+                      data-testid="button-options-local"
+                      layout
+                      transition={{ duration: 0.25 }}
+                    >
+                      <span className="text-xl font-bold text-gray-800 text-center">
+                        Options
+                      </span>
+                      <img
+                        src={mechanicHamsterGrey}
+                        alt="Options"
+                        className="max-h-[72px] w-auto object-contain mt-4"
+                      />
+                    </motion.button>
+                    {/* Local Stats */}
+                    <motion.button
+                      className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                      style={{ backgroundColor: "#A4DB57" }}
+                      onClick={handlers.onStats}
+                      data-testid="button-stats-local"
+                      layout
+                      transition={{ duration: 0.25 }}
+                    >
+                      <span className="text-xl font-bold text-gray-800 text-center">
+                        Local Stats
+                      </span>
+                      <img
+                        src={mathsHamsterGreen}
+                        alt="Local Stats"
+                        className="max-h-[72px] w-auto object-contain mt-4"
+                      />
+                    </motion.button>
+                  </>
+                )}
+              </motion.div>
+            )}
+
+            {/* Invisible spacer */}
+            <div className="h-24" />
           </div>
-        );
-      })()}
+        </div>
+      </div>
+    );
+  };
 
-      {/* Group: buttons + invisible spacer */}
-      <div className="max-w-md mx-auto w-full flex flex-col items-stretch space-y-4 mt-1">
-        {/* Play button */}
-        <motion.button
-          ref={playButtonRef}
-          className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-          style={{ backgroundColor: "#7DAAE8" }}
-          onClick={onPlayGame}
-          data-testid="button-play"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25, ease: "easeOut" }}
-        >
-          <div className="flex flex-col items-start justify-center text-left">
-            <span className="text-xl font-bold text-gray-800">
-              {playContent.title}
-            </span>
-            {playContent.subtitle && (
-              <span className="text-sm font-medium text-gray-700 mt-0.5">
-                {playContent.subtitle}
-              </span>
+  return (
+    <div className="flex flex-col min-h-screen overflow-hidden">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 p-4">
+        <div className="max-w-md mx-auto w-full">
+          <div className="flex items-center justify-between mb-2">
+            <button
+              onClick={() => setShowHelp(true)}
+              data-testid="button-help"
+              className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <img src={greyHelpIcon} alt="Help" className="h-9 w-9 block dark:hidden" />
+              <img src={whiteHelpIcon} alt="Help" className="h-9 w-9 hidden dark:block" />
+            </button>
+
+            <h1 className="text-4xl sm:text-5xl font-bold text-foreground" data-testid="text-title">
+              Elementle
+            </h1>
+
+            <button
+              onClick={onOpenSettings}
+              disabled={!onOpenSettings}
+              data-testid="button-settings"
+              className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
+            >
+              <img src={greyCogIcon} alt="Settings" className="h-9 w-9 block dark:hidden" />
+              <img src={whiteCogIcon} alt="Settings" className="h-9 w-9 hidden dark:block" />
+            </button>
+          </div>
+
+          <div className="flex justify-end pr-2 mb-2">
+            {!isAuthenticated && (
+              <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
+                Login
+              </Button>
             )}
           </div>
-          <div className="flex-shrink-0 flex items-center">
-            <img
-              src={playContent.image}
-              alt={playContent.title}
-              className="max-h-20 w-auto object-contain"
-            />
-          </div>
-        </motion.button>
-
-    {/* Archive button */}
-    <motion.button
-      className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-      style={{ backgroundColor: "#FFD429" }}
-      onClick={onViewArchive}
-      data-testid="button-archive"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
-    >
-      <div className="flex flex-col items-start justify-center text-left">
-        <span className="text-xl font-bold text-gray-800">Archive</span>
-        <span className="text-sm font-medium text-gray-700 mt-0.5">
-          {totalGames} total games played
-        </span>
+          
+          {isAuthenticated && (
+            <div className="flex justify-center mb-4">
+              <ModeToggle onModeChange={(mode) => snapTo(mode)} />
+            </div>
+          )}
+        </div>
       </div>
-      <div className="flex-shrink-0 flex items-center">
-        <img
-          src={librarianHamsterYellow}
-          alt="Archive"
-          className="max-h-20 w-auto object-contain"
-        />
-      </div>
-    </motion.button>
 
-    {/* Stats + Options row */}
-    <div className="flex space-x-4">
-      {[
-        {
-          title: "Stats",
-          image: mathsHamsterGreen,
-          bgColor: "#A4DB57",
-          onClick: onViewStats,
-          testId: "button-stats",
-        },
-        {
-          title: "Options",
-          image: mechanicHamsterGrey,
-          bgColor: "#C4C9D4",
-          onClick: onOpenOptions,
-          testId: "button-options",
-        },
-      ].map((item, index) => (
-        <motion.button
-          key={item.testId}
-          className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-          style={{ backgroundColor: item.bgColor }}
-          onClick={item.onClick}
-          data-testid={item.testId}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.25,
-            delay: 0.3 + index * 0.15,
-            ease: "easeOut",
+      {/* Sliding Viewport Container */}
+      <div className="flex-grow overflow-hidden relative">
+        <div 
+          ref={(node) => {
+            if (typeof containerRef === 'function') containerRef(node);
+            else if (containerRef) containerRef.current = node;
+            if (!isDesktop && swipeRef) {
+              if (typeof swipeRef === 'function') swipeRef(node);
+              else if (swipeRef) swipeRef.current = node;
+            }
           }}
+          className="h-full w-full overflow-hidden"
+          {...(!isDesktop ? swipeProps : {})}
         >
-          <span className="text-xl font-bold text-gray-800 text-center">
-            {item.title}
-          </span>
-          <img
-            src={item.image}
-            alt={item.title}
-            className="max-h-[72px] w-auto object-contain mt-4"
-          />
-        </motion.button>
-      ))}
+          <motion.div
+            className="flex h-full"
+            style={{ 
+              x: isDesktop ? 0 : x,
+              width: isDesktop ? '100%' : '200%'
+            }}
+          >
+            {/* Global Pane */}
+            {renderPane('global')}
+
+            {/* Local Pane */}
+            {renderPane('local')}
+          </motion.div>
+        </div>
+      </div>
+
+      <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
-
-    {/* Invisible spacer to push buttons upward on tall screens */}
-    <div className="h-24" />
-  </div>
-</div>
-
-<HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
-</div>
-);
+  );
 }
-
-
-
-
-
-
-

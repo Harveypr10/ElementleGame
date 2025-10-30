@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useGameMode, type GameMode } from '@/contexts/GameModeContext';
 
@@ -7,16 +8,40 @@ interface ModeToggleProps {
 
 export function ModeToggle({ onModeChange }: ModeToggleProps) {
   const { gameMode, setGameMode, isGlobalMode } = useGameMode();
+  const toggleRef = useRef<HTMLDivElement>(null);
 
   const handleToggle = (mode: GameMode) => {
     setGameMode(mode);
     onModeChange?.(mode);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent, mode: GameMode) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleToggle(mode);
+    } else if (e.key === 'ArrowLeft' && mode === 'local') {
+      e.preventDefault();
+      handleToggle('global');
+    } else if (e.key === 'ArrowRight' && mode === 'global') {
+      e.preventDefault();
+      handleToggle('local');
+    }
+  };
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion && toggleRef.current) {
+      toggleRef.current.style.transition = 'none';
+    }
+  }, []);
+
   return (
     <div 
+      ref={toggleRef}
       className="relative inline-flex items-center rounded-full bg-muted p-1 w-48 h-10"
       data-testid="toggle-mode"
+      role="tablist"
+      aria-label="Game mode selection"
     >
       {/* Animated slider background */}
       <motion.div
@@ -27,7 +52,7 @@ export function ModeToggle({ onModeChange }: ModeToggleProps) {
         }}
         transition={{
           type: 'spring',
-          stiffness: 400,
+          stiffness: 300,
           damping: 30,
         }}
         data-testid="toggle-slider"
@@ -36,11 +61,16 @@ export function ModeToggle({ onModeChange }: ModeToggleProps) {
       {/* Global button */}
       <button
         onClick={() => handleToggle('global')}
+        onKeyDown={(e) => handleKeyDown(e, 'global')}
         className={`
           relative z-10 flex-1 text-sm font-medium transition-colors duration-200
           ${isGlobalMode ? 'text-foreground' : 'text-muted-foreground'}
         `}
         data-testid="button-mode-global"
+        role="tab"
+        aria-selected={isGlobalMode}
+        aria-controls="global-pane"
+        tabIndex={isGlobalMode ? 0 : -1}
       >
         Global
       </button>
@@ -48,11 +78,16 @@ export function ModeToggle({ onModeChange }: ModeToggleProps) {
       {/* Local button */}
       <button
         onClick={() => handleToggle('local')}
+        onKeyDown={(e) => handleKeyDown(e, 'local')}
         className={`
           relative z-10 flex-1 text-sm font-medium transition-colors duration-200
           ${!isGlobalMode ? 'text-foreground' : 'text-muted-foreground'}
         `}
         data-testid="button-mode-local"
+        role="tab"
+        aria-selected={!isGlobalMode}
+        aria-controls="local-pane"
+        tabIndex={!isGlobalMode ? 0 : -1}
       >
         Local
       </button>
