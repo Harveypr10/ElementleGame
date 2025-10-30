@@ -363,7 +363,7 @@ export function GameSelectionPage({
               </div>
             </motion.button>
 
-            {/* Mobile only: Stats row - contains Global Stats button and Options button */}
+            {/* Mobile only: Stats row - contains Global Stats button */}
             {!isDesktop && (
               <div className="relative h-40">
                 {/* Global Stats button */}
@@ -385,29 +385,6 @@ export function GameSelectionPage({
                     className="max-h-[72px] w-auto object-contain mt-4"
                   />
                 </motion.button>
-
-                {/* Options button - slides between panes */}
-                {isAuthenticated && containerWidth > 0 && (
-                  <motion.button
-                    className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
-                    style={{ 
-                      backgroundColor: "#C4C9D4",
-                      right: 0,
-                      x: buttonX
-                    }}
-                    onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
-                    data-testid="button-options-mobile"
-                  >
-                    <span className="text-xl font-bold text-gray-800 text-center">
-                      Options
-                    </span>
-                    <img
-                      src={mechanicHamsterGrey}
-                      alt="Options"
-                      className="max-h-[72px] w-auto object-contain mt-4"
-                    />
-                  </motion.button>
-                )}
               </div>
             )}
 
@@ -768,6 +745,43 @@ export function GameSelectionPage({
                 {renderLocalPane()}
               </motion.div>
             </div>
+
+            {/* Options button overlay - positioned at Stats row level, moves at half-speed */}
+            {isAuthenticated && containerWidth > 0 && (
+              <div 
+                className="absolute left-0 right-0 px-4 pointer-events-none"
+                style={{
+                  // Position at same vertical level as Stats row in document flow
+                  // Mobile: intro (mb-6) + mt-1 + Play (h-32) + gap (space-y-4) + Archive (h-24) + gap (space-y-4)
+                  // Calculation: mb-6 (~24px text + 24px gap) + 4px + 128px + 16px + 96px + 16px = ~284px
+                  // Adding intro text height: ~100px total for intro
+                  // Total: 100px + 4px + 128px + 16px + 96px + 16px = 360px
+                  top: '360px'
+                }}
+              >
+                <div className="max-w-md mx-auto relative h-40">
+                  <motion.button
+                    className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
+                    style={{ 
+                      backgroundColor: "#C4C9D4",
+                      right: 0,
+                      x: buttonX
+                    }}
+                    onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
+                    data-testid="button-options-mobile"
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      Options
+                    </span>
+                    <img
+                      src={mechanicHamsterGrey}
+                      alt="Options"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
