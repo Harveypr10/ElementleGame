@@ -528,16 +528,18 @@ export function PlayPage({
   }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat]);
   
   // Helper function to calculate feedback without updating state
-  const calculateFeedbackForGuess = (guess: string, currentKeyStates: Record<string, KeyState>): CellFeedback[] => {
+  const calculateFeedbackForGuess = (guess: string, currentKeyStates: Record<string, KeyState>, targetAnswer?: string): CellFeedback[] => {
     const feedback: CellFeedback[] = [];
+    const answer = targetAnswer || activeFormattedAnswer;
+    const numDigits = guess.length; // Use guess length instead of activeNumDigits
     
-    for (let i = 0; i < activeNumDigits; i++) {
+    for (let i = 0; i < numDigits; i++) {
       const guessDigit = guess[i];
-      const targetDigit = activeFormattedAnswer[i];
+      const targetDigit = answer[i];
       
       if (guessDigit === targetDigit) {
         feedback.push({ digit: guessDigit, state: "correct" });
-      } else if (activeFormattedAnswer.includes(guessDigit)) {
+      } else if (answer.includes(guessDigit)) {
         const arrow = parseInt(guessDigit) < parseInt(targetDigit) ? "up" : "down";
         feedback.push({ digit: guessDigit, state: "inSequence", arrow });
       } else {
@@ -552,8 +554,9 @@ export function PlayPage({
   // Helper function to update key states without modifying state
   const updateKeyStates = (guess: string, feedback: CellFeedback[], currentKeyStates: Record<string, KeyState>): Record<string, KeyState> => {
     const newKeyStates = { ...currentKeyStates };
+    const numDigits = guess.length; // Use guess length instead of activeNumDigits
     
-    for (let i = 0; i < activeNumDigits; i++) {
+    for (let i = 0; i < numDigits; i++) {
       const guessDigit = guess[i];
       const cellFeedback = feedback[i];
       
@@ -677,7 +680,8 @@ export function PlayPage({
         
         // Show streak celebration only when playing today's puzzle (regardless of access method)
         if (isPlayingTodaysPuzzle()) {
-          const statsRes = await apiRequest("GET", "/api/stats");
+          const statsEndpoint = isLocalMode ? "/api/user/stats" : "/api/stats";
+          const statsRes = await apiRequest("GET", statsEndpoint);
           if (statsRes.ok) {
             const freshStats = await statsRes.json();
             console.log('[Win] Fresh stats loaded for streak celebration:', freshStats);
