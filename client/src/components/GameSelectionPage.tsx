@@ -386,6 +386,9 @@ export function GameSelectionPage({
                 </motion.button>
               </div>
             )}
+
+            {/* Mobile only: Add bottom spacing */}
+            {!isDesktop && <div className="h-24" />}
           </div>
         </div>
       </div>
@@ -554,6 +557,9 @@ export function GameSelectionPage({
                 </motion.button>
               </div>
             )}
+
+            {/* Mobile only: Add bottom spacing */}
+            {!isDesktop && <div className="h-24" />}
           </div>
         </div>
       </div>
