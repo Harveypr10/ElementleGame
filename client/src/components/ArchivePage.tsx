@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
+import { useGameMode } from "@/contexts/GameModeContext";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
@@ -36,6 +37,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
   const { isAuthenticated } = useAuth();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
+  const { isLocalMode } = useGameMode();
   const queryClient = useQueryClient();
   const [currentMonth, setCurrentMonth] = useState(new Date(2025, 9, 1)); // October 2025
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
@@ -47,10 +49,11 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
   useEffect(() => {
     if (isAuthenticated) {
       console.log('[Archive] Refetching game attempts on mount');
-      queryClient.refetchQueries({ queryKey: ["/api/game-attempts/user"] });
+      const queryKey = isLocalMode ? ["/api/user/game-attempts/user"] : ["/api/game-attempts/user"];
+      queryClient.refetchQueries({ queryKey });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty array is intentional - runs on mount (which happens on every navigation to Archive)
+  }, [isLocalMode]); // Refetch when mode changes or on mount
 
   // Load from cache first for instant rendering
   useEffect(() => {
