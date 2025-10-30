@@ -281,3 +281,116 @@ export const insertUserStatsRegionSchema = createInsertSchema(userStatsRegion).o
 
 export type InsertUserStatsRegion = z.infer<typeof insertUserStatsRegionSchema>;
 export type UserStatsRegion = typeof userStatsRegion.$inferSelect;
+
+// ============================================================================
+// USER GAME MODE TABLES
+// ============================================================================
+
+// Questions master (user) - Canonical question bank for user mode
+export const questionsMasterUser = pgTable("questions_master_user", {
+  id: serial("id").primaryKey(),
+  answerDateCanonical: date("answer_date_canonical").notNull(), // Canonical historical date (YYYY-MM-DD)
+  eventTitle: text("event_title").notNull(),
+  eventDescription: text("event_description").notNull(),
+  regions: jsonb("regions"), // Regions this question is relevant for
+  categories: jsonb("categories").notNull(), // Categories this question belongs to
+  location: text("location"), // Geographic location relevant to the event
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertQuestionMasterUserSchema = createInsertSchema(questionsMasterUser).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertQuestionMasterUser = z.infer<typeof insertQuestionMasterUserSchema>;
+export type QuestionMasterUser = typeof questionsMasterUser.$inferSelect;
+
+// Questions allocated (user) - Daily puzzle allocations per user
+export const questionsAllocatedUser = pgTable(
+  "questions_allocated_user",
+  {
+    id: serial("id").primaryKey(),
+    questionId: integer("question_id").notNull().references(() => questionsMasterUser.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+    puzzleDate: date("puzzle_date").notNull(), // The date this question is allocated for (YYYY-MM-DD)
+    category: text("category").notNull(), // Category for this puzzle (sports, science, etc.)
+  },
+  (table) => {
+    return {
+      userDateUnique: unique().on(table.userId, table.puzzleDate),
+    };
+  }
+);
+
+export const insertQuestionAllocatedUserSchema = createInsertSchema(questionsAllocatedUser).omit({
+  id: true,
+});
+
+export type InsertQuestionAllocatedUser = z.infer<typeof insertQuestionAllocatedUserSchema>;
+export type QuestionAllocatedUser = typeof questionsAllocatedUser.$inferSelect;
+
+// Game attempts (user) - User attempts for user mode puzzles
+export const gameAttemptsUser = pgTable(
+  "game_attempts_user",
+  {
+    id: serial("id").primaryKey(),
+    userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+    allocatedUserId: integer("allocated_user_id").notNull().references(() => questionsAllocatedUser.id),
+    result: varchar("result", { length: 10 }), // 'won' or 'lost' - null for in-progress
+    numGuesses: integer("num_guesses").default(0),
+    digits: varchar("digits", { length: 1 }), // '6' or '8' - locked on first guess
+    startedAt: timestamp("started_at").defaultNow(),
+    completedAt: timestamp("completed_at"), // null for in-progress games
+  },
+  (table) => {
+    return {
+      userAllocatedUnique: unique().on(table.userId, table.allocatedUserId),
+    };
+  }
+);
+
+export const insertGameAttemptUserSchema = createInsertSchema(gameAttemptsUser).omit({
+  id: true,
+  startedAt: true,
+  completedAt: true,
+});
+
+export type InsertGameAttemptUser = z.infer<typeof insertGameAttemptUserSchema>;
+export type GameAttemptUser = typeof gameAttemptsUser.$inferSelect;
+
+// Guesses (user) - Individual guesses for user mode
+export const guessesUser = pgTable("guesses_user", {
+  id: serial("id").primaryKey(),
+  gameAttemptId: integer("game_attempt_id").notNull().references(() => gameAttemptsUser.id, { onDelete: "cascade" }),
+  guessValue: varchar("guess_value", { length: 10 }).notNull(), // Date string in user's format (DDMMYY or DDMMYYYY)
+  guessedAt: timestamp("guessed_at").defaultNow(),
+});
+
+export const insertGuessUserSchema = createInsertSchema(guessesUser).omit({
+  id: true,
+  guessedAt: true,
+});
+
+export type InsertGuessUser = z.infer<typeof insertGuessUserSchema>;
+export type GuessUser = typeof guessesUser.$inferSelect;
+
+// User stats (user) - Aggregated statistics for user mode
+export const userStatsUser = pgTable("user_stats_user", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().unique().references(() => userProfiles.id, { onDelete: "cascade" }),
+  gamesPlayed: integer("games_played").default(0),
+  gamesWon: integer("games_won").default(0),
+  currentStreak: integer("current_streak").default(0),
+  maxStreak: integer("max_streak").default(0),
+  guessDistribution: jsonb("guess_distribution").default({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }), // JSON object tracking wins by guess count
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserStatsUserSchema = createInsertSchema(userStatsUser).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertUserStatsUser = z.infer<typeof insertUserStatsUserSchema>;
+export type UserStatsUser = typeof userStatsUser.$inferSelect;

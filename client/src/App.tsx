@@ -7,6 +7,7 @@ import { SupabaseProvider } from "@/lib/SupabaseProvider";
 import { PreloadProvider } from "@/lib/PreloadProvider";
 import { SettingsProvider } from "@/lib/SettingsProvider";
 import { GuessCacheProvider } from "@/contexts/GuessCacheContext";
+import { GameModeProvider } from "@/contexts/GameModeContext";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/not-found";
 
@@ -70,13 +71,15 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <PreloadProvider>
           <SettingsProvider>
-            <GuessCacheProvider>
-              <TooltipProvider>
-                <Toaster />
+            <GameModeProvider>
+              <GuessCacheProvider>
+                <TooltipProvider>
+                  <Toaster />
                   <RoutePersistence />
-                <Router />
-              </TooltipProvider>
-            </GuessCacheProvider>
+                  <Router />
+                </TooltipProvider>
+              </GuessCacheProvider>
+            </GameModeProvider>
           </SettingsProvider>
         </PreloadProvider>
       </QueryClientProvider>

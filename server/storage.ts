@@ -7,6 +7,11 @@ import {
   gameAttemptsRegion,
   guessesRegion,
   userStatsRegion,
+  questionsMasterUser,
+  questionsAllocatedUser,
+  gameAttemptsUser,
+  guessesUser,
+  userStatsUser,
   type UserProfile,
   type InsertUserProfile,
   type Puzzle,
@@ -23,18 +28,38 @@ import {
   type InsertGuessRegion,
   type UserStatsRegion,
   type InsertUserStatsRegion,
+  type QuestionMasterUser,
+  type InsertQuestionMasterUser,
+  type QuestionAllocatedUser,
+  type InsertQuestionAllocatedUser,
+  type GameAttemptUser,
+  type InsertGameAttemptUser,
+  type GuessUser,
+  type InsertGuessUser,
+  type UserStatsUser,
+  type InsertUserStatsUser,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, isNull } from "drizzle-orm";
 
-// Type for allocated question with master question data
+// Type for allocated question with master question data (Region mode)
 export type AllocatedQuestionWithMaster = QuestionAllocatedRegion & {
   masterQuestion: QuestionMasterRegion;
 };
 
-// Type for game attempt with allocated question data
+// Type for game attempt with allocated question data (Region mode)
 export type GameAttemptWithAllocatedQuestion = GameAttemptRegion & {
   allocatedQuestion: AllocatedQuestionWithMaster;
+};
+
+// Type for allocated question with master question data (User mode)
+export type AllocatedUserQuestionWithMaster = QuestionAllocatedUser & {
+  masterQuestion: QuestionMasterUser;
+};
+
+// Type for game attempt with allocated question data (User mode)
+export type GameAttemptUserWithAllocatedQuestion = GameAttemptUser & {
+  allocatedQuestion: AllocatedUserQuestionWithMaster;
 };
 
 // Interface for storage operations
@@ -116,6 +141,41 @@ export interface IStorage {
   upsertUserStatsRegion(stats: InsertUserStatsRegion): Promise<UserStatsRegion>;
   recalculateUserStatsRegion(userId: string): Promise<UserStatsRegion>;
   getUserPercentileRankingRegion(userId: string): Promise<number>;
+
+  // ========================================================================
+  // USER GAME MODE OPERATIONS
+  // ========================================================================
+
+  // Question master operations (user)
+  getQuestionMasterUser(id: number): Promise<QuestionMasterUser | undefined>;
+  createQuestionMasterUser(question: InsertQuestionMasterUser): Promise<QuestionMasterUser>;
+
+  // Question allocated operations (user)
+  getAllocatedQuestionByUserAndDate(userId: string, date: string): Promise<AllocatedUserQuestionWithMaster | undefined>;
+  getAllocatedQuestionsByUser(userId: string): Promise<AllocatedUserQuestionWithMaster[]>;
+  getAllocatedQuestionsSinceByUser(userId: string, since: string): Promise<AllocatedUserQuestionWithMaster[]>;
+  createQuestionAllocatedUser(allocation: InsertQuestionAllocatedUser): Promise<QuestionAllocatedUser>;
+
+  // Game attempt operations (user)
+  getGameAttemptUser(id: number): Promise<GameAttemptUser | undefined>;
+  getGameAttemptUserWithQuestion(id: number): Promise<GameAttemptUserWithAllocatedQuestion | undefined>;
+  getGameAttemptsByUserUser(userId: string): Promise<GameAttemptUserWithAllocatedQuestion[]>;
+  getGameAttemptByUserAndAllocatedUser(userId: string, allocatedUserId: number): Promise<GameAttemptUser | undefined>;
+  createGameAttemptUser(attempt: InsertGameAttemptUser): Promise<GameAttemptUser>;
+  updateGameAttemptUser(id: number, updateData: Partial<Omit<GameAttemptUser, 'id' | 'userId' | 'allocatedUserId' | 'startedAt'>>): Promise<GameAttemptUser>;
+  incrementAttemptGuessesUser(gameAttemptId: number): Promise<void>;
+
+  // Guess operations (user)
+  getGuessesByGameAttemptUser(gameAttemptId: number): Promise<GuessUser[]>;
+  createGuessUser(guess: InsertGuessUser): Promise<GuessUser>;
+  getRecentGuessesWithAllocatedIdsUser(userId: string, since: string): Promise<Array<GuessUser & { allocatedUserId: number }>>;
+  getAllGuessesWithAllocatedIdsUser(userId: string): Promise<Array<GuessUser & { allocatedUserId: number; result: string | null }>>;
+
+  // User stats operations (user)
+  getUserStatsUser(userId: string): Promise<UserStatsUser | undefined>;
+  upsertUserStatsUser(stats: InsertUserStatsUser): Promise<UserStatsUser>;
+  recalculateUserStatsUser(userId: string): Promise<UserStatsUser>;
+  getUserPercentileRankingUser(userId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1195,6 +1255,640 @@ export class DatabaseStorage implements IStorage {
       })
       .from(userStatsRegion)
       .orderBy(desc(userStatsRegion.gamesWon));
+
+    if (allUserStats.length === 0) {
+      return 100;
+    }
+
+    const userPosition = allUserStats.findIndex(stat => stat.userId === userId);
+    
+    if (userPosition === -1) {
+      return 100;
+    }
+
+    const percentile = ((userPosition + 1) / allUserStats.length) * 100;
+    return Math.round(percentile * 10) / 10;
+  }
+
+  // ========================================================================
+  // USER GAME MODE OPERATIONS
+  // ========================================================================
+
+  // Question master operations (user)
+  async getQuestionMasterUser(id: number): Promise<QuestionMasterUser | undefined> {
+    const [question] = await db
+      .select()
+      .from(questionsMasterUser)
+      .where(eq(questionsMasterUser.id, id));
+    return question;
+  }
+
+  async createQuestionMasterUser(questionData: InsertQuestionMasterUser): Promise<QuestionMasterUser> {
+    const [question] = await db
+      .insert(questionsMasterUser)
+      .values(questionData)
+      .returning();
+    return question;
+  }
+
+  // Question allocated operations (user)
+  async getAllocatedQuestionByUserAndDate(
+    userId: string,
+    date: string
+  ): Promise<AllocatedUserQuestionWithMaster | undefined> {
+    const results = await db
+      .select({
+        id: questionsAllocatedUser.id,
+        questionId: questionsAllocatedUser.questionId,
+        userId: questionsAllocatedUser.userId,
+        puzzleDate: questionsAllocatedUser.puzzleDate,
+        category: questionsAllocatedUser.category,
+        masterQuestion_id: questionsMasterUser.id,
+        masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
+        masterQuestion_eventTitle: questionsMasterUser.eventTitle,
+        masterQuestion_eventDescription: questionsMasterUser.eventDescription,
+        masterQuestion_regions: questionsMasterUser.regions,
+        masterQuestion_categories: questionsMasterUser.categories,
+        masterQuestion_location: questionsMasterUser.location,
+        masterQuestion_createdAt: questionsMasterUser.createdAt,
+      })
+      .from(questionsAllocatedUser)
+      .innerJoin(
+        questionsMasterUser,
+        eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
+      )
+      .where(
+        and(
+          eq(questionsAllocatedUser.userId, userId),
+          eq(questionsAllocatedUser.puzzleDate, date)
+        )
+      );
+
+    if (results.length === 0) return undefined;
+
+    const result = results[0];
+    return {
+      id: result.id,
+      questionId: result.questionId,
+      userId: result.userId,
+      puzzleDate: result.puzzleDate,
+      category: result.category,
+      masterQuestion: {
+        id: result.masterQuestion_id,
+        answerDateCanonical: result.masterQuestion_answerDateCanonical,
+        eventTitle: result.masterQuestion_eventTitle,
+        eventDescription: result.masterQuestion_eventDescription,
+        regions: result.masterQuestion_regions,
+        categories: result.masterQuestion_categories,
+        location: result.masterQuestion_location,
+        createdAt: result.masterQuestion_createdAt,
+      },
+    };
+  }
+
+  async getAllocatedQuestionsByUser(userId: string): Promise<AllocatedUserQuestionWithMaster[]> {
+    const results = await db
+      .select({
+        id: questionsAllocatedUser.id,
+        questionId: questionsAllocatedUser.questionId,
+        userId: questionsAllocatedUser.userId,
+        puzzleDate: questionsAllocatedUser.puzzleDate,
+        category: questionsAllocatedUser.category,
+        masterQuestion_id: questionsMasterUser.id,
+        masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
+        masterQuestion_eventTitle: questionsMasterUser.eventTitle,
+        masterQuestion_eventDescription: questionsMasterUser.eventDescription,
+        masterQuestion_regions: questionsMasterUser.regions,
+        masterQuestion_categories: questionsMasterUser.categories,
+        masterQuestion_location: questionsMasterUser.location,
+        masterQuestion_createdAt: questionsMasterUser.createdAt,
+      })
+      .from(questionsAllocatedUser)
+      .innerJoin(
+        questionsMasterUser,
+        eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
+      )
+      .where(eq(questionsAllocatedUser.userId, userId))
+      .orderBy(questionsAllocatedUser.puzzleDate);
+
+    return results.map(result => ({
+      id: result.id,
+      questionId: result.questionId,
+      userId: result.userId,
+      puzzleDate: result.puzzleDate,
+      category: result.category,
+      masterQuestion: {
+        id: result.masterQuestion_id,
+        answerDateCanonical: result.masterQuestion_answerDateCanonical,
+        eventTitle: result.masterQuestion_eventTitle,
+        eventDescription: result.masterQuestion_eventDescription,
+        regions: result.masterQuestion_regions,
+        categories: result.masterQuestion_categories,
+        location: result.masterQuestion_location,
+        createdAt: result.masterQuestion_createdAt,
+      },
+    }));
+  }
+
+  async getAllocatedQuestionsSinceByUser(
+    userId: string,
+    since: string
+  ): Promise<AllocatedUserQuestionWithMaster[]> {
+    const results = await db
+      .select({
+        id: questionsAllocatedUser.id,
+        questionId: questionsAllocatedUser.questionId,
+        userId: questionsAllocatedUser.userId,
+        puzzleDate: questionsAllocatedUser.puzzleDate,
+        category: questionsAllocatedUser.category,
+        masterQuestion_id: questionsMasterUser.id,
+        masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
+        masterQuestion_eventTitle: questionsMasterUser.eventTitle,
+        masterQuestion_eventDescription: questionsMasterUser.eventDescription,
+        masterQuestion_regions: questionsMasterUser.regions,
+        masterQuestion_categories: questionsMasterUser.categories,
+        masterQuestion_location: questionsMasterUser.location,
+        masterQuestion_createdAt: questionsMasterUser.createdAt,
+      })
+      .from(questionsAllocatedUser)
+      .innerJoin(
+        questionsMasterUser,
+        eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
+      )
+      .where(
+        and(
+          eq(questionsAllocatedUser.userId, userId),
+          gte(questionsAllocatedUser.puzzleDate, since)
+        )
+      )
+      .orderBy(questionsAllocatedUser.puzzleDate);
+
+    return results.map(result => ({
+      id: result.id,
+      questionId: result.questionId,
+      userId: result.userId,
+      puzzleDate: result.puzzleDate,
+      category: result.category,
+      masterQuestion: {
+        id: result.masterQuestion_id,
+        answerDateCanonical: result.masterQuestion_answerDateCanonical,
+        eventTitle: result.masterQuestion_eventTitle,
+        eventDescription: result.masterQuestion_eventDescription,
+        regions: result.masterQuestion_regions,
+        categories: result.masterQuestion_categories,
+        location: result.masterQuestion_location,
+        createdAt: result.masterQuestion_createdAt,
+      },
+    }));
+  }
+
+  async createQuestionAllocatedUser(
+    allocationData: InsertQuestionAllocatedUser
+  ): Promise<QuestionAllocatedUser> {
+    const [allocation] = await db
+      .insert(questionsAllocatedUser)
+      .values(allocationData)
+      .returning();
+    return allocation;
+  }
+
+  // Game attempt operations (user)
+  async getGameAttemptUser(id: number): Promise<GameAttemptUser | undefined> {
+    const [attempt] = await db
+      .select()
+      .from(gameAttemptsUser)
+      .where(eq(gameAttemptsUser.id, id));
+    return attempt;
+  }
+
+  async getGameAttemptUserWithQuestion(
+    id: number
+  ): Promise<GameAttemptUserWithAllocatedQuestion | undefined> {
+    const results = await db
+      .select({
+        id: gameAttemptsUser.id,
+        userId: gameAttemptsUser.userId,
+        allocatedUserId: gameAttemptsUser.allocatedUserId,
+        result: gameAttemptsUser.result,
+        numGuesses: gameAttemptsUser.numGuesses,
+        digits: gameAttemptsUser.digits,
+        startedAt: gameAttemptsUser.startedAt,
+        completedAt: gameAttemptsUser.completedAt,
+        allocated_id: questionsAllocatedUser.id,
+        allocated_questionId: questionsAllocatedUser.questionId,
+        allocated_userId: questionsAllocatedUser.userId,
+        allocated_puzzleDate: questionsAllocatedUser.puzzleDate,
+        allocated_category: questionsAllocatedUser.category,
+        master_id: questionsMasterUser.id,
+        master_answerDateCanonical: questionsMasterUser.answerDateCanonical,
+        master_eventTitle: questionsMasterUser.eventTitle,
+        master_eventDescription: questionsMasterUser.eventDescription,
+        master_regions: questionsMasterUser.regions,
+        master_categories: questionsMasterUser.categories,
+        master_location: questionsMasterUser.location,
+        master_createdAt: questionsMasterUser.createdAt,
+      })
+      .from(gameAttemptsUser)
+      .innerJoin(
+        questionsAllocatedUser,
+        eq(gameAttemptsUser.allocatedUserId, questionsAllocatedUser.id)
+      )
+      .innerJoin(
+        questionsMasterUser,
+        eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
+      )
+      .where(eq(gameAttemptsUser.id, id));
+
+    if (results.length === 0) return undefined;
+
+    const result = results[0];
+    return {
+      id: result.id,
+      userId: result.userId,
+      allocatedUserId: result.allocatedUserId,
+      result: result.result,
+      numGuesses: result.numGuesses,
+      digits: result.digits,
+      startedAt: result.startedAt,
+      completedAt: result.completedAt,
+      allocatedQuestion: {
+        id: result.allocated_id,
+        questionId: result.allocated_questionId,
+        userId: result.allocated_userId,
+        puzzleDate: result.allocated_puzzleDate,
+        category: result.allocated_category,
+        masterQuestion: {
+          id: result.master_id,
+          answerDateCanonical: result.master_answerDateCanonical,
+          eventTitle: result.master_eventTitle,
+          eventDescription: result.master_eventDescription,
+          regions: result.master_regions,
+          categories: result.master_categories,
+          location: result.master_location,
+          createdAt: result.master_createdAt,
+        },
+      },
+    };
+  }
+
+  async getGameAttemptsByUserUser(userId: string): Promise<GameAttemptUserWithAllocatedQuestion[]> {
+    const results = await db
+      .select({
+        id: gameAttemptsUser.id,
+        userId: gameAttemptsUser.userId,
+        allocatedUserId: gameAttemptsUser.allocatedUserId,
+        result: gameAttemptsUser.result,
+        numGuesses: gameAttemptsUser.numGuesses,
+        digits: gameAttemptsUser.digits,
+        startedAt: gameAttemptsUser.startedAt,
+        completedAt: gameAttemptsUser.completedAt,
+        allocated_id: questionsAllocatedUser.id,
+        allocated_questionId: questionsAllocatedUser.questionId,
+        allocated_userId: questionsAllocatedUser.userId,
+        allocated_puzzleDate: questionsAllocatedUser.puzzleDate,
+        allocated_category: questionsAllocatedUser.category,
+        master_id: questionsMasterUser.id,
+        master_answerDateCanonical: questionsMasterUser.answerDateCanonical,
+        master_eventTitle: questionsMasterUser.eventTitle,
+        master_eventDescription: questionsMasterUser.eventDescription,
+        master_regions: questionsMasterUser.regions,
+        master_categories: questionsMasterUser.categories,
+        master_location: questionsMasterUser.location,
+        master_createdAt: questionsMasterUser.createdAt,
+      })
+      .from(gameAttemptsUser)
+      .innerJoin(
+        questionsAllocatedUser,
+        eq(gameAttemptsUser.allocatedUserId, questionsAllocatedUser.id)
+      )
+      .innerJoin(
+        questionsMasterUser,
+        eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
+      )
+      .where(eq(gameAttemptsUser.userId, userId))
+      .orderBy(desc(questionsAllocatedUser.puzzleDate));
+
+    return results.map(result => ({
+      id: result.id,
+      userId: result.userId,
+      allocatedUserId: result.allocatedUserId,
+      result: result.result,
+      numGuesses: result.numGuesses,
+      digits: result.digits,
+      startedAt: result.startedAt,
+      completedAt: result.completedAt,
+      allocatedQuestion: {
+        id: result.allocated_id,
+        questionId: result.allocated_questionId,
+        userId: result.allocated_userId,
+        puzzleDate: result.allocated_puzzleDate,
+        category: result.allocated_category,
+        masterQuestion: {
+          id: result.master_id,
+          answerDateCanonical: result.master_answerDateCanonical,
+          eventTitle: result.master_eventTitle,
+          eventDescription: result.master_eventDescription,
+          regions: result.master_regions,
+          categories: result.master_categories,
+          location: result.master_location,
+          createdAt: result.master_createdAt,
+        },
+      },
+    }));
+  }
+
+  async getGameAttemptByUserAndAllocatedUser(
+    userId: string,
+    allocatedUserId: number
+  ): Promise<GameAttemptUser | undefined> {
+    const [attempt] = await db
+      .select()
+      .from(gameAttemptsUser)
+      .where(
+        and(
+          eq(gameAttemptsUser.userId, userId),
+          eq(gameAttemptsUser.allocatedUserId, allocatedUserId)
+        )
+      );
+    return attempt;
+  }
+
+  async createGameAttemptUser(attemptData: InsertGameAttemptUser): Promise<GameAttemptUser> {
+    const [attempt] = await db
+      .insert(gameAttemptsUser)
+      .values(attemptData)
+      .returning();
+    return attempt;
+  }
+
+  async updateGameAttemptUser(
+    id: number,
+    updateData: Partial<Omit<GameAttemptUser, 'id' | 'userId' | 'allocatedUserId' | 'startedAt'>>
+  ): Promise<GameAttemptUser> {
+    const [current] = await db
+      .select()
+      .from(gameAttemptsUser)
+      .where(eq(gameAttemptsUser.id, id));
+
+    let safeUpdate = { ...updateData } as any;
+
+    // Ensure numGuesses never decreases
+    if (typeof safeUpdate.numGuesses === "number" && current) {
+      safeUpdate.numGuesses = Math.max(safeUpdate.numGuesses, current.numGuesses ?? 0);
+    }
+
+    // If result is being set, mark completedAt
+    if (safeUpdate.result && !current?.completedAt) {
+      safeUpdate.completedAt = new Date();
+    }
+
+    const [attempt] = await db
+      .update(gameAttemptsUser)
+      .set(safeUpdate)
+      .where(eq(gameAttemptsUser.id, id))
+      .returning();
+
+    return attempt;
+  }
+
+  async incrementAttemptGuessesUser(gameAttemptId: number): Promise<void> {
+    const [current] = await db
+      .select({ numGuesses: gameAttemptsUser.numGuesses })
+      .from(gameAttemptsUser)
+      .where(eq(gameAttemptsUser.id, gameAttemptId));
+
+    const next = (current?.numGuesses ?? 0) + 1;
+
+    await db
+      .update(gameAttemptsUser)
+      .set({ numGuesses: next })
+      .where(eq(gameAttemptsUser.id, gameAttemptId));
+  }
+
+  // Guess operations (user)
+  async getGuessesByGameAttemptUser(gameAttemptId: number): Promise<GuessUser[]> {
+    return await db
+      .select()
+      .from(guessesUser)
+      .where(eq(guessesUser.gameAttemptId, gameAttemptId))
+      .orderBy(guessesUser.guessedAt);
+  }
+
+  async createGuessUser(guessData: InsertGuessUser): Promise<GuessUser> {
+    const [guess] = await db.insert(guessesUser).values(guessData).returning();
+    return guess;
+  }
+
+  async getRecentGuessesWithAllocatedIdsUser(
+    userId: string,
+    since: string
+  ): Promise<Array<GuessUser & { allocatedUserId: number }>> {
+    const results = await db
+      .select({
+        id: guessesUser.id,
+        gameAttemptId: guessesUser.gameAttemptId,
+        guessValue: guessesUser.guessValue,
+        guessedAt: guessesUser.guessedAt,
+        allocatedUserId: gameAttemptsUser.allocatedUserId,
+      })
+      .from(guessesUser)
+      .innerJoin(
+        gameAttemptsUser,
+        eq(guessesUser.gameAttemptId, gameAttemptsUser.id)
+      )
+      .innerJoin(
+        questionsAllocatedUser,
+        eq(gameAttemptsUser.allocatedUserId, questionsAllocatedUser.id)
+      )
+      .where(
+        and(
+          eq(gameAttemptsUser.userId, userId),
+          gte(questionsAllocatedUser.puzzleDate, since)
+        )
+      )
+      .orderBy(guessesUser.guessedAt);
+
+    return results;
+  }
+
+  async getAllGuessesWithAllocatedIdsUser(
+    userId: string
+  ): Promise<Array<GuessUser & { allocatedUserId: number; result: string | null }>> {
+    const results = await db
+      .select({
+        id: guessesUser.id,
+        gameAttemptId: guessesUser.gameAttemptId,
+        guessValue: guessesUser.guessValue,
+        guessedAt: guessesUser.guessedAt,
+        allocatedUserId: gameAttemptsUser.allocatedUserId,
+        result: gameAttemptsUser.result,
+      })
+      .from(guessesUser)
+      .innerJoin(
+        gameAttemptsUser,
+        eq(guessesUser.gameAttemptId, gameAttemptsUser.id)
+      )
+      .where(eq(gameAttemptsUser.userId, userId))
+      .orderBy(guessesUser.guessedAt);
+
+    return results;
+  }
+
+  // User stats operations (user)
+  async getUserStatsUser(userId: string): Promise<UserStatsUser | undefined> {
+    const [stats] = await db
+      .select()
+      .from(userStatsUser)
+      .where(eq(userStatsUser.userId, userId));
+    return stats;
+  }
+
+  async upsertUserStatsUser(statsData: InsertUserStatsUser): Promise<UserStatsUser> {
+    const [stats] = await db
+      .insert(userStatsUser)
+      .values(statsData)
+      .onConflictDoUpdate({
+        target: userStatsUser.userId,
+        set: {
+          ...statsData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return stats;
+  }
+
+  async recalculateUserStatsUser(userId: string): Promise<UserStatsUser> {
+    // Get all completed game attempts for this user in user mode
+    const completedAttempts = await db
+      .select({
+        id: gameAttemptsUser.id,
+        result: gameAttemptsUser.result,
+        numGuesses: gameAttemptsUser.numGuesses,
+        completedAt: gameAttemptsUser.completedAt,
+        puzzleDate: questionsAllocatedUser.puzzleDate,
+      })
+      .from(gameAttemptsUser)
+      .innerJoin(
+        questionsAllocatedUser,
+        eq(gameAttemptsUser.allocatedUserId, questionsAllocatedUser.id)
+      )
+      .where(
+        and(
+          eq(gameAttemptsUser.userId, userId),
+          eq(gameAttemptsUser.result, 'won')
+        )
+      )
+      .orderBy(questionsAllocatedUser.puzzleDate);
+
+    // Get lost games
+    const lostAttempts = await db
+      .select({
+        id: gameAttemptsUser.id,
+        result: gameAttemptsUser.result,
+        puzzleDate: questionsAllocatedUser.puzzleDate,
+        completedAt: gameAttemptsUser.completedAt,
+      })
+      .from(gameAttemptsUser)
+      .innerJoin(
+        questionsAllocatedUser,
+        eq(gameAttemptsUser.allocatedUserId, questionsAllocatedUser.id)
+      )
+      .where(
+        and(
+          eq(gameAttemptsUser.userId, userId),
+          eq(gameAttemptsUser.result, 'lost')
+        )
+      );
+
+    const gamesPlayed = completedAttempts.length + lostAttempts.length;
+    const gamesWon = completedAttempts.length;
+
+    // Calculate guess distribution (only for won games)
+    const guessDistribution: any = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+    for (const attempt of completedAttempts) {
+      const numGuesses = attempt.numGuesses || 0;
+      if (numGuesses >= 1 && numGuesses <= 5) {
+        guessDistribution[numGuesses.toString()] = (guessDistribution[numGuesses.toString()] || 0) + 1;
+      }
+    }
+
+    // Calculate current streak
+    const allCompletedAttempts = [...completedAttempts, ...lostAttempts].sort((a, b) => 
+      new Date(b.puzzleDate).getTime() - new Date(a.puzzleDate).getTime()
+    );
+
+    let currentStreak = 0;
+    let maxStreak = 0;
+    let tempStreak = 0;
+    
+    const dateMap = new Map<string, string>();
+    for (const attempt of allCompletedAttempts) {
+      const completedDate = new Date(attempt.completedAt || '');
+      const puzzleDate = new Date(attempt.puzzleDate);
+      
+      completedDate.setHours(0, 0, 0, 0);
+      puzzleDate.setHours(0, 0, 0, 0);
+      
+      if (completedDate.getTime() === puzzleDate.getTime()) {
+        dateMap.set(attempt.puzzleDate, attempt.result || '');
+      }
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let checkDate = new Date(today);
+    
+    const todayStr = today.toISOString().split('T')[0];
+    if (!dateMap.has(todayStr)) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      checkDate = new Date(yesterday);
+    }
+    
+    while (true) {
+      const dateStr = checkDate.toISOString().split('T')[0];
+      const result = dateMap.get(dateStr);
+      
+      if (!result) break;
+      if (result === 'won') {
+        currentStreak++;
+      } else {
+        break;
+      }
+      
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+
+    const sortedDates = Array.from(dateMap.keys()).sort();
+    for (let i = 0; i < sortedDates.length; i++) {
+      const result = dateMap.get(sortedDates[i]);
+      if (result === 'won') {
+        tempStreak++;
+        maxStreak = Math.max(maxStreak, tempStreak);
+      } else {
+        tempStreak = 0;
+      }
+    }
+
+    return await this.upsertUserStatsUser({
+      userId,
+      gamesPlayed,
+      gamesWon,
+      currentStreak,
+      maxStreak,
+      guessDistribution,
+    });
+  }
+
+  async getUserPercentileRankingUser(userId: string): Promise<number> {
+    const allUserStats = await db
+      .select({
+        userId: userStatsUser.userId,
+        gamesWon: userStatsUser.gamesWon,
+      })
+      .from(userStatsUser)
+      .orderBy(desc(userStatsUser.gamesWon));
 
     if (allUserStats.length === 0) {
       return 100;

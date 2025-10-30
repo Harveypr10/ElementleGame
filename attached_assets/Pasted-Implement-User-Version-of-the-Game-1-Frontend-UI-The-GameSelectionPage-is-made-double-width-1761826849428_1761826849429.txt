@@ -1,0 +1,49 @@
+Implement “User” Version of the Game
+1. Frontend / UI
+•	The GameSelectionPage is made double width, with the buttons to play new version of the game to the right hand side of the current buttons. In a normal mobile phone size screen just the “active game” is visible on screen, with the other version of the game off screen to the side. The screen can be dragged left or right to show each version of the game, and as the user drags the screen sideways, with normal inertia and accelerate/decelerate dynamics the screen comes to rest with one or the other of the game modes fully in view and the other off screen to the side
+•	Add a toggle control at the top of the game screen:
+o	Labels: "Global" and "Local".
+o	Style: single rounded rectangle containing both words; the active one is highlighted by a sliding rounded rectangle “slider.”
+o	Behaviour:
+	If “Global” currently active, tap on the inactive word “Local” → slider animates across to the right, and the whole game screen slides horizontally from right to left to bring in the other mode.
+	Swipe left/right on the game screen → slider moves in sync with the swipe, and the screen content slides seamlessly.
+o	The new slider control, help icon, settings icon, and Elementle title remain fixed near the top of the screen and do not move.
+•	Options button:
+o	In Global mode: positioned the same as current.
+o	In Local mode: the existing options button slides left to be positioned where the current Stats button is currently situated, and a new “Local Stats” button appears in the gap on the right where the Options button is currently situated.
+o	Animation: smooth slide of buttons when toggling.
+•	Responsive behaviour:
+o	On small screens: only one mode visible at a time, toggle/swipe to switch. Where the user hasn’t got it past a break point, say 50% of the way across, the screen snaps back to the game they are already on, but past the 50% break point the screen will snap to the other game. The transition should remain smooth though, with sensible motion and deceleration to come to a rest
+o	On large/full screen (where enough room to fit both on screen): show both Global and Local versions side by side simultaneously.
+•	PlayPage (Local mode):
+o	Above the event title, display: Category: <category_name>.
+o	This comes from a new category field in questions_allocated_user.
+2. Backend / API
+•	All the required new tables have been created and test data added for the new “User” game mode. Duplicate all “Region” endpoints for “User” mode, pointing to the *_user tables.
+o	GET /api/puzzles → questions_allocated_user + questions_master_user.
+o	POST /api/game-attempts → game_attempts_user.
+o	POST /api/guesses → guesses_user.
+o	GET /api/stats → user_stats_user.
+o	Archive, streaks, and EndGame modal → all use the *_user equivalents.
+•	Ensure digit mode locking works identically:
+o	game_attempts_user.digits is set on first guess, never updated afterwards.
+o	In progress games enforce the stored digit mode.
+
+3. Database / Schema Mapping
+Be explicit about table mappings:
+Region Game Table	User Game Table	Notes
+questions_master_region	questions_master_user	Same fields.
+questions_allocated_region	questions_allocated_user	Same fields plus new category (text).
+game_attempts_region	game_attempts_user	Same fields, including new digits column.
+guesses_region	guesses_user	Same fields.
+user_stats_region	user_stats_user	Same fields.
+Shared tables remain unchanged: user_profiles, user_settings, user_subscriptions, categories.
+
+4. Validation Criteria
+•	Toggle/swipe works smoothly on mobile.
+•	Both modes visible side by side on large screens.
+•	Local mode plays identically to Global mode, but data is stored in *_user tables.
+•	Category is displayed above the event title in Local mode.
+•	Local Stats button appears correctly.
+•	Digit mode is locked per attempt in Local mode.
+•	Archive, streaks, and stats work independently for each mode.
