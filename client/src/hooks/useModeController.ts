@@ -74,20 +74,32 @@ export function useModeController() {
     if (isDesktop || containerWidth === 0) return;
     
     const currentX = x.get();
-    const newX = Math.min(0, Math.max(-containerWidth, currentX - deltaX));
+    // Reversed direction: dragging right (positive deltaX) moves content right (positive x)
+    const newX = Math.min(0, Math.max(-containerWidth, currentX + deltaX));
     x.set(newX);
   }, [x, containerWidth, isDesktop]);
 
-  const handleSwiped = useCallback(() => {
+  const handleSwiped = useCallback((velocity: number, direction: 'Left' | 'Right') => {
     if (isDesktop || containerWidth === 0) return;
     
     const currentX = x.get();
     const threshold = containerWidth / 2;
+    const velocityThreshold = 0.5; // Minimum velocity to trigger momentum-based snap
     
-    if (Math.abs(currentX) < threshold) {
-      snapTo('global');
+    // If high velocity, use direction for snap decision
+    if (Math.abs(velocity) > velocityThreshold) {
+      if (direction === 'Left') {
+        snapTo('local');
+      } else {
+        snapTo('global');
+      }
     } else {
-      snapTo('local');
+      // Otherwise use position threshold
+      if (Math.abs(currentX) < threshold) {
+        snapTo('global');
+      } else {
+        snapTo('local');
+      }
     }
   }, [containerWidth, snapTo, x, isDesktop]);
 

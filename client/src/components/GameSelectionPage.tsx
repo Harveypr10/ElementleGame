@@ -185,7 +185,11 @@ export function GameSelectionPage({
 
   const swipeHandlers = useSwipeable({
     onSwiping: (eventData) => handleSwiping(eventData.deltaX),
-    onSwiped: () => handleSwiped(),
+    onSwiped: (eventData) => {
+      const velocity = eventData.velocity;
+      const direction = eventData.dir as 'Left' | 'Right';
+      handleSwiped(velocity, direction);
+    },
     trackMouse: true,
     preventScrollOnSwipe: true,
   });
