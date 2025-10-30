@@ -225,12 +225,19 @@ export function PlayPage({
             
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
               // Recalculate feedback client-side (not stored in DB)
-              // Convert canonical guesses from DB to user's display format
+              // Convert canonical guesses from DB using LOCKED digit mode, not current preference
+              
+              // Create format based on locked digit mode from attempt
+              const lockedDigits = (completedAttempt as any).digits || '6';
+              const baseFormat = dateFormat.startsWith('dd') ? 'dd' : 'mm';
+              const lockedFormat = lockedDigits === '8' 
+                ? (baseFormat === 'dd' ? 'ddmmyyyy' : 'mmddyyyy')
+                : (baseFormat === 'dd' ? 'ddmmyy' : 'mmddyy');
+              
               let newKeyStates: Record<string, KeyState> = {};
               const feedbackArrays = attemptGuesses.map(guess => {
-                // Convert canonical format (YYYY-MM-DD) to user's format (e.g., DDMMYY)
-                // Use formatCanonicalDate from useUserDateFormat which has format baked in
-                const displayFormat = formatCanonicalDate(guess.guessValue);
+                // Convert canonical format (YYYY-MM-DD) using LOCKED digit mode
+                const displayFormat = formatCanonicalDateUtil(guess.guessValue, lockedFormat as any);
                 const feedback = calculateFeedbackForGuess(displayFormat, newKeyStates);
                 newKeyStates = updateKeyStates(displayFormat, feedback, newKeyStates);
                 return feedback;
@@ -242,8 +249,8 @@ export function PlayPage({
               const records: GuessRecord[] = [];
               let recordKeyStates: Record<string, KeyState> = {};
               for (const guess of attemptGuesses) {
-                // Convert canonical format to user's display format
-                const displayFormat = formatCanonicalDate(guess.guessValue);
+                // Convert canonical format using LOCKED digit mode
+                const displayFormat = formatCanonicalDateUtil(guess.guessValue, lockedFormat as any);
                 const feedback = calculateFeedbackForGuess(displayFormat, recordKeyStates);
                 recordKeyStates = updateKeyStates(displayFormat, feedback, recordKeyStates);
                 records.push({ guessValue: displayFormat, feedbackResult: feedback });
@@ -328,12 +335,19 @@ export function PlayPage({
             
             if (mounted && attemptGuesses && attemptGuesses.length > 0) {
               // Recalculate feedback client-side (not stored in DB)
-              // Convert canonical guesses from DB to user's display format
+              // Convert canonical guesses from DB using LOCKED digit mode, not current preference
+              
+              // Create format based on locked digit mode from attempt
+              const lockedDigits = (completedAttempt as any).digits || '6';
+              const baseFormat = dateFormat.startsWith('dd') ? 'dd' : 'mm';
+              const lockedFormat = lockedDigits === '8' 
+                ? (baseFormat === 'dd' ? 'ddmmyyyy' : 'mmddyyyy')
+                : (baseFormat === 'dd' ? 'ddmmyy' : 'mmddyy');
+              
               let newKeyStates: Record<string, KeyState> = {};
               const feedbackArrays = attemptGuesses.map(guess => {
-                // Convert canonical format (YYYY-MM-DD) to user's format (e.g., DDMMYY)
-                // Use formatCanonicalDate from useUserDateFormat which has format baked in
-                const displayFormat = formatCanonicalDate(guess.guessValue);
+                // Convert canonical format (YYYY-MM-DD) using LOCKED digit mode
+                const displayFormat = formatCanonicalDateUtil(guess.guessValue, lockedFormat as any);
                 const feedback = calculateFeedbackForGuess(displayFormat, newKeyStates);
                 newKeyStates = updateKeyStates(displayFormat, feedback, newKeyStates);
                 return feedback;
@@ -345,8 +359,8 @@ export function PlayPage({
               const records: GuessRecord[] = [];
               let recordKeyStates: Record<string, KeyState> = {};
               for (const guess of attemptGuesses) {
-                // Convert canonical format to user's display format
-                const displayFormat = formatCanonicalDate(guess.guessValue);
+                // Convert canonical format using LOCKED digit mode
+                const displayFormat = formatCanonicalDateUtil(guess.guessValue, lockedFormat as any);
                 const feedback = calculateFeedbackForGuess(displayFormat, recordKeyStates);
                 recordKeyStates = updateKeyStates(displayFormat, feedback, recordKeyStates);
                 records.push({ guessValue: displayFormat, feedbackResult: feedback });
@@ -426,30 +440,10 @@ export function PlayPage({
             }
             setDigitsCheckComplete(true);
             
-            // Load guesses from unified dataset by calling API directly with auth
+            // Load guesses from mode-aware endpoint (Global or Local)
             console.log('[loadInProgressGame] Loading guesses for attemptId:', inProgressAttempt.id);
             try {
-              // Get Supabase session and add Authorization header
-              const supabase = await getSupabaseClient();
-              const { data: { session } } = await supabase.auth.getSession();
-              
-              const headers: HeadersInit = {};
-              if (session?.access_token) {
-                headers["Authorization"] = `Bearer ${session.access_token}`;
-              }
-              
-              const response = await fetch('/api/guesses/all', {
-                credentials: 'include',
-                headers,
-              });
-              console.log('[loadInProgressGame] Fetch response status:', response.status);
-              
-              if (!response.ok) {
-                console.error('[loadInProgressGame] Failed to fetch guesses:', response.status);
-                throw new Error('Failed to fetch guesses');
-              }
-              
-              const allGuesses = await response.json();
+              const allGuesses = await getAllGuesses();
               console.log('[loadInProgressGame] Fetched all guesses:', allGuesses.length);
               if (allGuesses.length > 0) {
                 console.log('[loadInProgressGame] First guess structure:', Object.keys(allGuesses[0]));
@@ -465,9 +459,16 @@ export function PlayPage({
                 const freshFeedbackArrays: CellFeedback[][] = [];
                 let newKeyStates = {};
                 
+                // Create format based on locked digit mode from attempt, not current user preference
+                const lockedDigits = (inProgressAttempt as any).digits || '6';
+                const baseFormat = dateFormat.startsWith('dd') ? 'dd' : 'mm';
+                const lockedFormat = lockedDigits === '8' 
+                  ? (baseFormat === 'dd' ? 'ddmmyyyy' : 'mmddyyyy')
+                  : (baseFormat === 'dd' ? 'ddmmyy' : 'mmddyy');
+                
                 attemptGuesses.forEach((guess: any) => {
-                  // Convert canonical format (YYYY-MM-DD) to display format (DDMMYY/MMDDYY)
-                  const displayFormat = formatCanonicalDate(guess.guessValue);
+                  // Convert canonical format (YYYY-MM-DD) to display format using LOCKED digit mode
+                  const displayFormat = formatCanonicalDateUtil(guess.guessValue, lockedFormat as any);
                   const feedback = calculateFeedbackForGuess(displayFormat, newKeyStates);
                   freshFeedbackArrays.push(feedback);
                   freshGuessRecords.push({
