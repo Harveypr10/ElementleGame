@@ -40,7 +40,7 @@ import {
   type InsertUserStatsUser,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, desc, isNull } from "drizzle-orm";
+import { eq, and, gte, desc, isNull, sql, notInArray } from "drizzle-orm";
 
 // Type for allocated question with master question data (Region mode)
 export type AllocatedQuestionWithMaster = QuestionAllocatedRegion & {
@@ -155,6 +155,7 @@ export interface IStorage {
   getAllocatedQuestionsByUser(userId: string): Promise<AllocatedUserQuestionWithMaster[]>;
   getAllocatedQuestionsSinceByUser(userId: string, since: string): Promise<AllocatedUserQuestionWithMaster[]>;
   createQuestionAllocatedUser(allocation: InsertQuestionAllocatedUser): Promise<QuestionAllocatedUser>;
+  ensureUserAllocations(userId: string, minCount?: number): Promise<void>;
 
   // Game attempt operations (user)
   getGameAttemptUser(id: number): Promise<GameAttemptUser | undefined>;
@@ -1452,6 +1453,88 @@ export class DatabaseStorage implements IStorage {
     return allocation;
   }
 
+  async ensureUserAllocations(userId: string, minCount: number = 30): Promise<void> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    // Get all existing allocations for this user
+    const allAllocations = await db
+      .select()
+      .from(questionsAllocatedUser)
+      .where(eq(questionsAllocatedUser.userId, userId))
+      .orderBy(questionsAllocatedUser.puzzleDate);
+
+    // Count only FUTURE allocations (today or later)
+    const futureAllocations = allAllocations.filter(a => a.puzzleDate >= todayStr);
+    const futureCount = futureAllocations.length;
+
+    console.log(`[ensureUserAllocations] User ${userId} has ${futureCount} future allocations (${allAllocations.length} total), target: ${minCount}`);
+
+    if (futureCount >= minCount) {
+      console.log(`[ensureUserAllocations] User already has enough future allocations`);
+      return;
+    }
+
+    const needed = minCount - futureCount;
+    console.log(`[ensureUserAllocations] Need to allocate ${needed} more questions`);
+
+    // Get IDs of already-allocated questions to avoid duplicates
+    const allocatedQuestionIds = allAllocations.map(a => a.questionId);
+
+    // Fetch available master questions (excluding already allocated ones)
+    const availableQuestions = await db
+      .select()
+      .from(questionsMasterUser)
+      .where(
+        allocatedQuestionIds.length > 0 
+          ? notInArray(questionsMasterUser.id, allocatedQuestionIds)
+          : sql`true`
+      )
+      .limit(needed);
+
+    if (availableQuestions.length === 0) {
+      console.log(`[ensureUserAllocations] No available questions to allocate`);
+      return;
+    }
+
+    console.log(`[ensureUserAllocations] Found ${availableQuestions.length} available questions`);
+
+    // Find the latest existing puzzle date, or use today if none exist
+    let startDate: Date;
+    if (allAllocations.length > 0) {
+      const latestAllocation = allAllocations[allAllocations.length - 1];
+      startDate = new Date(latestAllocation.puzzleDate);
+      startDate.setDate(startDate.getDate() + 1); // Start from next day after latest
+    } else {
+      startDate = new Date(today);
+    }
+
+    const allocations = availableQuestions.map((question, index) => {
+      const puzzleDate = new Date(startDate);
+      puzzleDate.setDate(puzzleDate.getDate() + index);
+      const puzzleDateStr = puzzleDate.toISOString().split('T')[0];
+
+      // Pick a random category from the question's categories
+      const category = question.categories && question.categories.length > 0 
+        ? question.categories[Math.floor(Math.random() * question.categories.length)]
+        : 'History';
+
+      return {
+        userId,
+        questionId: question.id,
+        puzzleDate: puzzleDateStr,
+        category,
+      };
+    });
+
+    // Bulk insert allocations
+    if (allocations.length > 0) {
+      await db.insert(questionsAllocatedUser).values(allocations);
+      console.log(`[ensureUserAllocations] Created ${allocations.length} new allocations starting from ${allocations[0].puzzleDate}`);
+    }
+  }
+
   // Game attempt operations (user)
   async getGameAttemptUser(id: number): Promise<GameAttemptUser | undefined> {
     const [attempt] = await db
@@ -1744,18 +1827,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUserStatsUser(statsData: InsertUserStatsUser): Promise<UserStatsUser> {
-    const [stats] = await db
-      .insert(userStatsUser)
-      .values(statsData)
-      .onConflictDoUpdate({
-        target: [userStatsUser.userId],
-        set: {
+    // Check if stats already exist for this user
+    const existing = await this.getUserStatsUser(statsData.userId);
+    
+    if (existing) {
+      // Update existing stats
+      const [updated] = await db
+        .update(userStatsUser)
+        .set({
           ...statsData,
           updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return stats;
+        })
+        .where(eq(userStatsUser.userId, statsData.userId))
+        .returning();
+      return updated;
+    } else {
+      // Insert new stats
+      const [inserted] = await db
+        .insert(userStatsUser)
+        .values(statsData)
+        .returning();
+      return inserted;
+    }
   }
 
   async recalculateUserStatsUser(userId: string): Promise<UserStatsUser> {
