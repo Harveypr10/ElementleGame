@@ -752,35 +752,34 @@ export function GameSelectionPage({
                 className="absolute left-0 right-0 pointer-events-none"
                 style={{
                   // Position at same vertical level as Stats row in document flow
-                  top: '348px',
-                  left: 56,   // offset from left edge
-                  right: 32   // offset from right edge
+                  top: '348px'
                 }}
               >
-                <div className="relative h-40 w-full">
-                  <motion.button
-                    className="absolute h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
-                    style={{
-                      backgroundColor: "#C4C9D4",
-                      // offset from screen edge (same as other buttons, e.g. 16px)
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: `calc(50% + ${16}px)`,
-                      maxWidth: '320px',
-                      x: buttonX
-                    }}
-                    onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
-                    data-testid="button-options-mobile"
-                  >
-                    <span className="text-xl font-bold text-gray-800 text-center">
-                      Options
-                    </span>
-                    <img
-                      src={mechanicHamsterGrey}
-                      alt="Options"
-                      className="max-h-[72px] w-auto object-contain mt-4"
-                    />
-                  </motion.button>
+                <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
+                  <div className="max-w-md mx-auto w-full relative h-40">
+                    <motion.button
+                      className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
+                      style={{ 
+                        backgroundColor: "#C4C9D4",
+                        right: 0,
+                        x: buttonX
+                      }}
+                      onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
+                      data-testid="button-options-mobile"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
+                    >
+                      <span className="text-xl font-bold text-gray-800 text-center">
+                        Options
+                      </span>
+                      <img
+                        src={mechanicHamsterGrey}
+                        alt="Options"
+                        className="max-h-[72px] w-auto object-contain mt-4"
+                      />
+                    </motion.button>
+                  </div>
                 </div>
               </div>
             )}
