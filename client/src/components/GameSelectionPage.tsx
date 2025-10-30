@@ -587,11 +587,17 @@ export function GameSelectionPage({
       <div className="flex-grow overflow-hidden relative">
         <div 
           ref={(node) => {
-            if (typeof containerRef === 'function') containerRef(node);
-            else if (containerRef) containerRef.current = node;
+            // Set containerRef from hook
+            if (containerRef && 'current' in containerRef) {
+              (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+            }
+            // Set swipeRef if on mobile
             if (!isDesktop && swipeRef) {
-              if (typeof swipeRef === 'function') swipeRef(node);
-              else if (swipeRef) swipeRef.current = node;
+              if (typeof swipeRef === 'function') {
+                swipeRef(node);
+              } else if ('current' in swipeRef) {
+                (swipeRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+              }
             }
           }}
           className="h-full w-full overflow-hidden"
