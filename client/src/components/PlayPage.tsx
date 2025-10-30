@@ -113,15 +113,19 @@ export function PlayPage({
   const [showCelebrationModal, setShowCelebrationModal] = useState(false);
   const [currentGameAttemptId, setCurrentGameAttemptId] = useState<number | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [lockedDigits, setLockedDigits] = useState<string | null>(null);
+
+  // Use locked digits if available, otherwise use user's current preference
+  const activeNumDigits = lockedDigits ? parseInt(lockedDigits) : numDigits;
 
   // Check if current input is a valid date (memoized to avoid recomputation)
   const isValidGuess = useMemo(() => {
-    if (currentInput.length !== numDigits) {
+    if (currentInput.length !== activeNumDigits) {
       return false;
     }
     // parseUserDate from useUserDateFormat already has format baked in
     return parseUserDate(currentInput) !== null;
-  }, [currentInput, numDigits, parseUserDate]);
+  }, [currentInput, activeNumDigits, parseUserDate]);
 
   // Load clues setting from Supabase or localStorage
   useEffect(() => {
@@ -145,6 +149,7 @@ export function PlayPage({
     setGuessRecords([]);
     setCurrentGameAttemptId(null);
     setShowEndModal(false);
+    setLockedDigits(null);
   }, [answerDateCanonical]);
 
   // Check if puzzle is already completed and redirect if needed
@@ -365,6 +370,12 @@ export function PlayPage({
             // Set the current attempt ID so future guesses save to the correct attempt
             setCurrentGameAttemptId(inProgressAttempt.id);
             
+            // Lock digit mode from the game attempt if it's set
+            if ((inProgressAttempt as any).digits) {
+              console.log('[loadInProgressGame] Locking digit mode to:', (inProgressAttempt as any).digits);
+              setLockedDigits((inProgressAttempt as any).digits);
+            }
+            
             // Load guesses from unified dataset by calling API directly with auth
             console.log('[loadInProgressGame] Loading guesses for attemptId:', inProgressAttempt.id);
             try {
@@ -462,7 +473,7 @@ export function PlayPage({
   const calculateFeedbackForGuess = (guess: string, currentKeyStates: Record<string, KeyState>): CellFeedback[] => {
     const feedback: CellFeedback[] = [];
     
-    for (let i = 0; i < numDigits; i++) {
+    for (let i = 0; i < activeNumDigits; i++) {
       const guessDigit = guess[i];
       const targetDigit = formattedAnswer[i];
       
@@ -484,7 +495,7 @@ export function PlayPage({
   const updateKeyStates = (guess: string, feedback: CellFeedback[], currentKeyStates: Record<string, KeyState>): Record<string, KeyState> => {
     const newKeyStates = { ...currentKeyStates };
     
-    for (let i = 0; i < numDigits; i++) {
+    for (let i = 0; i < activeNumDigits; i++) {
       const guessDigit = guess[i];
       const cellFeedback = feedback[i];
       
@@ -506,7 +517,7 @@ export function PlayPage({
     const feedback: CellFeedback[] = [];
     const newKeyStates = { ...keyStates };
 
-    for (let i = 0; i < numDigits; i++) {
+    for (let i = 0; i < activeNumDigits; i++) {
       const guessDigit = guess[i];
       const targetDigit = formattedAnswer[i];
       
@@ -536,7 +547,7 @@ export function PlayPage({
   }, []);
 
   const handleSubmit = useCallback(async () => {
-    if (currentInput.length !== numDigits || gameOver) return;
+    if (currentInput.length !== activeNumDigits || gameOver) return;
 
     const feedback = calculateFeedback(currentInput);
     const newGuesses = [...guesses, feedback];
@@ -676,7 +687,7 @@ export function PlayPage({
       const newKeyStates = { ...keyStates };
       
       // Update key states from the feedback we just calculated
-      for (let i = 0; i < numDigits; i++) {
+      for (let i = 0; i < activeNumDigits; i++) {
         const digit = currentInput[i];
         const state = feedback[i].state;
         if (state === "correct") {
@@ -694,13 +705,13 @@ export function PlayPage({
         keyStates: newKeyStates
       }));
     }
-  }, [currentInput, gameOver, guesses, guessRecords, formattedAnswer, maxGuesses, keyStates, wrongGuessCount, isAuthenticated, puzzleId, currentGameAttemptId, numDigits]);
+  }, [currentInput, gameOver, guesses, guessRecords, formattedAnswer, maxGuesses, keyStates, wrongGuessCount, isAuthenticated, puzzleId, currentGameAttemptId, activeNumDigits]);
 
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
     if (gameOver || viewOnly) return;
 
     if (e.key >= "0" && e.key <= "9") {
-      if (currentInput.length < 6) {
+      if (currentInput.length < activeNumDigits) {
         setCurrentInput(currentInput + e.key);
       }
     } else if (e.key === "Backspace" || e.key === "Delete") {
@@ -710,7 +721,7 @@ export function PlayPage({
     } else if (e.key === "Escape") {
       setCurrentInput("");
     }
-  }, [currentInput, gameOver, handleSubmit]);
+  }, [currentInput, gameOver, handleSubmit, activeNumDigits]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyPress);
