@@ -848,7 +848,6 @@ export class DatabaseStorage implements IStorage {
         allocated_questionId: questionsAllocatedRegion.questionId,
         allocated_region: questionsAllocatedRegion.region,
         allocated_puzzleDate: questionsAllocatedRegion.puzzleDate,
-        allocated_createdAt: questionsAllocatedRegion.createdAt,
         master_id: questionsMasterRegion.id,
         master_answerDateCanonical: questionsMasterRegion.answerDateCanonical,
         master_eventTitle: questionsMasterRegion.eventTitle,
@@ -880,10 +879,9 @@ export class DatabaseStorage implements IStorage {
       completedAt: result.completedAt,
       allocatedQuestion: {
         id: result.allocated_id,
-        masterQuestionId: result.allocated_questionId,
+        questionId: result.allocated_questionId,
         region: result.allocated_region,
-        allocatedDate: result.allocated_puzzleDate,
-        createdAt: result.allocated_createdAt,
+        puzzleDate: result.allocated_puzzleDate,
         masterQuestion: {
           id: result.master_id,
           answerDateCanonical: result.master_answerDateCanonical,
