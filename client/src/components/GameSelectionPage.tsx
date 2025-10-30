@@ -752,11 +752,9 @@ export function GameSelectionPage({
                 className="absolute left-0 right-0 px-4 pointer-events-none"
                 style={{
                   // Position at same vertical level as Stats row in document flow
-                  // Mobile: intro (mb-6) + mt-1 + Play (h-32) + gap (space-y-4) + Archive (h-24) + gap (space-y-4)
-                  // Calculation: mb-6 (~24px text + 24px gap) + 4px + 128px + 16px + 96px + 16px = ~284px
-                  // Adding intro text height: ~100px total for intro
-                  // Total: 100px + 4px + 128px + 16px + 96px + 16px = 360px
-                  top: '360px'
+                  // Mobile: intro (~96px) + mt-1 (4px) + Play h-32 (128px) + gap (16px) + Archive h-24 (96px) + gap (16px)
+                  // Total: 96 + 4 + 128 + 16 + 96 = 340px (Stats row starts at the last gap position)
+                  top: '340px'
                 }}
               >
                 <div className="max-w-md mx-auto relative h-40">
