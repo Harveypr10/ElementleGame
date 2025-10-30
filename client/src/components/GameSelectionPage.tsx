@@ -363,9 +363,10 @@ export function GameSelectionPage({
               </div>
             </motion.button>
 
-            {/* Mobile only: Global Stats button - aligned with Options button */}
+            {/* Mobile only: Stats row - contains Global Stats button and Options button */}
             {!isDesktop && (
               <div className="relative h-40">
+                {/* Global Stats button */}
                 <motion.button
                   className="absolute left-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                   style={{ backgroundColor: "#A4DB57" }}
@@ -384,6 +385,29 @@ export function GameSelectionPage({
                     className="max-h-[72px] w-auto object-contain mt-4"
                   />
                 </motion.button>
+
+                {/* Options button - slides between panes */}
+                {isAuthenticated && containerWidth > 0 && (
+                  <motion.button
+                    className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
+                    style={{ 
+                      backgroundColor: "#C4C9D4",
+                      right: 0,
+                      x: buttonX
+                    }}
+                    onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
+                    data-testid="button-options-mobile"
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      Options
+                    </span>
+                    <img
+                      src={mechanicHamsterGrey}
+                      alt="Options"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
+                )}
               </div>
             )}
 
@@ -534,9 +558,10 @@ export function GameSelectionPage({
               </div>
             </motion.button>
 
-            {/* Mobile only: Local Stats button - aligned with Options button */}
+            {/* Mobile only: Stats row - contains Local Stats button (Options is in Global pane) */}
             {!isDesktop && (
               <div className="relative h-40">
+                {/* Local Stats button */}
                 <motion.button
                   className="absolute right-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                   style={{ backgroundColor: "#A4DB57" }}
@@ -743,41 +768,6 @@ export function GameSelectionPage({
                 {renderLocalPane()}
               </motion.div>
             </div>
-
-            {/* Floating Options Button - positioned to align with Stats row */}
-            {isAuthenticated && containerWidth > 0 && (
-              <div 
-                className="absolute left-0 right-0 px-4 pointer-events-none"
-                style={{
-                  // Calculate top position to match Stats row in document flow
-                  // Mobile: intro (mb-6) ~124px, mt-1 = 4px, Play h-32 = 128px, gap = 16px, Archive h-24 = 96px, gap = 16px
-                  // Total = 124 + 4 + 128 + 16 + 96 + 16 = 384px
-                  top: '384px'
-                }}
-              >
-                <div className="max-w-md mx-auto relative h-40">
-                  <motion.button
-                    className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
-                    style={{ 
-                      backgroundColor: "#C4C9D4",
-                      right: 0,
-                      x: buttonX
-                    }}
-                    onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
-                    data-testid="button-options-mobile"
-                  >
-                    <span className="text-xl font-bold text-gray-800 text-center">
-                      Options
-                    </span>
-                    <img
-                      src={mechanicHamsterGrey}
-                      alt="Options"
-                      className="max-h-[72px] w-auto object-contain mt-4"
-                    />
-                  </motion.button>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
