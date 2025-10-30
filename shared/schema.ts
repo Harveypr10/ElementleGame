@@ -226,6 +226,7 @@ export const gameAttemptsRegion = pgTable(
     allocatedRegionId: integer("allocated_region_id").notNull().references(() => questionsAllocatedRegion.id),
     result: varchar("result", { length: 10 }), // 'won' or 'lost' - null for in-progress
     numGuesses: integer("num_guesses").default(0),
+    digits: varchar("digits", { length: 1 }), // '6' or '8' - locked on first guess
     startedAt: timestamp("started_at").defaultNow(),
     completedAt: timestamp("completed_at"), // null for in-progress games
   },
