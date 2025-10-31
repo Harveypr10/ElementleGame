@@ -20,9 +20,24 @@ export async function getSupabaseClient(): Promise<SupabaseClient> {
     if (!response.ok) {
       throw new Error('Failed to fetch Supabase configuration');
     }
-    
+
     const config = await response.json();
     supabaseInstance = createClient(config.url, config.anonKey);
+
+    // 🔑 TEMP: log the current session’s access token for testing
+    try {
+      const { data: { session }, error } = await supabaseInstance.auth.getSession();
+      if (error) {
+        console.warn('Error fetching session:', error.message);
+      } else if (session?.access_token) {
+        console.log('User access token:', session.access_token);
+      } else {
+        console.log('No active session found');
+      }
+    } catch (e) {
+      console.warn('Failed to get session:', e);
+    }
+
     return supabaseInstance;
   })();
 
