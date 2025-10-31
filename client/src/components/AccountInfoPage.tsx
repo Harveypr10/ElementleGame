@@ -51,6 +51,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     lastName: "",
     email: "",
     region: "",
+    postcode: "",
   });
 
   // Load profile data when available
@@ -61,6 +62,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         lastName: profile.lastName || "",
         email: profile.email || "",
         region: profile.region || (regions && regions.length > 0 ? regions[0].code : ""),
+        postcode: profile.postcode || "",
       });
       setOriginalEmail(profile.email || "");
     }
@@ -162,6 +164,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
             firstName: profileData.firstName,
             lastName: profileData.lastName,
             email: profileData.email,
+            postcode: profileData.postcode || null,
           }),
         });
 
@@ -203,6 +206,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           firstName: profileData.firstName,
           lastName: profileData.lastName,
           email: profileData.email,
+          postcode: profileData.postcode || null,
         }),
       });
 
@@ -394,6 +398,37 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                       setProfileData({ ...profileData, email: e.target.value })
                     }
                     required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="postcode" data-testid="label-postcode-account">
+                      Postcode
+                    </Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button 
+                          type="button" 
+                          className="inline-flex items-center justify-center w-4 h-4 text-xs rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted transition-colors"
+                          data-testid="button-postcode-info-account"
+                        >
+                          i
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Your postcode helps us provide local puzzles. Changing this may affect your local puzzle availability.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="postcode"
+                    data-testid="input-postcode-account"
+                    value={profileData.postcode}
+                    onChange={(e) =>
+                      setProfileData({ ...profileData, postcode: e.target.value })
+                    }
+                    placeholder="Enter your postcode"
                   />
                 </div>
 

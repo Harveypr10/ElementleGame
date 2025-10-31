@@ -6,6 +6,16 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
@@ -28,6 +38,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [showPostcodeWarning, setShowPostcodeWarning] = useState(false);
 
   // Fetch available regions
   const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
@@ -42,6 +53,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
     firstName: "",
     lastName: "",
     region: "", // Will be set from fetched regions
+    postcode: "",
     acceptedTerms: false,
     adsConsent: false,
   });
@@ -49,6 +61,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   // Refs for automatic field progression
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
+  const postcodeRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
@@ -85,6 +98,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
       firstName: "",
       lastName: "",
       region: regions && regions.length > 0 ? regions[0].code : "", // Use first region from database
+      postcode: "",
       acceptedTerms: false,   // always reset
       adsConsent: prev.adsConsent, // preserve previous choice
     }));
@@ -113,6 +127,12 @@ const handleSubmit = async (e: React.FormEvent) => {
         description: validation.errors.join(", "),
         variant: "destructive",
       });
+      return;
+    }
+
+    // Check if postcode is blank and show warning
+    if (!formData.postcode.trim()) {
+      setShowPostcodeWarning(true);
       return;
     }
   }
@@ -187,7 +207,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         throw passwordError;
       }
 
-      // Create or update user profile in database (including region)
+      // Create or update user profile in database (including region and postcode)
       const profileResponse = await fetch("/api/auth/profile", {
         method: "PATCH",
         headers: {
@@ -199,6 +219,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           lastName: formData.lastName,
           email: formData.email,
           region: formData.region, // Save region to profile
+          postcode: formData.postcode || null, // Save postcode to profile (or null if empty)
           acceptedTerms: formData.acceptedTerms,
           adsConsent: formData.adsConsent,
         }),
@@ -363,6 +384,42 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </p>
               </div>
             )}
+
+            {mode === "signup" && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="postcode" data-testid="label-postcode">Postcode</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        type="button" 
+                        className="inline-flex items-center justify-center w-4 h-4 text-xs rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted transition-colors"
+                        data-testid="button-postcode-info"
+                      >
+                        i
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Your postcode helps us provide local puzzles tailored to your area</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  ref={postcodeRef}
+                  id="postcode"
+                  data-testid="input-postcode"
+                  value={formData.postcode}
+                  onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && formData.postcode) {
+                      e.preventDefault();
+                      emailRef.current?.focus();
+                    }
+                  }}
+                  placeholder="Enter your postcode"
+                />
+              </div>
+            )}
             
             <div className="space-y-2">
               <Label htmlFor="email" data-testid="label-email">Email</Label>
@@ -504,6 +561,70 @@ const handleSubmit = async (e: React.FormEvent) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Postcode Warning Dialog */}
+      <AlertDialog open={showPostcodeWarning} onOpenChange={setShowPostcodeWarning}>
+        <AlertDialogContent data-testid="alert-postcode-warning">
+          <AlertDialogHeader>
+            <AlertDialogTitle>No postcode provided</AlertDialogTitle>
+            <AlertDialogDescription>
+              Without a postcode, we can't provide local puzzles. You'll only have access to general region-based puzzles. Are you sure you want to continue without entering a postcode?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setShowPostcodeWarning(false);
+                postcodeRef.current?.focus();
+              }}
+              data-testid="button-cancel-postcode-warning"
+            >
+              Go Back
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={async () => {
+                setShowPostcodeWarning(false);
+                // Continue with signup without postcode by setting it to empty string and proceeding
+                // Re-run the submission logic
+                setLoading(true);
+                try {
+                  const { error } = await supabase.auth.signInWithOtp({
+                    email: formData.email,
+                    options: {
+                      shouldCreateUser: true,
+                      data: {
+                        first_name: formData.firstName,
+                        last_name: formData.lastName,
+                        acceptedTerms: formData.acceptedTerms,
+                        adsConsent: formData.adsConsent,
+                      },
+                    },
+                  });
+
+                  if (error) throw error;
+
+                  setShowOTPVerification(true);
+                  toast({
+                    title: "Verification code sent!",
+                    description: `Please check ${formData.email} for your 6-digit code`,
+                  });
+                } catch (error: any) {
+                  toast({
+                    title: "Error",
+                    description: error.message || "Authentication failed",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              data-testid="button-confirm-postcode-warning"
+            >
+              Continue Without Postcode
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
