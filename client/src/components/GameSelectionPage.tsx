@@ -72,7 +72,7 @@ export function GameSelectionPage({
   // Transform for Options button - moves at half speed of panes for smooth effect
   // Use a ref to track container width and update transform accordingly
   const [containerWidth, setContainerWidth] = useState(0);
-  
+
   useEffect(() => {
     const updateWidth = () => {
       if (containerRef.current) {
@@ -87,7 +87,7 @@ export function GameSelectionPage({
   const buttonX = useTransform(
     x,
     [0, -Math.max(containerWidth, 1)], // Avoid division by zero
-    [0, -Math.max(containerWidth, 1) / 2] // Half speed movement
+    [0, -(Math.max(containerWidth, 1)-16) / 2] // Half speed movement
   );
 
   // Authenticated fetch helper
@@ -96,7 +96,7 @@ export function GameSelectionPage({
     const supabase = await getSupabaseClient();
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return null;
-    
+
     const response = await fetch(endpoint, {
       credentials: 'include',
       headers: {
@@ -158,17 +158,17 @@ export function GameSelectionPage({
     const todayAttempt = attempts.find(attempt => 
       attempt.puzzleId === puzzleId && attempt.result !== null
     );
-    
+
     if (todayAttempt) {
       const isWin = todayAttempt.result === 'won' || todayAttempt.result === 'win';
       const count = todayAttempt.numGuesses ?? 0;
-      
+
       return {
         status: (isWin ? 'solved' : 'failed') as 'solved' | 'failed',
         count
       };
     }
-    
+
     return { status: 'not-played' as const, count: 0 };
   };
 
@@ -183,17 +183,17 @@ export function GameSelectionPage({
     const today = new Date();
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
+
     const dayName = days[today.getDay()];
     const date = today.getDate();
     const month = months[today.getMonth()];
-    
+
     const getOrdinal = (n: number) => {
       const s = ["th", "st", "nd", "rd"];
       const v = n % 100;
       return n + (s[(v - 20) % 10] || s[v] || s[0]);
     };
-    
+
     return `${dayName} ${getOrdinal(date)} ${month}`;
   };
 
@@ -282,7 +282,7 @@ export function GameSelectionPage({
               <h2 className="text-2xl font-bold text-foreground">Global</h2>
             </div>
           )}
-          
+
           {/* Desktop: Show intro message between title and buttons */}
           {isDesktop && isAuthenticated && globalIntroMessage && (
             <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-global">
@@ -294,7 +294,7 @@ export function GameSelectionPage({
               </div>
             </div>
           )}
-          
+
           {/* Mobile: Show intro message */}
           {!isDesktop && isAuthenticated && globalIntroMessage && (
             <div className="text-center mb-6" data-testid="intro-message">
@@ -455,7 +455,7 @@ export function GameSelectionPage({
               <h2 className="text-2xl font-bold text-foreground">Local</h2>
             </div>
           )}
-          
+
           {/* Desktop: Show intro message between title and buttons */}
           {isDesktop && isAuthenticated && localIntroMessage && (
             <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-local-desktop">
@@ -467,7 +467,7 @@ export function GameSelectionPage({
               </div>
             </div>
           )}
-          
+
           {/* Mobile: Show intro message */}
           {!isDesktop && isAuthenticated && localIntroMessage && (
             <div className="text-center mb-6" data-testid="intro-message-local">
@@ -605,7 +605,7 @@ export function GameSelectionPage({
               </Button>
             )}
           </div>
-          
+
           {isAuthenticated && (
             <>
               {/* Mobile: Show toggle */}
@@ -614,7 +614,7 @@ export function GameSelectionPage({
                   <ModeToggle onModeChange={(mode) => snapTo(mode)} />
                 </div>
               )}
-              
+
               {/* Desktop: Show greeting */}
               {isDesktop && (
                 <div className="flex justify-center mb-4">
@@ -641,13 +641,13 @@ export function GameSelectionPage({
               <div className="w-full max-w-md flex flex-col">
                 {renderGlobalPane()}
               </div>
-              
+
               {/* Local Pane */}
               <div className="w-full max-w-md flex flex-col">
                 {renderLocalPane()}
               </div>
             </div>
-            
+
             {/* Desktop: Three equal-width bottom buttons spanning both panes */}
             {isAuthenticated && (
               <div className="flex-shrink-0 px-4 pb-24 mt-4">
@@ -761,7 +761,7 @@ export function GameSelectionPage({
                       className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
                       style={{ 
                         backgroundColor: "#C4C9D4",
-                        right: 0,
+                        right: '-0px',
                         x: buttonX
                       }}
                       onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
