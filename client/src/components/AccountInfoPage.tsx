@@ -73,8 +73,14 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   });
 
   const handleRegionChange = (newRegion: string) => {
-    setPendingRegion(newRegion);
-    setShowRegionConfirm(true);
+    // Only show confirmation if region actually changed from profile's current region
+    if (profile && newRegion !== profile.region) {
+      setPendingRegion(newRegion);
+      setShowRegionConfirm(true);
+    } else {
+      // Just update the local state without showing dialog
+      setProfileData({ ...profileData, region: newRegion });
+    }
   };
 
   const handleConfirmRegionChange = async () => {
