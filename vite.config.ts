@@ -36,5 +36,11 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    // 👇 This is the key bit: ensures SPA routes fall back to index.html
+    historyApiFallback: true,
+  },
+  preview: {
+    // Also apply fallback when running `vite preview` or in Replit hosting
+    historyApiFallback: true,
   },
 });
