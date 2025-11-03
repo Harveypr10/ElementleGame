@@ -1,7 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -9,7 +12,7 @@ app.use(express.urlencoded({ extended: false }));
 // Middleware to log API requests and responses
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
+  const pathName = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
@@ -20,8 +23,8 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+    if (pathName.startsWith("/api")) {
+      let logLine = `${req.method} ${pathName} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -46,11 +49,18 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // Only setup Vite in development
   if (app.get("env") === "development") {
+    // Only setup Vite in development
     await setupVite(app, server);
   } else {
+    // Serve static files from the built React app
     serveStatic(app);
+
+    // Explicit SPA fallback: any unknown route → index.html
+    const distPath = path.join(__dirname, "../dist/public");
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
   }
 
   // Serve on the configured port
