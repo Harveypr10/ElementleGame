@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import streakHamster from "@assets/Streak-Hamster-Black.svg";
+import streakHamsterLocal from "@assets/Streak-Hamster-Local.svg";
 import { soundManager } from "@/lib/sounds";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";

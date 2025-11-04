@@ -13,8 +13,11 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useQuery } from "@tanstack/react-query";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
+import historianHamsterLocal from "@assets/Historian-Hamster-Local.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
+import librarianHamsterLocal from "@assets/Librarian-Hamster-Local.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
+import mathsHamsterLocal from "@assets/Maths-Hamster-Local.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
 import whiteTickBlue from "@assets/Win-Hamster-Blue.svg";
 import whiteCrossBlue from "@assets/Lost-Hamster-Blue.svg";
@@ -442,7 +445,7 @@ export function GameSelectionPage({
         playContentLocal = {
           title: "Play today's puzzle",
           subtitle: getFormattedDate(),
-          image: historianHamsterBlue
+          image: historianHamsterLocal
         };
     }
 
@@ -484,7 +487,7 @@ export function GameSelectionPage({
             {/* Play Today's Puzzle (Local) */}
             <motion.button
               className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-              style={{ backgroundColor: "#7DAAE8" }}
+              style={{ backgroundColor: "#66becb" }}
               onClick={onPlayGameLocal}
               data-testid="button-play-local"
               initial={{ opacity: 0, y: 20 }}
@@ -513,7 +516,7 @@ export function GameSelectionPage({
             {/* Archive (Local) */}
             <motion.button
               className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-              style={{ backgroundColor: "#FFD429" }}
+              style={{ backgroundColor: "#fdab58" }}
               onClick={onViewArchiveLocal}
               data-testid="button-archive-local"
               initial={{ opacity: 0, y: 20 }}
@@ -528,7 +531,7 @@ export function GameSelectionPage({
               </div>
               <div className="flex-shrink-0 flex items-center">
                 <img
-                  src={librarianHamsterYellow}
+                  src={librarianHamsterLocal}
                   alt="Archive"
                   className="max-h-20 w-auto object-contain"
                 />
@@ -541,7 +544,7 @@ export function GameSelectionPage({
                 {/* Local Stats button */}
                 <motion.button
                   className="absolute right-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#A4DB57" }}
+                  style={{ backgroundColor: "#93cd78" }}
                   onClick={onViewStatsLocal}
                   data-testid="button-stats-local"
                   initial={{ opacity: 0, y: 20 }}
@@ -552,7 +555,7 @@ export function GameSelectionPage({
                     Local Stats
                   </span>
                   <img
-                    src={mathsHamsterGreen}
+                    src={mathsHamsterLocal}
                     alt="Local Stats"
                     className="max-h-[72px] w-auto object-contain mt-4"
                   />
@@ -619,7 +622,7 @@ export function GameSelectionPage({
               {isDesktop && (
                 <div className="flex justify-center mb-4">
                   <div className="text-center">
-                    <div className="text-xl font-semibold text-foreground">
+                    <div className="text-2xl font-bold text-foreground">
                       {getGreeting()}
                     </div>
                   </div>
@@ -690,7 +693,7 @@ export function GameSelectionPage({
 
                   <motion.button
                     className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                    style={{ backgroundColor: "#A4DB57" }}
+                    style={{ backgroundColor: "#93cd78" }}
                     onClick={onViewStatsLocal}
                     data-testid="button-stats-desktop-local"
                     layout
@@ -700,7 +703,7 @@ export function GameSelectionPage({
                       Local Stats
                     </span>
                     <img
-                      src={mathsHamsterGreen}
+                      src={mathsHamsterLocal}
                       alt="Local Stats"
                       className="max-h-[72px] w-auto object-contain mt-4"
                     />

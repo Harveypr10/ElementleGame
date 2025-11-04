@@ -12,6 +12,13 @@ export function useAuth() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setIsLoading(false);
+
+      // 🔍 Debug: log the current user ID
+      if (session?.user) {
+        console.log("Current logged-in user ID:", session.user.id);
+      } else {
+        console.log("No active user session");
+      }
     });
 
     // Listen for auth changes
