@@ -4,6 +4,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { verifySupabaseAuth, requireAdmin } from "./supabaseAuth";
 import { supabaseAdmin } from "./supabase";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Supabase config endpoint (public - anon key is safe to expose)
