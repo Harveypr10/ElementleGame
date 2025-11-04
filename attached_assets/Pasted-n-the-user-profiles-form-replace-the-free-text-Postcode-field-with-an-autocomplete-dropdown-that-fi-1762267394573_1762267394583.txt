@@ -1,0 +1,96 @@
+n the user_profiles form, replace the free‑text Postcode field with an autocomplete dropdown that filters against the postcodes table in Supabase, matching on name1. The user must only be able to select valid postcodes.
+
+Requirements
+Autocomplete behaviour
+
+As the user types, query postcodes.name1 with a case‑insensitive ilike search.
+
+Show a dropdown list of matching postcodes (limit to 20 results).
+
+Dropdown should appear under the input, support keyboard navigation, and highlight the first suggestion.
+
+Constraint to valid postcodes
+
+User must select from the dropdown; arbitrary text is not allowed.
+
+On save, user_profiles.postcode must reference a valid postcodes.name1.
+
+Database enforcement
+
+sql
+alter table user_profiles
+  add constraint fk_user_profiles_postcode
+  foreign key (postcode)
+  references postcodes(name1);
+Performance
+
+Add an index for fast lookups:
+
+sql
+create index if not exists idx_postcodes_name1
+  on postcodes (name1);
+Example React Component (with Supabase client)
+jsx
+import { useState } from 'react';
+import { supabase } from '../supabaseClient';
+
+export default function PostcodeAutocomplete({ value, onChange }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchSuggestions = async (input) => {
+    if (!input) {
+      setSuggestions([]);
+      return;
+    }
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('postcodes')
+      .select('name1')
+      .ilike('name1', `${input}%`)
+      .limit(20);
+
+    if (!error) {
+      setSuggestions(data.map((row) => row.name1));
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="postcode-autocomplete">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          fetchSuggestions(e.target.value.toUpperCase());
+        }}
+        placeholder="Enter postcode"
+      />
+      {loading && <div className="loading">Loading...</div>}
+      {suggestions.length > 0 && (
+        <ul className="suggestions">
+          {suggestions.map((s) => (
+            <li
+              key={s}
+              onClick={() => {
+                onChange(s);
+                setSuggestions([]);
+              }}
+            >
+              {s}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+Deliverables
+Replace the Postcode field in user_profiles with this autocomplete component.
+
+Ensure only valid postcodes.name1 values can be saved.
+
+Enforce the foreign key constraint in the database.
+
+Add the supporting index for performance.
