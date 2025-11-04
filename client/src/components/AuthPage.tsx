@@ -6,6 +6,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { PostcodeAutocomplete } from "@/components/PostcodeAutocomplete";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -404,19 +405,11 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Input
-                  ref={postcodeRef}
-                  id="postcode"
-                  data-testid="input-postcode"
+                <PostcodeAutocomplete
                   value={formData.postcode}
-                  onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && formData.postcode) {
-                      e.preventDefault();
-                      emailRef.current?.focus();
-                    }
-                  }}
+                  onChange={(value) => setFormData({ ...formData, postcode: value })}
                   placeholder="Enter your postcode"
+                  data-testid="input-postcode"
                 />
               </div>
             )}

@@ -16,6 +16,23 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Postcodes table - UK postcodes for autocomplete
+export const postcodes = pgTable("postcodes", {
+  id: serial("id").primaryKey(),
+  name1: text("name1").notNull().unique(), // The postcode itself (e.g., "SW1A 1AA")
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  name1Idx: index("idx_postcodes_name1").on(table.name1),
+}));
+
+export const insertPostcodeSchema = createInsertSchema(postcodes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPostcode = z.infer<typeof insertPostcodeSchema>;
+export type Postcode = typeof postcodes.$inferSelect;
+
 // User profiles table - extends Supabase Auth users
 // References auth.users(id) from Supabase Auth
 export const userProfiles = pgTable("user_profiles", {
@@ -38,7 +55,7 @@ export const userProfiles = pgTable("user_profiles", {
 
   // Region and location fields
   region: text("region"), // ISO country code (e.g., 'GB', 'US')
-  postcode: text("postcode"),
+  postcode: text("postcode"), // References postcodes.name1
   location: text("location"), // Stored as text for now (will be geometry later if needed)
 
   createdAt: timestamp("created_at").defaultNow(),

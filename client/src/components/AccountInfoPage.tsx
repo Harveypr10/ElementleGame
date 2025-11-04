@@ -6,6 +6,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { PostcodeAutocomplete } from "@/components/PostcodeAutocomplete";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -422,14 +423,13 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  <Input
-                    id="postcode"
-                    data-testid="input-postcode-account"
+                  <PostcodeAutocomplete
                     value={profileData.postcode}
-                    onChange={(e) =>
-                      setProfileData({ ...profileData, postcode: e.target.value })
+                    onChange={(value) =>
+                      setProfileData({ ...profileData, postcode: value })
                     }
                     placeholder="Enter your postcode"
+                    data-testid="input-postcode-account"
                   />
                 </div>
 
