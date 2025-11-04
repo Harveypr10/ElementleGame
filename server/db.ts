@@ -1,13 +1,18 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-const databaseUrl = process.env.DATABASE_URL;
+// Prefer direct connection (SUPABASE_DATABASE_URL) over pooled connection (DATABASE_URL)
+// Direct connection uses port 5432, pooled uses port 6543
+const databaseUrl = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL must be set to your Supabase Postgres connection string");
+  throw new Error("SUPABASE_DATABASE_URL or DATABASE_URL must be set");
 }
 
 const client = postgres(databaseUrl, { ssl: 'require', prepare: false });
 export const db = drizzle(client);
-console.log("Connecting to DB:", databaseUrl);
+
+// Log connection info (hide password)
+const safeUrl = databaseUrl.replace(/:([^@]+)@/, ':****@');
+console.log("Connecting to DB:", safeUrl);
 
