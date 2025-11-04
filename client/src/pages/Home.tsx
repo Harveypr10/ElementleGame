@@ -47,6 +47,7 @@ export default function Home() {
   const [statsReturnScreen, setStatsReturnScreen] = useState<Screen>("selection");
   const [showCelebrationFirst, setShowCelebrationFirst] = useState(false);
   const [hasOpenedCelebration, setHasOpenedCelebration] = useState(false);
+  const [archiveMonthContext, setArchiveMonthContext] = useState<Date | null>(null);
   
   // Fetch puzzles from API (mode-aware)
   const puzzlesEndpoint = isLocalMode ? '/api/user/puzzles' : '/api/puzzles';
@@ -334,9 +335,14 @@ export default function Home() {
 
       {currentScreen === "archive" && (
         <ArchivePage 
-          onBack={() => setCurrentScreen("selection")}
+          onBack={() => {
+            setArchiveMonthContext(null);
+            setCurrentScreen("selection");
+          }}
           onPlayPuzzle={handlePlayPuzzle}
           puzzles={puzzles as any[]}
+          initialMonth={archiveMonthContext}
+          onMonthChange={setArchiveMonthContext}
         />
       )}
 

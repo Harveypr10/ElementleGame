@@ -24,6 +24,8 @@ interface ArchivePageProps {
     clue1?: string;
     clue2?: string;
   }>;
+  initialMonth?: Date | null;
+  onMonthChange?: (month: Date) => void;
 }
 
 interface DayStatus {
@@ -33,14 +35,34 @@ interface DayStatus {
   inProgress?: boolean;
 }
 
-export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps) {
+export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMonthChange }: ArchivePageProps) {
   const { isAuthenticated } = useAuth();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
   const { isLocalMode } = useGameMode();
   const queryClient = useQueryClient();
-  const [currentMonth, setCurrentMonth] = useState(new Date(2025, 9, 1)); // October 2025
+  
+  // Initialize to either the provided month (when returning from PlayPage)
+  // or the current month (default behavior)
+  const getInitialMonth = () => {
+    if (initialMonth) {
+      return new Date(initialMonth);
+    }
+    // Default to current month
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  };
+  
+  const [currentMonth, setCurrentMonth] = useState(getInitialMonth());
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
+
+  // Update month when initialMonth prop changes (e.g., when returning from PlayPage)
+  useEffect(() => {
+    if (initialMonth) {
+      const newMonth = new Date(initialMonth);
+      setCurrentMonth(newMonth);
+    }
+  }, [initialMonth]);
 
   // Explicitly refetch game attempts when Archive mounts
   // Archive is conditionally rendered and unmounts when navigating away,
@@ -275,7 +297,11 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
+            onClick={() => {
+              const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+              setCurrentMonth(newMonth);
+              onMonthChange?.(newMonth);
+            }}
             disabled={!canGoPrevious}
             data-testid="button-prev-month"
           >
@@ -287,7 +313,11 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles }: ArchivePageProps)
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
+            onClick={() => {
+              const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+              setCurrentMonth(newMonth);
+              onMonthChange?.(newMonth);
+            }}
             disabled={!canGoNext}
             data-testid="button-next-month"
           >
