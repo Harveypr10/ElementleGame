@@ -19,8 +19,10 @@ import librarianHamsterLocal from "@assets/Librarian-Hamster-Local.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
 import mathsHamsterLocal from "@assets/Maths-Hamster-Local.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
-import whiteTickBlue from "@assets/Win-Hamster-Blue.svg";
-import whiteCrossBlue from "@assets/Lost-Hamster-Blue.svg";
+import winhamsterblue from "@assets/Win-Hamster-Blue.svg";
+import winhamsterlocal from "@assets/Win-Hamster-Local.svg";
+import losthamsterblue from "@assets/Lost-Hamster-Blue.svg";
+import losthamsterlocal from "@assets/Lost-Hamster-Local.svg";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import greyCogIcon from "@assets/Grey-Cog-Grey_1760979822772.png";
 import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
@@ -258,14 +260,14 @@ export function GameSelectionPage({
         playContentGlobal = {
           title: "Today's puzzle solved!",
           subtitle: `Solved in ${globalPlayStatus.count} ${globalPlayStatus.count === 1 ? 'guess' : 'guesses'}`,
-          image: whiteTickBlue
+          image: winhamsterblue
         };
         break;
       case 'failed':
         playContentGlobal = {
           title: "Better luck tomorrow...",
           subtitle: "",
-          image: whiteCrossBlue
+          image: losthamsterblue
         };
         break;
       default:
@@ -431,14 +433,14 @@ export function GameSelectionPage({
         playContentLocal = {
           title: "Today's puzzle solved!",
           subtitle: `Solved in ${localPlayStatus.count} ${localPlayStatus.count === 1 ? 'guess' : 'guesses'}`,
-          image: whiteTickBlue
+          image: winhamsterlocal
         };
         break;
       case 'failed':
         playContentLocal = {
           title: "Better luck tomorrow...",
           subtitle: "",
-          image: whiteCrossBlue
+          image: losthamsterlocal
         };
         break;
       default:
