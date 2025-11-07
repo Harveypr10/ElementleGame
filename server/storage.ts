@@ -682,7 +682,6 @@ export class DatabaseStorage implements IStorage {
         masterQuestion_eventDescription: questionsMasterRegion.eventDescription,
         masterQuestion_regions: questionsMasterRegion.regions,
         masterQuestion_categories: questionsMasterRegion.categories,
-        masterQuestion_location: questionsMasterRegion.location,
         masterQuestion_createdAt: questionsMasterRegion.createdAt,
       })
       .from(questionsAllocatedRegion)
@@ -712,7 +711,6 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
-        location: result.masterQuestion_location,
         createdAt: result.masterQuestion_createdAt,
       },
     };
@@ -731,7 +729,6 @@ export class DatabaseStorage implements IStorage {
         masterQuestion_eventDescription: questionsMasterRegion.eventDescription,
         masterQuestion_regions: questionsMasterRegion.regions,
         masterQuestion_categories: questionsMasterRegion.categories,
-        masterQuestion_location: questionsMasterRegion.location,
         masterQuestion_createdAt: questionsMasterRegion.createdAt,
       })
       .from(questionsAllocatedRegion)
@@ -754,7 +751,6 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
-        location: result.masterQuestion_location,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -776,7 +772,6 @@ export class DatabaseStorage implements IStorage {
         masterQuestion_eventDescription: questionsMasterRegion.eventDescription,
         masterQuestion_regions: questionsMasterRegion.regions,
         masterQuestion_categories: questionsMasterRegion.categories,
-        masterQuestion_location: questionsMasterRegion.location,
         masterQuestion_createdAt: questionsMasterRegion.createdAt,
       })
       .from(questionsAllocatedRegion)
@@ -804,7 +799,6 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
-        location: result.masterQuestion_location,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -1310,7 +1304,6 @@ export class DatabaseStorage implements IStorage {
         masterQuestion_eventDescription: questionsMasterUser.eventDescription,
         masterQuestion_regions: questionsMasterUser.regions,
         masterQuestion_categories: questionsMasterUser.categories,
-        masterQuestion_location: questionsMasterUser.location,
         masterQuestion_createdAt: questionsMasterUser.createdAt,
       })
       .from(questionsAllocatedUser)
@@ -1341,7 +1334,6 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
-        location: result.masterQuestion_location,
         createdAt: result.masterQuestion_createdAt,
       },
     };
@@ -1361,7 +1353,6 @@ export class DatabaseStorage implements IStorage {
         masterQuestion_eventDescription: questionsMasterUser.eventDescription,
         masterQuestion_regions: questionsMasterUser.regions,
         masterQuestion_categories: questionsMasterUser.categories,
-        masterQuestion_location: questionsMasterUser.location,
         masterQuestion_createdAt: questionsMasterUser.createdAt,
       })
       .from(questionsAllocatedUser)
@@ -1385,7 +1376,6 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
-        location: result.masterQuestion_location,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -1408,7 +1398,6 @@ export class DatabaseStorage implements IStorage {
         masterQuestion_eventDescription: questionsMasterUser.eventDescription,
         masterQuestion_regions: questionsMasterUser.regions,
         masterQuestion_categories: questionsMasterUser.categories,
-        masterQuestion_location: questionsMasterUser.location,
         masterQuestion_createdAt: questionsMasterUser.createdAt,
       })
       .from(questionsAllocatedUser)
@@ -1437,7 +1426,6 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
-        location: result.masterQuestion_location,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -1568,7 +1556,6 @@ export class DatabaseStorage implements IStorage {
         master_eventDescription: questionsMasterUser.eventDescription,
         master_regions: questionsMasterUser.regions,
         master_categories: questionsMasterUser.categories,
-        master_location: questionsMasterUser.location,
         master_createdAt: questionsMasterUser.createdAt,
       })
       .from(gameAttemptsUser)
@@ -1607,7 +1594,6 @@ export class DatabaseStorage implements IStorage {
           eventDescription: result.master_eventDescription,
           regions: result.master_regions,
           categories: result.master_categories,
-          location: result.master_location,
           createdAt: result.master_createdAt,
         },
       },
@@ -1636,7 +1622,6 @@ export class DatabaseStorage implements IStorage {
         master_eventDescription: questionsMasterUser.eventDescription,
         master_regions: questionsMasterUser.regions,
         master_categories: questionsMasterUser.categories,
-        master_location: questionsMasterUser.location,
         master_createdAt: questionsMasterUser.createdAt,
       })
       .from(gameAttemptsUser)
@@ -1673,7 +1658,6 @@ export class DatabaseStorage implements IStorage {
           eventDescription: result.master_eventDescription,
           regions: result.master_regions,
           categories: result.master_categories,
-          location: result.master_location,
           createdAt: result.master_createdAt,
         },
       },
