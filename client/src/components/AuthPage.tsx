@@ -387,6 +387,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                   value={formData.postcode}
                   onChange={(value) => setFormData({ ...formData, postcode: value })}
                   placeholder="Enter your postcode"
+                  className="w-full"
+                  required={false}   // we handle the “blank postcode” case with the warning dialog
                   data-testid="input-postcode"
                 />
               </div>
