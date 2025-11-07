@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { InlineHelp } from "@/components/ui/inline-help";
 import { PostcodeAutocomplete } from "@/components/PostcodeAutocomplete";
 import {
   AlertDialog,
@@ -408,20 +408,9 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                     <Label htmlFor="postcode" data-testid="label-postcode-account">
                       Postcode
                     </Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button 
-                          type="button" 
-                          className="inline-flex items-center justify-center w-4 h-4 text-xs rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted transition-colors"
-                          data-testid="button-postcode-info-account"
-                        >
-                          i
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Your postcode helps us provide local puzzles. Changing this may affect your local puzzle availability.</p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <InlineHelp data-testid="button-postcode-info-account">
+                      <p>Your postcode helps us provide local puzzles. Changing this may affect your local puzzle availability.</p>
+                    </InlineHelp>
                   </div>
                   <PostcodeAutocomplete
                     value={profileData.postcode}

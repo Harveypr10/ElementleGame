@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { InlineHelp } from "@/components/ui/inline-help";
 import { PostcodeAutocomplete } from "@/components/PostcodeAutocomplete";
 import {
   AlertDialog,
@@ -342,20 +342,9 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
                   <Label htmlFor="region" data-testid="label-region">Region</Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button 
-                        type="button" 
-                        className="inline-flex items-center justify-center w-4 h-4 text-xs rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted transition-colors"
-                        data-testid="button-region-info"
-                      >
-                        i
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Puzzle questions are based on your geographical region</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <InlineHelp data-testid="button-region-info">
+                    <p>Puzzle questions are based on your geographical region</p>
+                  </InlineHelp>
                 </div>
                 <Select
                   value={formData.region}
@@ -390,20 +379,9 @@ const handleSubmit = async (e: React.FormEvent) => {
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
                   <Label htmlFor="postcode" data-testid="label-postcode">Postcode</Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button 
-                        type="button" 
-                        className="inline-flex items-center justify-center w-4 h-4 text-xs rounded-full border border-muted-foreground/30 text-muted-foreground hover:bg-muted transition-colors"
-                        data-testid="button-postcode-info"
-                      >
-                        i
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Your postcode helps us provide local puzzles tailored to your area</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <InlineHelp data-testid="button-postcode-info">
+                    <p>Your postcode helps us provide local puzzles tailored to your area</p>
+                  </InlineHelp>
                 </div>
                 <PostcodeAutocomplete
                   value={formData.postcode}

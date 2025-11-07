@@ -13,6 +13,23 @@ interface PostcodeAutocompleteProps {
   "data-testid"?: string;
 }
 
+// Helper: Normalize postcode format (uppercase, canonical spacing)
+function normalizePostcode(input: string, canonicalFormat?: string): string {
+  // Remove all whitespace and convert to uppercase
+  const clean = input.replace(/\s/g, "").toUpperCase();
+  
+  // If we have a canonical format to match, use its spacing
+  if (canonicalFormat) {
+    const cleanCanonical = canonicalFormat.replace(/\s/g, "").toUpperCase();
+    if (clean === cleanCanonical) {
+      return canonicalFormat; // Use exact canonical spacing
+    }
+  }
+  
+  // Default: return cleaned version (space will be added from dataset)
+  return clean;
+}
+
 export function PostcodeAutocomplete({
   value,
   onChange,
@@ -27,15 +44,40 @@ export function PostcodeAutocomplete({
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [validPostcodes, setValidPostcodes] = useState<Set<string>>(new Set());
   const [isValid, setIsValid] = useState(true);
+  const [previewText, setPreviewText] = useState(""); // Grey autocomplete preview
+  const [errorMessage, setErrorMessage] = useState(""); // Validation error
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const blurTimerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLUListElement>(null);
   const isFocusedRef = useRef(false);
+  
+  // Compute ONLY the remaining characters for grey preview
+  const updatePreview = (currentValue: string, suggestionsList: string[]) => {
+    if (!currentValue || suggestionsList.length === 0) {
+      setPreviewText("");
+      return;
+    }
+    
+    const firstMatch = suggestionsList[0];
+    const cleanValue = currentValue.replace(/\s/g, "").toUpperCase();
+    const cleanMatch = firstMatch.replace(/\s/g, "").toUpperCase();
+    
+    if (cleanMatch.startsWith(cleanValue)) {
+      // Store the full match for later use (not just remainder)
+      // The JSX will handle extracting the remaining part
+      setPreviewText(firstMatch);
+    } else {
+      setPreviewText("");
+    }
+  };
 
-  // Fetch suggestions from Supabase
+  // Fetch suggestions from Supabase (alphabetically sorted, prefix filtered)
   const fetchSuggestions = async (input: string) => {
-    if (!input || input.length < 2) {
+    // Normalize input for matching (strip spaces)
+    const cleanInput = input.replace(/\s/g, "").toUpperCase();
+    
+    if (!cleanInput || cleanInput.length < 1) {
       setSuggestions([]);
       setShowSuggestions(false);
       setValidPostcodes(new Set());
@@ -45,34 +87,51 @@ export function PostcodeAutocomplete({
     setLoading(true);
     try {
       const supabase = await getSupabaseClient();
+      
+      // Query using first 2 characters to capture broader set, with very high limit
+      // Client-side filtering ensures accuracy
+      const searchPrefix = cleanInput.slice(0, Math.min(2, cleanInput.length));
+      
       const { data, error } = await supabase
         .from("postcodes")
         .select("name1")
-        .ilike("name1", `${input.toUpperCase()}%`)
-        .limit(20);
+        .ilike("name1", `${searchPrefix}%`)
+        .order("name1", { ascending: true })
+        .limit(5000); // Very high limit to handle dense postcode areas like SW1A
 
       if (!error && data) {
-        const postcodes = data.map((row) => row.name1);
+        // Client-side filter: match cleaned input against cleaned database values
+        const matched = data.filter((row) => {
+          const cleanRow = row.name1.replace(/\s/g, "").toUpperCase();
+          return cleanRow.startsWith(cleanInput);
+        });
+        
+        const postcodes = matched.slice(0, 20).map((row) => row.name1);
         setSuggestions(postcodes);
-        setValidPostcodes(new Set(postcodes));
+        setValidPostcodes(new Set(matched.map(row => row.name1))); // Cache all matches for validation
         // Only show suggestions if input is still focused
-        setShowSuggestions(isFocusedRef.current && data.length > 0);
+        setShowSuggestions(isFocusedRef.current && postcodes.length > 0);
+        
+        // Update preview with first match
+        updatePreview(input, postcodes);
       } else {
         setSuggestions([]);
         setValidPostcodes(new Set());
         setShowSuggestions(false);
+        setPreviewText("");
       }
     } catch (error) {
       console.error("Error fetching postcodes:", error);
       setSuggestions([]);
       setValidPostcodes(new Set());
       setShowSuggestions(false);
+      setPreviewText("");
     } finally {
       setLoading(false);
     }
   };
 
-  // Validate a specific postcode value
+  // Validate a specific postcode value (space-insensitive)
   const validatePostcode = async (postcodeValue: string): Promise<boolean> => {
     if (!postcodeValue || postcodeValue.length < 2) {
       return true; // Empty or too short is acceptable (not invalid)
@@ -80,13 +139,29 @@ export function PostcodeAutocomplete({
 
     try {
       const supabase = await getSupabaseClient();
+      
+      // Normalize input for comparison (strip spaces, uppercase)
+      const cleanValue = postcodeValue.replace(/\s/g, "").toUpperCase();
+      
+      // Query with first 2 chars to get broader set for validation
+      const searchPrefix = cleanValue.slice(0, Math.min(2, cleanValue.length));
       const { data, error } = await supabase
         .from("postcodes")
         .select("name1")
-        .eq("name1", postcodeValue.toUpperCase())
-        .single();
+        .ilike("name1", `${searchPrefix}%`)
+        .limit(5000); // Very high limit to ensure we capture all valid postcodes
 
-      return !error && !!data;
+      if (error || !data) {
+        return false;
+      }
+
+      // Find exact match by comparing space-stripped versions
+      const match = data.find((row) => {
+        const cleanRow = row.name1.replace(/\s/g, "").toUpperCase();
+        return cleanRow === cleanValue;
+      });
+
+      return !!match;
     } catch (error) {
       console.error("Error validating postcode:", error);
       return false;
@@ -97,10 +172,17 @@ export function PostcodeAutocomplete({
   const handleInputChange = (newValue: string) => {
     onChange(newValue);
     setSelectedIndex(-1);
+    setPreviewText(""); // Clear preview while typing
     
     // Reset validation state while typing (user is still editing)
     if (newValue) {
       setIsValid(true);
+      setErrorMessage("");
+    } else {
+      // Empty is valid
+      setIsValid(true);
+      setErrorMessage("");
+      setPreviewText("");
     }
 
     // Clear existing timer
@@ -127,9 +209,11 @@ export function PostcodeAutocomplete({
     setShowSuggestions(false);
     setSelectedIndex(-1);
     setIsValid(true);
+    setErrorMessage("");
+    setPreviewText("");
   };
 
-  // Validate postcode on blur
+  // Auto-complete with preview or validate on blur
   const handleBlur = () => {
     isFocusedRef.current = false;
     
@@ -148,32 +232,63 @@ export function PostcodeAutocomplete({
       setSelectedIndex(-1);
       
       // Read current value from input (not closure)
-      const valueToValidate = inputRef.current?.value || "";
+      const currentValue = inputRef.current?.value || "";
       
-      if (!valueToValidate || valueToValidate.length < 2) {
+      // If empty, that's valid
+      if (!currentValue) {
         setIsValid(true);
+        setErrorMessage("");
+        setPreviewText("");
         return;
       }
-
+      
+      // If there's a preview, auto-commit it
+      if (previewText && currentValue) {
+        const cleanValue = currentValue.replace(/\s/g, "").toUpperCase();
+        const cleanPreview = previewText.replace(/\s/g, "").toUpperCase();
+        
+        if (cleanPreview.startsWith(cleanValue)) {
+          onChange(previewText);
+          setIsValid(true);
+          setErrorMessage("");
+          setPreviewText("");
+          return;
+        }
+      }
+      
       // Check against cached valid postcodes first
-      if (validPostcodes.has(valueToValidate)) {
+      const cleanCurrent = currentValue.replace(/\s/g, "").toUpperCase();
+      const matchedPostcode = Array.from(validPostcodes).find(
+        (pc) => pc.replace(/\s/g, "").toUpperCase() === cleanCurrent
+      );
+      
+      if (matchedPostcode) {
+        // Auto-format with canonical spacing
+        onChange(matchedPostcode);
         setIsValid(true);
+        setErrorMessage("");
+        setPreviewText("");
         return;
       }
 
       // If not in cache, query database to verify
-      const isValid = await validatePostcode(valueToValidate);
+      const isValid = await validatePostcode(currentValue);
       
       // Before applying results, verify field is still blurred and value hasn't changed
-      if (isFocusedRef.current || inputRef.current?.value !== valueToValidate) {
+      if (isFocusedRef.current || inputRef.current?.value !== currentValue) {
         return; // User refocused or value changed while validating - abort
       }
       
-      setIsValid(isValid);
-      
-      // If invalid, clear the value to enforce selection
-      if (!isValid) {
+      if (isValid) {
+        setIsValid(true);
+        setErrorMessage("");
+        setPreviewText("");
+      } else {
+        // Invalid partial postcode - show error and clear
+        setIsValid(false);
+        setErrorMessage("Invalid postcode - Postcode must be valid to continue.");
         onChange("");
+        setPreviewText("");
       }
     }, 200);
   };
@@ -202,8 +317,15 @@ export function PostcodeAutocomplete({
     }
   }, [value]);
 
-  // Handle keyboard navigation
+  // Handle keyboard navigation and Tab completion
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Tab key: auto-complete with preview
+    if (e.key === "Tab" && previewText && value) {
+      e.preventDefault();
+      selectSuggestion(previewText);
+      return;
+    }
+    
     if (!showSuggestions || suggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {
@@ -220,6 +342,7 @@ export function PostcodeAutocomplete({
     } else if (e.key === "Escape") {
       setShowSuggestions(false);
       setSelectedIndex(-1);
+      setPreviewText("");
     }
   };
 
@@ -277,12 +400,41 @@ export function PostcodeAutocomplete({
           placeholder={placeholder}
           className={cn(
             className,
-            !isValid && value && "border-destructive focus-visible:ring-destructive"
+            !isValid && "border-destructive focus-visible:ring-destructive"
           )}
           required={required}
           data-testid={testId}
           autoComplete="off"
         />
+        
+        {/* Grey preview text overlay */}
+        {previewText && value && (() => {
+          const cleanValue = value.replace(/\s/g, "").toUpperCase();
+          const cleanPreview = previewText.replace(/\s/g, "").toUpperCase();
+          
+          if (cleanPreview.startsWith(cleanValue)) {
+            // Find where user's input ends in the preview (with spaces)
+            let charCount = 0;
+            let previewIndex = 0;
+            while (charCount < cleanValue.length && previewIndex < previewText.length) {
+              if (previewText[previewIndex] !== ' ') {
+                charCount++;
+              }
+              previewIndex++;
+            }
+            
+            const remaining = previewText.slice(previewIndex);
+            
+            return (
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none flex text-sm">
+                <span className="opacity-0">{value}</span>
+                <span className="text-muted-foreground/40">{remaining}</span>
+              </div>
+            );
+          }
+          return null;
+        })()}
+        
         {loading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -290,9 +442,9 @@ export function PostcodeAutocomplete({
         )}
       </div>
 
-      {!isValid && !value && (
+      {errorMessage && (
         <p className="text-xs text-destructive mt-1" data-testid={`${testId}-error`}>
-          Invalid postcode. Please select from the dropdown.
+          {errorMessage}
         </p>
       )}
 
