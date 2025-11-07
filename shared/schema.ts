@@ -199,7 +199,6 @@ export const questionsMasterRegion = pgTable("questions_master_region", {
   eventDescription: text("event_description").notNull(),
   regions: jsonb("regions"), // Regions this question is relevant for
   categories: jsonb("categories").notNull(), // Categories this question belongs to
-  location: text("location"), // Geographic location relevant to the event
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -311,7 +310,6 @@ export const questionsMasterUser = pgTable("questions_master_user", {
   eventDescription: text("event_description").notNull(),
   regions: jsonb("regions"), // Regions this question is relevant for
   categories: jsonb("categories").notNull(), // Categories this question belongs to
-  location: text("location"), // Geographic location relevant to the event
   createdAt: timestamp("created_at").defaultNow(),
 });
 
