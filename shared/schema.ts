@@ -195,10 +195,15 @@ export type Region = typeof regions.$inferSelect;
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   name: text("name").notNull().unique(), // Category name (e.g., 'Science', 'Sports', 'History')
+  description: text("description"), // Full details of the category
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
 export const insertCategorySchema = createInsertSchema(categories).omit({
   id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertCategory = z.infer<typeof insertCategorySchema>;

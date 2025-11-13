@@ -1299,7 +1299,7 @@ export class DatabaseStorage implements IStorage {
         questionId: questionsAllocatedUser.questionId,
         userId: questionsAllocatedUser.userId,
         puzzleDate: questionsAllocatedUser.puzzleDate,
-        category: questionsAllocatedUser.category,
+        categoryId: questionsAllocatedUser.categoryId,
         masterQuestion_id: questionsMasterUser.id,
         masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterUser.eventTitle,
@@ -1328,7 +1328,7 @@ export class DatabaseStorage implements IStorage {
       questionId: result.questionId,
       userId: result.userId,
       puzzleDate: result.puzzleDate,
-      category: result.category,
+      categoryId: result.categoryId,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
@@ -1348,7 +1348,7 @@ export class DatabaseStorage implements IStorage {
         questionId: questionsAllocatedUser.questionId,
         userId: questionsAllocatedUser.userId,
         puzzleDate: questionsAllocatedUser.puzzleDate,
-        category: questionsAllocatedUser.category,
+        categoryId: questionsAllocatedUser.categoryId,
         masterQuestion_id: questionsMasterUser.id,
         masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterUser.eventTitle,
@@ -1370,7 +1370,7 @@ export class DatabaseStorage implements IStorage {
       questionId: result.questionId,
       userId: result.userId,
       puzzleDate: result.puzzleDate,
-      category: result.category,
+      categoryId: result.categoryId,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
@@ -1393,7 +1393,7 @@ export class DatabaseStorage implements IStorage {
         questionId: questionsAllocatedUser.questionId,
         userId: questionsAllocatedUser.userId,
         puzzleDate: questionsAllocatedUser.puzzleDate,
-        category: questionsAllocatedUser.category,
+        categoryId: questionsAllocatedUser.categoryId,
         masterQuestion_id: questionsMasterUser.id,
         masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterUser.eventTitle,
@@ -1420,7 +1420,7 @@ export class DatabaseStorage implements IStorage {
       questionId: result.questionId,
       userId: result.userId,
       puzzleDate: result.puzzleDate,
-      category: result.category,
+      categoryId: result.categoryId,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
@@ -1505,16 +1505,17 @@ export class DatabaseStorage implements IStorage {
       puzzleDate.setDate(puzzleDate.getDate() + index);
       const puzzleDateStr = puzzleDate.toISOString().split('T')[0];
 
-      // Pick a random category from the question's categories
-      const category = question.categories && question.categories.length > 0 
+      // Pick a random category ID from the question's categories
+      // categories is a JSONB array of category IDs
+      const categoryId = question.categories && Array.isArray(question.categories) && question.categories.length > 0 
         ? question.categories[Math.floor(Math.random() * question.categories.length)]
-        : 'History';
+        : 1; // Default to category ID 1 if no categories
 
       return {
         userId,
         questionId: question.id,
         puzzleDate: puzzleDateStr,
-        category,
+        categoryId,
       };
     });
 
@@ -1551,7 +1552,7 @@ export class DatabaseStorage implements IStorage {
         allocated_questionId: questionsAllocatedUser.questionId,
         allocated_userId: questionsAllocatedUser.userId,
         allocated_puzzleDate: questionsAllocatedUser.puzzleDate,
-        allocated_category: questionsAllocatedUser.category,
+        allocated_categoryId: questionsAllocatedUser.categoryId,
         master_id: questionsMasterUser.id,
         master_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         master_eventTitle: questionsMasterUser.eventTitle,
@@ -1588,7 +1589,7 @@ export class DatabaseStorage implements IStorage {
         questionId: result.allocated_questionId,
         userId: result.allocated_userId,
         puzzleDate: result.allocated_puzzleDate,
-        category: result.allocated_category,
+        categoryId: result.allocated_categoryId,
         masterQuestion: {
           id: result.master_id,
           answerDateCanonical: result.master_answerDateCanonical,
@@ -1617,7 +1618,7 @@ export class DatabaseStorage implements IStorage {
         allocated_questionId: questionsAllocatedUser.questionId,
         allocated_userId: questionsAllocatedUser.userId,
         allocated_puzzleDate: questionsAllocatedUser.puzzleDate,
-        allocated_category: questionsAllocatedUser.category,
+        allocated_categoryId: questionsAllocatedUser.categoryId,
         master_id: questionsMasterUser.id,
         master_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         master_eventTitle: questionsMasterUser.eventTitle,
@@ -1652,7 +1653,7 @@ export class DatabaseStorage implements IStorage {
         questionId: result.allocated_questionId,
         userId: result.allocated_userId,
         puzzleDate: result.allocated_puzzleDate,
-        category: result.allocated_category,
+        categoryId: result.allocated_categoryId,
         masterQuestion: {
           id: result.master_id,
           answerDateCanonical: result.master_answerDateCanonical,
