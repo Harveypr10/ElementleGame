@@ -191,6 +191,19 @@ export const insertRegionSchema = createInsertSchema(regions);
 export type InsertRegion = z.infer<typeof insertRegionSchema>;
 export type Region = typeof regions.$inferSelect;
 
+// Categories table - Available puzzle categories
+export const categories = pgTable("categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(), // Category name (e.g., 'Science', 'Sports', 'History')
+});
+
+export const insertCategorySchema = createInsertSchema(categories).omit({
+  id: true,
+});
+
+export type InsertCategory = z.infer<typeof insertCategorySchema>;
+export type Category = typeof categories.$inferSelect;
+
 // Questions master (region) - Canonical question bank for region mode
 export const questionsMasterRegion = pgTable("questions_master_region", {
   id: serial("id").primaryKey(),
