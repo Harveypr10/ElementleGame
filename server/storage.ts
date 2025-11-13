@@ -54,6 +54,7 @@ export type GameAttemptWithAllocatedQuestion = GameAttemptRegion & {
 
 // Type for allocated question with master question data (User mode)
 export type AllocatedUserQuestionWithMaster = QuestionAllocatedUser & {
+  categoryName: string; // Category name from categories table join
   masterQuestion: QuestionMasterUser;
 };
 
@@ -1300,6 +1301,7 @@ export class DatabaseStorage implements IStorage {
         userId: questionsAllocatedUser.userId,
         puzzleDate: questionsAllocatedUser.puzzleDate,
         categoryId: questionsAllocatedUser.categoryId,
+        categoryName: categories.name,
         masterQuestion_id: questionsMasterUser.id,
         masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterUser.eventTitle,
@@ -1312,6 +1314,10 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(
         questionsMasterUser,
         eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
+      )
+      .innerJoin(
+        categories,
+        eq(questionsAllocatedUser.categoryId, categories.id)
       )
       .where(
         and(
@@ -1329,6 +1335,7 @@ export class DatabaseStorage implements IStorage {
       userId: result.userId,
       puzzleDate: result.puzzleDate,
       categoryId: result.categoryId,
+      categoryName: result.categoryName,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
@@ -1349,6 +1356,7 @@ export class DatabaseStorage implements IStorage {
         userId: questionsAllocatedUser.userId,
         puzzleDate: questionsAllocatedUser.puzzleDate,
         categoryId: questionsAllocatedUser.categoryId,
+        categoryName: categories.name,
         masterQuestion_id: questionsMasterUser.id,
         masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterUser.eventTitle,
@@ -1362,6 +1370,10 @@ export class DatabaseStorage implements IStorage {
         questionsMasterUser,
         eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
       )
+      .innerJoin(
+        categories,
+        eq(questionsAllocatedUser.categoryId, categories.id)
+      )
       .where(eq(questionsAllocatedUser.userId, userId))
       .orderBy(questionsAllocatedUser.puzzleDate);
 
@@ -1371,6 +1383,7 @@ export class DatabaseStorage implements IStorage {
       userId: result.userId,
       puzzleDate: result.puzzleDate,
       categoryId: result.categoryId,
+      categoryName: result.categoryName,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
@@ -1394,6 +1407,7 @@ export class DatabaseStorage implements IStorage {
         userId: questionsAllocatedUser.userId,
         puzzleDate: questionsAllocatedUser.puzzleDate,
         categoryId: questionsAllocatedUser.categoryId,
+        categoryName: categories.name,
         masterQuestion_id: questionsMasterUser.id,
         masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterUser.eventTitle,
@@ -1406,6 +1420,10 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(
         questionsMasterUser,
         eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
+      )
+      .innerJoin(
+        categories,
+        eq(questionsAllocatedUser.categoryId, categories.id)
       )
       .where(
         and(
@@ -1421,6 +1439,7 @@ export class DatabaseStorage implements IStorage {
       userId: result.userId,
       puzzleDate: result.puzzleDate,
       categoryId: result.categoryId,
+      categoryName: result.categoryName,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,

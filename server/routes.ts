@@ -623,7 +623,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         answerDateCanonical: aq.masterQuestion.answerDateCanonical,
         eventTitle: aq.masterQuestion.eventTitle,
         eventDescription: aq.masterQuestion.eventDescription,
-        category: aq.category,
+        category: aq.categoryName, // Category name from categories table
         clue1: null, // Clues removed in new schema
         clue2: null, // Clues removed in new schema
         // User-specific fields
@@ -656,7 +656,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         answerDateCanonical: allocatedQuestion.masterQuestion.answerDateCanonical,
         eventTitle: allocatedQuestion.masterQuestion.eventTitle,
         eventDescription: allocatedQuestion.masterQuestion.eventDescription,
-        category: allocatedQuestion.category,
+        category: allocatedQuestion.categoryName, // Category name from categories table
         clue1: null, // Clues removed in new schema
         clue2: null, // Clues removed in new schema
         userId: allocatedQuestion.userId,
