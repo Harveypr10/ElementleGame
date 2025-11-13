@@ -429,8 +429,8 @@ export class DatabaseStorage implements IStorage {
 
     return results;
   }
-
-  async getAllGuessesWithPuzzleIds(userId: string): Promise<Array<Guess & { puzzleId: number; result: string | null }>> {
+  
+  async getAllGuessesWithPuzzleIds(userId: string): Promise<Array<Guess & { puzzleId: number; result: string | null; categoryName?: string | null }>> {
     const results = await db
       .select({
         id: guesses.id,
@@ -438,10 +438,12 @@ export class DatabaseStorage implements IStorage {
         guessValue: guesses.guessValue,
         guessedAt: guesses.guessedAt,
         puzzleId: gameAttempts.puzzleId,
-        result: gameAttempts.result, // include result so you know if it's won/lost/null
+        result: gameAttempts.result,
+        categoryName: categories.name,   // <-- join category name
       })
       .from(guesses)
       .innerJoin(gameAttempts, eq(guesses.gameAttemptId, gameAttempts.id))
+      .leftJoin(categories, eq(gameAttempts.categoryId, categories.id)) // safe for NULL
       .where(eq(gameAttempts.userId, userId))
       .orderBy(guesses.guessedAt);
 

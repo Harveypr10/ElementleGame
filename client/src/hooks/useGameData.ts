@@ -117,7 +117,7 @@ export function useGameData() {
     }
   };
 
-  const getAllGuesses = async (): Promise<Array<Guess & { puzzleId: number; result: string | null }>> => {
+  const getAllGuesses = async (): Promise<Array<Guess & { puzzleId: number; result: string | null; categoryName?: string | null }>> => {
     console.log("[getAllGuesses] Called, isAuthenticated:", isAuthenticated, "isLocalMode:", isLocalMode);
     try {
       const allGuessesEndpoint = isLocalMode ? "/api/user/guesses/all" : "/api/guesses/all";
@@ -131,12 +131,14 @@ export function useGameData() {
       }
       const data = await response.json();
       console.log("[getAllGuesses] Fetched", data.length, "guesses");
-      return data;
+      // Backend now includes categoryName when available
+      return data as Array<Guess & { puzzleId: number; result: string | null; categoryName?: string | null }>;
     } catch (error) {
       console.error("[getAllGuesses] Error fetching guesses:", error);
       return [];
     }
   };
+
 
   // Check if a puzzle is completed by the user
   const isPuzzleCompleted = (puzzleId: number): GameAttempt | undefined => {

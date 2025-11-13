@@ -47,7 +47,17 @@ interface PlayPageProps {
 interface GuessRecord {
   guessValue: string;
   feedbackResult: CellFeedback[];
+  categoryName?: string | null; // add this field
 }
+
+type AllocatedGuessRow = {
+  id: number;
+  gameAttemptId: number;
+  guessValue: string;
+  slot_type: string;
+  category_id: number | null;
+  categories?: { name: string } | null;
+};
 
 export function PlayPage({
   answerDateCanonical,
@@ -253,7 +263,12 @@ export function PlayPage({
                 const displayFormat = formatCanonicalDateUtil(guess.guessValue, lockedFormat as any);
                 const feedback = calculateFeedbackForGuess(displayFormat, recordKeyStates);
                 recordKeyStates = updateKeyStates(displayFormat, feedback, recordKeyStates);
-                records.push({ guessValue: displayFormat, feedbackResult: feedback });
+                records.push({
+                  guessValue: displayFormat,
+                  feedbackResult: feedback,
+                  categoryName: (guess as any).categoryName ?? null
+                });
+
               }
               setGuessRecords(records);
             }
@@ -363,7 +378,12 @@ export function PlayPage({
                 const displayFormat = formatCanonicalDateUtil(guess.guessValue, lockedFormat as any);
                 const feedback = calculateFeedbackForGuess(displayFormat, recordKeyStates);
                 recordKeyStates = updateKeyStates(displayFormat, feedback, recordKeyStates);
-                records.push({ guessValue: displayFormat, feedbackResult: feedback });
+                records.push({
+                  guessValue: displayFormat,
+                  feedbackResult: feedback,
+                  categoryName: (guess as any).categoryName ?? null
+                });
+
               }
               setGuessRecords(records);
             }
@@ -1066,14 +1086,15 @@ export function PlayPage({
           <div className="w-full max-w-md space-y-0.5 sm:space-y-1">
             {cluesEnabled && (
               <div className="text-center mb-3">
-                {isLocalMode && category && (
+                {isLocalMode && (
                   <div
                     className="text-sm font-medium text-muted-foreground mb-1 uppercase tracking-wide"
                     data-testid="text-category"
                   >
-                    {category}
+                    {guessRecords[0]?.categoryName || category || ""}
                   </div>
                 )}
+
                 <h3
                   className="text-xl font-semibold text-foreground"
                   data-testid="text-event-title"
