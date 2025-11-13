@@ -329,7 +329,7 @@ export const questionsAllocatedUser = pgTable(
     questionId: integer("question_id").notNull().references(() => questionsMasterUser.id, { onDelete: "cascade" }),
     userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
     puzzleDate: date("puzzle_date").notNull(), // The date this question is allocated for (YYYY-MM-DD)
-    category: text("category").notNull(), // Category for this puzzle (sports, science, etc.)
+    categoryId: integer("category_id").notNull(), // Category ID for this puzzle
   },
   (table) => {
     return {
