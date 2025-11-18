@@ -262,8 +262,26 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
 
   const monthYear = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   
-  // Determine earliest puzzle month (October 2025)
-  const earliestMonth = new Date(2025, 9, 1); // October 2025
+  // Determine earliest puzzle month based on available puzzles
+  const earliestMonth = (() => {
+    if (puzzles.length === 0) {
+      // Fallback to October 2025 if no puzzles
+      return new Date(2025, 9, 1);
+    }
+    
+    // Find the earliest puzzle date by string comparison (YYYY-MM-DD format)
+    const earliestPuzzle = puzzles.reduce((earliest, puzzle) => {
+      return puzzle.date < earliest.date ? puzzle : earliest;
+    }, puzzles[0]);
+    
+    // Parse the date string manually to avoid timezone issues
+    // puzzle.date is in YYYY-MM-DD format
+    const [year, month, day] = earliestPuzzle.date.split('-').map(Number);
+    
+    // Create a date for the first of that month (month is 0-indexed in Date constructor)
+    return new Date(year, month - 1, 1);
+  })();
+  
   const currentDate = new Date();
   const currentMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
   
