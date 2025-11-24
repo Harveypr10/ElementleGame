@@ -301,7 +301,7 @@ export function GameSelectionPage({
 
           {/* Mobile: Show only secondary message with fixed height (first line is in fixed header) */}
           {!isDesktop && isAuthenticated && globalIntroMessage && (
-            <div className="text-center mb-3 h-[3rem] flex items-center justify-center" data-testid="intro-message">
+            <div className="text-center mt-2 mb-3 h-[3rem] flex items-center justify-center" data-testid="intro-message">
               <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 line-clamp-2" data-testid="intro-second-line">
                 {globalIntroMessage.secondLine}
               </div>
@@ -467,7 +467,7 @@ export function GameSelectionPage({
 
           {/* Mobile: Show only secondary message with fixed height (first line is in fixed header) */}
           {!isDesktop && isAuthenticated && localIntroMessage && (
-            <div className="text-center mb-3 h-[3rem] flex items-center justify-center" data-testid="intro-message-local">
+            <div className="text-center mt-2 mb-3 h-[3rem] flex items-center justify-center" data-testid="intro-message-local">
               <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 line-clamp-2">
                 {localIntroMessage.secondLine}
               </div>
@@ -789,7 +789,7 @@ export function GameSelectionPage({
                 className="absolute left-0 right-0 pointer-events-none"
                 style={{
                   // Position at same vertical level as Stats row in document flow
-                  top: '318px'
+                  top: '316px'
                 }}
               >
                 <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
