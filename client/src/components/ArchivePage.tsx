@@ -268,51 +268,59 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     return puzzles.some(p => p.date.startsWith(`${year}-${monthStr}`));
   };
 
-  // Swipe handlers for calendar
+  // Swipe handlers for calendar with continuous scrolling
   const handleSwipeStart = useCallback(() => {
     swipeStartX.current = swipeOffset;
   }, [swipeOffset]);
 
   const handleSwiping = useCallback((deltaX: number) => {
-    // Allow slight overshoot but restrict movement
-    const maxOvershoot = 50;
-    const maxSwipe = canGoNext && canGoPrevious ? 100 : canGoNext || canGoPrevious ? 50 : 0;
-    
-    const newOffset = Math.max(-maxOvershoot, Math.min(maxOvershoot, swipeStartX.current + deltaX));
+    // Allow slight overshoot (50px) on either side but mainly stay in center
+    const newOffset = Math.max(-50, Math.min(50, swipeStartX.current + deltaX));
     setSwipeOffset(newOffset);
-  }, [canGoNext, canGoPrevious, swipeOffset]);
+  }, [swipeOffset]);
 
   const handleSwiped = useCallback((velocity: number, direction: 'Left' | 'Right') => {
-    const threshold = 40;
+    const threshold = 30;
     const velocityThreshold = 0.5;
+    
+    let shouldNavigate = false;
+    let navigateDirection: 'prev' | 'next' | null = null;
     
     if (Math.abs(velocity) > velocityThreshold) {
       // Flick-based navigation
       if (direction === 'Left' && canGoNext) {
-        const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-        setCurrentMonth(nextMonth);
-        onMonthChange?.(nextMonth);
+        shouldNavigate = true;
+        navigateDirection = 'next';
       } else if (direction === 'Right' && canGoPrevious) {
-        const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-        setCurrentMonth(prevMonth);
-        onMonthChange?.(prevMonth);
+        shouldNavigate = true;
+        navigateDirection = 'prev';
       }
     } else if (Math.abs(swipeOffset) > threshold) {
       // Drag-based navigation
       if (swipeOffset > 0 && canGoPrevious) {
-        const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-        setCurrentMonth(prevMonth);
-        onMonthChange?.(prevMonth);
+        shouldNavigate = true;
+        navigateDirection = 'prev';
       } else if (swipeOffset < 0 && canGoNext) {
+        shouldNavigate = true;
+        navigateDirection = 'next';
+      }
+    }
+    
+    if (shouldNavigate && navigateDirection) {
+      if (navigateDirection === 'next') {
         const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
         setCurrentMonth(nextMonth);
         onMonthChange?.(nextMonth);
+      } else if (navigateDirection === 'prev') {
+        const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        setCurrentMonth(prevMonth);
+        onMonthChange?.(prevMonth);
       }
     }
     
     // Always snap back to center
     setSwipeOffset(0);
-  }, [currentMonth, canGoNext, canGoPrevious, onMonthChange]);
+  }, [currentMonth, canGoNext, canGoPrevious, swipeOffset, onMonthChange]);
 
   const swipeHandlers = useSwipeable({
     onSwipeStart: handleSwipeStart,
@@ -397,16 +405,180 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           ))}
         </div>
 
-        <div
-          ref={swipeRef}
-          {...swipeProps}
-          className="grid grid-cols-7 gap-2 touch-none"
+        <div 
+          ref={containerRef}
+          className="relative overflow-hidden"
           style={{
-            transform: `translateX(${swipeOffset}px)`,
-            transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
+            width: '100%',
+            height: 'auto'
           }}
         >
-          {renderCalendar()}
+          {/* Calendar grid with continuous scrolling */}
+          <div
+            ref={swipeRef}
+            {...swipeProps}
+            className="flex touch-none"
+            style={{
+              transform: `translateX(calc(-100% + ${swipeOffset}px))`,
+              transition: swipeOffset === 0 ? 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
+              width: '300%'
+            }}
+          >
+            {/* Previous month */}
+            <div className="w-1/3 flex-shrink-0 px-0">
+              <div className="grid grid-cols-7 gap-2">
+                {(() => {
+                  const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+                  const { daysInMonth, startingDayOfWeek } = getDaysInMonth(prevMonth);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const days = [];
+
+                  for (let i = 0; i < startingDayOfWeek; i++) {
+                    days.push(<div key={`prev-empty-${i}`} className="aspect-square" />);
+                  }
+
+                  for (let day = 1; day <= daysInMonth; day++) {
+                    const year = prevMonth.getFullYear();
+                    const month = String(prevMonth.getMonth() + 1).padStart(2, '0');
+                    const dayStr = String(day).padStart(2, '0');
+                    const puzzleDate = `${year}-${month}-${dayStr}`;
+                    const puzzle = puzzles.find(p => p.date === puzzleDate);
+                    const status = puzzle ? dayStatuses[puzzle.answerDateCanonical] || null : null;
+
+                    const puzzleDateObj = new Date(year, prevMonth.getMonth(), day);
+                    puzzleDateObj.setHours(0, 0, 0, 0);
+                    const isFuture = puzzleDateObj > today;
+                    const isToday = puzzleDateObj.getTime() === today.getTime();
+                    const isPlayable = puzzle && !isFuture;
+
+                    days.push(
+                      <div
+                        key={`prev-day-${day}`}
+                        className={cn(
+                          "aspect-square p-2 flex flex-col items-center justify-center transition-all min-h-[48px] min-w-[48px] rounded-md",
+                          isPlayable && "cursor-pointer hover-elevate",
+                          !isPlayable && "cursor-not-allowed",
+                          status?.completed && status.won && "bg-green-100 dark:bg-green-900/30",
+                          status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30",
+                          status?.inProgress && "bg-blue-100 dark:bg-blue-900/30",
+                          !status?.completed && !status?.inProgress && isPlayable && "bg-gray-100 dark:bg-gray-800",
+                          (!puzzle || isFuture) && "bg-background opacity-40",
+                          isToday && "ring-2 ring-primary"
+                        )}
+                        onClick={() => isPlayable && onPlayPuzzle(puzzle.id.toString())}
+                        data-testid={`calendar-day-prev-${day}`}
+                      >
+                        <span className={cn(
+                          "text-sm font-semibold",
+                          status?.completed && status.won && "text-green-700 dark:text-green-300",
+                          status?.completed && !status.won && "text-red-700 dark:text-red-300",
+                          status?.inProgress && "text-blue-700 dark:text-blue-300",
+                          !status?.completed && isPlayable && "text-foreground",
+                          (!puzzle || isFuture) && "text-muted-foreground"
+                        )}>
+                          {day}
+                        </span>
+                        {status?.completed && (
+                          <span className="text-xs mt-1 opacity-70">
+                            {status.won ? `✓ ${status.guessCount}` : '✗'}
+                          </span>
+                        )}
+                        {status?.inProgress && (
+                          <span className="text-xs mt-1 opacity-70">
+                            {status.guessCount}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return days;
+                })()}
+              </div>
+            </div>
+
+            {/* Current month */}
+            <div className="w-1/3 flex-shrink-0 px-0">
+              <div className="grid grid-cols-7 gap-2">
+                {renderCalendar()}
+              </div>
+            </div>
+
+            {/* Next month */}
+            <div className="w-1/3 flex-shrink-0 px-0">
+              <div className="grid grid-cols-7 gap-2">
+                {(() => {
+                  const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+                  const { daysInMonth, startingDayOfWeek } = getDaysInMonth(nextMonth);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const days = [];
+
+                  for (let i = 0; i < startingDayOfWeek; i++) {
+                    days.push(<div key={`next-empty-${i}`} className="aspect-square" />);
+                  }
+
+                  for (let day = 1; day <= daysInMonth; day++) {
+                    const year = nextMonth.getFullYear();
+                    const month = String(nextMonth.getMonth() + 1).padStart(2, '0');
+                    const dayStr = String(day).padStart(2, '0');
+                    const puzzleDate = `${year}-${month}-${dayStr}`;
+                    const puzzle = puzzles.find(p => p.date === puzzleDate);
+                    const status = puzzle ? dayStatuses[puzzle.answerDateCanonical] || null : null;
+
+                    const puzzleDateObj = new Date(year, nextMonth.getMonth(), day);
+                    puzzleDateObj.setHours(0, 0, 0, 0);
+                    const isFuture = puzzleDateObj > today;
+                    const isToday = puzzleDateObj.getTime() === today.getTime();
+                    const isPlayable = puzzle && !isFuture;
+
+                    days.push(
+                      <div
+                        key={`next-day-${day}`}
+                        className={cn(
+                          "aspect-square p-2 flex flex-col items-center justify-center transition-all min-h-[48px] min-w-[48px] rounded-md",
+                          isPlayable && "cursor-pointer hover-elevate",
+                          !isPlayable && "cursor-not-allowed",
+                          status?.completed && status.won && "bg-green-100 dark:bg-green-900/30",
+                          status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30",
+                          status?.inProgress && "bg-blue-100 dark:bg-blue-900/30",
+                          !status?.completed && !status?.inProgress && isPlayable && "bg-gray-100 dark:bg-gray-800",
+                          (!puzzle || isFuture) && "bg-background opacity-40",
+                          isToday && "ring-2 ring-primary"
+                        )}
+                        onClick={() => isPlayable && onPlayPuzzle(puzzle.id.toString())}
+                        data-testid={`calendar-day-next-${day}`}
+                      >
+                        <span className={cn(
+                          "text-sm font-semibold",
+                          status?.completed && status.won && "text-green-700 dark:text-green-300",
+                          status?.completed && !status.won && "text-red-700 dark:text-red-300",
+                          status?.inProgress && "text-blue-700 dark:text-blue-300",
+                          !status?.completed && isPlayable && "text-foreground",
+                          (!puzzle || isFuture) && "text-muted-foreground"
+                        )}>
+                          {day}
+                        </span>
+                        {status?.completed && (
+                          <span className="text-xs mt-1 opacity-70">
+                            {status.won ? `✓ ${status.guessCount}` : '✗'}
+                          </span>
+                        )}
+                        {status?.inProgress && (
+                          <span className="text-xs mt-1 opacity-70">
+                            {status.guessCount}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return days;
+                })()}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -476,7 +648,10 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
 
               <div className="grid grid-cols-3 gap-2">
                 {Array.from({ length: 12 }).map((_, i) => {
+                  // Check if this month has data AND is not in the future
                   const hasData = hasMonthPuzzles(currentMonth.getFullYear(), i);
+                  const isFutureMonth = currentMonth.getFullYear() === currentDate.getFullYear() && i > currentDate.getMonth();
+                  const isSelectable = hasData && !isFutureMonth;
                   const isSelected = i === currentMonth.getMonth();
                   const monthName = new Date(2025, i, 1).toLocaleDateString('en-US', { month: 'short' });
 
@@ -484,20 +659,20 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
                     <button
                       key={i}
                       onClick={() => {
-                        if (hasData) {
+                        if (isSelectable) {
                           const newMonth = new Date(currentMonth.getFullYear(), i, 1);
                           setCurrentMonth(newMonth);
                           setShowMonthPicker(false);
                           onMonthChange?.(newMonth);
                         }
                       }}
-                      disabled={!hasData}
+                      disabled={!isSelectable}
                       className={cn(
                         "py-2 px-3 rounded-md font-medium transition-colors",
-                        hasData && "cursor-pointer",
-                        !hasData && "opacity-40 cursor-not-allowed",
-                        isSelected && hasData && "bg-primary text-primary-foreground",
-                        !isSelected && hasData && "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700",
+                        isSelectable && "cursor-pointer",
+                        !isSelectable && "opacity-40 cursor-not-allowed",
+                        isSelected && isSelectable && "bg-primary text-primary-foreground",
+                        !isSelected && isSelectable && "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700",
                       )}
                       data-testid={`button-month-${i}`}
                     >

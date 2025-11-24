@@ -1,5 +1,6 @@
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRef, useEffect } from "react";
 
 export type CellState = "empty" | "correct" | "inSequence" | "notInSequence";
 
@@ -24,8 +25,16 @@ export function InputGrid({
 }: InputGridProps) {
   const numCells = placeholders.length;
   const is8Digit = numCells === 8;
+  const prevInputLengthRef = useRef(currentInput.length);
 
-  const getCellClasses = (state: CellState) => {
+  // Detect when a digit is added to trigger animation
+  const digitJustAdded = currentInput.length > prevInputLengthRef.current;
+  
+  useEffect(() => {
+    prevInputLengthRef.current = currentInput.length;
+  }, [currentInput]);
+
+  const getCellClasses = (state: CellState, hasDigit: boolean = false) => {
     switch (state) {
       case "correct":
         return "bg-game-correct text-white border-game-correct";
@@ -34,7 +43,8 @@ export function InputGrid({
       case "notInSequence":
         return "bg-game-notInSequence text-white border-game-notInSequence";
       default:
-        return "bg-card border-border";
+        // For empty state, apply dark grey border if digit is present
+        return hasDigit ? "bg-card border-[#4a4a4a] dark:border-[#6b6b6b]" : "bg-card border-border";
     }
   };
 
@@ -67,6 +77,8 @@ export function InputGrid({
           >
             {row.map((cell, cellIdx) => {
               const showPlaceholder = isActiveRow && !cell.digit;
+              const cellHasDigit = isActiveRow && !!cell.digit;
+              const cellJustGotDigit = isActiveRow && digitJustAdded && cellIdx === currentInput.length - 1;
 
               return (
                 <div
@@ -121,7 +133,7 @@ export function InputGrid({
                         )}
                       </motion.div>
                     ) : (
-                      <div
+                      <motion.div
                         key={`${rowIdx}-${cellIdx}-empty`}
                         className={`
                           absolute inset-0
@@ -129,9 +141,18 @@ export function InputGrid({
                           border-2 rounded-md
                           font-semibold
                           text-3xl sm:text-3xl md:text-4xl lg:text-4xl
-                          ${getCellClasses(cell.state)}
+                          ${getCellClasses(cell.state, cellHasDigit)}
                           ${needsLowering ? "pt-2" : ""}
+                          transition-colors duration-200
                         `}
+                        animate={
+                          cellJustGotDigit
+                            ? {
+                                scale: [1, 1.08, 1],
+                                transition: { duration: 0.2, times: [0, 0.5, 1] }
+                              }
+                            : {}
+                        }
                       >
                         {cell.digit}
                         <AnimatePresence>
@@ -148,7 +169,7 @@ export function InputGrid({
                             </motion.span>
                           )}
                         </AnimatePresence>
-                      </div>
+                      </motion.div>
                     )}
                   </AnimatePresence>
                 </div>
