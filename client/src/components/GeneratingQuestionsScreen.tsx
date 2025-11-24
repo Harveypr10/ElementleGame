@@ -65,10 +65,11 @@ export function GeneratingQuestionsScreen({
         }
 
 // Step 2: Poll location_allocation until rows exist
-console.log("[GeneratingQuestions] Step 2: Polling for location allocation...");
+console.log("[GeneratingQuestions] Step 2: Polling for location allocation with user_id:", userId);
 let locations: Array<{ location_id: string; score: number }> = [];
 for (let i = 0; i < 20; i++) {
   try {
+    console.log(`[GeneratingQuestions] Step 2 Poll attempt ${i + 1}/20 - querying FROM location_allocation`);
     const { data, error } = await supabase
       .from("location_allocation")
       .select("location_id, score")
@@ -76,66 +77,79 @@ for (let i = 0; i < 20; i++) {
       .order("score", { ascending: false });
 
     if (error) {
-      console.error("[GeneratingQuestions] Poll query error:", error);
+      console.error("[GeneratingQuestions] Step 2 Poll query error:", error);
     }
 
     if (data && data.length > 0) {
       locations = data as Array<{ location_id: string; score: number }>;
-      console.log("[GeneratingQuestions] Found locations:", locations.length);
+      console.log("[GeneratingQuestions] Step 2 Poll SUCCESS - found", locations.length, "locations");
       break;
+    } else {
+      console.log(`[GeneratingQuestions] Step 2 Poll attempt ${i + 1} - no data yet, retrying...`);
     }
   } catch (pollErr) {
-    console.error("[GeneratingQuestions] Poll attempt failed:", pollErr);
+    console.error("[GeneratingQuestions] Step 2 Poll attempt failed:", pollErr);
   }
   await new Promise((r) => setTimeout(r, 500));
 }
 
 
 // Step 3: Fetch location names for displaying
-console.log("[GeneratingQuestions] Step 3: Fetching location names...");
+console.log("[GeneratingQuestions] Step 3: Fetching location names from populated_places with IDs:", locations.map(l => l.location_id));
 let locationNames: string[] = [];
 if (locations.length > 0) {
   try {
     const locationIds = locations.map((l) => l.location_id);
+    console.log("[GeneratingQuestions] Step 3 QUERY - FROM populated_places, SELECT id, populated_place, WHERE id IN:", locationIds);
     const { data: locData, error: locErr } = await supabase
       .from("populated_places")
       .select("id, populated_place")
       .in("id", locationIds);
 
     if (locErr) {
-      console.error("[GeneratingQuestions] Fetch location names error:", locErr);
+      console.error("[GeneratingQuestions] Step 3 Fetch location names error:", locErr);
     }
 
     if (locData) {
+      console.log("[GeneratingQuestions] Step 3 Query returned", locData.length, "populated places");
       locationNames = locData.map((l) => (l.populated_place ?? l.id) + "...");
+      console.log("[GeneratingQuestions] Step 3 Location names:", locationNames);
+    } else {
+      console.log("[GeneratingQuestions] Step 3 Query returned null data");
     }
-    console.log("[GeneratingQuestions] Fetched location names:", locationNames.length);
+    console.log("[GeneratingQuestions] Step 3 Complete - fetched", locationNames.length, "location names");
   } catch (err) {
-    console.error("[GeneratingQuestions] Fetch location names failed:", err);
+    console.error("[GeneratingQuestions] Step 3 Fetch location names failed:", err);
   }
+} else {
+  console.log("[GeneratingQuestions] Step 3 Skipped - no locations to fetch names for");
 }
 
-// Step 4: Fetch event titles
-console.log("[GeneratingQuestions] Step 4: Fetching event titles...");
-let eventTitles: string[] = [];
-try {
-  const { data: eventData, error: eventErr } = await supabase
-    .from("questions_master_region")
-    .select("event_title")
-    .contains("regions", [region]) // regions is JSONB array
-    .limit(20);
+        // Step 4: Fetch event titles
+        console.log("[GeneratingQuestions] Step 4: Fetching event titles...");
+        let eventTitles: string[] = [];
+        try {
+          // Ensure region is wrapped in an array
+          const regionFilter = [region]; // e.g. ["UK"]
 
-  if (eventErr) {
-    console.error("[GeneratingQuestions] Fetch event titles error:", eventErr);
-  }
+          const { data: eventData, error: eventErr } = await supabase
+            .from("questions_master_region")
+            .select("event_title")
+            .contains("regions", regionFilter) // JSONB array containment
+            .limit(20);
 
-  eventTitles = eventData
-    ? eventData.map((e) => e.event_title + "...")
-    : [];
-  console.log("[GeneratingQuestions] Fetched event titles:", eventTitles.length);
-} catch (err) {
-  console.error("[GeneratingQuestions] Fetch event titles failed:", err);
-}
+          if (eventErr) {
+            console.error("[GeneratingQuestions] Fetch event titles error:", eventErr);
+          }
+
+          eventTitles = eventData
+            ? eventData.map((e) => e.event_title + "...")
+            : [];
+          console.log("[GeneratingQuestions] Fetched event titles:", eventTitles.length);
+        } catch (err) {
+          console.error("[GeneratingQuestions] Fetch event titles failed:", err);
+        }
+
 
 
         // Combine all text items
@@ -151,8 +165,10 @@ try {
         // Derive function base URL from Supabase URL
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
         if (!supabaseUrl) throw new Error("Supabase URL not available");
-        const functionBaseUrl = supabaseUrl.replace(".co", ".functions.supabase.co");
-        console.log("[GeneratingQuestions] Function base URL:", functionBaseUrl);
+        console.log("[GeneratingQuestions] Supabase URL:", supabaseUrl);
+        // CORRECT: Replace .supabase.co with .functions.supabase.co
+        const functionBaseUrl = supabaseUrl.replace(".supabase.co", ".functions.supabase.co");
+        console.log("[GeneratingQuestions] Corrected function base URL:", functionBaseUrl);
 
         // Step 5: Call calculate-demand
         console.log("[GeneratingQuestions] Step 5: Calling calculate-demand with user_id:", userId);
