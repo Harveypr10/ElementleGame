@@ -1,0 +1,122 @@
+Implement a new React component called GeneratingQuestionsScreen.
+Context (do not recreate these):
+•	Supabase Edge Functions already exist:
+o	/functions/v1/calculate-demand
+o	/functions/v1/allocate-questions
+•	SQL RPC already exists:
+o	populate_user_locations(p_user_id uuid, p_postcode text)
+•	Tables already exist:
+o	user_profiles (with a new column archive_synced_count integer default 0)
+o	location_allocation (with user_id, location_id, score)
+o	questions_master_region (contains event titles)
+o	questions_allocated_user (contains allocated puzzles)
+Requirements:
+1.	Trigger point: As soon as OTP verification succeeds (handleOTPVerified → onSuccess()), fade immediately to this screen.
+2.	Visuals:
+o	Background: same blue gradient as welcome screen (#7DAAE8 or rgb(125, 170, 232) or hsl(215, 70%, 70%)).
+o	Hamster image: use attached_assets/Question-Hamster-Blue.svg near the top, centred.
+o	Event titles: pull from questions_master_region, fade in/out at random positions on the screen, anywhere below the hamster image, without overlapping each other whilst visible on the screen, append "..." to the last word.
+o	Location names: after populate_user_locations RPC completes, poll location_allocation for the user, order by weighted_score DESC, fade in/out names append "..." to the last word, anywhere below the hamster image, without overlapping each other whilst visible on the screen, intermingled with the Event title text blocks.
+o	Font: white, bold, small but readable.
+o	Timing: each word stays 2s (including fade in and out), new text blocks appear every 1s.
+o	Footer text: "One moment please, Hammie is cooking up your personalised questions".
+3.	Backend sequencing (must run in order):
+o	Call populate_user_locations(p_user_id, p_postcode) RPC.
+o	Poll location_allocation until rows exist.
+o	Call /functions/v1/calculate-demand with { user_id, region }.
+o	Call /functions/v1/allocate-questions with { user_id, region }.
+o	These functions already exist — do not recreate them.
+4.	Duration: Screen stays visible for 8 seconds total.
+5.	Transition: After 8 seconds, automatically fade to GameSelectionPage with “Global” tab active.
+6.	Archive refresh:
+o	Query questions_allocated_user for the user.
+o	Compare count against user_profiles.archive_synced_count.
+o	If DB count > flag, refresh archive and update flag.
+o	This ensures the archive always shows all allocated questions.
+7.	Important: Do not attempt to recreate tables or functions. Use the existing ones exactly as described. If you’re unsure then ask questions and check before creating new fields that I’ve told you already exist
+
+Here are example Supabase calls you can use for RPCs and functions. Please use them as reference — don’t recreate the functions or tables, they already exist.
+Example code snippets
+1. Call populate_user_locations RPC
+ts
+// Example: call RPC to populate user locations
+await supabase.rpc("populate_user_locations", {
+  p_user_id: session.user.id,
+  p_postcode: formData.postcode,
+});
+2. Poll location_allocation
+ts
+// Example: poll until locations are allocated
+let locations = [];
+for (let i = 0; i < 10; i++) {
+  const { data } = await supabase
+    .from("location_allocation")
+    .select("location_id, score")
+    .eq("user_id", session.user.id)
+    .order("score", { ascending: false });
+
+  if (data && data.length > 0) {
+    locations = data;
+    break;
+  }
+  await new Promise(r => setTimeout(r, 500)); // wait 0.5s before retry
+}
+3. Fetch event titles from questions_master_region
+ts
+// Example: get event titles for fade-in/out
+const { data: events } = await supabase
+  .from("questions_master_region")
+  .select("id, event_title")
+  .limit(20);
+4. Call calculate-demand
+ts
+// Example: trigger demand calculation
+await fetch("/functions/v1/calculate-demand", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${session.access_token}`,
+  },
+  body: JSON.stringify({
+    user_id: session.user.id,
+    region: formData.region,
+  }),
+});
+5. Call allocate-questions
+ts
+// Example: trigger question allocation
+await fetch("/functions/v1/allocate-questions", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${session.access_token}`,
+  },
+  body: JSON.stringify({
+    user_id: session.user.id,
+    region: formData.region,
+  }),
+});
+6. Archive sync check
+ts
+// Example: compare archive count vs flag
+const { data: allocated } = await supabase
+  .from("questions_allocated_user")
+  .select("puzzle_date")
+  .eq("user_id", session.user.id);
+
+const allocatedCount = allocated?.length ?? 0;
+
+const { data: profile } = await supabase
+  .from("user_profiles")
+  .select("archive_synced_count")
+  .eq("id", session.user.id)
+  .single();
+
+if (allocatedCount > (profile?.archive_synced_count ?? 0)) {
+  // refresh archive and update flag
+  await supabase
+    .from("user_profiles")
+    .update({ archive_synced_count: allocatedCount })
+    .eq("id", session.user.id);
+}
+

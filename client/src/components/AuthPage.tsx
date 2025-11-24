@@ -19,8 +19,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useGameMode } from "@/contexts/GameModeContext";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 import { OTPVerificationScreen } from "./OTPVerificationScreen";
+import { GeneratingQuestionsScreen } from "./GeneratingQuestionsScreen";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { useQuery } from "@tanstack/react-query";
 import type { Region } from "@shared/schema";
@@ -37,9 +39,12 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const { signIn } = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
+  const { setGameMode } = useGameMode();
   const [loading, setLoading] = useState(false);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   const [showPostcodeWarning, setShowPostcodeWarning] = useState(false);
+  const [userId, setUserId] = useState<string>("");
 
   // Fetch available regions
   const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
@@ -190,114 +195,81 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 
-  const handleOTPVerified = async () => {
-    // After OTP verification, set password and create the user profile in database
-    setLoading(true);
-    try {
-      // Get the session to verify user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("No session after verification");
-      }
-
-      // Set the password for the account (OTP login creates passwordless account)
-      const { error: passwordError } = await supabase.auth.updateUser({
-        password: formData.password,
-      });
-      if (passwordError) {
-        throw passwordError;
-      }
-
-      // Create or update user profile in database (including region, postcode, and tier)
-      const profileResponse = await fetch("/api/auth/profile", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          region: formData.region, // Save region to profile
-          postcode: formData.postcode || null, // Save postcode to profile (or null if empty)
-          acceptedTerms: formData.acceptedTerms,
-          adsConsent: formData.adsConsent,
-          tier: "standard", // ✅ always set default tier
-        }),
-      });
-
-
-      if (!profileResponse.ok) {
-        throw new Error("Failed to create profile");
-      }
-
-      // Create initial user settings with date format defaults
-      const settingsResponse = await fetch("/api/settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          useRegionDefault: true, // Auto-detect format from region
-          digitPreference: "6", // Default to 6-digit format
-        }),
-      });
-
-      if (!settingsResponse.ok) {
-        console.warn("Failed to create settings, but profile was created");
-      }
-
-      // 🔗 Onboarding pipeline: calculate demand then allocate questions
-      try {
-        await fetch("/functions/v1/calculate-demand", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            user_id: session.user.id,
-            region: formData.region,
-          }),
-        });
-
-        await fetch("/functions/v1/allocate-questions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            user_id: session.user.id,
-            region: formData.region,
-          }),
-        });
-      } catch (err) {
-        console.error("Onboarding allocation error:", err);
-        toast({
-          title: "Setup warning",
-          description: "Your account was created, but puzzles may take a moment to appear.",
-        });
-      }
-
-      toast({
-        title: "Account created!",
-        description: "Welcome to Elementle!",
-      });
-      onSuccess();
-    } catch (error: any) {
-      toast({
-        title: "Error creating account",
-        description: error.message || "Failed to create account",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+const handleOTPVerified = async () => {
+  // After OTP verification, set password and create the user profile in database
+  setLoading(true);
+  try {
+    // Get the session to verify user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error("No session after verification");
     }
-  };
 
+    // Set the password for the account (OTP login creates passwordless account)
+    const { error: passwordError } = await supabase.auth.updateUser({
+      password: formData.password,
+    });
+    if (passwordError) {
+      throw passwordError;
+    }
+
+    // Create or update user profile in database (including region, postcode, and tier)
+    const profileResponse = await fetch("/api/auth/profile", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        region: formData.region, // Save region to profile
+        postcode: formData.postcode || null, // Save postcode to profile (or null if empty)
+        acceptedTerms: formData.acceptedTerms,
+        adsConsent: formData.adsConsent,
+        tier: "standard", // ✅ always set default tier
+      }),
+    });
+
+    if (!profileResponse.ok) {
+      throw new Error("Failed to create profile");
+    }
+
+    // Create initial user settings with date format defaults
+    const settingsResponse = await fetch("/api/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        useRegionDefault: true, // Auto-detect format from region
+        digitPreference: "6", // Default to 6-digit format
+      }),
+    });
+
+    if (!settingsResponse.ok) {
+      console.warn("Failed to create settings, but profile was created");
+    }
+
+    toast({
+      title: "Account created!",
+      description: "Welcome to Elementle!",
+    });
+
+    // Save userId and show generating questions screen
+    setUserId(session.user.id);
+    setShowGeneratingQuestions(true);
+  } catch (error: any) {
+    toast({
+      title: "Error creating account",
+      description: error.message || "Failed to create account",
+      variant: "destructive",
+    });
+    setLoading(false);
+  }
+};
 
 
   const handleCancelVerification = () => {
@@ -316,6 +288,22 @@ const handleSubmit = async (e: React.FormEvent) => {
         type="signup"
         onVerified={handleOTPVerified}
         onCancel={handleCancelVerification}
+      />
+    );
+  }
+
+  // Show generating questions screen after signup
+  if (mode === "signup" && showGeneratingQuestions && userId) {
+    return (
+      <GeneratingQuestionsScreen
+        userId={userId}
+        region={formData.region}
+        postcode={formData.postcode}
+        onComplete={() => {
+          setShowGeneratingQuestions(false);
+          setGameMode('global'); // Set to Global mode
+          onSuccess();
+        }}
       />
     );
   }
