@@ -247,6 +247,39 @@ const handleSubmit = async (e: React.FormEvent) => {
         console.warn("Failed to create settings, but profile was created");
       }
 
+      // 🔗 Onboarding pipeline: calculate demand then allocate questions
+      try {
+        await fetch("/functions/v1/calculate-demand", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            user_id: session.user.id,
+            region: formData.region,
+          }),
+        });
+
+        await fetch("/functions/v1/allocate-questions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            user_id: session.user.id,
+            region: formData.region,
+          }),
+        });
+      } catch (err) {
+        console.error("Onboarding allocation error:", err);
+        toast({
+          title: "Setup warning",
+          description: "Your account was created, but puzzles may take a moment to appear.",
+        });
+      }
+
       toast({
         title: "Account created!",
         description: "Welcome to Elementle!",
@@ -262,6 +295,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       setLoading(false);
     }
   };
+
 
 
   const handleCancelVerification = () => {
