@@ -609,9 +609,6 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       
       console.log('[GET /api/user/puzzles] userId:', userId);
       
-      // Ensure user has allocated questions (auto-allocate if needed)
-      await storage.ensureUserAllocations(userId, 30);
-      
       const allocatedQuestions = await storage.getAllocatedQuestionsByUser(userId);
       
       console.log('[GET /api/user/puzzles] Found allocated questions:', allocatedQuestions.length);
