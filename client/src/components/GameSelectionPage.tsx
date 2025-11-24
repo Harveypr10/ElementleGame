@@ -226,45 +226,6 @@ export function GameSelectionPage({
   // Extract ref from swipeHandlers to avoid duplicate ref warning
   const { ref: swipeRef, ...swipeProps} = swipeHandlers;
 
-  // Options button swipe/tap handling integrated with useSwipeable
-  const optionsButtonMaxDeltaXRef = useRef(0);
-  const SWIPE_THRESHOLD = 20;
-
-  const optionsButtonSwipeHandlers = useSwipeable({
-    onSwipeStart: () => {
-      optionsButtonMaxDeltaXRef.current = 0;
-      handleSwipeStart();
-    },
-    onSwiping: (eventData) => {
-      // Track maximum horizontal displacement
-      if (Math.abs(eventData.deltaX) > Math.abs(optionsButtonMaxDeltaXRef.current)) {
-        optionsButtonMaxDeltaXRef.current = eventData.deltaX;
-      }
-      
-      const isHorizontal = Math.abs(eventData.deltaX) > Math.abs(eventData.deltaY);
-      if (isHorizontal) {
-        handleSwiping(eventData.deltaX);
-      }
-    },
-    onSwiped: (eventData) => {
-      const velocity = eventData.velocity;
-      const direction = eventData.dir as 'Left' | 'Right' | 'Up' | 'Down';
-      
-      // Only switch panes if horizontal swipe exceeded threshold
-      if ((direction === 'Left' || direction === 'Right') && Math.abs(optionsButtonMaxDeltaXRef.current) > SWIPE_THRESHOLD) {
-        handleSwiped(velocity, direction);
-      }
-      
-      // Always reset after swipe completes to prevent blocking next tap
-      setTimeout(() => {
-        optionsButtonMaxDeltaXRef.current = 0;
-      }, 50);
-    },
-    trackMouse: true,
-    trackTouch: true,
-    preventScrollOnSwipe: false,
-  });
-
   // Render Global Pane
   const renderGlobalPane = () => {
     // Compute Global-specific data
@@ -846,15 +807,7 @@ export function GameSelectionPage({
                         right: '-0px',
                         x: buttonX
                       }}
-                      onClick={(e) => {
-                        // Only open dialog if displacement was below swipe threshold
-                        if (Math.abs(optionsButtonMaxDeltaXRef.current) <= SWIPE_THRESHOLD) {
-                          (gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal)();
-                        }
-                        // Reset for next interaction
-                        optionsButtonMaxDeltaXRef.current = 0;
-                      }}
-                      {...optionsButtonSwipeHandlers}
+                      onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
                       data-testid="button-options-mobile"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
