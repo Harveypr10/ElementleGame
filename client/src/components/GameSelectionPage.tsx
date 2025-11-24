@@ -5,7 +5,7 @@ import { ModeToggle } from "./ModeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
-import { motion, useTransform, useMotionValue, animate } from "framer-motion";
+import { motion, useTransform } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
 import { useModeController } from "@/hooks/useModeController";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
@@ -70,12 +70,12 @@ export function GameSelectionPage({
   const { formatCanonicalDate } = useUserDateFormat();
   const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController();
   const [showHelp, setShowHelp] = useState(false);
-  const contentY = useMotionValue(0);
-  const contentStartY = useRef(0);
+  const playButtonRef = useRef<HTMLButtonElement>(null);
 
   const isLocalMode = gameMode === 'local';
 
-  // Transform for Options button - full width movement with panes
+  // Transform for Options button - moves at half speed of panes for smooth effect
+  // Use a ref to track container width and update transform accordingly
   const [containerWidth, setContainerWidth] = useState(0);
 
   useEffect(() => {
@@ -91,8 +91,8 @@ export function GameSelectionPage({
 
   const buttonX = useTransform(
     x,
-    [0, -Math.max(containerWidth, 1)],
-    [0, -Math.max(containerWidth, 1) / 2]
+    [0, -Math.max(containerWidth, 1)], // Avoid division by zero
+    [0, -(Math.max(containerWidth, 1)-16) / 2] // Half speed movement
   );
 
   // Authenticated fetch helper
@@ -177,7 +177,12 @@ export function GameSelectionPage({
     return { status: 'not-played' as const, count: 0 };
   };
 
-  // NOTE: Removed auto-focus on mount - no element gets focus initially
+  // Auto-focus the Play button on mount instead of help icon
+  useEffect(() => {
+    playButtonRef.current?.focus();
+  }, []);
+
+  // NOTE: Old shared state effects removed - each pane now independently fetches and computes its own data
 
   const getFormattedDate = () => {
     const today = new Date();
@@ -205,30 +210,15 @@ export function GameSelectionPage({
   };
 
   const swipeHandlers = useSwipeable({
-    onSwipeStart: () => {
-      handleSwipeStart();
-      contentStartY.current = contentY.get();
-    },
-    onSwiping: (eventData) => {
-      // Only horizontal swiping for x-axis
-      handleSwiping(eventData.deltaX);
-      // Allow vertical movement of content
-      contentY.set(contentStartY.current + eventData.deltaY);
-    },
+    onSwipeStart: () => handleSwipeStart(),
+    onSwiping: (eventData) => handleSwiping(eventData.deltaX),
     onSwiped: (eventData) => {
       const velocity = eventData.velocity;
-      const direction = eventData.dir as 'Left' | 'Right' | 'Up' | 'Down';
-      
-      // Horizontal swiping for mode switching
-      if (direction === 'Left' || direction === 'Right') {
-        handleSwiped(velocity, direction);
-      }
-      
-      // Vertical swiping - snap back to top
-      animate(contentY, 0, { duration: 0.3, ease: 'easeOut' });
+      const direction = eventData.dir as 'Left' | 'Right';
+      handleSwiped(velocity, direction);
     },
     trackMouse: true,
-    preventScrollOnSwipe: false, // Allow vertical scroll
+    preventScrollOnSwipe: true,
   });
 
   // Extract ref from swipeHandlers to avoid duplicate ref warning
@@ -244,7 +234,6 @@ export function GameSelectionPage({
 
     // Compute Global intro message
     let globalIntroMessage = null;
-    let performanceMessage = null;
     if (isAuthenticated) {
       if (globalPlayStatus.status === 'not-played') {
         const greeting = getGreeting();
@@ -253,7 +242,6 @@ export function GameSelectionPage({
           : `Continue your streak of ${globalStreak} ${globalStreak === 1 ? 'day' : 'days'} in a row`;
         globalIntroMessage = { firstLine: greeting, secondLine: streakMessage };
       } else {
-        globalIntroMessage = { firstLine: "Welcome back", secondLine: "" };
         let percentileMessage = "Play the archive to boost your ranking";
         if (globalPercentile !== null) {
           const roundedPercentile = Math.floor(globalPercentile / 5) * 5;
@@ -261,7 +249,7 @@ export function GameSelectionPage({
             percentileMessage = `You're in the top ${roundedPercentile}% of players - play the archive to boost your ranking`;
           }
         }
-        performanceMessage = percentileMessage;
+        globalIntroMessage = { firstLine: "Welcome back", secondLine: percentileMessage };
       }
     }
 
@@ -291,7 +279,7 @@ export function GameSelectionPage({
     }
 
     return (
-      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0 overflow-y-auto"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
+      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show "Global" title */}
           {isDesktop && isAuthenticated && (
@@ -312,11 +300,14 @@ export function GameSelectionPage({
             </div>
           )}
 
-          {/* Mobile: Performance message for Global pane - scrolls with content */}
-          {!isDesktop && performanceMessage && (
-            <div className="text-center mb-4 h-14 flex items-center justify-center" data-testid="intro-performance-global-mobile">
-              <div className="text-base text-gray-600 dark:text-gray-400 line-clamp-2">
-                {performanceMessage}
+          {/* Mobile: Show intro message */}
+          {!isDesktop && isAuthenticated && globalIntroMessage && (
+            <div className="text-center mb-6" data-testid="intro-message">
+              <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
+                {globalIntroMessage.firstLine}
+              </div>
+              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
+                {globalIntroMessage.secondLine}
               </div>
             </div>
           )}
@@ -324,6 +315,7 @@ export function GameSelectionPage({
           <div className="flex flex-col items-stretch space-y-4 mt-1">
             {/* Play Today's Puzzle (Global) */}
             <motion.button
+              ref={playButtonRef}
               className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
               style={{ backgroundColor: "#7DAAE8" }}
               onClick={onPlayGame}
@@ -417,17 +409,21 @@ export function GameSelectionPage({
     const localStreak = localStats?.currentStreak || 0;
     const localPercentile = localPercentileData?.percentile ?? null;
 
-    // Compute Local performance message
-    let localPerformanceMessage = null;
-    if (isAuthenticated && localPlayStatus.status !== 'not-played') {
-      let percentileMessage = "Play the archive to boost your ranking";
-      if (localPercentile !== null) {
-        const roundedPercentile = Math.floor(localPercentile / 5) * 5;
-        if (localPercentile >= 50) {
-          percentileMessage = `You're in the top ${roundedPercentile}% of players - play the archive to boost your ranking`;
-        }
+    // Compute Local intro message
+    let localIntroMessage = null;
+    if (isAuthenticated) {
+      if (localPlayStatus.status === 'not-played') {
+        const greeting = getGreeting();
+        const streakMessage = localStreak === 0
+          ? "Start your streak with today's puzzle"
+          : `Continue your streak of ${localStreak} ${localStreak === 1 ? 'day' : 'days'} in a row`;
+        localIntroMessage = { firstLine: greeting, secondLine: streakMessage };
+      } else {
+        localIntroMessage = { 
+          firstLine: "Welcome back", 
+          secondLine: "Play your local puzzles" 
+        };
       }
-      localPerformanceMessage = percentileMessage;
     }
 
     // Compute Local play button content
@@ -456,7 +452,7 @@ export function GameSelectionPage({
     }
 
     return (
-      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0 overflow-y-auto"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
+      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show "Local" title */}
           {isDesktop && isAuthenticated && (
@@ -466,21 +462,25 @@ export function GameSelectionPage({
           )}
 
           {/* Desktop: Show intro message between title and buttons */}
-          {isDesktop && isAuthenticated && (
+          {isDesktop && isAuthenticated && localIntroMessage && (
             <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-local-desktop">
               <div className="text-xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-local">
-                Play your local puzzles
+                {localIntroMessage.firstLine}
               </div>
               <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-local">
+                {localIntroMessage.secondLine}
               </div>
             </div>
           )}
 
-          {/* Mobile: Performance message for Local pane - scrolls with content */}
-          {!isDesktop && localPerformanceMessage && (
-            <div className="text-center mb-4 h-14 flex items-center justify-center" data-testid="intro-performance-local-mobile">
-              <div className="text-base text-gray-600 dark:text-gray-400 line-clamp-2">
-                {localPerformanceMessage}
+          {/* Mobile: Show intro message */}
+          {!isDesktop && isAuthenticated && localIntroMessage && (
+            <div className="text-center mb-6" data-testid="intro-message-local">
+              <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2">
+                {localIntroMessage.firstLine}
+              </div>
+              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+                {localIntroMessage.secondLine}
               </div>
             </div>
           )}
@@ -575,10 +575,9 @@ export function GameSelectionPage({
 
   return (
     <div className="flex flex-col min-h-screen overflow-hidden">
-      {/* Fixed Sticky Header */}
-      <div className="flex-shrink-0 sticky top-0 z-40 bg-white dark:bg-gray-950 p-4">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 p-4">
         <div className="max-w-md mx-auto w-full">
-          {/* Title and icons */}
           <div className="flex items-center justify-between mb-2">
             <button
               onClick={() => setShowHelp(true)}
@@ -589,7 +588,7 @@ export function GameSelectionPage({
               <img src={whiteHelpIcon} alt="Help" className="h-9 w-9 hidden dark:block" />
             </button>
 
-            <h1 className="text-4xl sm:text-5xl font-bold text-[#1a1a1a] dark:text-[#0d0d0d]" data-testid="text-title">
+            <h1 className="text-4xl sm:text-5xl font-bold text-foreground" data-testid="text-title">
               Elementle
             </h1>
 
@@ -604,7 +603,6 @@ export function GameSelectionPage({
             </button>
           </div>
 
-          {/* Login link or toggle/greeting */}
           <div className="flex justify-end pr-2 mb-2">
             {!isAuthenticated && (
               <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
@@ -617,27 +615,18 @@ export function GameSelectionPage({
             <>
               {/* Mobile: Show toggle */}
               {!isDesktop && (
-                <div className="flex justify-center mb-2">
+                <div className="flex justify-center mb-4">
                   <ModeToggle onModeChange={(mode) => snapTo(mode)} />
                 </div>
               )}
 
               {/* Desktop: Show greeting */}
               {isDesktop && (
-                <div className="flex justify-center mb-2">
+                <div className="flex justify-center mb-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-foreground">
                       {getGreeting()}
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Mobile: Welcome back message - only on mobile, fixed in header */}
-              {!isDesktop && (
-                <div className="text-center mb-2">
-                  <div className="text-xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-welcome-back">
-                    Welcome back
                   </div>
                 </div>
               )}
@@ -730,7 +719,20 @@ export function GameSelectionPage({
           <div className="h-full w-full flex flex-col relative">
             {/* Swipeable Content */}
             <div 
-              ref={containerRef as any}
+              ref={(node) => {
+                // Set containerRef from hook
+                if (containerRef && 'current' in containerRef) {
+                  (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+                }
+                // Set swipeRef
+                if (swipeRef) {
+                  if (typeof swipeRef === 'function') {
+                    swipeRef(node);
+                  } else if ('current' in swipeRef) {
+                    (swipeRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+                  }
+                }
+              }}
               className="flex-grow overflow-hidden"
               {...swipeProps}
             >
@@ -749,11 +751,12 @@ export function GameSelectionPage({
               </motion.div>
             </div>
 
-            {/* Options button overlay - positioned at Stats row level, full x movement */}
+            {/* Options button overlay - positioned at Stats row level, moves at half-speed */}
             {isAuthenticated && containerWidth > 0 && (
               <div 
                 className="absolute left-0 right-0 pointer-events-none"
                 style={{
+                  // Position at same vertical level as Stats row in document flow
                   top: '348px'
                 }}
               >
