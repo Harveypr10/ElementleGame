@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { useToast } from "@/hooks/use-toast";
-import HamsterImageUrl from "@assets/generated_images/Hamster_logo_icon_5c761af3.png";
+import HamsterImageUrl from "@assets/attached_assets/Question_Hamster_Blue.svg";
 
 interface GeneratingQuestionsScreenProps {
   userId: string;
@@ -124,30 +124,38 @@ export function GeneratingQuestionsScreen({
         );
         console.log("[GeneratingQuestions] Total text items:", allTextItems.length);
 
-        // Step 5: Call calculate-demand
-        console.log("[GeneratingQuestions] Step 5: Calling calculate-demand...");
-        const accessToken = session.access_token;
-        if (!accessToken) throw new Error("No access token found");
-        
-        try {
-          const demandResponse = await fetch("/functions/v1/calculate-demand", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              user_id: userId,
-              region: region,
-            }),
-          });
-          if (!demandResponse.ok) {
-            throw new Error(`calculate-demand returned ${demandResponse.status}`);
-          }
-          console.log("[GeneratingQuestions] calculate-demand complete");
-        } catch (err) {
-          console.error("[GeneratingQuestions] calculate-demand failed:", err);
-        }
+// Step 5: Call calculate-demand
+console.log("[GeneratingQuestions] Step 5: Calling calculate-demand...");
+const accessToken = session.access_token;
+if (!accessToken) throw new Error("No access token found");
+
+try {
+  const demandResponse = await fetch("/functions/v1/calculate-demand", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      user_id: userId,
+      region: region,
+      today: new Date().toISOString().slice(0, 10), // optional, explicit YYYY-MM-DD
+    }),
+  });
+
+  console.log("[GeneratingQuestions] calculate-demand status:", demandResponse.status);
+  const respText = await demandResponse.text();
+  console.log("[GeneratingQuestions] calculate-demand response body:", respText);
+
+  if (!demandResponse.ok) {
+    throw new Error(`calculate-demand returned ${demandResponse.status}`);
+  }
+
+  console.log("[GeneratingQuestions] calculate-demand complete");
+} catch (err) {
+  console.error("[GeneratingQuestions] calculate-demand failed:", err);
+}
+
 
         // Step 6: Call allocate-questions
         console.log("[GeneratingQuestions] Step 6: Calling allocate-questions...");
