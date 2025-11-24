@@ -196,24 +196,30 @@ const handleSubmit = async (e: React.FormEvent) => {
 };
 
 const handleOTPVerified = async () => {
-  // After OTP verification, set password and create the user profile in database
+  console.log("[Auth] handleOTPVerified called");
   setLoading(true);
   try {
     // Get the session to verify user is authenticated
+    console.log("[Auth] Fetching session...");
     const { data: { session } } = await supabase.auth.getSession();
+    console.log("[Auth] Session result:", session);
     if (!session) {
       throw new Error("No session after verification");
     }
 
     // Set the password for the account (OTP login creates passwordless account)
+    console.log("[Auth] Updating user password...");
     const { error: passwordError } = await supabase.auth.updateUser({
       password: formData.password,
     });
     if (passwordError) {
+      console.error("[Auth] Password update failed:", passwordError);
       throw passwordError;
     }
+    console.log("[Auth] Password update complete");
 
-    // Create or update user profile in database (including region, postcode, and tier)
+    // Create or update user profile in database
+    console.log("[Auth] Sending PATCH /api/auth/profile...");
     const profileResponse = await fetch("/api/auth/profile", {
       method: "PATCH",
       headers: {
@@ -224,19 +230,20 @@ const handleOTPVerified = async () => {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
-        region: formData.region, // Save region to profile
-        postcode: formData.postcode || null, // Save postcode to profile (or null if empty)
+        region: formData.region,
+        postcode: formData.postcode || null,
         acceptedTerms: formData.acceptedTerms,
         adsConsent: formData.adsConsent,
-        tier: "standard", // ✅ always set default tier
+        tier: "standard",
       }),
     });
-
+    console.log("[Auth] Profile response status:", profileResponse.status);
     if (!profileResponse.ok) {
       throw new Error("Failed to create profile");
     }
 
-    // Create initial user settings with date format defaults
+    // Create initial user settings
+    console.log("[Auth] Sending POST /api/settings...");
     const settingsResponse = await fetch("/api/settings", {
       method: "POST",
       headers: {
@@ -244,33 +251,39 @@ const handleOTPVerified = async () => {
         "Authorization": `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({
-        useRegionDefault: true, // Auto-detect format from region
-        digitPreference: "6", // Default to 6-digit format
+        useRegionDefault: true,
+        digitPreference: "6",
       }),
     });
-
+    console.log("[Auth] Settings response status:", settingsResponse.status);
     if (!settingsResponse.ok) {
-      console.warn("Failed to create settings, but profile was created");
+      console.warn("[Auth] Failed to create settings, but profile was created");
     }
 
     toast({
       title: "Account created!",
       description: "Welcome to Elementle!",
     });
+    console.log("[Auth] Toast shown: Account created!");
 
     // Save userId and show generating questions screen
+    console.log("[Auth] Setting userId and showGeneratingQuestions...");
     setUserId(session.user.id);
     setShowGeneratingQuestions(true);
+    console.log("[Auth] State updated: userId =", session.user.id, " showGeneratingQuestions = true");
   } catch (error: any) {
+    console.error("[Auth] Error in handleOTPVerified:", error);
     toast({
       title: "Error creating account",
       description: error.message || "Failed to create account",
       variant: "destructive",
     });
   } finally {
+    console.log("[Auth] handleOTPVerified finally block, setLoading(false)");
     setLoading(false);
   }
 };
+
 
 
   const handleCancelVerification = () => {
