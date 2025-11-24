@@ -371,13 +371,16 @@ if (locations.length > 0) {
   }, [userId, region, postcode]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-300 to-blue-400 dark:from-blue-900 dark:to-blue-800 p-4">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-4"
+      style={{ backgroundColor: '#7DAAE8' }}
+    >
       {/* Hamster Image */}
       <div className="mb-12">
         <img
           src={HamsterImageUrl}
           alt="Hammie"
-          className="w-32 h-32 object-contain"
+          className="w-1/2 max-w-xs h-auto object-contain"
         />
       </div>
 
