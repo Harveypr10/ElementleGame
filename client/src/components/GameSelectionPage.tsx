@@ -290,21 +290,18 @@ export function GameSelectionPage({
             </div>
           )}
 
-          {/* Desktop: Show intro message between title and buttons */}
+          {/* Desktop: Show only secondary message (no "Welcome back") */}
           {isDesktop && isAuthenticated && globalIntroMessage && (
             <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-global">
-              <div className="text-xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-global">
-                {globalIntroMessage.firstLine}
-              </div>
               <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-global">
                 {globalIntroMessage.secondLine}
               </div>
             </div>
           )}
 
-          {/* Mobile: Show only secondary message (first line is in fixed header) */}
+          {/* Mobile: Show only secondary message with fixed height (first line is in fixed header) */}
           {!isDesktop && isAuthenticated && globalIntroMessage && (
-            <div className="text-center mb-6 min-h-[3rem] flex items-center justify-center" data-testid="intro-message">
+            <div className="text-center mb-3 h-[3rem] flex items-center justify-center" data-testid="intro-message">
               <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 line-clamp-2" data-testid="intro-second-line">
                 {globalIntroMessage.secondLine}
               </div>
@@ -459,21 +456,18 @@ export function GameSelectionPage({
             </div>
           )}
 
-          {/* Desktop: Show intro message between title and buttons */}
+          {/* Desktop: Show only secondary message (no "Welcome back") */}
           {isDesktop && isAuthenticated && localIntroMessage && (
             <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-local-desktop">
-              <div className="text-xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-local">
-                {localIntroMessage.firstLine}
-              </div>
               <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-local">
                 {localIntroMessage.secondLine}
               </div>
             </div>
           )}
 
-          {/* Mobile: Show only secondary message (first line is in fixed header) */}
+          {/* Mobile: Show only secondary message with fixed height (first line is in fixed header) */}
           {!isDesktop && isAuthenticated && localIntroMessage && (
-            <div className="text-center mb-6 min-h-[3rem] flex items-center justify-center" data-testid="intro-message-local">
+            <div className="text-center mb-3 h-[3rem] flex items-center justify-center" data-testid="intro-message-local">
               <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 line-clamp-2">
                 {localIntroMessage.secondLine}
               </div>
@@ -570,12 +564,12 @@ export function GameSelectionPage({
 
   return (
     <div className="flex flex-col min-h-screen overflow-hidden">
-      {/* Mobile: Fixed Header with Welcome back text */}
+      {/* Mobile: Fixed Header with dynamic greeting text */}
       {!isDesktop ? (
         <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 shadow-sm">
-          <div className="p-4">
+          <div className="p-3">
             <div className="max-w-md mx-auto w-full">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <button
                   onClick={() => setShowHelp(true)}
                   data-testid="button-help"
@@ -600,7 +594,7 @@ export function GameSelectionPage({
                 </button>
               </div>
 
-              <div className="flex justify-end pr-2 mb-2">
+              <div className="flex justify-end pr-2 mb-3">
                 {!isAuthenticated && (
                   <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
                     Login
@@ -610,12 +604,12 @@ export function GameSelectionPage({
 
               {isAuthenticated && (
                 <>
-                  <div className="flex justify-center mb-4">
+                  <div className="flex justify-center mb-3">
                     <ModeToggle onModeChange={(mode) => snapTo(mode)} />
                   </div>
-                  <div className="text-center mb-2">
+                  <div className="text-center mb-3">
                     <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-fixed">
-                      Welcome back
+                      {getGreeting()}
                     </div>
                   </div>
                 </>
@@ -674,7 +668,7 @@ export function GameSelectionPage({
       )}
 
       {/* Sliding Viewport Container */}
-      <div className={`flex-grow overflow-hidden relative ${!isDesktop ? 'pt-[240px]' : ''}`} style={{minHeight: !isDesktop ? '100vh' : 'auto'}}>
+      <div className={`flex-grow overflow-hidden relative ${!isDesktop ? 'pt-[200px]' : ''}`} style={{minHeight: !isDesktop ? '100vh' : 'auto'}}>
         {isDesktop ? (
           /* Desktop: Side-by-side layout centered around middle */
           <div className="h-full w-full flex flex-col">
@@ -795,7 +789,7 @@ export function GameSelectionPage({
                 className="absolute left-0 right-0 pointer-events-none"
                 style={{
                   // Position at same vertical level as Stats row in document flow
-                  top: '348px'
+                  top: '312px'
                 }}
               >
                 <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
