@@ -31,6 +31,7 @@ export function GeneratingQuestionsScreen({
 
   useEffect(() => {
     let mounted = true;
+    let textInterval: NodeJS.Timeout | null = null;
     const startTime = Date.now();
     const SCREEN_DURATION = 8000; // 8 seconds
     const TEXT_LIFETIME = 2000; // 2 seconds per text block
@@ -38,75 +39,99 @@ export function GeneratingQuestionsScreen({
 
     const runSequence = async () => {
       try {
+        console.log("[GeneratingQuestions] Starting sequence...");
         const { data: session } = await supabase.auth.getSession();
         if (!session) throw new Error("No session found");
 
         // Step 1: Populate user locations
-        console.log("[GeneratingQuestions] Populating user locations...");
-        await supabase.rpc("populate_user_locations", {
-          p_user_id: userId,
-          p_postcode: postcode,
-        });
+        console.log("[GeneratingQuestions] Step 1: Populating user locations...");
+        try {
+          await supabase.rpc("populate_user_locations", {
+            p_user_id: userId,
+            p_postcode: postcode,
+          });
+          console.log("[GeneratingQuestions] populate_user_locations complete");
+        } catch (err) {
+          console.error("[GeneratingQuestions] populate_user_locations failed:", err);
+          throw err;
+        }
 
         // Step 2: Poll location_allocation until rows exist
-        console.log("[GeneratingQuestions] Polling for location allocation...");
+        console.log("[GeneratingQuestions] Step 2: Polling for location allocation...");
         let locations: Array<{ location_id: number; weighted_score: number }> = [];
         for (let i = 0; i < 20; i++) {
-          const { data } = await supabase
-            .from("location_allocation")
-            .select("location_id, weighted_score")
-            .eq("user_id", userId)
-            .order("weighted_score", { ascending: false });
+          try {
+            const { data } = await supabase
+              .from("location_allocation")
+              .select("location_id, weighted_score")
+              .eq("user_id", userId)
+              .order("weighted_score", { ascending: false });
 
-          if (data && data.length > 0) {
-            locations = data as Array<{ location_id: number; weighted_score: number }>;
-            console.log(
-              "[GeneratingQuestions] Found locations:",
-              locations.length
-            );
-            break;
+            if (data && data.length > 0) {
+              locations = data as Array<{ location_id: number; weighted_score: number }>;
+              console.log(
+                "[GeneratingQuestions] Found locations:",
+                locations.length
+              );
+              break;
+            }
+          } catch (pollErr) {
+            console.error("[GeneratingQuestions] Poll attempt failed:", pollErr);
           }
           await new Promise((r) => setTimeout(r, 500));
         }
 
         // Step 3: Fetch location names for displaying
+        console.log("[GeneratingQuestions] Step 3: Fetching location names...");
         let locationNames: string[] = [];
         if (locations.length > 0) {
-          const locationIds = locations.map((l) => l.location_id);
-          const { data: locData } = await supabase
-            .from("locations")
-            .select("location_name")
-            .in("id", locationIds);
+          try {
+            const locationIds = locations.map((l) => l.location_id);
+            const { data: locData } = await supabase
+              .from("locations")
+              .select("location_name")
+              .in("id", locationIds);
 
-          if (locData) {
-            locationNames = locData.map((l) => l.location_name + "...");
+            if (locData) {
+              locationNames = locData.map((l) => l.location_name + "...");
+            }
+            console.log("[GeneratingQuestions] Fetched location names:", locationNames.length);
+          } catch (err) {
+            console.error("[GeneratingQuestions] Fetch location names failed:", err);
           }
         }
 
         // Step 4: Fetch event titles
-        console.log("[GeneratingQuestions] Fetching event titles...");
-        const { data: eventData } = await supabase
-          .from("questions_master_region")
-          .select("event_title")
-          .eq("region", region)
-          .limit(20);
+        console.log("[GeneratingQuestions] Step 4: Fetching event titles...");
+        let eventTitles: string[] = [];
+        try {
+          const { data: eventData } = await supabase
+            .from("questions_master_region")
+            .select("event_title")
+            .eq("region", region)
+            .limit(20);
 
-        const eventTitles = eventData
-          ? eventData.map((e) => e.event_title + "...")
-          : [];
+          eventTitles = eventData
+            ? eventData.map((e) => e.event_title + "...")
+            : [];
+          console.log("[GeneratingQuestions] Fetched event titles:", eventTitles.length);
+        } catch (err) {
+          console.error("[GeneratingQuestions] Fetch event titles failed:", err);
+        }
 
         // Combine all text items
         const allTextItems = [...eventTitles, ...locationNames].filter(
           (item) => item
         );
+        console.log("[GeneratingQuestions] Total text items:", allTextItems.length);
 
-        // Step 5: Call calculate-demand and allocate-questions (runs in parallel)
-        console.log("[GeneratingQuestions] Starting demand/allocation...");
+        // Step 5: Call calculate-demand
+        console.log("[GeneratingQuestions] Step 5: Calling calculate-demand...");
         const accessToken = (session.session as any)?.access_token;
         if (!accessToken) throw new Error("No access token found");
         
-        await Promise.all([
-          fetch("/functions/v1/calculate-demand", {
+        try {
+          const demandResponse = await fetch("/functions/v1/calculate-demand", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -116,49 +141,71 @@ export function GeneratingQuestionsScreen({
               user_id: userId,
               region: region,
             }),
-          }),
-          fetch("/functions/v1/allocate-questions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({
-              user_id: userId,
-              region: region,
-            }),
-          }),
-        ]);
-
-        console.log("[GeneratingQuestions] Demand/allocation complete");
-
-        // Step 6: Archive sync check
-        console.log("[GeneratingQuestions] Checking archive sync...");
-        const { data: allocated } = await supabase
-          .from("questions_allocated_user")
-          .select("puzzle_date")
-          .eq("user_id", userId);
-
-        const allocatedCount = allocated?.length ?? 0;
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("archive_synced_count")
-          .eq("id", userId)
-          .single();
-
-        if (allocatedCount > (profile?.archive_synced_count ?? 0)) {
-          console.log("[GeneratingQuestions] Updating archive_synced_count");
-          await supabase
-            .from("user_profiles")
-            .update({ archive_synced_count: allocatedCount })
-            .eq("id", userId);
+          });
+          if (!demandResponse.ok) {
+            throw new Error(`calculate-demand returned ${demandResponse.status}`);
+          }
+          console.log("[GeneratingQuestions] calculate-demand complete");
+        } catch (err) {
+          console.error("[GeneratingQuestions] calculate-demand failed:", err);
         }
+
+        // Step 6: Call allocate-questions
+        console.log("[GeneratingQuestions] Step 6: Calling allocate-questions...");
+        try {
+          const allocateResponse = await fetch("/functions/v1/allocate-questions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              region: region,
+            }),
+          });
+          if (!allocateResponse.ok) {
+            throw new Error(`allocate-questions returned ${allocateResponse.status}`);
+          }
+          console.log("[GeneratingQuestions] allocate-questions complete");
+        } catch (err) {
+          console.error("[GeneratingQuestions] allocate-questions failed:", err);
+        }
+
+        // Step 7: Archive sync check
+        console.log("[GeneratingQuestions] Step 7: Checking archive sync...");
+        try {
+          const { data: allocated } = await supabase
+            .from("questions_allocated_user")
+            .select("puzzle_date")
+            .eq("user_id", userId);
+
+          const allocatedCount = allocated?.length ?? 0;
+          const { data: profile } = await supabase
+            .from("user_profiles")
+            .select("archive_synced_count")
+            .eq("id", userId)
+            .single();
+
+          if (allocatedCount > (profile?.archive_synced_count ?? 0)) {
+            console.log("[GeneratingQuestions] Updating archive_synced_count to", allocatedCount);
+            await supabase
+              .from("user_profiles")
+              .update({ archive_synced_count: allocatedCount })
+              .eq("id", userId);
+          }
+          console.log("[GeneratingQuestions] Archive sync check complete");
+        } catch (err) {
+          console.error("[GeneratingQuestions] Archive sync check failed:", err);
+        }
+
+        console.log("[GeneratingQuestions] All backend operations complete, starting text animation...");
 
         // Animate text blocks
         let nextId = 0;
-        const textInterval = setInterval(() => {
+        textInterval = setInterval(() => {
           if (!mounted) {
-            clearInterval(textInterval);
+            if (textInterval) clearInterval(textInterval);
             return;
           }
 
@@ -204,36 +251,45 @@ export function GeneratingQuestionsScreen({
             nextId++;
           }
 
-          // Check if we should transition
+          // Check if we should transition (8 seconds elapsed)
           if (elapsedTime >= SCREEN_DURATION) {
-            clearInterval(textInterval);
+            console.log("[GeneratingQuestions] Timer fired at", elapsedTime, "ms, clearing interval and transitioning...");
+            if (textInterval) clearInterval(textInterval);
             if (mounted) {
+              console.log("[GeneratingQuestions] Transitioning to GameSelectionPage");
               onComplete();
             }
           }
         }, TEXT_SPAWN_INTERVAL);
-
-        return () => {
-          clearInterval(textInterval);
-        };
       } catch (error: any) {
-        console.error("[GeneratingQuestions] Error:", error);
+        console.error("[GeneratingQuestions] Sequence error:", error);
         toast({
           title: "Setup error",
           description: "There was an issue preparing your questions",
           variant: "destructive",
         });
         if (mounted) {
-          setTimeout(() => onComplete(), 3000); // Still transition after 3s
+          console.log("[GeneratingQuestions] Error occurred, transitioning after 3 seconds");
+          setTimeout(() => {
+            if (mounted) {
+              console.log("[GeneratingQuestions] Error recovery: Transitioning to GameSelectionPage");
+              onComplete();
+            }
+          }, 3000);
         }
       }
     };
 
-    const cleanup = runSequence();
+    // Start the sequence
+    runSequence();
 
+    // Return cleanup function
     return () => {
+      console.log("[GeneratingQuestions] Cleanup: unmounting component");
       mounted = false;
-      cleanup?.then((fn) => fn?.());
+      if (textInterval) {
+        clearInterval(textInterval);
+      }
     };
   }, [userId, region, postcode, supabase, toast, onComplete]);
 
