@@ -12,6 +12,7 @@ import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { motion, AnimatePresence } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useSwipeable } from "react-swipeable";
+import { useMotionValue, animate } from "framer-motion";
 
 interface ArchivePageProps {
   onBack: () => void;
@@ -52,11 +53,10 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   });
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
   const [showMonthPicker, setShowMonthPicker] = useState(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const swipeStartX = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const swipeStartX = useRef<number>(0);
 
-  // Refetch game attempts whenever Archive mounts (from any navigation source)
   useEffect(() => {
     if (isAuthenticated) {
       console.log('[Archive] Refetching game attempts on mount');
@@ -65,7 +65,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     }
   }, [isAuthenticated, isLocalMode, queryClient]);
 
-  // Update month when initialMonth prop changes
   useEffect(() => {
     if (initialMonth) {
       const newMonth = new Date(initialMonth);
@@ -73,7 +72,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     }
   }, [initialMonth]);
 
-  // Load from cache first for instant rendering
   useEffect(() => {
     const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
     const cachedMonthData = readLocal<any>(`${CACHE_KEYS.ARCHIVE_PREFIX}${monthKey}`);
@@ -93,12 +91,9 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     }
   }, [currentMonth]);
 
-  // Background reconciliation with Supabase/localStorage
   useEffect(() => {
     if (isAuthenticated && gameAttempts && !loadingAttempts) {
-      console.log('[Archive] Building status map from gameAttempts:', gameAttempts.length, 'attempts');
       const statusMap: Record<string, DayStatus> = {};
-
       gameAttempts.forEach(attempt => {
         const puzzle = puzzles.find(p => p.id === attempt.puzzleId);
         if (puzzle) {
@@ -161,42 +156,42 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     return { daysInMonth, startingDayOfWeek };
   };
 
-  const getPuzzleForDay = (day: number) => {
-    const year = currentMonth.getFullYear();
-    const month = String(currentMonth.getMonth() + 1).padStart(2, '0');
+  const getPuzzleForDay = (day: number, month: Date) => {
+    const year = month.getFullYear();
+    const monthStr = String(month.getMonth() + 1).padStart(2, '0');
     const dayStr = String(day).padStart(2, '0');
-    const puzzleDate = `${year}-${month}-${dayStr}`;
+    const puzzleDate = `${year}-${monthStr}-${dayStr}`;
     
     return puzzles.find(p => p.date === puzzleDate);
   };
 
-  const getDayStatus = (day: number): DayStatus | null => {
-    const puzzle = getPuzzleForDay(day);
+  const getDayStatus = (day: number, month: Date): DayStatus | null => {
+    const puzzle = getPuzzleForDay(day, month);
     if (!puzzle) return null;
     
     return dayStatuses[puzzle.answerDateCanonical] || null;
   };
 
-  const renderCalendar = () => {
-    const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentMonth);
+  const renderCalendarDays = (month: Date) => {
+    const { daysInMonth, startingDayOfWeek } = getDaysInMonth(month);
     const days = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(<div key={`empty-${i}`} className="aspect-square" />);
     }
-    
+
     for (let day = 1; day <= daysInMonth; day++) {
-      const puzzle = getPuzzleForDay(day);
-      const status = getDayStatus(day);
-      
-      const puzzleDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+      const puzzle = getPuzzleForDay(day, month);
+      const status = getDayStatus(day, month);
+
+      const puzzleDate = new Date(month.getFullYear(), month.getMonth(), day);
       puzzleDate.setHours(0, 0, 0, 0);
       const isFuture = puzzleDate > today;
       const isToday = puzzleDate.getTime() === today.getTime();
       const isPlayable = puzzle && !isFuture;
-      
+
       days.push(
         <div
           key={day}
@@ -237,7 +232,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
         </div>
       );
     }
-    
+
     return days;
   };
 
@@ -262,32 +257,29 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   const canGoPrevious = currentMonth > earliestMonth;
   const canGoNext = currentMonth < currentMonthDate;
 
-  // Check if a month has available puzzles
   const hasMonthPuzzles = (year: number, month: number) => {
     const monthStr = String(month + 1).padStart(2, '0');
     return puzzles.some(p => p.date.startsWith(`${year}-${monthStr}`));
   };
 
-  // Swipe handlers for calendar with continuous scrolling
   const handleSwipeStart = useCallback(() => {
-    swipeStartX.current = swipeOffset;
-  }, [swipeOffset]);
+    swipeStartX.current = x.get();
+  }, [x]);
 
   const handleSwiping = useCallback((deltaX: number) => {
-    // Allow slight overshoot (50px) on either side but mainly stay in center
-    const newOffset = Math.max(-50, Math.min(50, swipeStartX.current + deltaX));
-    setSwipeOffset(newOffset);
-  }, [swipeOffset]);
+    const newX = swipeStartX.current + deltaX;
+    x.set(newX);
+  }, [x]);
 
   const handleSwiped = useCallback((velocity: number, direction: 'Left' | 'Right') => {
-    const threshold = 30;
+    const threshold = 50;
     const velocityThreshold = 0.5;
+    const currentX = x.get();
     
     let shouldNavigate = false;
     let navigateDirection: 'prev' | 'next' | null = null;
-    
+
     if (Math.abs(velocity) > velocityThreshold) {
-      // Flick-based navigation
       if (direction === 'Left' && canGoNext) {
         shouldNavigate = true;
         navigateDirection = 'next';
@@ -295,17 +287,16 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
         shouldNavigate = true;
         navigateDirection = 'prev';
       }
-    } else if (Math.abs(swipeOffset) > threshold) {
-      // Drag-based navigation
-      if (swipeOffset > 0 && canGoPrevious) {
+    } else if (Math.abs(currentX) > threshold) {
+      if (currentX > 0 && canGoPrevious) {
         shouldNavigate = true;
         navigateDirection = 'prev';
-      } else if (swipeOffset < 0 && canGoNext) {
+      } else if (currentX < 0 && canGoNext) {
         shouldNavigate = true;
         navigateDirection = 'next';
       }
     }
-    
+
     if (shouldNavigate && navigateDirection) {
       if (navigateDirection === 'next') {
         const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
@@ -317,18 +308,15 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
         onMonthChange?.(prevMonth);
       }
     }
-    
-    // Always snap back to center
-    setSwipeOffset(0);
-  }, [currentMonth, canGoNext, canGoPrevious, swipeOffset, onMonthChange]);
+
+    animate(x, 0, { duration: 0.3, ease: 'easeOut' });
+  }, [x, currentMonth, canGoNext, canGoPrevious, onMonthChange]);
 
   const swipeHandlers = useSwipeable({
     onSwipeStart: handleSwipeStart,
     onSwiping: (eventData) => handleSwiping(eventData.deltaX),
     onSwiped: (eventData) => {
-      const velocity = eventData.velocity;
-      const direction = eventData.dir as 'Left' | 'Right';
-      handleSwiped(velocity, direction);
+      handleSwiped(eventData.velocity, eventData.dir as 'Left' | 'Right');
     },
     trackMouse: true,
     preventScrollOnSwipe: true,
@@ -358,7 +346,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
         <div className="w-14" />
       </div>
 
-      <div className="flex-1 w-full max-w-[31.5rem] mx-auto">
+      <div className="flex-1 w-full max-w-[31.5rem] mx-auto flex flex-col">
         <div className="mb-6 flex items-center justify-between">
           <Button
             variant="outline"
@@ -405,10 +393,18 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           ))}
         </div>
 
-        <div 
-          className="grid grid-cols-7 gap-2"
+        {/* Swipeable Calendar Container */}
+        <div
+          ref={containerRef}
+          className="flex-grow overflow-hidden"
+          {...swipeProps}
         >
-          {renderCalendar()}
+          <motion.div
+            className="grid grid-cols-7 gap-2"
+            style={{ x }}
+          >
+            {renderCalendarDays(currentMonth)}
+          </motion.div>
         </div>
       </div>
 
@@ -478,7 +474,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
 
               <div className="grid grid-cols-3 gap-2">
                 {Array.from({ length: 12 }).map((_, i) => {
-                  // Check if this month has data AND is not in the future
                   const hasData = hasMonthPuzzles(currentMonth.getFullYear(), i);
                   const isFutureMonth = currentMonth.getFullYear() === currentDate.getFullYear() && i > currentDate.getMonth();
                   const isSelectable = hasData && !isFutureMonth;
