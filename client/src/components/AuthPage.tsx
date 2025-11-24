@@ -267,6 +267,7 @@ const handleOTPVerified = async () => {
       description: error.message || "Failed to create account",
       variant: "destructive",
     });
+  } finally {
     setLoading(false);
   }
 };
