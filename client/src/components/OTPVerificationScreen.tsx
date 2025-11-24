@@ -115,17 +115,16 @@ export function OTPVerificationScreen({
         type: "email",
       });
 
+      console.log('[OTP] verifyOtp data:', data);
       console.log('[OTP] verifyOtp result:', error ? `Error: ${error.message}` : 'Success');
       if (error) throw error;
 
-      if (data.session) {
-        toast({
-          title: "Verification successful!",
-          description: type === "signup" ? "Your account has been created." : "Your email has been updated.",
-        });
-        console.log("[OTP] Verification successful, calling onVerified()");
-        onVerified();
-      }
+      toast({
+        title: "Verification successful!",
+        description: type === "signup" ? "Your account has been created." : "Your email has been updated.",
+      });
+      console.log("[OTP] Verification successful, calling onVerified()");
+      onVerified();
     } catch (error: any) {
       toast({
         title: "Verification failed",
