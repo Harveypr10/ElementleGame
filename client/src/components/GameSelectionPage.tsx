@@ -789,7 +789,7 @@ export function GameSelectionPage({
                 className="absolute left-0 right-0 pointer-events-none"
                 style={{
                   // Position at same vertical level as Stats row in document flow
-                  top: '316px'
+                  top: '318px'
                 }}
               >
                 <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
