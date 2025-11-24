@@ -421,12 +421,13 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             style={{
               transform: `translateX(calc(-100% + ${swipeOffset}px))`,
               transition: swipeOffset === 0 ? 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none',
-              width: '300%'
+              width: '300%',
+              display: 'flex'
             }}
           >
             {/* Previous month */}
-            <div className="w-1/3 flex-shrink-0 px-0">
-              <div className="grid grid-cols-7 gap-2">
+            <div style={{ width: '33.333%', flexShrink: 0 }}>
+              <div className="grid grid-cols-7 gap-2 px-2">
                 {(() => {
                   const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
                   const { daysInMonth, startingDayOfWeek } = getDaysInMonth(prevMonth);
@@ -499,15 +500,15 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             </div>
 
             {/* Current month */}
-            <div className="w-1/3 flex-shrink-0 px-0">
-              <div className="grid grid-cols-7 gap-2">
+            <div style={{ width: '33.333%', flexShrink: 0 }}>
+              <div className="grid grid-cols-7 gap-2 px-2">
                 {renderCalendar()}
               </div>
             </div>
 
             {/* Next month */}
-            <div className="w-1/3 flex-shrink-0 px-0">
-              <div className="grid grid-cols-7 gap-2">
+            <div style={{ width: '33.333%', flexShrink: 0 }}>
+              <div className="grid grid-cols-7 gap-2 px-2">
                 {(() => {
                   const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
                   const { daysInMonth, startingDayOfWeek } = getDaysInMonth(nextMonth);
