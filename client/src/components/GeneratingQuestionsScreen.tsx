@@ -134,37 +134,55 @@ if (locations.length > 0) {
   console.log("[GeneratingQuestions] Step 3 Skipped - no locations to fetch names for");
 }
 
-        // Step 4: Fetch event titles
-        console.log("[GeneratingQuestions] Step 4: Fetching event titles with region:", region);
-        let eventTitles: string[] = [];
-        try {
-          // Ensure region is wrapped in an array
-          const regionFilter = [region]; // e.g. ["UK"]
-          console.log("[GeneratingQuestions] Step 4 QUERY - FROM questions_master_region, SELECT event_title, WHERE regions contains:", regionFilter);
+// Step 4: Fetch event titles
+console.log("[GeneratingQuestions] Step 4: Fetching event titles with region:", region);
+let eventTitles: string[] = [];
+try {
+  // Normalise region into a plain string, then wrap in array
+  const regionValue = typeof region === "string"
+    ? region.replace(/[{}"]/g, "") // strip braces/quotes if present
+    : String(region);
+  const regionFilter = [regionValue]; // e.g. ["UK"]
 
-          const { data: eventData, error: eventErr } = await supabase
-            .from("questions_master_region")
-            .select("event_title, regions")
-            .contains("regions", regionFilter) // JSONB array containment
-            .limit(20);
+  console.log(
+    "[GeneratingQuestions] Step 4 QUERY - FROM questions_master_region, SELECT event_title, WHERE regions contains:",
+    regionFilter
+  );
 
-          if (eventErr) {
-            console.error("[GeneratingQuestions] Step 4 Fetch event titles error:", eventErr);
-          }
+  const { data: eventData, error: eventErr } = await supabase
+    .from("questions_master_region")
+    .select("event_title")
+    .contains("regions", regionFilter) // JSONB array containment
+    .limit(20);
 
-          console.log("[GeneratingQuestions] Step 4 Query returned", eventData?.length ?? 0, "records");
-          if (eventData && eventData.length > 0) {
-            console.log("[GeneratingQuestions] Step 4 Raw event data (first 3):", eventData.slice(0, 3));
-          }
+  if (eventErr) {
+    console.error("[GeneratingQuestions] Step 4 Fetch event titles error:", eventErr);
+  }
 
-          eventTitles = eventData
-            ? eventData.map((e: any) => e.event_title + "...")
-            : [];
-          console.log("[GeneratingQuestions] Step 4 Fetched event titles:", eventTitles.length, "titles:", eventTitles.slice(0, 3));
-        } catch (err) {
-          console.error("[GeneratingQuestions] Step 4 Fetch event titles failed:", err);
-        }
+  console.log(
+    "[GeneratingQuestions] Step 4 Query returned",
+    eventData?.length ?? 0,
+    "records"
+  );
+  if (eventData && eventData.length > 0) {
+    console.log(
+      "[GeneratingQuestions] Step 4 Raw event data (first 3):",
+      eventData.slice(0, 3)
+    );
+  }
 
+  eventTitles = eventData
+    ? eventData.map((e: any) => e.event_title + "...")
+    : [];
+  console.log(
+    "[GeneratingQuestions] Step 4 Fetched event titles:",
+    eventTitles.length,
+    "titles:",
+    eventTitles.slice(0, 3)
+  );
+} catch (err) {
+  console.error("[GeneratingQuestions] Step 4 Fetch event titles failed:", err);
+}
 
 
         // Combine all text items
