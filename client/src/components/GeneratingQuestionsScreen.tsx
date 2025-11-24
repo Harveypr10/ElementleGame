@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { useToast } from "@/hooks/use-toast";
-import HamsterImageUrl from "@assets/attached_assets/Question_Hamster_Blue.svg";
+import HamsterImageUrl from "@assets/Question-Hamster-Blue.svg";
 
 interface GeneratingQuestionsScreenProps {
   userId: string;
