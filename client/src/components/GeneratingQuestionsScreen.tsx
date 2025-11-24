@@ -133,7 +133,7 @@ for (let i = 0; i < 20; i++) {
         // Derive function base URL from Supabase URL
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
         if (!supabaseUrl) throw new Error("Supabase URL not available");
-        const functionBaseUrl = supabaseUrl.replace(".co", ".functions.supabase.co");
+        const functionBaseUrl = supabaseUrl.replace(".supabase.co", ".functions.supabase.co");
         console.log("[GeneratingQuestions] Function base URL:", functionBaseUrl);
 
         // Step 5: Call calculate-demand
