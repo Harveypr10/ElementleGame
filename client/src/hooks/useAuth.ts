@@ -9,17 +9,23 @@ export function useAuth() {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setIsLoading(false);
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        setIsLoading(false);
 
-      // 🔍 Debug: log the current user ID
-      if (session?.user) {
-        console.log("Current logged-in user ID:", session.user.id);
-      } else {
-        console.log("No active user session");
-      }
-    });
+        // 🔍 Debug: log the current user ID
+        if (session?.user) {
+          console.log("Current logged-in user ID:", session.user.id);
+        } else {
+          console.log("No active user session");
+        }
+      })
+      .catch((error) => {
+        console.warn("Failed to get initial session:", error);
+        setIsLoading(false);
+        setUser(null);
+      });
 
     // Listen for auth changes
     const {
