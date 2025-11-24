@@ -28,6 +28,7 @@ export function GeneratingQuestionsScreen({
   const { toast } = useToast();
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
   const [currentIdIndex, setCurrentIdIndex] = useState(0);
+  const [sequenceStarted, setSequenceStarted] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -36,11 +37,19 @@ export function GeneratingQuestionsScreen({
     const TEXT_LIFETIME = 2000; // 2 seconds per text block
     const TEXT_SPAWN_INTERVAL = 1000; // new text every 1 second
 
+    // Guard: only run sequence once per component mount
+    if (sequenceStarted) {
+      console.log("[GeneratingQuestions] Sequence already started, skipping...");
+      return;
+    }
+
     const runSequence = async () => {
       try {
-        console.log("[GeneratingQuestions] Starting sequence...");
+        console.log("[GeneratingQuestions] Starting sequence for userId:", userId);
+        setSequenceStarted(true);
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error("No session found");
+        console.log("[GeneratingQuestions] Session acquired:", session.user.id);
 
         // Step 1: Populate user locations
         console.log("[GeneratingQuestions] Step 1: Populating user locations...");
@@ -146,59 +155,65 @@ try {
         console.log("[GeneratingQuestions] Function base URL:", functionBaseUrl);
 
         // Step 5: Call calculate-demand
-        console.log("[GeneratingQuestions] Step 5: Calling calculate-demand...");
+        console.log("[GeneratingQuestions] Step 5: Calling calculate-demand with user_id:", userId);
         try {
+          const demandPayload = {
+            user_id: userId,
+            region: region,
+            today: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
+          };
+          console.log("[GeneratingQuestions] calculate-demand payload:", demandPayload);
+          
           const demandResponse = await fetch(`${functionBaseUrl}/calculate-demand`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${accessToken}`,
             },
-            body: JSON.stringify({
-              user_id: userId,
-              region: region,
-              today: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
-            }),
+            body: JSON.stringify(demandPayload),
           });
 
           console.log("[GeneratingQuestions] calculate-demand status:", demandResponse.status);
           const demandBody = await demandResponse.text();
-          console.log("[GeneratingQuestions] calculate-demand response body:", demandBody);
+          console.log("[GeneratingQuestions] calculate-demand response:", demandBody);
 
           if (!demandResponse.ok) {
             throw new Error(`calculate-demand returned ${demandResponse.status}: ${demandBody}`);
           }
 
-          console.log("[GeneratingQuestions] calculate-demand complete");
+          console.log("[GeneratingQuestions] calculate-demand complete for user:", userId);
         } catch (err) {
           console.error("[GeneratingQuestions] calculate-demand failed:", err);
         }
 
         // Step 6: Call allocate-questions
-        console.log("[GeneratingQuestions] Step 6: Calling allocate-questions...");
+        console.log("[GeneratingQuestions] Step 6: Calling allocate-questions with user_id:", userId);
         try {
+          const allocatePayload = {
+            user_id: userId,
+            region: region,
+            today: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
+          };
+          console.log("[GeneratingQuestions] allocate-questions payload:", allocatePayload);
+          
           const allocateResponse = await fetch(`${functionBaseUrl}/allocate-questions`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${accessToken}`,
             },
-            body: JSON.stringify({
-              user_id: userId,
-              region: region,
-              today: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
-            }),
+            body: JSON.stringify(allocatePayload),
           });
 
           console.log("[GeneratingQuestions] allocate-questions status:", allocateResponse.status);
           const allocateBody = await allocateResponse.text();
-          console.log("[GeneratingQuestions] allocate-questions response body:", allocateBody);
+          console.log("[GeneratingQuestions] allocate-questions response:", allocateBody);
 
           if (!allocateResponse.ok) {
             throw new Error(`allocate-questions returned ${allocateResponse.status}: ${allocateBody}`);
           }
 
-          console.log("[GeneratingQuestions] allocate-questions complete");
+          console.log("[GeneratingQuestions] allocate-questions complete for user:", userId);
         } catch (err) {
           console.error("[GeneratingQuestions] allocate-questions failed:", err);
         }
@@ -337,7 +352,7 @@ try {
         clearInterval(textInterval);
       }
     };
-  }, [userId, region, postcode, supabase, toast, onComplete]);
+  }, [userId, region, postcode]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-300 to-blue-400 dark:from-blue-900 dark:to-blue-800 p-4">
