@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
+import { useSwipeable } from "react-swipeable";
 
 interface ArchivePageProps {
   onBack: () => void;
@@ -18,7 +19,7 @@ interface ArchivePageProps {
   puzzles: Array<{
     id: number;
     date: string;
-    answerDateCanonical: string; // YYYY-MM-DD format - the canonical historical date
+    answerDateCanonical: string;
     eventTitle: string;
     eventDescription: string;
     clue1?: string;
@@ -42,32 +43,20 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   const { isLocalMode } = useGameMode();
   const queryClient = useQueryClient();
   
-  // Initialize to either the provided month (when returning from PlayPage)
-  // or the current month (default behavior)
-  const getInitialMonth = () => {
+  const [currentMonth, setCurrentMonth] = useState(() => {
     if (initialMonth) {
       return new Date(initialMonth);
     }
-    // Default to current month
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
-  };
-  
-  const [currentMonth, setCurrentMonth] = useState(getInitialMonth());
+  });
   const [dayStatuses, setDayStatuses] = useState<Record<string, DayStatus>>({});
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const swipeStartX = useRef<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Update month when initialMonth prop changes (e.g., when returning from PlayPage)
-  useEffect(() => {
-    if (initialMonth) {
-      const newMonth = new Date(initialMonth);
-      setCurrentMonth(newMonth);
-    }
-  }, [initialMonth]);
-
-  // Explicitly refetch game attempts when Archive mounts
-  // Archive is conditionally rendered and unmounts when navigating away,
-  // so this effect runs every time user navigates to Archive
-  // This ensures in-progress games show updated guess counts after playing
+  // Refetch game attempts whenever Archive mounts (from any navigation source)
   useEffect(() => {
     if (isAuthenticated) {
       console.log('[Archive] Refetching game attempts on mount');
@@ -76,15 +65,21 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     }
   }, [isAuthenticated, isLocalMode, queryClient]);
 
+  // Update month when initialMonth prop changes
+  useEffect(() => {
+    if (initialMonth) {
+      const newMonth = new Date(initialMonth);
+      setCurrentMonth(newMonth);
+    }
+  }, [initialMonth]);
+
   // Load from cache first for instant rendering
   useEffect(() => {
     const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
     const cachedMonthData = readLocal<any>(`${CACHE_KEYS.ARCHIVE_PREFIX}${monthKey}`);
     
     if (cachedMonthData && Array.isArray(cachedMonthData)) {
-      // Build status map from cached data
       const statusMap: Record<string, DayStatus> = {};
-      
       cachedMonthData.forEach((puzzle: any) => {
         if (puzzle.completed) {
           statusMap[puzzle.answerDateCanonical] = {
@@ -94,10 +89,9 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           };
         }
       });
-      
       setDayStatuses(statusMap);
     }
-  }, [currentMonth]); // Re-run when month changes
+  }, [currentMonth]);
 
   // Background reconciliation with Supabase/localStorage
   useEffect(() => {
@@ -105,22 +99,12 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
       console.log('[Archive] Building status map from gameAttempts:', gameAttempts.length, 'attempts');
       const statusMap: Record<string, DayStatus> = {};
 
-      // Build status map from gameAttempts (which has result and numGuesses)
       gameAttempts.forEach(attempt => {
-        // Find the puzzle for this attempt
         const puzzle = puzzles.find(p => p.id === attempt.puzzleId);
         if (puzzle) {
           const isCompleted = attempt.result !== null;
           const isWon = attempt.result === "won";
           const isInProgress = attempt.result === null && (attempt.numGuesses ?? 0) > 0;
-          
-          console.log(`[Archive] Puzzle ${puzzle.id} (${puzzle.answerDateCanonical}):`, {
-            guessCount: attempt.numGuesses,
-            result: attempt.result,
-            completed: isCompleted,
-            won: isWon,
-            inProgress: isInProgress,
-          });
           
           statusMap[puzzle.answerDateCanonical] = {
             completed: isCompleted,
@@ -133,7 +117,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
       
       setDayStatuses(statusMap);
       
-      // Update cache for current month
       const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
       const monthPuzzles = puzzles.map(puzzle => ({
         ...puzzle,
@@ -143,7 +126,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
       }));
       writeLocal(`${CACHE_KEYS.ARCHIVE_PREFIX}${monthKey}`, monthPuzzles);
     } else if (!isAuthenticated) {
-      // Use localStorage for guest users
       const storedStats = localStorage.getItem("elementle-stats");
       const stats = storedStats ? JSON.parse(storedStats) : { puzzleCompletions: {} };
       
@@ -151,7 +133,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
       const completions = stats.puzzleCompletions || {};
       
       puzzles.forEach(puzzle => {
-        // Format canonical date to match the key format used in localStorage
         const formattedAnswer = formatCanonicalDate(puzzle.answerDateCanonical);
         const completion = completions[formattedAnswer];
         
@@ -262,23 +243,16 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
 
   const monthYear = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   
-  // Determine earliest puzzle month based on available puzzles
   const earliestMonth = (() => {
     if (puzzles.length === 0) {
-      // Fallback to October 2025 if no puzzles
       return new Date(2025, 9, 1);
     }
     
-    // Find the earliest puzzle date by string comparison (YYYY-MM-DD format)
     const earliestPuzzle = puzzles.reduce((earliest, puzzle) => {
       return puzzle.date < earliest.date ? puzzle : earliest;
     }, puzzles[0]);
     
-    // Parse the date string manually to avoid timezone issues
-    // puzzle.date is in YYYY-MM-DD format
     const [year, month, day] = earliestPuzzle.date.split('-').map(Number);
-    
-    // Create a date for the first of that month (month is 0-indexed in Date constructor)
     return new Date(year, month - 1, 1);
   })();
   
@@ -287,6 +261,72 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   
   const canGoPrevious = currentMonth > earliestMonth;
   const canGoNext = currentMonth < currentMonthDate;
+
+  // Check if a month has available puzzles
+  const hasMonthPuzzles = (year: number, month: number) => {
+    const monthStr = String(month + 1).padStart(2, '0');
+    return puzzles.some(p => p.date.startsWith(`${year}-${monthStr}`));
+  };
+
+  // Swipe handlers for calendar
+  const handleSwipeStart = useCallback(() => {
+    swipeStartX.current = swipeOffset;
+  }, [swipeOffset]);
+
+  const handleSwiping = useCallback((deltaX: number) => {
+    // Allow slight overshoot but restrict movement
+    const maxOvershoot = 50;
+    const maxSwipe = canGoNext && canGoPrevious ? 100 : canGoNext || canGoPrevious ? 50 : 0;
+    
+    const newOffset = Math.max(-maxOvershoot, Math.min(maxOvershoot, swipeStartX.current + deltaX));
+    setSwipeOffset(newOffset);
+  }, [canGoNext, canGoPrevious, swipeOffset]);
+
+  const handleSwiped = useCallback((velocity: number, direction: 'Left' | 'Right') => {
+    const threshold = 40;
+    const velocityThreshold = 0.5;
+    
+    if (Math.abs(velocity) > velocityThreshold) {
+      // Flick-based navigation
+      if (direction === 'Left' && canGoNext) {
+        const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+        setCurrentMonth(nextMonth);
+        onMonthChange?.(nextMonth);
+      } else if (direction === 'Right' && canGoPrevious) {
+        const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        setCurrentMonth(prevMonth);
+        onMonthChange?.(prevMonth);
+      }
+    } else if (Math.abs(swipeOffset) > threshold) {
+      // Drag-based navigation
+      if (swipeOffset > 0 && canGoPrevious) {
+        const prevMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+        setCurrentMonth(prevMonth);
+        onMonthChange?.(prevMonth);
+      } else if (swipeOffset < 0 && canGoNext) {
+        const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+        setCurrentMonth(nextMonth);
+        onMonthChange?.(nextMonth);
+      }
+    }
+    
+    // Always snap back to center
+    setSwipeOffset(0);
+  }, [currentMonth, canGoNext, canGoPrevious, onMonthChange]);
+
+  const swipeHandlers = useSwipeable({
+    onSwipeStart: handleSwipeStart,
+    onSwiping: (eventData) => handleSwiping(eventData.deltaX),
+    onSwiped: (eventData) => {
+      const velocity = eventData.velocity;
+      const direction = eventData.dir as 'Left' | 'Right';
+      handleSwiped(velocity, direction);
+    },
+    trackMouse: true,
+    preventScrollOnSwipe: true,
+  });
+
+  const { ref: swipeRef, ...swipeProps } = swipeHandlers;
 
   return (
     <motion.div 
@@ -326,7 +366,13 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             <ChevronLeft className="h-4 w-4" />
           </Button>
           
-          <h3 className="text-xl font-bold" data-testid="text-current-month">{monthYear}</h3>
+          <button
+            onClick={() => setShowMonthPicker(true)}
+            className="text-xl font-bold hover:opacity-70 transition-opacity cursor-pointer"
+            data-testid="button-month-picker"
+          >
+            {monthYear}
+          </button>
           
           <Button
             variant="outline"
@@ -351,10 +397,119 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div
+          ref={swipeRef}
+          {...swipeProps}
+          className="grid grid-cols-7 gap-2 touch-none"
+          style={{
+            transform: `translateX(${swipeOffset}px)`,
+            transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
+          }}
+        >
           {renderCalendar()}
         </div>
       </div>
+
+      {/* Month/Year Picker Modal */}
+      <AnimatePresence>
+        {showMonthPicker && (
+          <motion.div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowMonthPicker(false)}
+          >
+            <motion.div
+              className="bg-white dark:bg-gray-900 rounded-lg p-6 max-w-sm w-full"
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold">Select Month</h3>
+                <button
+                  onClick={() => setShowMonthPicker(false)}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+                  data-testid="button-close-picker"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mb-6 flex items-center justify-between">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newYear = new Date(currentMonth.getFullYear() - 1, currentMonth.getMonth(), 1);
+                    setCurrentMonth(newYear);
+                    setShowMonthPicker(false);
+                    onMonthChange?.(newYear);
+                  }}
+                  disabled={currentMonth.getFullYear() === earliestMonth.getFullYear()}
+                  data-testid="button-prev-year"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+
+                <span className="text-lg font-bold" data-testid="text-year">
+                  {currentMonth.getFullYear()}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newYear = new Date(currentMonth.getFullYear() + 1, currentMonth.getMonth(), 1);
+                    setCurrentMonth(newYear);
+                    setShowMonthPicker(false);
+                    onMonthChange?.(newYear);
+                  }}
+                  disabled={currentMonth.getFullYear() === currentMonthDate.getFullYear()}
+                  data-testid="button-next-year"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {Array.from({ length: 12 }).map((_, i) => {
+                  const hasData = hasMonthPuzzles(currentMonth.getFullYear(), i);
+                  const isSelected = i === currentMonth.getMonth();
+                  const monthName = new Date(2025, i, 1).toLocaleDateString('en-US', { month: 'short' });
+
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        if (hasData) {
+                          const newMonth = new Date(currentMonth.getFullYear(), i, 1);
+                          setCurrentMonth(newMonth);
+                          setShowMonthPicker(false);
+                          onMonthChange?.(newMonth);
+                        }
+                      }}
+                      disabled={!hasData}
+                      className={cn(
+                        "py-2 px-3 rounded-md font-medium transition-colors",
+                        hasData && "cursor-pointer",
+                        !hasData && "opacity-40 cursor-not-allowed",
+                        isSelected && hasData && "bg-primary text-primary-foreground",
+                        !isSelected && hasData && "bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700",
+                      )}
+                      data-testid={`button-month-${i}`}
+                    >
+                      {monthName}
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
