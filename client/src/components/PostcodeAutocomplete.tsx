@@ -190,6 +190,7 @@ export function PostcodeAutocomplete({
 
       const currentValue = inputRef.current?.value || "";
 
+      // If blank, allow blur (empty is valid)
       if (!currentValue) {
         setIsValid(true);
         setErrorMessage("");
@@ -211,7 +212,7 @@ export function PostcodeAutocomplete({
         }
       }
 
-      // Check against cached valid postcodes first
+      // Check against cached valid postcodes first (EXACT MATCH required)
       const cleanCurrent = currentValue.replace(/\s/g, "").toUpperCase();
       const matchedPostcode = Array.from(validPostcodes).find(
         (pc) => pc.replace(/\s/g, "").toUpperCase() === cleanCurrent
@@ -225,23 +226,13 @@ export function PostcodeAutocomplete({
         return;
       }
 
-      // If not in cache, query Postcodes.io to verify
-      const isValid = await validatePostcode(currentValue);
-
-      if (isFocusedRef.current || inputRef.current?.value !== currentValue) {
-        return; // User refocused or value changed while validating - abort
-      }
-
-      if (isValid) {
-        setIsValid(true);
-        setErrorMessage("");
-        setPreviewText("");
-      } else {
-        setIsValid(false);
-        setErrorMessage("Invalid postcode - Postcode must be valid to continue.");
-        onChange("");
-        setPreviewText("");
-      }
+      // Postcode does NOT match any suggestion - PREVENT BLUR by refocusing
+      setIsValid(false);
+      setErrorMessage("Please select a postcode from the dropdown list or clear the field.");
+      setPreviewText("");
+      
+      // Refocus input to prevent blur and keep field active
+      inputRef.current?.focus();
     }, 200);
   };
 
