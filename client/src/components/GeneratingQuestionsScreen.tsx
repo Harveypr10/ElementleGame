@@ -108,10 +108,10 @@ let locationNames: string[] = [];
 if (locations.length > 0) {
   try {
     const locationIds = locations.map((l) => l.location_id);
-    console.log("[GeneratingQuestions] Step 3 QUERY - FROM populated_places, SELECT id, populated_place, WHERE id IN:", locationIds);
+    console.log("[GeneratingQuestions] Step 3 QUERY - FROM populated_places, SELECT id, name1, WHERE id IN:", locationIds);
     const { data: locData, error: locErr } = await supabase
       .from("populated_places")
-      .select("id, populated_place")
+      .select("id, name1")
       .in("id", locationIds);
 
     if (locErr) {
@@ -120,7 +120,8 @@ if (locations.length > 0) {
 
     if (locData) {
       console.log("[GeneratingQuestions] Step 3 Query returned", locData.length, "populated places");
-      locationNames = locData.map((l) => (l.populated_place ?? l.id) + "...");
+      console.log("[GeneratingQuestions] Step 3 Raw location data:", locData);
+      locationNames = locData.map((l: any) => (l.name1 ?? l.id) + "...");
       console.log("[GeneratingQuestions] Step 3 Location names:", locationNames);
     } else {
       console.log("[GeneratingQuestions] Step 3 Query returned null data");
@@ -134,28 +135,34 @@ if (locations.length > 0) {
 }
 
         // Step 4: Fetch event titles
-        console.log("[GeneratingQuestions] Step 4: Fetching event titles...");
+        console.log("[GeneratingQuestions] Step 4: Fetching event titles with region:", region);
         let eventTitles: string[] = [];
         try {
           // Ensure region is wrapped in an array
           const regionFilter = [region]; // e.g. ["UK"]
+          console.log("[GeneratingQuestions] Step 4 QUERY - FROM questions_master_region, SELECT event_title, WHERE regions contains:", regionFilter);
 
           const { data: eventData, error: eventErr } = await supabase
             .from("questions_master_region")
-            .select("event_title")
+            .select("event_title, regions")
             .contains("regions", regionFilter) // JSONB array containment
             .limit(20);
 
           if (eventErr) {
-            console.error("[GeneratingQuestions] Fetch event titles error:", eventErr);
+            console.error("[GeneratingQuestions] Step 4 Fetch event titles error:", eventErr);
+          }
+
+          console.log("[GeneratingQuestions] Step 4 Query returned", eventData?.length ?? 0, "records");
+          if (eventData && eventData.length > 0) {
+            console.log("[GeneratingQuestions] Step 4 Raw event data (first 3):", eventData.slice(0, 3));
           }
 
           eventTitles = eventData
-            ? eventData.map((e) => e.event_title + "...")
+            ? eventData.map((e: any) => e.event_title + "...")
             : [];
-          console.log("[GeneratingQuestions] Fetched event titles:", eventTitles.length);
+          console.log("[GeneratingQuestions] Step 4 Fetched event titles:", eventTitles.length, "titles:", eventTitles.slice(0, 3));
         } catch (err) {
-          console.error("[GeneratingQuestions] Fetch event titles failed:", err);
+          console.error("[GeneratingQuestions] Step 4 Fetch event titles failed:", err);
         }
 
 
@@ -380,8 +387,8 @@ if (locations.length > 0) {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center p-4 transition-opacity duration-500"
-      style={{ backgroundColor: '#7DAAE8', opacity: fadeIn ? 1 : 0 }}
+      className="min-h-screen flex flex-col items-center justify-center p-4"
+      style={{ backgroundColor: '#7DAAE8' }}
     >
       {/* Hamster Image */}
       <div className="mb-12">
@@ -413,7 +420,7 @@ if (locations.length > 0) {
 
       {/* Footer Text */}
       <div className="mt-12 text-center">
-        <p className="text-white font-medium text-sm">
+        <p className="text-white font-medium text-2xl">
           One moment please, Hammie is cooking up your personalised questions
         </p>
       </div>
