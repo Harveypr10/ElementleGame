@@ -202,7 +202,7 @@ export function GeneratingQuestionsScreen({
 
         if (!mounted) return;
 
-        // Start animation interval
+               // Step 8: Start animation interval and handle transition
         const startTime = Date.now();
         let nextId = 0;
         textInterval = setInterval(() => {
@@ -213,36 +213,38 @@ export function GeneratingQuestionsScreen({
 
           const elapsedTime = Date.now() - startTime;
 
-          // Stop spawning text after 6 seconds (leaving 2 seconds for last items to fade out)
+          // Spawn text blocks for first 6 seconds (leaving 2s for fade out)
           if (elapsedTime < 6000 && nextId < allTextItems.length) {
             const newBlock: TextBlock = {
               id: `text-${nextId}`,
               text: allTextItems[nextId],
-              top: Math.random() * 40 + 30, // 30-70% from top
-              left: Math.random() * 60 + 20, // 20-80% from left
-              opacity: 0, // Will fade in
+              top: Math.random() * 40 + 30, // 30–70% from top
+              left: Math.random() * 60 + 20, // 20–80% from left
+              opacity: 0,
             };
 
             setTextBlocks((prev) => {
-              // Fade in new block
               const updated = [...prev, newBlock];
 
-              // Fade out and remove old blocks
               return updated
                 .map((block) => {
-                  const blockElapsed = elapsedTime - parseInt(block.id.split("-")[1]) * TEXT_SPAWN_INTERVAL;
+                  const blockElapsed =
+                    elapsedTime -
+                    parseInt(block.id.split("-")[1]) * TEXT_SPAWN_INTERVAL;
 
                   if (blockElapsed < 500) {
-                    // Fade in (0-500ms)
+                    // Fade in (0–500ms)
                     return { ...block, opacity: blockElapsed / 500 };
                   } else if (blockElapsed < TEXT_LIFETIME - 500) {
-                    // Fully visible (500ms - 1500ms)
+                    // Fully visible (500–1500ms)
                     return { ...block, opacity: 1 };
                   } else if (blockElapsed < TEXT_LIFETIME) {
-                    // Fade out (1500ms - 2000ms)
+                    // Fade out (1500–2000ms)
                     return {
                       ...block,
-                      opacity: 1 - (blockElapsed - (TEXT_LIFETIME - 500)) / 500,
+                      opacity:
+                        1 -
+                        (blockElapsed - (TEXT_LIFETIME - 500)) / 500,
                     };
                   }
                   return null;
@@ -253,12 +255,18 @@ export function GeneratingQuestionsScreen({
             nextId++;
           }
 
-          // Check if we should transition (8 seconds elapsed)
+          // ✅ Transition after 8 seconds
           if (elapsedTime >= SCREEN_DURATION) {
-            console.log("[GeneratingQuestions] Timer fired at", elapsedTime, "ms, clearing interval...");
+            console.log(
+              "[GeneratingQuestions] Timer fired at",
+              elapsedTime,
+              "ms, clearing interval..."
+            );
             if (textInterval) clearInterval(textInterval);
             if (mounted) {
-              console.log("[GeneratingQuestions] Transitioning to GameSelectionPage");
+              console.log(
+                "[GeneratingQuestions] Transitioning to GameSelectionPage"
+              );
               onComplete();
             }
           }
@@ -271,10 +279,14 @@ export function GeneratingQuestionsScreen({
           variant: "destructive",
         });
         if (mounted) {
-          console.log("[GeneratingQuestions] Error occurred, transitioning after 3 seconds");
+          console.log(
+            "[GeneratingQuestions] Error occurred, transitioning after 3 seconds"
+          );
           setTimeout(() => {
             if (mounted) {
-              console.log("[GeneratingQuestions] Error recovery: Transitioning to GameSelectionPage");
+              console.log(
+                "[GeneratingQuestions] Error recovery: Transitioning to GameSelectionPage"
+              );
               onComplete();
             }
           }, 3000);
@@ -285,7 +297,7 @@ export function GeneratingQuestionsScreen({
     // Start the sequence
     runSequence();
 
-    // Return cleanup function
+    // Cleanup on unmount
     return () => {
       console.log("[GeneratingQuestions] Cleanup: unmounting component");
       mounted = false;
@@ -334,3 +346,4 @@ export function GeneratingQuestionsScreen({
     </div>
   );
 }
+
