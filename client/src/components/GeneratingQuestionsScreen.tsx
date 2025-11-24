@@ -55,30 +55,32 @@ export function GeneratingQuestionsScreen({
           throw err;
         }
 
-        // Step 2: Poll location_allocation until rows exist
-        console.log("[GeneratingQuestions] Step 2: Polling for location allocation...");
-        let locations: Array<{ location_id: number; weighted_score: number }> = [];
-        for (let i = 0; i < 20; i++) {
-          try {
-            const { data } = await supabase
-              .from("location_allocation")
-              .select("location_id, weighted_score")
-              .eq("user_id", userId)
-              .order("weighted_score", { ascending: false });
+// Step 2: Poll location_allocation until rows exist
+console.log("[GeneratingQuestions] Step 2: Polling for location allocation...");
+let locations: Array<{ location_id: string; score: number }> = [];
+for (let i = 0; i < 20; i++) {
+  try {
+    const { data, error } = await supabase
+      .from("location_allocation")
+      .select("location_id, score")
+      .eq("user_id", userId)
+      .order("score", { ascending: false });
 
-            if (data && data.length > 0) {
-              locations = data as Array<{ location_id: number; weighted_score: number }>;
-              console.log(
-                "[GeneratingQuestions] Found locations:",
-                locations.length
-              );
-              break;
-            }
-          } catch (pollErr) {
-            console.error("[GeneratingQuestions] Poll attempt failed:", pollErr);
-          }
-          await new Promise((r) => setTimeout(r, 500));
-        }
+    if (error) {
+      console.error("[GeneratingQuestions] Poll query error:", error);
+    }
+
+    if (data && data.length > 0) {
+      locations = data as Array<{ location_id: string; score: number }>;
+      console.log("[GeneratingQuestions] Found locations:", locations.length);
+      break;
+    }
+  } catch (pollErr) {
+    console.error("[GeneratingQuestions] Poll attempt failed:", pollErr);
+  }
+  await new Promise((r) => setTimeout(r, 500));
+}
+
 
         // Step 3: Fetch location names for displaying
         console.log("[GeneratingQuestions] Step 3: Fetching location names...");
@@ -107,7 +109,7 @@ export function GeneratingQuestionsScreen({
           const { data: eventData } = await supabase
             .from("questions_master_region")
             .select("event_title")
-            .eq("region", region)
+            .contains("regions", [region]) // e.g. ["UK"]
             .limit(20);
 
           eventTitles = eventData
