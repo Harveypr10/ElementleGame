@@ -208,7 +208,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         throw passwordError;
       }
 
-      // Create or update user profile in database (including region and postcode)
+      // Create or update user profile in database (including region, postcode, and tier)
       const profileResponse = await fetch("/api/auth/profile", {
         method: "PATCH",
         headers: {
@@ -223,8 +223,10 @@ const handleSubmit = async (e: React.FormEvent) => {
           postcode: formData.postcode || null, // Save postcode to profile (or null if empty)
           acceptedTerms: formData.acceptedTerms,
           adsConsent: formData.adsConsent,
+          tier: "standard", // ✅ always set default tier
         }),
       });
+
 
       if (!profileResponse.ok) {
         throw new Error("Failed to create profile");
@@ -536,7 +538,16 @@ const handleSubmit = async (e: React.FormEvent) => {
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={loading}
+              disabled={
+                loading || (
+                  mode === "signup" && (
+                    !formData.firstName.trim() ||
+                    !formData.email.trim() ||
+                    !formData.password ||
+                    !formData.acceptedTerms
+                  )
+                )
+              }
               data-testid="button-submit"
             >
               {loading ? "Please wait..." : mode === "signup" ? "Sign Up" : "Sign In"}
