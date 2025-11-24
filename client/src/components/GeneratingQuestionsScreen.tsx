@@ -380,7 +380,7 @@ if (locations.length > 0) {
         <img
           src={HamsterImageUrl}
           alt="Hammie"
-          className="w-1/2 max-w-xs h-auto object-contain"
+          className="w-64 h-64 object-contain"
         />
       </div>
 
