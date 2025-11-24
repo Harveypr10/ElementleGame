@@ -6,6 +6,7 @@ import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
 import whiteTickBlue from "@assets/Win-Hamster-Blue.svg";
+import questionHamsterBlue from "@assets/Question-Hamster-Blue.svg";
 
 interface SplashScreenProps {
   onLogin: () => void;
@@ -17,13 +18,14 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
   const [fadeIn, setFadeIn] = useState(false);
 
   useEffect(() => {
-    // Preload GameSelection screen images
+    // Preload GameSelection screen images and auth/generating screens
     const imagesToPreload = [
       historianHamsterBlue,
       librarianHamsterYellow,
       mathsHamsterGreen,
       mechanicHamsterGrey,
-      whiteTickBlue
+      whiteTickBlue,
+      questionHamsterBlue  // Preload GeneratingQuestionsScreen hamster
     ];
 
     imagesToPreload.forEach(src => {

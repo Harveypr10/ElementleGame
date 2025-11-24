@@ -45,6 +45,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   const [showPostcodeWarning, setShowPostcodeWarning] = useState(false);
   const [userId, setUserId] = useState<string>("");
+  const [fadeIn, setFadeIn] = useState(false);
 
   // Fetch available regions
   const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
@@ -88,6 +89,13 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
         adsConsent: savedAdsConsent === "true",
       }));
     }
+  }, []);
+
+  // Trigger fade-in animation
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      setFadeIn(true);
+    });
   }, []);
 
   // Persist adsConsent to localStorage whenever it changes
@@ -331,7 +339,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md transition-opacity duration-500" style={{ opacity: fadeIn ? 1 : 0 }}>
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl text-center">
             {mode === "signup" ? "Create an account" : "Welcome back"}

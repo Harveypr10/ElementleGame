@@ -29,6 +29,14 @@ export function GeneratingQuestionsScreen({
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
   const [currentIdIndex, setCurrentIdIndex] = useState(0);
   const [sequenceStarted, setSequenceStarted] = useState(false);
+  const [fadeIn, setFadeIn] = useState(false);
+
+  // Trigger fade-in animation
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      setFadeIn(true);
+    });
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -372,8 +380,8 @@ if (locations.length > 0) {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center p-4"
-      style={{ backgroundColor: '#7DAAE8' }}
+      className="min-h-screen flex flex-col items-center justify-center p-4 transition-opacity duration-500"
+      style={{ backgroundColor: '#7DAAE8', opacity: fadeIn ? 1 : 0 }}
     >
       {/* Hamster Image */}
       <div className="mb-12">
