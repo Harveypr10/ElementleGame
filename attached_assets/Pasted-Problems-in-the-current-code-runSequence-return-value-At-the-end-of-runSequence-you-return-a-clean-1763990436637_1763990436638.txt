@@ -1,0 +1,105 @@
+Problems in the current code
+runSequence return value
+
+At the end of runSequence, you return a cleanup function:
+
+ts
+return () => {
+  clearInterval(textInterval);
+};
+But you’re calling runSequence() and storing its promise in cleanup:
+
+ts
+const cleanup = runSequence();
+return () => {
+  mounted = false;
+  cleanup?.then((fn) => fn?.());
+};
+This means the cleanup only runs when the component unmounts, not when the sequence finishes. So the setInterval keeps running until unmount, and onComplete() may never be called.
+
+Session access token
+
+You’re doing:
+
+ts
+const accessToken = (session.session as any)?.access_token;
+But supabase.auth.getSession() returns { data: { session } }. You already destructured session. The access token is session.access_token, not session.session.access_token.
+
+Navigation trigger
+
+The onComplete() call is inside the setInterval loop, gated by elapsedTime >= SCREEN_DURATION. If the interval is cleared early or never reaches that condition, navigation won’t happen.
+
+✅ Fixes
+1. Correct access token
+Replace:
+
+ts
+const accessToken = (session.session as any)?.access_token;
+with:
+
+ts
+const accessToken = session.access_token;
+2. Simplify cleanup
+Don’t return a cleanup function from runSequence. Instead, manage the interval in the outer effect:
+
+ts
+useEffect(() => {
+  let mounted = true;
+  const SCREEN_DURATION = 8000;
+
+  const runSequence = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No session found");
+
+      // … backend calls …
+
+      // Start animation interval
+      const startTime = Date.now();
+      let nextId = 0;
+      const textInterval = setInterval(() => {
+        if (!mounted) {
+          clearInterval(textInterval);
+          return;
+        }
+
+        const elapsedTime = Date.now() - startTime;
+
+        // … spawn text blocks …
+
+        if (elapsedTime >= SCREEN_DURATION) {
+          clearInterval(textInterval);
+          if (mounted) {
+            console.log("[GeneratingQuestions] Transitioning to GameSelectionPage");
+            onComplete();
+          }
+        }
+      }, 1000);
+    } catch (err) {
+      console.error("[GeneratingQuestions] Error:", err);
+      toast({ title: "Setup error", description: String(err), variant: "destructive" });
+      if (mounted) {
+        setTimeout(() => onComplete(), 3000);
+      }
+    }
+  };
+
+  runSequence();
+
+  return () => {
+    mounted = false;
+  };
+}, [userId, region, postcode, supabase, toast, onComplete]);
+3. Add explicit logging
+Before onComplete(), log:
+
+ts
+console.log("[GeneratingQuestions] Transitioning to GameSelectionPage");
+This will confirm whether the timer is firing.
+
+📋 Next step
+Fix the access token reference.
+
+Simplify the cleanup logic so onComplete() is guaranteed to fire after 8s.
+
+Add logging to confirm the transition.

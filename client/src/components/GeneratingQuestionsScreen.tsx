@@ -32,7 +32,6 @@ export function GeneratingQuestionsScreen({
   useEffect(() => {
     let mounted = true;
     let textInterval: NodeJS.Timeout | null = null;
-    const startTime = Date.now();
     const SCREEN_DURATION = 8000; // 8 seconds
     const TEXT_LIFETIME = 2000; // 2 seconds per text block
     const TEXT_SPAWN_INTERVAL = 1000; // new text every 1 second
@@ -40,7 +39,7 @@ export function GeneratingQuestionsScreen({
     const runSequence = async () => {
       try {
         console.log("[GeneratingQuestions] Starting sequence...");
-        const { data: session } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error("No session found");
 
         // Step 1: Populate user locations
@@ -127,7 +126,7 @@ export function GeneratingQuestionsScreen({
 
         // Step 5: Call calculate-demand
         console.log("[GeneratingQuestions] Step 5: Calling calculate-demand...");
-        const accessToken = (session.session as any)?.access_token;
+        const accessToken = session.access_token;
         if (!accessToken) throw new Error("No access token found");
         
         try {
@@ -201,7 +200,10 @@ export function GeneratingQuestionsScreen({
 
         console.log("[GeneratingQuestions] All backend operations complete, starting text animation...");
 
-        // Animate text blocks
+        if (!mounted) return;
+
+        // Start animation interval
+        const startTime = Date.now();
         let nextId = 0;
         textInterval = setInterval(() => {
           if (!mounted) {
@@ -253,7 +255,7 @@ export function GeneratingQuestionsScreen({
 
           // Check if we should transition (8 seconds elapsed)
           if (elapsedTime >= SCREEN_DURATION) {
-            console.log("[GeneratingQuestions] Timer fired at", elapsedTime, "ms, clearing interval and transitioning...");
+            console.log("[GeneratingQuestions] Timer fired at", elapsedTime, "ms, clearing interval...");
             if (textInterval) clearInterval(textInterval);
             if (mounted) {
               console.log("[GeneratingQuestions] Transitioning to GameSelectionPage");
