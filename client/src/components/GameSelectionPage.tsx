@@ -70,8 +70,6 @@ export function GameSelectionPage({
   const { formatCanonicalDate } = useUserDateFormat();
   const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController();
   const [showHelp, setShowHelp] = useState(false);
-  const playButtonRef = useRef<HTMLButtonElement>(null);
-
   const isLocalMode = gameMode === 'local';
 
   // Transform for Options button - moves at half speed of panes for smooth effect
@@ -177,11 +175,6 @@ export function GameSelectionPage({
     return { status: 'not-played' as const, count: 0 };
   };
 
-  // Auto-focus the Play button on mount instead of help icon
-  useEffect(() => {
-    playButtonRef.current?.focus();
-  }, []);
-
   // NOTE: Old shared state effects removed - each pane now independently fetches and computes its own data
 
   const getFormattedDate = () => {
@@ -211,18 +204,66 @@ export function GameSelectionPage({
 
   const swipeHandlers = useSwipeable({
     onSwipeStart: () => handleSwipeStart(),
-    onSwiping: (eventData) => handleSwiping(eventData.deltaX),
+    onSwiping: (eventData) => {
+      // Only handle horizontal swiping if movement is primarily horizontal
+      const isHorizontal = Math.abs(eventData.deltaX) > Math.abs(eventData.deltaY);
+      if (isHorizontal) {
+        handleSwiping(eventData.deltaX);
+      }
+    },
     onSwiped: (eventData) => {
       const velocity = eventData.velocity;
-      const direction = eventData.dir as 'Left' | 'Right';
-      handleSwiped(velocity, direction);
+      const direction = eventData.dir as 'Left' | 'Right' | 'Up' | 'Down';
+      // Only handle horizontal swipes for pane switching
+      if (direction === 'Left' || direction === 'Right') {
+        handleSwiped(velocity, direction);
+      }
     },
     trackMouse: true,
-    preventScrollOnSwipe: true,
+    preventScrollOnSwipe: false, // Allow vertical scrolling
   });
 
   // Extract ref from swipeHandlers to avoid duplicate ref warning
-  const { ref: swipeRef, ...swipeProps } = swipeHandlers;
+  const { ref: swipeRef, ...swipeProps} = swipeHandlers;
+
+  // Options button swipe/tap handling integrated with useSwipeable
+  const optionsButtonMaxDeltaXRef = useRef(0);
+  const SWIPE_THRESHOLD = 20;
+
+  const optionsButtonSwipeHandlers = useSwipeable({
+    onSwipeStart: () => {
+      optionsButtonMaxDeltaXRef.current = 0;
+      handleSwipeStart();
+    },
+    onSwiping: (eventData) => {
+      // Track maximum horizontal displacement
+      if (Math.abs(eventData.deltaX) > Math.abs(optionsButtonMaxDeltaXRef.current)) {
+        optionsButtonMaxDeltaXRef.current = eventData.deltaX;
+      }
+      
+      const isHorizontal = Math.abs(eventData.deltaX) > Math.abs(eventData.deltaY);
+      if (isHorizontal) {
+        handleSwiping(eventData.deltaX);
+      }
+    },
+    onSwiped: (eventData) => {
+      const velocity = eventData.velocity;
+      const direction = eventData.dir as 'Left' | 'Right' | 'Up' | 'Down';
+      
+      // Only switch panes if horizontal swipe exceeded threshold
+      if ((direction === 'Left' || direction === 'Right') && Math.abs(optionsButtonMaxDeltaXRef.current) > SWIPE_THRESHOLD) {
+        handleSwiped(velocity, direction);
+      }
+      
+      // Always reset after swipe completes to prevent blocking next tap
+      setTimeout(() => {
+        optionsButtonMaxDeltaXRef.current = 0;
+      }, 50);
+    },
+    trackMouse: true,
+    trackTouch: true,
+    preventScrollOnSwipe: false,
+  });
 
   // Render Global Pane
   const renderGlobalPane = () => {
@@ -284,7 +325,7 @@ export function GameSelectionPage({
           {/* Desktop: Show "Global" title */}
           {isDesktop && isAuthenticated && (
             <div className="text-center mb-4">
-              <h2 className="text-2xl font-bold text-foreground">Global</h2>
+              <h2 className="text-2xl font-bold text-foreground font-bold">Global</h2>
             </div>
           )}
 
@@ -300,13 +341,10 @@ export function GameSelectionPage({
             </div>
           )}
 
-          {/* Mobile: Show intro message */}
+          {/* Mobile: Show only secondary message (first line is in fixed header) */}
           {!isDesktop && isAuthenticated && globalIntroMessage && (
-            <div className="text-center mb-6" data-testid="intro-message">
-              <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
-                {globalIntroMessage.firstLine}
-              </div>
-              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
+            <div className="text-center mb-6 min-h-[3rem] flex items-center justify-center" data-testid="intro-message">
+              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 line-clamp-2" data-testid="intro-second-line">
                 {globalIntroMessage.secondLine}
               </div>
             </div>
@@ -315,7 +353,6 @@ export function GameSelectionPage({
           <div className="flex flex-col items-stretch space-y-4 mt-1">
             {/* Play Today's Puzzle (Global) */}
             <motion.button
-              ref={playButtonRef}
               className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
               style={{ backgroundColor: "#7DAAE8" }}
               onClick={onPlayGame}
@@ -457,7 +494,7 @@ export function GameSelectionPage({
           {/* Desktop: Show "Local" title */}
           {isDesktop && isAuthenticated && (
             <div className="text-center mb-4">
-              <h2 className="text-2xl font-bold text-foreground">Local</h2>
+              <h2 className="text-2xl font-bold text-foreground font-bold">Local</h2>
             </div>
           )}
 
@@ -473,13 +510,10 @@ export function GameSelectionPage({
             </div>
           )}
 
-          {/* Mobile: Show intro message */}
+          {/* Mobile: Show only secondary message (first line is in fixed header) */}
           {!isDesktop && isAuthenticated && localIntroMessage && (
-            <div className="text-center mb-6" data-testid="intro-message-local">
-              <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2">
-                {localIntroMessage.firstLine}
-              </div>
-              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+            <div className="text-center mb-6 min-h-[3rem] flex items-center justify-center" data-testid="intro-message-local">
+              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400 line-clamp-2">
                 {localIntroMessage.secondLine}
               </div>
             </div>
@@ -575,68 +609,111 @@ export function GameSelectionPage({
 
   return (
     <div className="flex flex-col min-h-screen overflow-hidden">
-      {/* Fixed Header */}
-      <div className="flex-shrink-0 p-4">
-        <div className="max-w-md mx-auto w-full">
-          <div className="flex items-center justify-between mb-2">
-            <button
-              onClick={() => setShowHelp(true)}
-              data-testid="button-help"
-              className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
-              <img src={greyHelpIcon} alt="Help" className="h-9 w-9 block dark:hidden" />
-              <img src={whiteHelpIcon} alt="Help" className="h-9 w-9 hidden dark:block" />
-            </button>
+      {/* Mobile: Fixed Header with Welcome back text */}
+      {!isDesktop ? (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 shadow-sm">
+          <div className="p-4">
+            <div className="max-w-md mx-auto w-full">
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  onClick={() => setShowHelp(true)}
+                  data-testid="button-help"
+                  className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <img src={greyHelpIcon} alt="Help" className="h-9 w-9 block dark:hidden" />
+                  <img src={whiteHelpIcon} alt="Help" className="h-9 w-9 hidden dark:block" />
+                </button>
 
-            <h1 className="text-4xl sm:text-5xl font-bold text-foreground" data-testid="text-title">
-              Elementle
-            </h1>
+                <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-gray-100" data-testid="text-title">
+                  Elementle
+                </h1>
 
-            <button
-              onClick={onOpenSettings}
-              disabled={!onOpenSettings}
-              data-testid="button-settings"
-              className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
-            >
-              <img src={greyCogIcon} alt="Settings" className="h-9 w-9 block dark:hidden" />
-              <img src={whiteCogIcon} alt="Settings" className="h-9 w-9 hidden dark:block" />
-            </button>
-          </div>
+                <button
+                  onClick={onOpenSettings}
+                  disabled={!onOpenSettings}
+                  data-testid="button-settings"
+                  className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
+                >
+                  <img src={greyCogIcon} alt="Settings" className="h-9 w-9 block dark:hidden" />
+                  <img src={whiteCogIcon} alt="Settings" className="h-9 w-9 hidden dark:block" />
+                </button>
+              </div>
 
-          <div className="flex justify-end pr-2 mb-2">
-            {!isAuthenticated && (
-              <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
-                Login
-              </Button>
-            )}
-          </div>
+              <div className="flex justify-end pr-2 mb-2">
+                {!isAuthenticated && (
+                  <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
+                    Login
+                  </Button>
+                )}
+              </div>
 
-          {isAuthenticated && (
-            <>
-              {/* Mobile: Show toggle */}
-              {!isDesktop && (
-                <div className="flex justify-center mb-4">
-                  <ModeToggle onModeChange={(mode) => snapTo(mode)} />
-                </div>
-              )}
-
-              {/* Desktop: Show greeting */}
-              {isDesktop && (
-                <div className="flex justify-center mb-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-foreground">
-                      {getGreeting()}
+              {isAuthenticated && (
+                <>
+                  <div className="flex justify-center mb-4">
+                    <ModeToggle onModeChange={(mode) => snapTo(mode)} />
+                  </div>
+                  <div className="text-center mb-2">
+                    <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-fixed">
+                      Welcome back
                     </div>
                   </div>
-                </div>
+                </>
               )}
-            </>
-          )}
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* Desktop: Header (not fixed) */
+        <div className="flex-shrink-0 p-4">
+          <div className="max-w-md mx-auto w-full">
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => setShowHelp(true)}
+                data-testid="button-help"
+                className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <img src={greyHelpIcon} alt="Help" className="h-9 w-9 block dark:hidden" />
+                <img src={whiteHelpIcon} alt="Help" className="h-9 w-9 hidden dark:block" />
+              </button>
+
+              <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-gray-100" data-testid="text-title">
+                Elementle
+              </h1>
+
+              <button
+                onClick={onOpenSettings}
+                disabled={!onOpenSettings}
+                data-testid="button-settings"
+                className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
+              >
+                <img src={greyCogIcon} alt="Settings" className="h-9 w-9 block dark:hidden" />
+                <img src={whiteCogIcon} alt="Settings" className="h-9 w-9 hidden dark:block" />
+              </button>
+            </div>
+
+            <div className="flex justify-end pr-2 mb-2">
+              {!isAuthenticated && (
+                <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
+                  Login
+                </Button>
+              )}
+            </div>
+
+            {isAuthenticated && (
+              <div className="flex justify-center mb-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-foreground">
+                    {getGreeting()}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Sliding Viewport Container */}
-      <div className="flex-grow overflow-hidden relative">
+      <div className={`flex-grow overflow-hidden relative ${!isDesktop ? 'pt-[240px]' : ''}`} style={{minHeight: !isDesktop ? '100vh' : 'auto'}}>
         {isDesktop ? (
           /* Desktop: Side-by-side layout centered around middle */
           <div className="h-full w-full flex flex-col">
@@ -716,7 +793,7 @@ export function GameSelectionPage({
           </div>
         ) : (
           /* Mobile: Swipeable panes with floating Options button */
-          <div className="h-full w-full flex flex-col relative">
+          <div className="h-full w-full flex flex-col relative overflow-y-auto">
             {/* Swipeable Content */}
             <div 
               ref={(node) => {
@@ -733,7 +810,7 @@ export function GameSelectionPage({
                   }
                 }
               }}
-              className="flex-grow overflow-hidden"
+              className="flex-grow min-h-full"
               {...swipeProps}
             >
               <motion.div
@@ -769,7 +846,15 @@ export function GameSelectionPage({
                         right: '-0px',
                         x: buttonX
                       }}
-                      onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
+                      onClick={(e) => {
+                        // Only open dialog if displacement was below swipe threshold
+                        if (Math.abs(optionsButtonMaxDeltaXRef.current) <= SWIPE_THRESHOLD) {
+                          (gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal)();
+                        }
+                        // Reset for next interaction
+                        optionsButtonMaxDeltaXRef.current = 0;
+                      }}
+                      {...optionsButtonSwipeHandlers}
                       data-testid="button-options-mobile"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
