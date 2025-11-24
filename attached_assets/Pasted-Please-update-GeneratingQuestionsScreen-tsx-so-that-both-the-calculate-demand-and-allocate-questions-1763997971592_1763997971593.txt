@@ -1,0 +1,58 @@
+Please update GeneratingQuestionsScreen.tsx so that both the calculate-demand and allocate-questions fetch calls use the full Supabase Edge Function URL instead of /functions/v1/....
+
+Specifically:
+
+Use the SUPABASE_URL environment variable that is already set in Replit.
+
+Derive the function base URL by replacing .co with .functions.supabase.co. For example, if SUPABASE_URL=https://chhtmbrsxmdwwgrgsczd.supabase.co, then the function base URL should be https://chhtmbrsxmdwwgrgsczd.functions.supabase.co.
+
+Update the fetch calls to:
+
+ts
+const functionBaseUrl = process.env.SUPABASE_URL.replace(".co", ".functions.supabase.co");
+const demandResponse = await fetch(`${functionBaseUrl}/calculate-demand`, { … });
+const allocateResponse = await fetch(`${functionBaseUrl}/allocate-questions`, { … });
+Keep the Authorization: Bearer ${accessToken} header.
+
+Include user_id, region, and optionally today in the JSON body.
+
+Add logging of resp.status and await resp.text() for both calls so we can confirm they’re hitting the functions and returning JSON, not HTML.
+
+📋 Suggested implementation snippet
+ts
+const functionBaseUrl = process.env.SUPABASE_URL.replace(".co", ".functions.supabase.co");
+
+// Step 5: Call calculate-demand
+console.log("[GeneratingQuestions] Step 5: Calling calculate-demand...");
+const demandResponse = await fetch(`${functionBaseUrl}/calculate-demand`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  },
+  body: JSON.stringify({
+    user_id: userId,
+    region,
+    today: new Date().toISOString().slice(0, 10), // optional
+  }),
+});
+console.log("calculate-demand status:", demandResponse.status);
+console.log("calculate-demand body:", await demandResponse.text());
+
+// Step 6: Call allocate-questions
+console.log("[GeneratingQuestions] Step 6: Calling allocate-questions...");
+const allocateResponse = await fetch(`${functionBaseUrl}/allocate-questions`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  },
+  body: JSON.stringify({
+    user_id: userId,
+    region,
+    today: new Date().toISOString().slice(0, 10), // optional
+  }),
+});
+console.log("allocate-questions status:", allocateResponse.status);
+console.log("allocate-questions body:", await allocateResponse.text());
+👉 With this change, both calls will go to the correct Supabase Edge Function host, use your existing secrets, and give you real JSON responses instead of your app’s HTML shell

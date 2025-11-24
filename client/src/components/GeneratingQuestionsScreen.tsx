@@ -124,43 +124,20 @@ export function GeneratingQuestionsScreen({
         );
         console.log("[GeneratingQuestions] Total text items:", allTextItems.length);
 
-// Step 5: Call calculate-demand
-console.log("[GeneratingQuestions] Step 5: Calling calculate-demand...");
-const accessToken = session.access_token;
-if (!accessToken) throw new Error("No access token found");
+        // Get access token
+        const accessToken = session.access_token;
+        if (!accessToken) throw new Error("No access token found");
 
-try {
-  const demandResponse = await fetch("/functions/v1/calculate-demand", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      user_id: userId,
-      region: region,
-      today: new Date().toISOString().slice(0, 10), // optional, explicit YYYY-MM-DD
-    }),
-  });
+        // Derive function base URL from Supabase URL
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
+        if (!supabaseUrl) throw new Error("Supabase URL not available");
+        const functionBaseUrl = supabaseUrl.replace(".co", ".functions.supabase.co");
+        console.log("[GeneratingQuestions] Function base URL:", functionBaseUrl);
 
-  console.log("[GeneratingQuestions] calculate-demand status:", demandResponse.status);
-  const respText = await demandResponse.text();
-  console.log("[GeneratingQuestions] calculate-demand response body:", respText);
-
-  if (!demandResponse.ok) {
-    throw new Error(`calculate-demand returned ${demandResponse.status}`);
-  }
-
-  console.log("[GeneratingQuestions] calculate-demand complete");
-} catch (err) {
-  console.error("[GeneratingQuestions] calculate-demand failed:", err);
-}
-
-
-        // Step 6: Call allocate-questions
-        console.log("[GeneratingQuestions] Step 6: Calling allocate-questions...");
+        // Step 5: Call calculate-demand
+        console.log("[GeneratingQuestions] Step 5: Calling calculate-demand...");
         try {
-          const allocateResponse = await fetch("/functions/v1/allocate-questions", {
+          const demandResponse = await fetch(`${functionBaseUrl}/calculate-demand`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -169,11 +146,47 @@ try {
             body: JSON.stringify({
               user_id: userId,
               region: region,
+              today: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
             }),
           });
-          if (!allocateResponse.ok) {
-            throw new Error(`allocate-questions returned ${allocateResponse.status}`);
+
+          console.log("[GeneratingQuestions] calculate-demand status:", demandResponse.status);
+          const demandBody = await demandResponse.text();
+          console.log("[GeneratingQuestions] calculate-demand response body:", demandBody);
+
+          if (!demandResponse.ok) {
+            throw new Error(`calculate-demand returned ${demandResponse.status}: ${demandBody}`);
           }
+
+          console.log("[GeneratingQuestions] calculate-demand complete");
+        } catch (err) {
+          console.error("[GeneratingQuestions] calculate-demand failed:", err);
+        }
+
+        // Step 6: Call allocate-questions
+        console.log("[GeneratingQuestions] Step 6: Calling allocate-questions...");
+        try {
+          const allocateResponse = await fetch(`${functionBaseUrl}/allocate-questions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              user_id: userId,
+              region: region,
+              today: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
+            }),
+          });
+
+          console.log("[GeneratingQuestions] allocate-questions status:", allocateResponse.status);
+          const allocateBody = await allocateResponse.text();
+          console.log("[GeneratingQuestions] allocate-questions response body:", allocateBody);
+
+          if (!allocateResponse.ok) {
+            throw new Error(`allocate-questions returned ${allocateResponse.status}: ${allocateBody}`);
+          }
+
           console.log("[GeneratingQuestions] allocate-questions complete");
         } catch (err) {
           console.error("[GeneratingQuestions] allocate-questions failed:", err);
