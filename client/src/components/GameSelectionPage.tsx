@@ -71,6 +71,7 @@ export function GameSelectionPage({
   const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController();
   const [showHelp, setShowHelp] = useState(false);
   const playButtonRef = useRef<HTMLButtonElement>(null);
+  const optionsButtonRef = useRef<HTMLDivElement>(null);
 
   const isLocalMode = gameMode === 'local';
 
@@ -127,79 +128,45 @@ export function GameSelectionPage({
   });
 
   // Fetch Global stats
-  const { data: globalStats } = useQuery<any>({
+  const { data: globalStats = null } = useQuery<any>({
     queryKey: ['/api/stats'],
     queryFn: () => fetchAuthenticated('/api/stats'),
     enabled: isAuthenticated,
   });
 
-  // Fetch Local stats  
-  const { data: localStats } = useQuery<any>({
+  // Fetch Local stats
+  const { data: localStats = null } = useQuery<any>({
     queryKey: ['/api/user/stats'],
     queryFn: () => fetchAuthenticated('/api/user/stats'),
     enabled: isAuthenticated,
   });
 
-  // Fetch Global percentile (always enabled when authenticated)
-  const { data: globalPercentileData } = useQuery<any>({
+  // Fetch Global percentile
+  const { data: globalPercentileData = null } = useQuery<any>({
     queryKey: ['/api/stats/percentile'],
     queryFn: () => fetchAuthenticated('/api/stats/percentile'),
     enabled: isAuthenticated,
   });
 
-  // Fetch Local percentile (always enabled when authenticated)
-  const { data: localPercentileData } = useQuery<any>({
+  // Fetch Local percentile
+  const { data: localPercentileData = null } = useQuery<any>({
     queryKey: ['/api/user/stats/percentile'],
     queryFn: () => fetchAuthenticated('/api/user/stats/percentile'),
     enabled: isAuthenticated,
   });
 
-  // Helper function to compute play button status for a given set of attempts
-  const computePlayButtonStatus = (attempts: any[], puzzleId?: number) => {
-    if (!isAuthenticated || !puzzleId || !attempts) {
-      return { status: 'not-played' as const, count: 0 };
-    }
-
-    const todayAttempt = attempts.find(attempt => 
-      attempt.puzzleId === puzzleId && attempt.result !== null
-    );
-
-    if (todayAttempt) {
-      const isWin = todayAttempt.result === 'won' || todayAttempt.result === 'win';
-      const count = todayAttempt.numGuesses ?? 0;
-
-      return {
-        status: (isWin ? 'solved' : 'failed') as 'solved' | 'failed',
-        count
-      };
-    }
-
-    return { status: 'not-played' as const, count: 0 };
+  const computePlayButtonStatus = (attempts: any[], todayId?: number) => {
+    if (!todayId) return { status: 'not-played' as const };
+    const attempt = attempts.find((a) => a.puzzleId === todayId);
+    if (!attempt) return { status: 'not-played' as const };
+    if (attempt.result === 'won') return { status: 'solved' as const, count: attempt.numGuesses || 0 };
+    if (attempt.result === 'lost') return { status: 'failed' as const };
+    return { status: 'not-played' as const };
   };
-
-  // Auto-focus the Play button on mount instead of help icon
-  useEffect(() => {
-    playButtonRef.current?.focus();
-  }, []);
-
-  // NOTE: Old shared state effects removed - each pane now independently fetches and computes its own data
 
   const getFormattedDate = () => {
     const today = new Date();
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    const dayName = days[today.getDay()];
-    const date = today.getDate();
-    const month = months[today.getMonth()];
-
-    const getOrdinal = (n: number) => {
-      const s = ["th", "st", "nd", "rd"];
-      const v = n % 100;
-      return n + (s[(v - 20) % 10] || s[v] || s[0]);
-    };
-
-    return `${dayName} ${getOrdinal(date)} ${month}`;
+    return today.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   };
 
   const getGreeting = () => {
@@ -209,7 +176,21 @@ export function GameSelectionPage({
     return "Good evening";
   };
 
-  const swipeHandlers = useSwipeable({
+  // Separate swipe handlers for Options button (horizontal only)
+  const optionsSwipeHandlers = useSwipeable({
+    onSwipeStart: () => handleSwipeStart(),
+    onSwiping: (eventData) => handleSwiping(eventData.deltaX),
+    onSwiped: (eventData) => {
+      const velocity = eventData.velocity;
+      const direction = eventData.dir as 'Left' | 'Right';
+      handleSwiped(velocity, direction);
+    },
+    trackMouse: true,
+    preventScrollOnSwipe: false,
+  });
+
+  // Separate swipe handlers for content area (vertical scroll + horizontal swipe)
+  const contentSwipeHandlers = useSwipeable({
     onSwipeStart: () => handleSwipeStart(),
     onSwiping: (eventData) => handleSwiping(eventData.deltaX),
     onSwiped: (eventData) => {
@@ -221,8 +202,9 @@ export function GameSelectionPage({
     preventScrollOnSwipe: true,
   });
 
-  // Extract ref from swipeHandlers to avoid duplicate ref warning
-  const { ref: swipeRef, ...swipeProps } = swipeHandlers;
+  // Extract refs from swipeHandlers to avoid duplicate ref warning
+  const { ref: optionsSwipeRef, ...optionsSwipeProps } = optionsSwipeHandlers;
+  const { ref: contentSwipeRef, ...contentSwipeProps } = contentSwipeHandlers;
 
   // Render Global Pane
   const renderGlobalPane = () => {
@@ -288,6 +270,13 @@ export function GameSelectionPage({
             </div>
           )}
 
+          {/* Mobile: Show "Global" title */}
+          {!isDesktop && isAuthenticated && (
+            <div className="text-center mb-4">
+              <h2 className="text-2xl font-bold text-foreground">Global</h2>
+            </div>
+          )}
+
           {/* Desktop: Show intro message between title and buttons */}
           {isDesktop && isAuthenticated && globalIntroMessage && (
             <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-global">
@@ -300,13 +289,13 @@ export function GameSelectionPage({
             </div>
           )}
 
-          {/* Mobile: Show intro message */}
+          {/* Mobile: Show intro message - fixed to 2 lines height */}
           {!isDesktop && isAuthenticated && globalIntroMessage && (
-            <div className="text-center mb-6" data-testid="intro-message">
-              <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2" data-testid="intro-first-line">
-                {globalIntroMessage.firstLine}
+            <div className="text-center mb-6 h-[3.5rem] flex flex-col justify-center" data-testid="intro-message">
+              <div className="text-xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line">
+                Welcome back
               </div>
-              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
+              <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line">
                 {globalIntroMessage.secondLine}
               </div>
             </div>
@@ -323,6 +312,7 @@ export function GameSelectionPage({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
+              autoFocus={false}
             >
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">
@@ -352,6 +342,7 @@ export function GameSelectionPage({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
+              autoFocus={false}
             >
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">Archive</span>
@@ -380,6 +371,7 @@ export function GameSelectionPage({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
+                  autoFocus={false}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
                     Global Stats
@@ -420,8 +412,8 @@ export function GameSelectionPage({
         localIntroMessage = { firstLine: greeting, secondLine: streakMessage };
       } else {
         localIntroMessage = { 
-          firstLine: "Welcome back", 
-          secondLine: "Play your local puzzles" 
+          firstLine: "Play your local puzzles",
+          secondLine: "Continue your local streak" 
         };
       }
     }
@@ -461,6 +453,13 @@ export function GameSelectionPage({
             </div>
           )}
 
+          {/* Mobile: Show "Local" title */}
+          {!isDesktop && isAuthenticated && (
+            <div className="text-center mb-4">
+              <h2 className="text-2xl font-bold text-foreground">Local</h2>
+            </div>
+          )}
+
           {/* Desktop: Show intro message between title and buttons */}
           {isDesktop && isAuthenticated && localIntroMessage && (
             <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-local-desktop">
@@ -473,13 +472,10 @@ export function GameSelectionPage({
             </div>
           )}
 
-          {/* Mobile: Show intro message */}
+          {/* Mobile: Show intro message - fixed to 2 lines height, no firstLine on mobile */}
           {!isDesktop && isAuthenticated && localIntroMessage && (
-            <div className="text-center mb-6" data-testid="intro-message-local">
-              <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200 mb-2">
-                {localIntroMessage.firstLine}
-              </div>
-              <div className="text-lg sm:text-xl text-gray-600 dark:text-gray-400">
+            <div className="text-center mb-6 h-[3.5rem] flex flex-col justify-center" data-testid="intro-message-local">
+              <div className="text-base text-gray-600 dark:text-gray-400">
                 {localIntroMessage.secondLine}
               </div>
             </div>
@@ -495,6 +491,7 @@ export function GameSelectionPage({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut" }}
+              autoFocus={false}
             >
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">
@@ -524,6 +521,7 @@ export function GameSelectionPage({
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
+              autoFocus={false}
             >
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">Archive</span>
@@ -552,6 +550,7 @@ export function GameSelectionPage({
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
+                  autoFocus={false}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
                     Local Stats
@@ -575,20 +574,21 @@ export function GameSelectionPage({
 
   return (
     <div className="flex flex-col min-h-screen overflow-hidden">
-      {/* Fixed Header */}
-      <div className="flex-shrink-0 p-4">
+      {/* Fixed Header - Fixed on mobile, regular on desktop */}
+      <div className={isDesktop ? "flex-shrink-0 p-4" : "flex-shrink-0 p-4 bg-background border-b border-border/50"}>
         <div className="max-w-md mx-auto w-full">
           <div className="flex items-center justify-between mb-2">
             <button
               onClick={() => setShowHelp(true)}
               data-testid="button-help"
               className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              autoFocus={false}
             >
               <img src={greyHelpIcon} alt="Help" className="h-9 w-9 block dark:hidden" />
               <img src={whiteHelpIcon} alt="Help" className="h-9 w-9 hidden dark:block" />
             </button>
 
-            <h1 className="text-4xl sm:text-5xl font-bold text-foreground" data-testid="text-title">
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-gray-950" data-testid="text-title">
               Elementle
             </h1>
 
@@ -597,6 +597,7 @@ export function GameSelectionPage({
               disabled={!onOpenSettings}
               data-testid="button-settings"
               className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
+              autoFocus={false}
             >
               <img src={greyCogIcon} alt="Settings" className="h-9 w-9 block dark:hidden" />
               <img src={whiteCogIcon} alt="Settings" className="h-9 w-9 hidden dark:block" />
@@ -605,7 +606,7 @@ export function GameSelectionPage({
 
           <div className="flex justify-end pr-2 mb-2">
             {!isAuthenticated && (
-              <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
+              <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm" autoFocus={false}>
                 Login
               </Button>
             )}
@@ -664,6 +665,7 @@ export function GameSelectionPage({
                     data-testid="button-stats-desktop-global"
                     layout
                     transition={{ duration: 0.25 }}
+                    autoFocus={false}
                   >
                     <span className="text-xl font-bold text-gray-800 text-center">
                       Global Stats
@@ -682,6 +684,7 @@ export function GameSelectionPage({
                     data-testid="button-options-desktop"
                     layout
                     transition={{ duration: 0.25 }}
+                    autoFocus={false}
                   >
                     <span className="text-xl font-bold text-gray-800 text-center">
                       Options
@@ -700,6 +703,7 @@ export function GameSelectionPage({
                     data-testid="button-stats-desktop-local"
                     layout
                     transition={{ duration: 0.25 }}
+                    autoFocus={false}
                   >
                     <span className="text-xl font-bold text-gray-800 text-center">
                       Local Stats
@@ -715,26 +719,22 @@ export function GameSelectionPage({
             )}
           </div>
         ) : (
-          /* Mobile: Swipeable panes with floating Options button */
+          /* Mobile: Swipeable panes with separate gesture handling */
           <div className="h-full w-full flex flex-col relative">
-            {/* Swipeable Content */}
+            {/* Swipeable Content with vertical scroll support */}
             <div 
               ref={(node) => {
-                // Set containerRef from hook
-                if (containerRef && 'current' in containerRef) {
-                  (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-                }
-                // Set swipeRef
-                if (swipeRef) {
-                  if (typeof swipeRef === 'function') {
-                    swipeRef(node);
-                  } else if ('current' in swipeRef) {
-                    (swipeRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+                if (node) {
+                  if (containerRef && 'current' in containerRef) {
+                    (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+                  }
+                  if (typeof contentSwipeRef === 'function') {
+                    contentSwipeRef(node);
                   }
                 }
               }}
-              className="flex-grow overflow-hidden"
-              {...swipeProps}
+              className="flex-grow overflow-y-auto overflow-x-hidden"
+              {...contentSwipeProps}
             >
               <motion.div
                 className="flex h-full"
@@ -752,13 +752,16 @@ export function GameSelectionPage({
             </div>
 
             {/* Options button overlay - positioned at Stats row level, moves at half-speed */}
+            {/* Separate swipe handler for horizontal movement only */}
             {isAuthenticated && containerWidth > 0 && (
               <div 
+                ref={optionsButtonRef}
                 className="absolute left-0 right-0 pointer-events-none"
                 style={{
                   // Position at same vertical level as Stats row in document flow
                   top: '348px'
                 }}
+                {...optionsSwipeProps}
               >
                 <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
                   <div className="max-w-md mx-auto w-full relative h-40">
@@ -774,6 +777,7 @@ export function GameSelectionPage({
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
+                      autoFocus={false}
                     >
                       <span className="text-xl font-bold text-gray-800 text-center">
                         Options
