@@ -309,7 +309,7 @@ export function OTPVerificationScreen({
               <Button
                 onClick={handleVerifyCode}
                 disabled={loading || code.length !== 6}
-                className="w-full"
+                className={`w-full ${code.length === 6 && !loading ? "bg-blue-700 hover:bg-blue-800" : ""}`}
                 data-testid="button-verify-code"
               >
                 {loading ? "Verifying..." : "Verify Code"}

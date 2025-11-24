@@ -537,7 +537,16 @@ const handleSubmit = async (e: React.FormEvent) => {
             
             <Button 
               type="submit" 
-              className="w-full" 
+              className={`w-full ${
+                mode === "signup" && 
+                !loading && 
+                formData.firstName.trim() && 
+                formData.email.trim() && 
+                formData.password && 
+                formData.acceptedTerms
+                  ? "bg-blue-700 hover:bg-blue-800"
+                  : ""
+              }`}
               disabled={
                 loading || (
                   mode === "signup" && (
