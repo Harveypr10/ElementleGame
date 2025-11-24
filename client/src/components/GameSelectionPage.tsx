@@ -291,7 +291,7 @@ export function GameSelectionPage({
     }
 
     return (
-      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
+      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0 overflow-y-auto"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show "Global" title */}
           {isDesktop && isAuthenticated && (
@@ -308,6 +308,15 @@ export function GameSelectionPage({
               </div>
               <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-global">
                 {globalIntroMessage.secondLine}
+              </div>
+            </div>
+          )}
+
+          {/* Mobile: Performance message for Global pane - scrolls with content */}
+          {!isDesktop && performanceMessage && (
+            <div className="text-center mb-4 h-14 flex items-center justify-center" data-testid="intro-performance-global-mobile">
+              <div className="text-base text-gray-600 dark:text-gray-400 line-clamp-2">
+                {performanceMessage}
               </div>
             </div>
           )}
@@ -408,6 +417,19 @@ export function GameSelectionPage({
     const localStreak = localStats?.currentStreak || 0;
     const localPercentile = localPercentileData?.percentile ?? null;
 
+    // Compute Local performance message
+    let localPerformanceMessage = null;
+    if (isAuthenticated && localPlayStatus.status !== 'not-played') {
+      let percentileMessage = "Play the archive to boost your ranking";
+      if (localPercentile !== null) {
+        const roundedPercentile = Math.floor(localPercentile / 5) * 5;
+        if (localPercentile >= 50) {
+          percentileMessage = `You're in the top ${roundedPercentile}% of players - play the archive to boost your ranking`;
+        }
+      }
+      localPerformanceMessage = percentileMessage;
+    }
+
     // Compute Local play button content
     let playContentLocal;
     switch (localPlayStatus.status) {
@@ -434,7 +456,7 @@ export function GameSelectionPage({
     }
 
     return (
-      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
+      <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0 overflow-y-auto"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show "Local" title */}
           {isDesktop && isAuthenticated && (
@@ -450,6 +472,15 @@ export function GameSelectionPage({
                 Play your local puzzles
               </div>
               <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-local">
+              </div>
+            </div>
+          )}
+
+          {/* Mobile: Performance message for Local pane - scrolls with content */}
+          {!isDesktop && localPerformanceMessage && (
+            <div className="text-center mb-4 h-14 flex items-center justify-center" data-testid="intro-performance-local-mobile">
+              <div className="text-base text-gray-600 dark:text-gray-400 line-clamp-2">
+                {localPerformanceMessage}
               </div>
             </div>
           )}
@@ -602,28 +633,13 @@ export function GameSelectionPage({
                 </div>
               )}
 
-              {/* Welcome back message - only on mobile, fixed horizontally */}
+              {/* Mobile: Welcome back message - only on mobile, fixed in header */}
               {!isDesktop && (
-                <motion.div 
-                  className="text-center mb-2"
-                  style={{ y: contentY }}
-                >
+                <div className="text-center mb-2">
                   <div className="text-xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-welcome-back">
                     Welcome back
                   </div>
-                </motion.div>
-              )}
-
-              {/* Performance message - only on mobile, fixed horizontally, 2 lines height */}
-              {!isDesktop && gameMode === 'global' && (
-                <motion.div 
-                  className="text-center mb-2 h-14 flex items-center justify-center"
-                  style={{ y: contentY }}
-                >
-                  <div className="text-base text-gray-600 dark:text-gray-400 line-clamp-2" data-testid="intro-performance">
-                    You're in the top 50% of players - play the archive to boost your ranking
-                  </div>
-                </motion.div>
+                </div>
               )}
             </>
           )}
