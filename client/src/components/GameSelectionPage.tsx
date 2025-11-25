@@ -202,29 +202,28 @@ export function GameSelectionPage({
     return "Good evening";
   };
 
-  // Track the locked direction for the current swipe gesture
-  const [swipeDirection, setSwipeDirection] = useState<'horizontal' | 'vertical' | null>(null);
+  // Track the locked direction for the current swipe gesture using a ref for synchronous updates
+  const swipeDirectionRef = useRef<'horizontal' | 'vertical' | null>(null);
 
   const swipeHandlers = useSwipeable({
     onSwipeStart: () => {
       handleSwipeStart();
-      setSwipeDirection(null); // Reset direction lock at start of each gesture
+      swipeDirectionRef.current = null; // Reset direction lock at start of each gesture
     },
     onSwiping: (eventData) => {
       // Determine and lock direction on first significant movement
-      if (swipeDirection === null) {
+      if (swipeDirectionRef.current === null) {
         const absX = Math.abs(eventData.deltaX);
         const absY = Math.abs(eventData.deltaY);
         
-        // Only lock direction if there's meaningful movement
-        if (absX > 5 || absY > 5) {
-          const newDirection = absX > absY ? 'horizontal' : 'vertical';
-          setSwipeDirection(newDirection);
+        // Only lock direction if there's meaningful movement (threshold of 10px)
+        if (absX > 10 || absY > 10) {
+          swipeDirectionRef.current = absX > absY ? 'horizontal' : 'vertical';
         }
       }
 
       // Only apply horizontal movement if locked to horizontal
-      if (swipeDirection === 'horizontal') {
+      if (swipeDirectionRef.current === 'horizontal') {
         handleSwiping(eventData.deltaX);
       }
       // Vertical scrolling happens naturally when direction is vertical or null
@@ -234,12 +233,12 @@ export function GameSelectionPage({
       const direction = eventData.dir as 'Left' | 'Right' | 'Up' | 'Down';
       
       // Only handle horizontal swipes for pane switching
-      if (swipeDirection === 'horizontal' && (direction === 'Left' || direction === 'Right')) {
+      if (swipeDirectionRef.current === 'horizontal' && (direction === 'Left' || direction === 'Right')) {
         handleSwiped(velocity, direction);
       }
       
       // Reset direction lock
-      setSwipeDirection(null);
+      swipeDirectionRef.current = null;
     },
     trackMouse: true,
     preventScrollOnSwipe: false, // Allow vertical scrolling
