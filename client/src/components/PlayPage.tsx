@@ -1037,15 +1037,9 @@ export function PlayPage({
     );
   }
 
-  const animationVariant = fromArchive ? pageVariants.slideUp : pageVariants.fadeIn;
-
   return (
-    <motion.div 
+    <div 
       className="min-h-screen flex flex-col p-4"
-      initial={animationVariant.initial}
-      animate={animationVariant.animate}
-      exit={animationVariant.exit}
-      transition={pageTransition}
     >
       <div className="flex items-center justify-between mb-0">
         <button
@@ -1194,6 +1188,6 @@ export function PlayPage({
           onDismiss={() => setShowStreakCelebration(false)}
         />
       )}
-    </motion.div>
+    </div>
   );
 }
