@@ -127,6 +127,8 @@ useEffect(() => {
         console.error("[GeneratingQuestions] fetch titles failed", err);
       }
 
+// ===== Queue, selection helpers, spawn and scheduling (merged replacement) =====
+
 // Queue + selection helpers (declare together so nothing is referenced before it exists)
 const INITIAL_TITLES = 4;
 const eventTitlesAll = [...eventTitles]; // keep original list if needed
@@ -134,42 +136,40 @@ const eventTitlesAll = [...eventTitles]; // keep original list if needed
 // Core queue: initial reserved titles at the front, rest follow
 const streamQueue: string[] = eventTitlesAll.slice(0, INITIAL_TITLES).concat(eventTitlesAll.slice(INITIAL_TITLES));
 
-// Selection state and scheduling counters
+// Selection state and cell bookkeeping
 let initialConsumed = 0; // how many of the initial reserved titles we've shown
 const occupiedCells = new Set<number>();
 const lastPicks: number[] = [];
 const rowBlockCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0 };
 const baseTime = Date.now(); // used for scheduling future spawns
-let scheduledSpawns = 0; // explicit count of how many spawns we've scheduled/used
 
-      // Helper: pick and remove a random item from the queue (for non-initial items)
-      const popRandomFromQueue = (q: string[]) => {
-        if (!q || q.length === 0) return undefined;
-        const idx = Math.floor(Math.random() * q.length);
-        const [item] = q.splice(idx, 1);
-        return item;
-      };
+// Helper: pick and remove a random item from the queue (for non-initial items)
+const popRandomFromQueue = (q: string[]) => {
+  if (!q || q.length === 0) return undefined;
+  const idx = Math.floor(Math.random() * q.length);
+  const [item] = q.splice(idx, 1);
+  return item;
+};
 
-      // Helper: get the next text to show
-      // - If we still have reserved initial titles, return them in FIFO order (shift).
-      // - Otherwise return a random item from the remaining queue.
-      const popNextText = (q: string[]) => {
-        if (!q || q.length === 0) return undefined;
+// Helper: get the next text to show
+// - If we still have reserved initial titles, return them in FIFO order (shift).
+// - Otherwise return a random item from the remaining queue.
+const popNextText = (q: string[]) => {
+  if (!q || q.length === 0) return undefined;
 
-        // If there are still initial titles not yet consumed, return them FIFO
-        if (initialConsumed < INITIAL_TITLES && q.length > 0) {
-          const val = q.shift();
-          if (val !== undefined) {
-            initialConsumed++;
-            return val;
-          }
-          return undefined;
-        }
+  // If there are still initial titles not yet consumed, return them FIFO
+  if (initialConsumed < INITIAL_TITLES && q.length > 0) {
+    const val = q.shift();
+    if (val !== undefined) {
+      initialConsumed++;
+      return val;
+    }
+    return undefined;
+  }
 
-        // Otherwise pick randomly from the rest
-        return popRandomFromQueue(q);
-      };
-
+  // Otherwise pick randomly from the rest
+  return popRandomFromQueue(q);
+};
 
 // Helper: clamp a percentage to a safe 0–100 range
 const clampPct = (v: number) => Math.max(0, Math.min(100, Number.isFinite(v) ? v : 0));
@@ -181,187 +181,179 @@ const decrementRowBlocks = () => {
   }
 };
 
+// Helper: compute random position inside a cell, clamped so the block never overflows
+const computePositionInCell = (cellIndex: number) => {
+  const bounds = containerRef.current?.getBoundingClientRect();
+  const width = bounds?.width ?? window.innerWidth;
+  const height = bounds?.height ?? window.innerHeight;
 
-      // Helper: compute random position inside a cell, clamped so the block never overflows
-      const computePositionInCell = (cellIndex: number) => {
-        // Try to get container bounds; fall back to window size if not available
-        const bounds = containerRef.current?.getBoundingClientRect();
-        const width = bounds?.width ?? window.innerWidth;
-        const height = bounds?.height ?? window.innerHeight;
+  const cols = 2;
+  const rows = 3;
+  const col = cellIndex % cols;
+  const row = Math.floor(cellIndex / cols);
 
-        const cols = 2;
-        const rows = 3;
-        const col = cellIndex % cols;
-        const row = Math.floor(cellIndex / cols);
+  const cellWidth = width / cols;
+  const cellHeight = height / rows;
 
-        const cellWidth = width / cols;
-        const cellHeight = height / rows;
+  const EST_BLOCK_W = 160;
+  const EST_BLOCK_H = 48;
 
-        // Estimated rendered block size (px). Tune if you change maxWidth or font-size.
-        const EST_BLOCK_W = 160;
-        const EST_BLOCK_H = 48;
+  const padX = Math.min(24, cellWidth * 0.12);
+  const padY = Math.min(20, cellHeight * 0.12);
 
-        const padX = Math.min(24, cellWidth * 0.12);
-        const padY = Math.min(20, cellHeight * 0.12);
+  const leftPxMin = col * cellWidth + padX + EST_BLOCK_W / 2;
+  const leftPxMax = (col + 1) * cellWidth - padX - EST_BLOCK_W / 2;
+  const topPxMin = row * cellHeight + padY + EST_BLOCK_H / 2;
+  const topPxMax = (row + 1) * cellHeight - padY - EST_BLOCK_H / 2;
 
-        const leftPxMin = col * cellWidth + padX + EST_BLOCK_W / 2;
-        const leftPxMax = (col + 1) * cellWidth - padX - EST_BLOCK_W / 2;
-        const topPxMin = row * cellHeight + padY + EST_BLOCK_H / 2;
-        const topPxMax = (row + 1) * cellHeight - padY - EST_BLOCK_H / 2;
+  const safeLeftPx =
+    leftPxMax > leftPxMin ? leftPxMin + Math.random() * (leftPxMax - leftPxMin) : col * cellWidth + cellWidth / 2;
+  const safeTopPx =
+    topPxMax > topPxMin ? topPxMin + Math.random() * (topPxMax - topPxMin) : row * cellHeight + cellHeight / 2;
 
-        const safeLeftPx =
-          leftPxMax > leftPxMin ? leftPxMin + Math.random() * (leftPxMax - leftPxMin) : col * cellWidth + cellWidth / 2;
-        const safeTopPx =
-          topPxMax > topPxMin ? topPxMin + Math.random() * (topPxMax - topPxMin) : row * cellHeight + cellHeight / 2;
+  const leftPct = (safeLeftPx / width) * 100;
+  const topPct = (safeTopPx / height) * 100;
 
-        const leftPct = (safeLeftPx / width) * 100;
-        const topPct = (safeTopPx / height) * 100;
+  return { topPct, leftPct };
+};
 
-        return { topPct, leftPct };
-      };
+// pickNextCell (keeps row/lastPick/occupied logic)
+const pickNextCell = (): number | null => {
+  decrementRowBlocks();
 
+  const all = Array.from({ length: MAX_CELLS }, (_, i) => i);
+  let candidates = all.filter((i) => !occupiedCells.has(i) && !lastPicks.includes(i) && rowBlockCounts[rowOf(i)] === 0);
+  if (candidates.length === 0) candidates = all.filter((i) => !occupiedCells.has(i) && rowBlockCounts[rowOf(i)] === 0);
+  if (candidates.length === 0) candidates = all.filter((i) => !occupiedCells.has(i) && !lastPicks.includes(i));
+  if (candidates.length === 0) candidates = all.filter((i) => !occupiedCells.has(i));
+  if (candidates.length === 0) return null;
 
+  const choice = candidates[Math.floor(Math.random() * candidates.length)];
+  lastPicks.push(choice);
+  if (lastPicks.length > 3) lastPicks.shift();
+  rowBlockCounts[rowOf(choice)] = 3;
+  return choice;
+};
 
-      const pickNextCell = (): number | null => {
-        decrementRowBlocks();
-        const all = Array.from({ length: MAX_CELLS }, (_, i) => i);
-        let candidates = all.filter((i) => !occupiedCells.has(i) && !lastPicks.includes(i) && rowBlockCounts[rowOf(i)] === 0);
-        if (candidates.length === 0) candidates = all.filter((i) => !occupiedCells.has(i) && rowBlockCounts[rowOf(i)] === 0);
-        if (candidates.length === 0) candidates = all.filter((i) => !occupiedCells.has(i) && !lastPicks.includes(i));
-        if (candidates.length === 0) candidates = all.filter((i) => !occupiedCells.has(i));
-        if (candidates.length === 0) return null;
-        const choice = candidates[Math.floor(Math.random() * candidates.length)];
-        lastPicks.push(choice);
-        if (lastPicks.length > 3) lastPicks.shift();
-        rowBlockCounts[rowOf(choice)] = 3;
-        return choice;
-      };
-      
-      const spawnIntoCell = (cellIndex: number, text: string) => {
-        const pos = computePositionInCell(cellIndex);
-        if (!pos) {
-          console.warn("[GeneratingQuestions] spawnIntoCell: no position available for cell", cellIndex, "text:", text);
-          return false;
-        }
+// ===== spawnIntoCell (atomic reservation) =====
+const spawnIntoCell = (cellIndex: number, text: string) => {
+  // Reserve the cell immediately to avoid races
+  if (occupiedCells.has(cellIndex)) return false;
+  occupiedCells.add(cellIndex);
 
-        const id = `${Date.now()}-${cellIndex}`;
-        occupiedCells.add(cellIndex);
-        const spawnTime = Date.now();
+  const pos = computePositionInCell(cellIndex);
+  if (!pos) {
+    // Could not compute a safe position; release reservation and fail
+    occupiedCells.delete(cellIndex);
+    console.warn("[GeneratingQuestions] spawnIntoCell: no position available for cell", cellIndex, "text:", text);
+    return false;
+  }
 
-        console.log("[GeneratingQuestions] spawnIntoCell", cellIndex, id, text);
+  const id = `${Date.now()}-${cellIndex}`;
+  const spawnTime = Date.now();
 
-        setTextBlocks((prev) => [
-          ...prev,
-          { id, text, top: clampPct(pos.topPct), left: clampPct(pos.leftPct), opacity: 0, spawnTime },
-        ]);
+  console.log("[GeneratingQuestions] spawnIntoCell", cellIndex, id, text);
 
-        const removeId = window.setTimeout(() => {
-          if (!mountedRef.current) return;
-          setTextBlocks((prev) => prev.filter((b) => b.id !== id));
-          occupiedCells.delete(cellIndex);
-          // Free up a scheduled spawn slot when a block is removed
-          scheduledSpawns = Math.max(0, scheduledSpawns - 1);
-          console.log("[GeneratingQuestions] removed block", id, "freed cell", cellIndex, "scheduledSpawns =", scheduledSpawns);
-        }, TEXT_LIFETIME);
+  setTextBlocks((prev) => [
+    ...prev,
+    { id, text, top: clampPct(pos.topPct), left: clampPct(pos.leftPct), opacity: 0, spawnTime },
+  ]);
 
+  const removeId = window.setTimeout(() => {
+    if (!mountedRef.current) return;
+    setTextBlocks((prev) => prev.filter((b) => b.id !== id));
+    occupiedCells.delete(cellIndex);
+    console.log("[GeneratingQuestions] removed block", id, "freed cell", cellIndex);
+  }, TEXT_LIFETIME);
 
-        spawnTimeouts.push(removeId);
-        return true;
-      };
+  spawnTimeouts.push(removeId);
+  return true;
+};
 
+// ===== immediatePick + delayed interval start (single paced producer) =====
 
-      // Immediate first pick then interval
-      const immediatePick = () => {
-        const first = pickNextCell();
-        if (first !== null && streamQueue.length > 0) {
-          const text = popNextText(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
+// Immediate first pick (single immediate spawn) — do not claim scheduled slots here
+const immediatePick = () => {
+  const first = pickNextCell();
+  if (first !== null && streamQueue.length > 0) {
+    const text = popNextText(streamQueue) ?? (eventTitlesAll.length ? eventTitlesAll[Math.floor(Math.random() * eventTitlesAll.length)] : "...");
+    const ok = spawnIntoCell(first, text);
+    if (!ok) streamQueue.unshift(text);
+    if (ok) {
+      console.log("[GeneratingQuestions] immediate spawn ok; streamQueue.length =", streamQueue.length);
+    }
+  }
+};
 
-          const ok = spawnIntoCell(first, text);
-          if (!ok) streamQueue.unshift(text);
-          if (ok) {
-            console.log("[GeneratingQuestions] immediate spawn ok; streamQueue.length =", streamQueue.length);
-          }
-        }
-      };
+// Do an immediate pick to fill one free cell now
+immediatePick();
 
-      // Do an immediate pick to fill one free cell now
-      immediatePick();
+// Delay starting the regular interval by one INTERVAL_MS so the immediate pick(s)
+// don't race with the first interval tick and cause a burst at startup.
+const startSpawnInterval = () => {
+  spawnInterval = window.setInterval(() => {
+    if (!mountedRef.current) return;
 
-      // Delay starting the regular interval by one INTERVAL_MS so the immediate pick(s)
-      // don't race with the first interval tick and cause a burst at startup.
-      const startSpawnInterval = () => {
-        spawnInterval = window.setInterval(() => {
-          if (!mountedRef.current) return;
+    const next = pickNextCell();
+    if (next === null) return;
 
-          const next = pickNextCell();
-          if (next === null) return;
+    const text = popNextText(streamQueue) ?? (eventTitlesAll.length ? eventTitlesAll[Math.floor(Math.random() * eventTitlesAll.length)] : "...");
+    if (!text) return;
 
-          const text = popNextText(streamQueue) ?? (eventTitlesAll.length ? eventTitlesAll[Math.floor(Math.random() * eventTitlesAll.length)] : "...");
-          if (!text) return;
+    const ok = spawnIntoCell(next, text);
+    if (!ok) {
+      // put it back if spawn failed
+      streamQueue.unshift(text);
+    }
+  }, INTERVAL_MS);
+};
 
-          const ok = spawnIntoCell(next, text);
-          if (!ok) {
-            // put it back if spawn failed
-            streamQueue.unshift(text);
-          }
-        }, INTERVAL_MS);
-      };
+// Start the interval after one INTERVAL_MS (push the timeout id into spawnTimeouts so cleanup clears it)
+const initialIntervalTimeout = window.setTimeout(() => {
+  if (!mountedRef.current) return;
+  startSpawnInterval();
+}, INTERVAL_MS);
+spawnTimeouts.push(initialIntervalTimeout);
 
-      // Start the interval after one INTERVAL_MS (push the timeout id into spawnTimeouts so cleanup clears it)
-      const initialIntervalTimeout = window.setTimeout(() => {
-        if (!mountedRef.current) return;
-        startSpawnInterval();
-      }, INTERVAL_MS);
-      spawnTimeouts.push(initialIntervalTimeout);
+// Step 2: Poll location_allocation until rows exist
+console.log("[GeneratingQuestions] Step 2: Polling for location allocation with user_id:", userId);
 
+// Declare locations here so Step 3 can reference it in the same scope
+let locations: Array<{ location_id: string; score: number }> = [];
 
-
-      // ---------- Insert here (after initial spawn scheduling, before finishTimeout) ----------
-      try {
-        console.log("[GeneratingQuestions] Step 1c: Populating user locations...");
-        await supabase.rpc("populate_user_locations", {
-          p_user_id: userId,
-          p_postcode: postcode,
-        });
-        console.log("[GeneratingQuestions] populate_user_locations complete");
-      } catch (err) {
-        console.error("[GeneratingQuestions] populate_user_locations failed:", err);
-        // continue — animation should not be blocked
-      }
-
-      // Step 2: Poll location_allocation until rows exist
-      console.log("[GeneratingQuestions] Step 2: Polling for location allocation with user_id:", userId);
-      let locations: Array<{ location_id: string; score: number }> = [];
-      for (let i = 0; i < 20; i++) {
-        try {
-          const { data, error } = await supabase
-            .from("location_allocation")
-            .select("location_id, score")
-            .eq("user_id", userId)
-            .order("score", { ascending: false });
-
-          if (error) {
-            console.error("[GeneratingQuestions] Step 2 Poll query error:", error);
-          }
-
-          if (data && data.length > 0) {
-            locations = data as Array<{ location_id: string; score: number }>;
-            console.log("[GeneratingQuestions] Step 2 Poll SUCCESS - found", locations.length, "locations");
-            break;
-          } else {
-            console.log(`[GeneratingQuestions] Step 2 Poll attempt ${i + 1} - no data yet`);
-          }
-        } catch (pollErr) {
-          console.error("[GeneratingQuestions] Step 2 Poll attempt failed:", pollErr);
-        }
-        await new Promise((r) => setTimeout(r, 500));
-      }
-
-// Step 3: Fetch location names and show them (insert into queue + fill free cells)
-console.log("[GeneratingQuestions] Step 3: Fetching location names...");
-if (locations.length > 0) {
+for (let i = 0; i < 20; i++) {
   try {
-    const locationIds = locations.map((l) => l.location_id);
+    const { data, error } = await supabase
+      .from("location_allocation")
+      .select("location_id, score")
+      .eq("user_id", userId)
+      .order("score", { ascending: false });
+
+    if (error) {
+      console.error("[GeneratingQuestions] Step 2 Poll query error:", error);
+    }
+
+    if (data && data.length > 0) {
+      locations = data as Array<{ location_id: string; score: number }>;
+      console.log("[GeneratingQuestions] Step 2 Poll SUCCESS - found", locations.length, "locations");
+      break;
+    } else {
+      console.log(`[GeneratingQuestions] Step 2 Poll attempt ${i + 1} - no data yet`);
+    }
+  } catch (pollErr) {
+    console.error("[GeneratingQuestions] Step 2 Poll attempt failed:", pollErr);
+  }
+  await new Promise((r) => setTimeout(r, 500));
+}
+
+// ===== Step 3: Fetch location names and insert into queue only (Option B) =====
+console.log("[GeneratingQuestions] Step 3: Fetching location names...");
+
+// Guard: only proceed if `locations` is an array with items
+if (Array.isArray(locations) && locations.length > 0) {
+  try {
+    const locationIds = (locations as Array<{ location_id: string; score: number }>).map((l) => l.location_id);
+
     const { data: locData, error: locErr } = await supabase
       .from("populated_places")
       .select("id, name1")
@@ -372,7 +364,8 @@ if (locations.length > 0) {
     }
 
     if (locData && locData.length > 0) {
-      const locationNames = locData.map((l: any) => (l.name1 ?? l.id) + "...");
+      const locationRows = locData as Array<{ id: string; name1?: string }>;
+      const locationNames = locationRows.map((row) => (row.name1 ?? row.id) + "...");
       console.log("[GeneratingQuestions] Step 3 Location names:", locationNames.slice(0, 3));
 
       // Put locations near the front so they appear soon, but after any remaining initial titles
@@ -383,19 +376,29 @@ if (locations.length > 0) {
       streamQueue.splice(insertIndex, 0, ...shuffled);
       console.log("[GeneratingQuestions] inserted locationNames at index", insertIndex, "streamQueue length:", streamQueue.length);
 
+      // Optional: ensure place names occupy at least half of the queue
+      // (This may duplicate place names if there are fewer unique locations than needed)
+      const desiredLocations = Math.floor(streamQueue.length / 2);
+      let currentLocationCount = streamQueue.filter((t) => locationNames.includes(t)).length;
+      let sampleIndex = 0;
+      while (currentLocationCount < desiredLocations && shuffled.length > 0) {
+        const sample = shuffled[sampleIndex % shuffled.length];
+        streamQueue.splice(insertIndex + currentLocationCount, 0, sample);
+        currentLocationCount++;
+        sampleIndex++;
+      }
+
       // Do not fill free cells immediately here. The interval producer will consume streamQueue at a steady INTERVAL_MS pace.
       // This prevents bursts at startup and ensures locations are shown interleaved with events.
-
-      // (end of Step 3 success branch)
-      } else {
-        console.log("[GeneratingQuestions] Step 3 Query returned no populated_places rows");
-      }
-      } catch (err) {
-        console.error("[GeneratingQuestions] Step 3 Fetch location names failed:", err);
-      }
-      } else {
-        console.log("[GeneratingQuestions] Step 3 Skipped - no locations");
-      }
+    } else {
+      console.log("[GeneratingQuestions] Step 3 Query returned no populated_places rows");
+    }
+  } catch (err) {
+    console.error("[GeneratingQuestions] Step 3 Fetch location names failed:", err);
+  }
+} else {
+  console.log("[GeneratingQuestions] Step 3 Skipped - no locations");
+}
 
 
       // Derive function base URL for edge functions
