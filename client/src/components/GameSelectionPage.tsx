@@ -822,8 +822,7 @@ export function GameSelectionPage({
                       className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
                       style={{ 
                         backgroundColor: "#C4C9D4",
-                        right: '-0px',
-                        x: buttonX
+                        right: '-0px'
                       }}
                       onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
                       data-testid="button-options-mobile"
