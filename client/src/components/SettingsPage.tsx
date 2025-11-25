@@ -96,12 +96,8 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   };
 
   return (
-    <motion.div 
+    <div 
       className="min-h-screen flex flex-col p-4"
-      initial={pageVariants.slideDown.initial}
-      animate={pageVariants.slideDown.animate}
-      exit={pageVariants.slideDown.exit}
-      transition={pageTransition}
     >
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
@@ -133,9 +129,6 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
                 <item.icon className="h-5 w-5 text-muted-foreground" />
                 <div className="text-left">
                   <div className="font-medium">{item.label}</div>
-                  {item.description && (
-                    <div className="text-sm text-muted-foreground">{item.description}</div>
-                  )}
                 </div>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -155,6 +148,6 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
           </Button>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

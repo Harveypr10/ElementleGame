@@ -367,7 +367,7 @@ export default function Home() {
         )}
 
         {currentScreen === "settings" && (
-          <motion.div key="settings" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+          <motion.div key="settings" className="absolute w-full top-0 left-0" {...pageVariants.slideDown} transition={pageTransition}>
             <SettingsPage 
               onBack={() => setCurrentScreen("selection")}
               onOpenOptions={() => {

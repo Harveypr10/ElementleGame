@@ -305,12 +305,8 @@ return (
       onComplete={() => setShowGenerating(false)}
     />
   ) : (
-    <motion.div
+    <div
       className="min-h-screen flex flex-col p-4"
-      initial={pageVariants.slideRight.initial}
-      animate={pageVariants.slideRight.animate}
-      exit={pageVariants.slideRight.exit}
-      transition={pageTransition}
     >
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
@@ -445,7 +441,7 @@ return (
           </p>
         )}
       </div>
-    </motion.div>
+    </div>
   )
 );
 }
