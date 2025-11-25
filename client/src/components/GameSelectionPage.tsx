@@ -823,7 +823,8 @@ export function GameSelectionPage({
                       style={{ 
                         backgroundColor: "#C4C9D4",
                         right: '-0px',
-                        x: buttonX
+                        x: buttonX,
+                        touchAction: 'pan-y'
                       }}
                       onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
                       data-testid="button-options-mobile"
