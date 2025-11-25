@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
+import welcomeHamsterGrey from "@assets/Welcome-Hamster-Grey.svg";
 
 interface IntroScreenProps {
   puzzleDateCanonical: string; // YYYY-MM-DD format
@@ -40,12 +40,13 @@ export function IntroScreen({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="fixed inset-0 bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4 z-50"
+      className="fixed inset-0 flex flex-col items-center justify-center p-4 z-50"
+      style={{ backgroundColor: '#FAFAFA' }}
     >
       <div className="flex flex-col items-center justify-center max-w-md w-full space-y-6">
         {/* Hamster Image */}
         <img
-          src={historianHamsterBlue}
+          src={welcomeHamsterGrey}
           alt="Welcome"
           className="h-32 w-auto object-contain"
           data-testid="img-hamster-intro"
