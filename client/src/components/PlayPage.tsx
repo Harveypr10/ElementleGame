@@ -4,6 +4,7 @@ import { NumericKeyboard, type KeyState } from "./NumericKeyboard";
 import { EndGameModal } from "./EndGameModal";
 import { HelpDialog } from "./HelpDialog";
 import { StreakCelebrationPopup } from "./StreakCelebrationPopup";
+import { IntroScreen } from "./IntroScreen";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -129,6 +130,8 @@ export function PlayPage({
   const [showEndModal, setShowEndModal] = useState(false);
   const [lockedDigits, setLockedDigits] = useState<string | null>(null);
   const [digitsCheckComplete, setDigitsCheckComplete] = useState(false);
+  const [showIntroScreen, setShowIntroScreen] = useState(false);
+  const [introScreenReady, setIntroScreenReady] = useState(false);
 
   // Use locked digits if available, otherwise use user's current preference
   const activeNumDigits = lockedDigits ? parseInt(lockedDigits) : numDigits;
@@ -189,6 +192,8 @@ export function PlayPage({
     setShowEndModal(false);
     setLockedDigits(null);
     setDigitsCheckComplete(false);
+    setShowIntroScreen(false);
+    setIntroScreenReady(false);
   }, [answerDateCanonical]);
 
   // Check if puzzle is already completed and redirect if needed
@@ -546,6 +551,47 @@ export function PlayPage({
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat]);
+
+  // Check if we should show the intro screen (new game with no guesses)
+  useEffect(() => {
+    if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !showIntroScreen) {
+      setShowIntroScreen(true);
+      setIntroScreenReady(true);
+    }
+  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, showIntroScreen]);
+
+  // Helper function to format date for intro display
+  const formatDateForIntro = (dateCanonical: string): string => {
+    // dateCanonical is in YYYY-MM-DD format
+    const [year, month, day] = dateCanonical.split('-');
+    const date = new Date(dateCanonical + 'T00:00:00Z'); // Add time to avoid timezone issues
+    
+    const dayNum = parseInt(day, 10);
+    const monthNum = parseInt(month, 10);
+    
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthName = monthNames[monthNum - 1];
+    
+    const getOrdinal = (n: number) => {
+      if (n > 3 && n < 21) return 'th';
+      switch (n % 10) {
+        case 1: return 'st';
+        case 2: return 'nd';
+        case 3: return 'rd';
+        default: return 'th';
+      }
+    };
+    
+    // Format based on user's date preference
+    if (dateFormat.startsWith('dd')) {
+      // DD/MM/YY -> "25th November 2025"
+      return `${dayNum}${getOrdinal(dayNum)} ${monthName} ${year}`;
+    } else {
+      // MM/DD/YY -> "November 25, 2025"
+      return `${monthName} ${dayNum}, ${year}`;
+    }
+  };
   
   // Helper function to calculate feedback without updating state
   const calculateFeedbackForGuess = (guess: string, currentKeyStates: Record<string, KeyState>, targetAnswer?: string): CellFeedback[] => {
@@ -1034,6 +1080,21 @@ export function PlayPage({
           <div className="text-muted-foreground">Preparing your game</div>
         </div>
       </div>
+    );
+  }
+
+  // Show intro screen for new games with no guesses
+  if (showIntroScreen && introScreenReady) {
+    return (
+      <IntroScreen
+        puzzleDateCanonical={answerDateCanonical}
+        eventTitle={eventTitle}
+        hasCluesEnabled={cluesEnabled}
+        isLocalMode={isLocalMode}
+        onPlayClick={() => setShowIntroScreen(false)}
+        onBackClick={onBack}
+        formatDateForDisplay={formatDateForIntro}
+      />
     );
   }
 
