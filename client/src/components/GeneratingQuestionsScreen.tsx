@@ -287,28 +287,24 @@ const decrementRowBlocks = () => {
 
       immediatePick();
 
+      // Single paced producer: every INTERVAL_MS pick a free cell and spawn the next queue item
       spawnInterval = window.setInterval(() => {
         if (!mountedRef.current) return;
 
-        const next = pickNextCell();
-        if (next === null) return;
+        // pick a free cell at spawn time
+        const nextCell = pickNextCell();
+        if (nextCell === null) return;
 
-        let text = popNextText(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
+        // pick next text respecting initial reserved titles
+        const text = popNextText(streamQueue) ?? (eventTitlesAll.length ? eventTitlesAll[Math.floor(Math.random() * eventTitlesAll.length)] : "...");
+        if (!text) return;
 
-
-        if (!text) {
-          text = eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...";
-        }
-
-        const ok = spawnIntoCell(next, text);
-        if (!ok) streamQueue.unshift(text);
-
-        if (ok) {
-          scheduledSpawns++;
-          console.log("[GeneratingQuestions] scheduledSpawns =", scheduledSpawns, "streamQueue.length =", streamQueue.length);
+        const ok = spawnIntoCell(nextCell, text);
+        if (!ok) {
+          // If spawn failed (e.g., computePositionInCell returned null), put text back at front
+          streamQueue.unshift(text);
         }
       }, INTERVAL_MS);
-
 
 
       // ---------- Insert here (after initial spawn scheduling, before finishTimeout) ----------
@@ -352,7 +348,7 @@ const decrementRowBlocks = () => {
         await new Promise((r) => setTimeout(r, 500));
       }
 
-// Step 3: Fetch location names and show them (prepend + immediate spawn + schedule)
+// Step 3: Fetch location names and show them (insert into queue + fill free cells)
 console.log("[GeneratingQuestions] Step 3: Fetching location names...");
 if (locations.length > 0) {
   try {
@@ -370,89 +366,39 @@ if (locations.length > 0) {
       const locationNames = locData.map((l: any) => (l.name1 ?? l.id) + "...");
       console.log("[GeneratingQuestions] Step 3 Location names:", locationNames.slice(0, 3));
 
-// Put locations near the front so they appear soon, but after any remaining initial titles
-const shuffled = locationNames.sort(() => Math.random() - 0.5);
+      // Put locations near the front so they appear soon, but after any remaining initial titles
+      const shuffled = locationNames.sort(() => Math.random() - 0.5);
 
-// Insert locations after any remaining initial reserved titles so they appear soon but don't replace the opening titles
-const insertIndex = Math.max(0, INITIAL_TITLES - initialConsumed);
-streamQueue.splice(insertIndex, 0, ...shuffled);
-console.log("[GeneratingQuestions] inserted locationNames at index", insertIndex, "streamQueue length:", streamQueue.length);
+      // Insert locations after any remaining initial reserved titles so they appear soon but don't replace the opening titles
+      const insertIndex = Math.max(0, INITIAL_TITLES - initialConsumed);
+      streamQueue.splice(insertIndex, 0, ...shuffled);
+      console.log("[GeneratingQuestions] inserted locationNames at index", insertIndex, "streamQueue length:", streamQueue.length);
 
-// Try to show locations immediately in any free cells, but stagger to avoid a visual burst
-let immediateCount = 0;
-for (let i = 0; i < shuffled.length && immediateCount < MAX_CELLS; i++) {
-  // pick a free cell now
-  const freeCell = pickNextCell();
-  if (freeCell === null) break;
-  const name = shuffled[i];
+      // Fill any currently free cells immediately, but only up to MAX_CELLS and only for currently free cells.
+      // This avoids scheduling many timeouts and prevents bursts. The interval will continue pacing further spawns.
+      const fillFreeCells = () => {
+        for (let i = 0; i < MAX_CELLS; i++) {
+          const freeCell = pickNextCell();
+          if (freeCell === null) break;
 
-  // schedule a small stagger so they don't all appear in the same tick
-  const delayMs = i * 200; // 200ms between immediate spawns (tune as needed)
-  const spawnTimeout = window.setTimeout(() => {
-    if (!mountedRef.current) return;
-    const ok = spawnIntoCell(freeCell, name);
-    if (ok) {
-      if (scheduledSpawns < MAX_CELLS) {
-        scheduledSpawns++;
-      } else {
-        console.warn("[GeneratingQuestions] attempted to reserve more than MAX_CELLS spawn slots");
-      }
-      console.log("[GeneratingQuestions] immediately spawned location into cell", freeCell, name);
+          const nextText =
+            popNextText(streamQueue) ??
+            (eventTitlesAll.length ? eventTitlesAll[Math.floor(Math.random() * eventTitlesAll.length)] : "...");
+          if (!nextText) break;
+
+          const ok = spawnIntoCell(freeCell, nextText);
+          if (!ok) {
+            // If spawn failed, put it back and stop filling to avoid tight loops
+            streamQueue.unshift(nextText);
+            break;
+          }
+        }
+      };
+
+      // Call fill once to populate any currently free cells; the interval will continue pacing further spawns
+      fillFreeCells();
     } else {
-      // if spawn failed, put it back into the front of the queue
-      streamQueue.unshift(name);
-    }
-  }, delayMs);
-
-  // track the timeout so cleanup clears it
-  spawnTimeouts.push(spawnTimeout);
-  immediateCount++;
-}
-
-      // Schedule any remaining cells (use same baseTime and INTERVAL_MS logic)
-      const scheduledCount = scheduledSpawns;
-      const totalToSchedule = Math.min(MAX_CELLS, streamQueue.length);
-
-      for (let idxToSchedule = scheduledCount; idxToSchedule < totalToSchedule; idxToSchedule++) {
-        const spawnAt = baseTime + idxToSchedule * INTERVAL_MS;
-
-        // Capture the text to show at schedule time (respect initial reserved titles first)
-        const chosenText = popNextText(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
-
-        const timeoutId = window.setTimeout(() => {
-          if (!mountedRef?.current) return;
-          const pos = computePositionInCell(idxToSchedule);
-          if (!pos) return;
-          const id = `${spawnAt}-${idxToSchedule}`;
-          setTextBlocks((prev) => [
-            ...prev,
-            {
-              id,
-              text: chosenText,
-              top: clampPct(pos.topPct),
-              left: clampPct(pos.leftPct),
-              opacity: 0,
-              spawnTime: spawnAt,
-            },
-          ]);
-          // removal
-          const removeId = window.setTimeout(() => {
-            if (!mountedRef?.current) return;
-            setTextBlocks((prev) => prev.filter((b) => b.id !== id));
-            // Free up a scheduled spawn slot when a block is removed
-            scheduledSpawns = Math.max(0, scheduledSpawns - 1);
-            console.log("[GeneratingQuestions] scheduled removal of", id, "scheduledSpawns =", scheduledSpawns);
-          }, TEXT_LIFETIME);
-
-          spawnTimeouts.push(removeId);
-        }, Math.max(0, spawnAt - Date.now()));
-
-        // reserve this spawn slot
-        scheduledSpawns++;
-        spawnTimeouts.push(timeoutId);
-      }
-    } else {
-      console.log("[GeneratingQuestions] Step 3 Query returned no locations");
+      console.log("[GeneratingQuestions] Step 3 Query returned no populated_places rows");
     }
   } catch (err) {
     console.error("[GeneratingQuestions] Step 3 Fetch location names failed:", err);
@@ -460,6 +406,7 @@ for (let i = 0; i < shuffled.length && immediateCount < MAX_CELLS; i++) {
 } else {
   console.log("[GeneratingQuestions] Step 3 Skipped - no locations");
 }
+
 
 
       // Derive function base URL for edge functions
