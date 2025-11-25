@@ -6,6 +6,9 @@ import sadHamsterDark from "@assets/Commiseration-Hamster-DarkMode.svg";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
+import historianHamsterLocal from "@assets/Historian-Hamster-Local.svg";
+import librarianHamsterLocal from "@assets/Librarian-Hamster-Local.svg";
+import mathsHamsterLocal from "@assets/Maths-Hamster-Local.svg";
 import { useEffect, useState } from "react";
 import { Home, BarChart3, Archive } from "lucide-react";
 import { formatFullDateWithOrdinal, formatDateWithOrdinal } from "@/lib/dateFormat";
@@ -28,6 +31,7 @@ interface EndGameModalProps {
   onHome: () => void;
   onViewStats?: () => void;
   onViewArchive?: () => void;
+  isLocalMode?: boolean;
 }
 
 export function EndGameModal({
@@ -42,12 +46,22 @@ export function EndGameModal({
   onHome,
   onViewStats,
   onViewArchive,
+  isLocalMode = false,
 }: EndGameModalProps) {
   const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
   const { formatWithOrdinal } = useUserDateFormat();
   const [showConfetti, setShowConfetti] = useState(false);
   const [showRain, setShowRain] = useState(false);
+
+  // Select colors and hamster images based on mode
+  const statsColor = isLocalMode ? "#93cd78" : "#80BECA";
+  const homeColor = isLocalMode ? "#66becb" : "#7DAAE8";
+  const archiveColor = isLocalMode ? "#fdab58" : "#FFD429";
+  
+  const historianHamster = isLocalMode ? historianHamsterLocal : historianHamsterBlue;
+  const librarianHamster = isLocalMode ? librarianHamsterLocal : librarianHamsterYellow;
+  const mathsHamster = isLocalMode ? mathsHamsterLocal : mathsHamsterGreen;
 
   useEffect(() => {
     if (isOpen) {
@@ -158,45 +172,45 @@ export function EndGameModal({
           </div>
 
           <div className="space-y-3">
-            {/* Stats button: full width, green */}
-            <Button
-              variant="success"
-              className="w-full h-16 sm:h-20 md:h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm"
+            {/* Stats button: full width, color based on mode */}
+            <button
+              className="w-full h-16 sm:h-20 md:h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+              style={{ backgroundColor: statsColor }}
               onClick={onViewStats}
               data-testid="button-stats"
             >
               <span className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800">Stats</span>
               <div className="flex-shrink-0 flex items-center">
                 <img
-                  src={mathsHamsterGreen}
+                  src={mathsHamster}
                   alt="Stats"
                   className="h-14 sm:h-16 md:h-20 w-auto object-contain"
                 />
               </div>
-            </Button>
+            </button>
 
             <div className="flex gap-3">
-              {/* Home button: half width, blue */}
-              <Button
-                variant="default"
-                className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm"
+              {/* Home button: half width, color based on mode */}
+              <button
+                className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm hover:shadow-md"
+                style={{ backgroundColor: homeColor }}
                 onClick={onHome}
                 data-testid="button-home"
               >
                 <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Home</span>
                 <div className="flex-shrink-0 flex items-center">
                   <img
-                    src={historianHamsterBlue}
+                    src={historianHamster}
                     alt="Home"
                     className="h-14 sm:h-16 md:h-20 w-auto object-contain"
                   />
                 </div>
-              </Button>
+              </button>
 
-              {/* Archive button: half width, yellow */}
-              <Button
-                variant="warning"
-                className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm"
+              {/* Archive button: half width, color based on mode */}
+              <button
+                className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm hover:shadow-md"
+                style={{ backgroundColor: archiveColor }}
                 onClick={onViewArchive}
                 data-testid="button-archive"
               >
@@ -205,12 +219,12 @@ export function EndGameModal({
                 </div>
                 <div className="flex-shrink-0 flex items-center">
                   <img
-                    src={librarianHamsterYellow}
+                    src={librarianHamster}
                     alt="Archive"
                     className="h-14 sm:h-16 md:h-20 w-auto object-contain"
                   />
                 </div>
-              </Button>
+              </button>
             </div>
           </div>
 

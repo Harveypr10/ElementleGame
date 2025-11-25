@@ -1183,6 +1183,7 @@ export function PlayPage({
         onHome={onHomeFromCelebration || onBack}
         onViewStats={onViewStats}
         onViewArchive={onViewArchive}
+        isLocalMode={isLocalMode}
       />
 
       <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
