@@ -21,7 +21,7 @@ import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
 import { writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 
 interface PlayPageProps {
@@ -1084,29 +1084,31 @@ export function PlayPage({
     );
   }
 
-  // Show intro screen for new games with no guesses
-  if (showIntroScreen && introScreenReady) {
-    // Use puzzle date if available, otherwise use today's date
-    const today = new Date();
-    const puzzleDateToShow = puzzleDate || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    
-    return (
-      <IntroScreen
-        puzzleDateCanonical={puzzleDateToShow}
-        eventTitle={eventTitle}
-        hasCluesEnabled={cluesEnabled}
-        isLocalMode={isLocalMode}
-        categoryName={category}
-        onPlayClick={() => setShowIntroScreen(false)}
-        formatDateForDisplay={formatDateForIntro}
-      />
-    );
-  }
+  // Calculate puzzle date for intro screen
+  const today = new Date();
+  const puzzleDateToShow = puzzleDate || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   return (
-    <div 
-      className="min-h-screen flex flex-col p-4"
-    >
+    <>
+      {/* IntroScreen overlay with fade animations */}
+      <AnimatePresence>
+        {showIntroScreen && introScreenReady && (
+          <IntroScreen
+            puzzleDateCanonical={puzzleDateToShow}
+            eventTitle={eventTitle}
+            hasCluesEnabled={cluesEnabled}
+            isLocalMode={isLocalMode}
+            categoryName={category}
+            onPlayClick={() => setShowIntroScreen(false)}
+            formatDateForDisplay={formatDateForIntro}
+          />
+        )}
+      </AnimatePresence>
+      
+      {/* Main game content - hidden behind intro screen when showing */}
+      <div 
+        className="min-h-screen flex flex-col p-4"
+      >
       <div className="flex items-center justify-between mb-0">
         <button
           onClick={onBack}
@@ -1254,6 +1256,7 @@ export function PlayPage({
           onDismiss={() => setShowStreakCelebration(false)}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 }

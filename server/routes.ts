@@ -181,10 +181,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[GET /api/puzzles] Found allocated questions:', allocatedQuestions.length);
       
       // Transform to frontend-compatible format (keeping backward compatibility)
-      const puzzles = allocatedQuestions.map(aq => {
-        // Extract first category name from categories jsonb array
-        const categoriesArray = aq.masterQuestion.categories as string[] | null;
-        const categoryName = categoriesArray && categoriesArray.length > 0 ? categoriesArray[0] : null;
+      const puzzles = await Promise.all(allocatedQuestions.map(async (aq) => {
+        // Extract first category ID from categories jsonb array and look up the name
+        const categoriesArray = aq.masterQuestion.categories as number[] | null;
+        let categoryName: string | null = null;
+        if (categoriesArray && categoriesArray.length > 0) {
+          const category = await storage.getCategoryById(categoriesArray[0]);
+          categoryName = category?.name || null;
+        }
         
         return {
           id: aq.id, // This is now allocatedRegionId
@@ -200,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           allocatedRegionId: aq.id,
           masterQuestionId: aq.questionId,
         };
-      });
+      }));
       
       res.json(puzzles);
     } catch (error) {
@@ -221,9 +225,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Puzzle not found" });
       }
       
-      // Extract first category name from categories jsonb array
-      const categoriesArray = allocatedQuestion.masterQuestion.categories as string[] | null;
-      const categoryName = categoriesArray && categoriesArray.length > 0 ? categoriesArray[0] : null;
+      // Extract first category ID from categories jsonb array and look up the name
+      const categoriesArray = allocatedQuestion.masterQuestion.categories as number[] | null;
+      let categoryName: string | null = null;
+      if (categoriesArray && categoriesArray.length > 0) {
+        const category = await storage.getCategoryById(categoriesArray[0]);
+        categoryName = category?.name || null;
+      }
       
       // Transform to frontend-compatible format
       const puzzle = {

@@ -69,6 +69,9 @@ export type GameAttemptUserWithAllocatedQuestion = GameAttemptUser & {
 export interface IStorage {
   // Region operations
   getRegions(): Promise<Region[]>;
+  
+  // Category operations
+  getCategoryById(id: number): Promise<Category | undefined>;
 
   // User profile operations
   getUserProfile(id: string): Promise<UserProfile | undefined>;
@@ -186,6 +189,12 @@ export class DatabaseStorage implements IStorage {
   // Region operations
   async getRegions(): Promise<Region[]> {
     return await db.select().from(regions).orderBy(regions.name);
+  }
+
+  // Category operations
+  async getCategoryById(id: number): Promise<Category | undefined> {
+    const [category] = await db.select().from(categories).where(eq(categories.id, id));
+    return category;
   }
 
   // User profile operations

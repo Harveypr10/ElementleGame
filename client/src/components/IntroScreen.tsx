@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 
 interface IntroScreenProps {
@@ -34,7 +35,13 @@ export function IntroScreen({
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4 z-50">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className="fixed inset-0 bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4 z-50"
+    >
       <div className="flex flex-col items-center justify-center max-w-md w-full space-y-6">
         {/* Hamster Image */}
         <img
@@ -43,11 +50,6 @@ export function IntroScreen({
           className="h-32 w-auto object-contain"
           data-testid="img-hamster-intro"
         />
-
-        {/* Date */}
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 text-center" data-testid="text-intro-date">
-          {displayDate}
-        </h1>
 
         {/* Clue Text */}
         <div className="text-center space-y-2">
@@ -61,16 +63,21 @@ export function IntroScreen({
           )}
         </div>
 
-        {/* Play Button */}
+        {/* Play Button - rounder corners and larger font */}
         <button
           onClick={handlePlayClick}
-          className="w-1/2 text-white font-bold text-base py-4 rounded-md hover:opacity-90 transition-opacity"
+          className="w-1/2 text-white font-bold text-xl py-4 rounded-full hover:opacity-90 transition-opacity"
           style={{ backgroundColor: buttonColor }}
           data-testid="button-intro-play"
         >
           Play
         </button>
+
+        {/* Puzzle Date - below Play button with smaller font */}
+        <p className="text-sm text-gray-500 dark:text-gray-500" data-testid="text-intro-puzzle-date">
+          Puzzle date: {displayDate}
+        </p>
       </div>
-    </div>
+    </motion.div>
   );
 }
