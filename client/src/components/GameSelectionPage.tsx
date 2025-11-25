@@ -5,7 +5,7 @@ import { ModeToggle } from "./ModeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
-import { motion, useTransform } from "framer-motion";
+import { motion, useTransform, useMotionValue, useMotionValueEvent } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
 import { useModeController } from "@/hooks/useModeController";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
@@ -92,6 +92,12 @@ export function GameSelectionPage({
     [0, -Math.max(containerWidth, 1)], // Avoid division by zero
     [0, -(Math.max(containerWidth, 1)-16) / 2] // Half speed movement
   );
+
+  // Clamp buttonX to prevent it from going off-screen to the left
+  const clampedButtonX = useMotionValue(0);
+  useMotionValueEvent(buttonX, "change", (latest) => {
+    clampedButtonX.set(Math.max(0, latest));
+  });
 
   // Authenticated fetch helper
   const fetchAuthenticated = async (endpoint: string) => {
@@ -823,7 +829,7 @@ export function GameSelectionPage({
                       style={{ 
                         backgroundColor: "#C4C9D4",
                         right: '-0px',
-                        x: buttonX,
+                        x: clampedButtonX,
                         touchAction: 'pan-y'
                       }}
                       onClick={gameMode === 'global' ? onOpenOptions : onOpenOptionsLocal}
