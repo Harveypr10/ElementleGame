@@ -1323,7 +1323,7 @@ export class DatabaseStorage implements IStorage {
         masterQuestion_eventDescription: questionsMasterUser.eventDescription,
         masterQuestion_regions: questionsMasterUser.regions,
         masterQuestion_categories: questionsMasterUser.categories,
-        masterQuestion_populatedPlacesId: questionsMasterUser.populatedPlacesId,
+        masterQuestion_populatedPlaceId: questionsMasterUser.populatedPlaceId,
         masterQuestion_createdAt: questionsMasterUser.createdAt,
       })
       .from(questionsAllocatedUser)
@@ -1337,7 +1337,7 @@ export class DatabaseStorage implements IStorage {
       )
       .leftJoin(
         populatedPlaces,
-        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
+        eq(questionsMasterUser.populatedPlaceId, populatedPlaces.id)
       )
       .where(
         and(
@@ -1364,7 +1364,7 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
-        populatedPlacesId: result.masterQuestion_populatedPlacesId,
+        populatedPlaceId: result.masterQuestion_populatedPlaceId,
         createdAt: result.masterQuestion_createdAt,
       },
     };
@@ -1386,7 +1386,7 @@ export class DatabaseStorage implements IStorage {
         masterQuestion_eventDescription: questionsMasterUser.eventDescription,
         masterQuestion_regions: questionsMasterUser.regions,
         masterQuestion_categories: questionsMasterUser.categories,
-        masterQuestion_populatedPlacesId: questionsMasterUser.populatedPlacesId,
+        masterQuestion_populatedPlaceId: questionsMasterUser.populatedPlaceId,
         masterQuestion_createdAt: questionsMasterUser.createdAt,
       })
       .from(questionsAllocatedUser)
@@ -1400,7 +1400,7 @@ export class DatabaseStorage implements IStorage {
       )
       .leftJoin(
         populatedPlaces,
-        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
+        eq(questionsMasterUser.populatedPlaceId, populatedPlaces.id)
       )
       .where(eq(questionsAllocatedUser.userId, userId))
       .orderBy(questionsAllocatedUser.puzzleDate);
@@ -1420,7 +1420,7 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
-        populatedPlacesId: result.masterQuestion_populatedPlacesId,
+        populatedPlaceId: result.masterQuestion_populatedPlaceId,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -1445,7 +1445,7 @@ export class DatabaseStorage implements IStorage {
         masterQuestion_eventDescription: questionsMasterUser.eventDescription,
         masterQuestion_regions: questionsMasterUser.regions,
         masterQuestion_categories: questionsMasterUser.categories,
-        masterQuestion_populatedPlacesId: questionsMasterUser.populatedPlacesId,
+        masterQuestion_populatedPlaceId: questionsMasterUser.populatedPlaceId,
         masterQuestion_createdAt: questionsMasterUser.createdAt,
       })
       .from(questionsAllocatedUser)
@@ -1459,7 +1459,7 @@ export class DatabaseStorage implements IStorage {
       )
       .leftJoin(
         populatedPlaces,
-        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
+        eq(questionsMasterUser.populatedPlaceId, populatedPlaces.id)
       )
       .where(
         and(
@@ -1484,7 +1484,7 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
-        populatedPlacesId: result.masterQuestion_populatedPlacesId,
+        populatedPlaceId: result.masterQuestion_populatedPlaceId,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -1618,7 +1618,7 @@ export class DatabaseStorage implements IStorage {
         master_eventDescription: questionsMasterUser.eventDescription,
         master_regions: questionsMasterUser.regions,
         master_categories: questionsMasterUser.categories,
-        master_populatedPlacesId: questionsMasterUser.populatedPlacesId,
+        master_populatedPlaceId: questionsMasterUser.populatedPlaceId,
         master_createdAt: questionsMasterUser.createdAt,
       })
       .from(gameAttemptsUser)
@@ -1636,7 +1636,7 @@ export class DatabaseStorage implements IStorage {
       )
       .leftJoin(
         populatedPlaces,
-        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
+        eq(questionsMasterUser.populatedPlaceId, populatedPlaces.id)
       )
       .where(eq(gameAttemptsUser.id, id));
 
@@ -1667,7 +1667,7 @@ export class DatabaseStorage implements IStorage {
           eventDescription: result.master_eventDescription,
           regions: result.master_regions,
           categories: result.master_categories,
-          populatedPlacesId: result.master_populatedPlacesId,
+          populatedPlaceId: result.master_populatedPlaceId,
           createdAt: result.master_createdAt,
         },
       },
@@ -1698,7 +1698,7 @@ export class DatabaseStorage implements IStorage {
         master_eventDescription: questionsMasterUser.eventDescription,
         master_regions: questionsMasterUser.regions,
         master_categories: questionsMasterUser.categories,
-        master_populatedPlacesId: questionsMasterUser.populatedPlacesId,
+        master_populatedPlaceId: questionsMasterUser.populatedPlaceId,
         master_createdAt: questionsMasterUser.createdAt,
       })
       .from(gameAttemptsUser)
@@ -1716,7 +1716,7 @@ export class DatabaseStorage implements IStorage {
       )
       .leftJoin(
         populatedPlaces,
-        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
+        eq(questionsMasterUser.populatedPlaceId, populatedPlaces.id)
       )
       .where(eq(gameAttemptsUser.userId, userId))
       .orderBy(desc(questionsAllocatedUser.puzzleDate));
@@ -1745,7 +1745,7 @@ export class DatabaseStorage implements IStorage {
           eventDescription: result.master_eventDescription,
           regions: result.master_regions,
           categories: result.master_categories,
-          populatedPlacesId: result.master_populatedPlacesId,
+          populatedPlaceId: result.master_populatedPlaceId,
           createdAt: result.master_createdAt,
         },
       },

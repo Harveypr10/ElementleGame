@@ -336,7 +336,7 @@ export const questionsMasterUser = pgTable("questions_master_user", {
   eventDescription: text("event_description").notNull(),
   regions: jsonb("regions"), // Regions this question is relevant for
   categories: jsonb("categories").notNull(), // Categories this question belongs to
-  populatedPlacesId: varchar("populated_places_id", { length: 50 }), // Link to populated_places for Local History
+  populatedPlaceId: varchar("populated_place_id", { length: 50 }), // Link to populated_places for Local History
   createdAt: timestamp("created_at").defaultNow(),
 });
 
