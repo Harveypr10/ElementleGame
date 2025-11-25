@@ -49,6 +49,7 @@ export default function Home() {
   const [showCelebrationFirst, setShowCelebrationFirst] = useState(false);
   const [hasOpenedCelebration, setHasOpenedCelebration] = useState(false);
   const [archiveMonthContext, setArchiveMonthContext] = useState<Date | null>(null);
+  const [hasExistingProgress, setHasExistingProgress] = useState(false);
   
   // Fetch puzzles from API (mode-aware)
   const puzzlesEndpoint = isLocalMode ? '/api/user/puzzles' : '/api/puzzles';
@@ -100,16 +101,20 @@ export default function Home() {
     const puzzle = puzzles.find(p => p.id.toString() === puzzleId);
     if (!puzzle) return;
     
-    // Check if this puzzle is already completed
+    // Check if this puzzle has any existing progress (completed or in-progress)
     let isCompleted = false;
+    let hasProgress = false;
     
     if (isAuthenticated && !loadingAttempts && gameAttempts) {
-      // For authenticated users, check Supabase data using result !== null as completion check
+      // For authenticated users, check Supabase data
       const numericPuzzleId = parseInt(puzzleId);
-      const completedAttempt = gameAttempts.find(
-        attempt => attempt.puzzleId === numericPuzzleId && attempt.result !== null
+      const existingAttempt = gameAttempts.find(
+        attempt => attempt.puzzleId === numericPuzzleId
       );
-      isCompleted = !!completedAttempt;
+      if (existingAttempt) {
+        isCompleted = existingAttempt.result !== null;
+        hasProgress = isCompleted || (existingAttempt.numGuesses ?? 0) > 0;
+      }
     } else if (!isAuthenticated) {
       // For guest users, check localStorage
       const storedStats = localStorage.getItem("elementle-stats");
@@ -119,9 +124,18 @@ export default function Home() {
         const formattedAnswer = formatCanonicalDate(puzzle.answerDateCanonical);
         const completion = stats.puzzleCompletions?.[formattedAnswer];
         isCompleted = !!(completion && completion.completed);
+        hasProgress = isCompleted;
+      }
+      // Also check for in-progress games in localStorage
+      const inProgressKey = `puzzle-progress-${formatCanonicalDate(puzzle.answerDateCanonical)}`;
+      const savedProgress = localStorage.getItem(inProgressKey);
+      if (savedProgress) {
+        const progress = JSON.parse(savedProgress);
+        if (progress.guessRecords && progress.guessRecords.length > 0) {
+          hasProgress = true;
+        }
       }
     }
-    // If loadingAttempts is true, we wait before determining completion
     
     if (isCompleted) {
       // Show game screen first, then celebration
@@ -132,6 +146,7 @@ export default function Home() {
       setHasOpenedCelebration(false);
     }
     
+    setHasExistingProgress(hasProgress);
     setSelectedPuzzleId(puzzleId);
     setPreviousScreen("archive");
     setCurrentScreen("play");
@@ -141,17 +156,21 @@ export default function Home() {
     setSelectedPuzzleId(null);
     setPreviousScreen("selection");
     
-    // Check if today's puzzle is already completed
+    // Check if today's puzzle has any existing progress (completed or in-progress)
     const todayPuzzle = getDailyPuzzle();
+    let isCompleted = false;
+    let hasProgress = false;
+    
     if (todayPuzzle) {
-      let isCompleted = false;
-      
       if (isAuthenticated && !loadingAttempts && gameAttempts) {
         // For authenticated users, check Supabase data
-        const completedAttempt = gameAttempts.find(
-          attempt => attempt.puzzleId === todayPuzzle.id && attempt.result !== null
+        const existingAttempt = gameAttempts.find(
+          attempt => attempt.puzzleId === todayPuzzle.id
         );
-        isCompleted = !!completedAttempt;
+        if (existingAttempt) {
+          isCompleted = existingAttempt.result !== null;
+          hasProgress = isCompleted || (existingAttempt.numGuesses ?? 0) > 0;
+        }
       } else if (!isAuthenticated) {
         // For guest users, check localStorage
         const storedStats = localStorage.getItem("elementle-stats");
@@ -161,6 +180,16 @@ export default function Home() {
           const formattedAnswer = formatCanonicalDate(todayPuzzle.answerDateCanonical);
           const completion = stats.puzzleCompletions?.[formattedAnswer];
           isCompleted = !!(completion && completion.completed);
+          hasProgress = isCompleted;
+        }
+        // Also check for in-progress games in localStorage
+        const inProgressKey = `puzzle-progress-${formatCanonicalDate(todayPuzzle.answerDateCanonical)}`;
+        const savedProgress = localStorage.getItem(inProgressKey);
+        if (savedProgress) {
+          const progress = JSON.parse(savedProgress);
+          if (progress.guessRecords && progress.guessRecords.length > 0) {
+            hasProgress = true;
+          }
         }
       }
       
@@ -177,6 +206,7 @@ export default function Home() {
       setHasOpenedCelebration(false);
     }
     
+    setHasExistingProgress(hasProgress);
     setCurrentScreen("play");
   };
 
@@ -318,6 +348,7 @@ export default function Home() {
               clue2={currentPuzzle.clue2}
               maxGuesses={5}
               fromArchive={previousScreen === "archive"}
+              hasExistingProgress={hasExistingProgress}
               showCelebrationFirst={showCelebrationFirst}
               hasOpenedCelebration={hasOpenedCelebration}
               onSetHasOpenedCelebration={setHasOpenedCelebration}

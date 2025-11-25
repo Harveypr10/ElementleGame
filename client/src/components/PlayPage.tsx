@@ -36,6 +36,7 @@ interface PlayPageProps {
   puzzleId?: number;
   puzzleDate?: string; // The date this puzzle should be played (YYYY-MM-DD format)
   fromArchive?: boolean;
+  hasExistingProgress?: boolean; // Whether the game has any existing guesses or is completed
   showCelebrationFirst?: boolean;
   hasOpenedCelebration?: boolean;
   onBack: () => void;
@@ -72,6 +73,7 @@ export function PlayPage({
   puzzleId,
   puzzleDate,
   fromArchive = false,
+  hasExistingProgress = false,
   showCelebrationFirst = false,
   hasOpenedCelebration = false,
   onBack,
@@ -556,21 +558,15 @@ export function PlayPage({
   // Only show intro once when component mounts and conditions are met
   useEffect(() => {
     if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !introScreenReady) {
-      // For authenticated users, check if there's an existing attempt with guesses
-      if (isAuthenticated && gameAttempts && puzzleId) {
-        const existingAttempt = gameAttempts.find(
-          attempt => attempt.puzzleId === puzzleId && ((attempt.numGuesses ?? 0) > 0 || attempt.result !== null)
-        );
-        // Don't show intro if there's an existing attempt with guesses or a completed game
-        if (existingAttempt) {
-          setIntroScreenReady(true); // Mark as ready but don't show
-          return;
-        }
+      // Skip intro if parent tells us there's existing progress
+      if (hasExistingProgress) {
+        setIntroScreenReady(true); // Mark as ready but don't show
+        return;
       }
       setShowIntroScreen(true);
       setIntroScreenReady(true);
     }
-  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady, isAuthenticated, gameAttempts, puzzleId]);
+  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady, hasExistingProgress]);
 
   // Helper function to format date for intro display
   const formatDateForIntro = (dateCanonical: string): string => {
