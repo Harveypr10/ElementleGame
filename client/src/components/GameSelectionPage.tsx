@@ -72,14 +72,19 @@ export function GameSelectionPage({
   const [showHelp, setShowHelp] = useState(false);
   const isLocalMode = gameMode === 'local';
 
-  // Transform for Options button - moves at half speed of panes for smooth effect
-  // Use a ref to track container width and update transform accordingly
+  // Transform for Options button - moves based on content width, not viewport
+  // Track both container width (for swipe input range) and content width (for movement limit)
   const [containerWidth, setContainerWidth] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateWidth = () => {
       if (containerRef.current) {
         setContainerWidth(containerRef.current.offsetWidth);
+      }
+      if (contentRef.current) {
+        setContentWidth(contentRef.current.offsetWidth);
       }
     };
     updateWidth();
@@ -87,12 +92,14 @@ export function GameSelectionPage({
     return () => window.removeEventListener('resize', updateWidth);
   }, [containerRef]);
 
-  // Options button moves at half speed and stays clamped within visible bounds
+  // Options button moves to stay aligned with content area
+  // Movement is based on content width (max-w-md), not full container width
+  // This prevents the button from going past the left edge of content on wider screens
   const buttonX = useTransform(
     x,
     [0, -Math.max(containerWidth, 1)],
-    [0, -(Math.max(containerWidth, 1)-16) / 2],
-    { clamp: true } // Clamp output to stay within visible bounds
+    [0, -Math.max(contentWidth, 1) / 2 + 4], // Move by half content width (button is half-width, moves from right to center-left)
+    { clamp: true }
   );
 
   // Authenticated fetch helper
@@ -818,7 +825,7 @@ export function GameSelectionPage({
                 }}
               >
                 <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
-                  <div className="max-w-md mx-auto w-full relative h-40">
+                  <div ref={contentRef} className="max-w-md mx-auto w-full relative h-40">
                     <motion.button
                       className="absolute h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md pointer-events-auto"
                       style={{ 
