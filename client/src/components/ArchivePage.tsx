@@ -61,6 +61,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     if (isAuthenticated) {
       console.log('[Archive] Refetching game attempts on mount');
       const queryKey = isLocalMode ? ["/api/user/game-attempts/user"] : ["/api/game-attempts/user"];
+      queryClient.invalidateQueries({ queryKey });
       queryClient.refetchQueries({ queryKey });
     }
   }, [isAuthenticated, isLocalMode, queryClient]);

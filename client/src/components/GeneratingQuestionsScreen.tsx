@@ -537,23 +537,21 @@ if (!supabaseUrl) {
 
             // Continue backend steps (populate locations, demand, allocate, archive sync) in parallel
             // They do not block the animation or the finishTimeout above.
-
-            } catch (err) {
-              console.error("[GeneratingQuestions] runSequence error:", err);
-              if (mountedRef.current) {
-                toast({
-                  title: "Setup error",
-                  description: "There was an issue preparing your questions",
-                  variant: "destructive",
-                });
-                setTimeout(() => {
-                  if (!mountedRef.current) return;
-                  onComplete();
-                }, 3000);
-              }
-            }
-            })(); // end of async IIFE
-
+        } catch (err) {
+          console.error("[GeneratingQuestions] runSequence error:", err);
+          if (mountedRef.current) {
+            toast({
+              title: "Setup error",
+              description: "There was an issue preparing your questions",
+              variant: "destructive",
+            });
+            setTimeout(() => {
+              if (!mountedRef.current) return;
+              onComplete();
+            }, 3000);
+          }
+        }
+      })(); // end of async IIFE
 
       // Cleanup on unmount
       return () => {

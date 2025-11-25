@@ -333,9 +333,10 @@ export function GameSelectionPage({
           <div className="flex flex-col items-stretch space-y-4 mt-1">
             {/* Play Today's Puzzle (Global) */}
             <motion.button
-              className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+              className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: "#7DAAE8" }}
               onClick={onPlayGame}
+              disabled={!todayPuzzleId}
               data-testid="button-play"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -499,9 +500,10 @@ export function GameSelectionPage({
           <div className="flex flex-col items-stretch space-y-4 mt-1">
             {/* Play Today's Puzzle (Local) */}
             <motion.button
-              className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+              className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: "#66becb" }}
               onClick={onPlayGameLocal}
+              disabled={!todayPuzzleId}
               data-testid="button-play-local"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
