@@ -328,26 +328,23 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
 
   return (
     <div className="min-h-screen flex flex-col p-4">
-      <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={onBack}
-          data-testid="button-back-from-account"
-          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        >
-          <ChevronLeft className="h-9 w-9 text-gray-700" />
-        </button>
+      <div className="w-full max-w-md mx-auto space-y-6">
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={onBack}
+            data-testid="button-back-from-account"
+            className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <ChevronLeft className="h-9 w-9 text-gray-700" />
+          </button>
 
-        <div className="flex flex-col items-center">
-          <h1 className="text-4xl font-bold">Account Info</h1>
+          <div className="flex flex-col items-center">
+            <h1 className="text-4xl font-bold">Account Info</h1>
+          </div>
+
+          {/* Spacer to balance layout */}
+          <div className="w-14" />
         </div>
-
-        {/* Spacer to balance layout */}
-        <div className="w-14" />
-      </div>
-
-
-      <div className="flex-1 flex items-start justify-center pb-8">
-        <div className="w-full max-w-md space-y-6">
           {/* Profile Information */}
           <Card>
             <CardHeader>
@@ -532,7 +529,6 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
               </form>
             </CardContent>
           </Card>
-        </div>
       </div>
 
       {/* Region Change Confirmation Dialog */}
