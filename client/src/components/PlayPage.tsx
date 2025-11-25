@@ -1157,7 +1157,7 @@ export function PlayPage({
               <div className="text-center mb-3">
                 {isLocalMode && (
                   <div
-                    className="text-sm font-medium text-muted-foreground mb-1 uppercase tracking-wide"
+                    className="text-sm font-medium text-muted-foreground mb-1 tracking-wide"
                     data-testid="text-category"
                   >
                     {guessRecords[0]?.categoryName || category || ""}

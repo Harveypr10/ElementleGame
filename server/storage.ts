@@ -3,6 +3,7 @@ import {
   userSettings,
   regions,
   categories,
+  populatedPlaces,
   questionsMasterRegion,
   questionsAllocatedRegion,
   gameAttemptsRegion,
@@ -20,6 +21,7 @@ import {
   type InsertUserSettings,
   type Region,
   type Category,
+  type PopulatedPlace,
   type QuestionMasterRegion,
   type InsertQuestionMasterRegion,
   type QuestionAllocatedRegion,
@@ -57,6 +59,7 @@ export type GameAttemptWithAllocatedQuestion = GameAttemptRegion & {
 // Type for allocated question with master question data (User mode)
 export type AllocatedUserQuestionWithMaster = QuestionAllocatedUser & {
   categoryName: string; // Category name from categories table join
+  placeName: string | null; // Place name for Local History (category 999)
   masterQuestion: QuestionMasterUser;
 };
 
@@ -1313,12 +1316,14 @@ export class DatabaseStorage implements IStorage {
         puzzleDate: questionsAllocatedUser.puzzleDate,
         categoryId: questionsAllocatedUser.categoryId,
         categoryName: categories.name,
+        placeName: populatedPlaces.name1,
         masterQuestion_id: questionsMasterUser.id,
         masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterUser.eventTitle,
         masterQuestion_eventDescription: questionsMasterUser.eventDescription,
         masterQuestion_regions: questionsMasterUser.regions,
         masterQuestion_categories: questionsMasterUser.categories,
+        masterQuestion_populatedPlacesId: questionsMasterUser.populatedPlacesId,
         masterQuestion_createdAt: questionsMasterUser.createdAt,
       })
       .from(questionsAllocatedUser)
@@ -1329,6 +1334,10 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(
         categories,
         eq(questionsAllocatedUser.categoryId, categories.id)
+      )
+      .leftJoin(
+        populatedPlaces,
+        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
       )
       .where(
         and(
@@ -1347,6 +1356,7 @@ export class DatabaseStorage implements IStorage {
       puzzleDate: result.puzzleDate,
       categoryId: result.categoryId,
       categoryName: result.categoryName,
+      placeName: result.placeName,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
@@ -1354,6 +1364,7 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
+        populatedPlacesId: result.masterQuestion_populatedPlacesId,
         createdAt: result.masterQuestion_createdAt,
       },
     };
@@ -1368,12 +1379,14 @@ export class DatabaseStorage implements IStorage {
         puzzleDate: questionsAllocatedUser.puzzleDate,
         categoryId: questionsAllocatedUser.categoryId,
         categoryName: categories.name,
+        placeName: populatedPlaces.name1,
         masterQuestion_id: questionsMasterUser.id,
         masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterUser.eventTitle,
         masterQuestion_eventDescription: questionsMasterUser.eventDescription,
         masterQuestion_regions: questionsMasterUser.regions,
         masterQuestion_categories: questionsMasterUser.categories,
+        masterQuestion_populatedPlacesId: questionsMasterUser.populatedPlacesId,
         masterQuestion_createdAt: questionsMasterUser.createdAt,
       })
       .from(questionsAllocatedUser)
@@ -1385,6 +1398,10 @@ export class DatabaseStorage implements IStorage {
         categories,
         eq(questionsAllocatedUser.categoryId, categories.id)
       )
+      .leftJoin(
+        populatedPlaces,
+        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
+      )
       .where(eq(questionsAllocatedUser.userId, userId))
       .orderBy(questionsAllocatedUser.puzzleDate);
 
@@ -1395,6 +1412,7 @@ export class DatabaseStorage implements IStorage {
       puzzleDate: result.puzzleDate,
       categoryId: result.categoryId,
       categoryName: result.categoryName,
+      placeName: result.placeName,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
@@ -1402,6 +1420,7 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
+        populatedPlacesId: result.masterQuestion_populatedPlacesId,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -1419,12 +1438,14 @@ export class DatabaseStorage implements IStorage {
         puzzleDate: questionsAllocatedUser.puzzleDate,
         categoryId: questionsAllocatedUser.categoryId,
         categoryName: categories.name,
+        placeName: populatedPlaces.name1,
         masterQuestion_id: questionsMasterUser.id,
         masterQuestion_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         masterQuestion_eventTitle: questionsMasterUser.eventTitle,
         masterQuestion_eventDescription: questionsMasterUser.eventDescription,
         masterQuestion_regions: questionsMasterUser.regions,
         masterQuestion_categories: questionsMasterUser.categories,
+        masterQuestion_populatedPlacesId: questionsMasterUser.populatedPlacesId,
         masterQuestion_createdAt: questionsMasterUser.createdAt,
       })
       .from(questionsAllocatedUser)
@@ -1435,6 +1456,10 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(
         categories,
         eq(questionsAllocatedUser.categoryId, categories.id)
+      )
+      .leftJoin(
+        populatedPlaces,
+        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
       )
       .where(
         and(
@@ -1451,6 +1476,7 @@ export class DatabaseStorage implements IStorage {
       puzzleDate: result.puzzleDate,
       categoryId: result.categoryId,
       categoryName: result.categoryName,
+      placeName: result.placeName,
       masterQuestion: {
         id: result.masterQuestion_id,
         answerDateCanonical: result.masterQuestion_answerDateCanonical,
@@ -1458,6 +1484,7 @@ export class DatabaseStorage implements IStorage {
         eventDescription: result.masterQuestion_eventDescription,
         regions: result.masterQuestion_regions,
         categories: result.masterQuestion_categories,
+        populatedPlacesId: result.masterQuestion_populatedPlacesId,
         createdAt: result.masterQuestion_createdAt,
       },
     }));
@@ -1583,12 +1610,15 @@ export class DatabaseStorage implements IStorage {
         allocated_userId: questionsAllocatedUser.userId,
         allocated_puzzleDate: questionsAllocatedUser.puzzleDate,
         allocated_categoryId: questionsAllocatedUser.categoryId,
+        categoryName: categories.name,
+        placeName: populatedPlaces.name1,
         master_id: questionsMasterUser.id,
         master_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         master_eventTitle: questionsMasterUser.eventTitle,
         master_eventDescription: questionsMasterUser.eventDescription,
         master_regions: questionsMasterUser.regions,
         master_categories: questionsMasterUser.categories,
+        master_populatedPlacesId: questionsMasterUser.populatedPlacesId,
         master_createdAt: questionsMasterUser.createdAt,
       })
       .from(gameAttemptsUser)
@@ -1599,6 +1629,14 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(
         questionsMasterUser,
         eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
+      )
+      .innerJoin(
+        categories,
+        eq(questionsAllocatedUser.categoryId, categories.id)
+      )
+      .leftJoin(
+        populatedPlaces,
+        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
       )
       .where(eq(gameAttemptsUser.id, id));
 
@@ -1620,6 +1658,8 @@ export class DatabaseStorage implements IStorage {
         userId: result.allocated_userId,
         puzzleDate: result.allocated_puzzleDate,
         categoryId: result.allocated_categoryId,
+        categoryName: result.categoryName,
+        placeName: result.placeName,
         masterQuestion: {
           id: result.master_id,
           answerDateCanonical: result.master_answerDateCanonical,
@@ -1627,6 +1667,7 @@ export class DatabaseStorage implements IStorage {
           eventDescription: result.master_eventDescription,
           regions: result.master_regions,
           categories: result.master_categories,
+          populatedPlacesId: result.master_populatedPlacesId,
           createdAt: result.master_createdAt,
         },
       },
@@ -1649,12 +1690,15 @@ export class DatabaseStorage implements IStorage {
         allocated_userId: questionsAllocatedUser.userId,
         allocated_puzzleDate: questionsAllocatedUser.puzzleDate,
         allocated_categoryId: questionsAllocatedUser.categoryId,
+        categoryName: categories.name,
+        placeName: populatedPlaces.name1,
         master_id: questionsMasterUser.id,
         master_answerDateCanonical: questionsMasterUser.answerDateCanonical,
         master_eventTitle: questionsMasterUser.eventTitle,
         master_eventDescription: questionsMasterUser.eventDescription,
         master_regions: questionsMasterUser.regions,
         master_categories: questionsMasterUser.categories,
+        master_populatedPlacesId: questionsMasterUser.populatedPlacesId,
         master_createdAt: questionsMasterUser.createdAt,
       })
       .from(gameAttemptsUser)
@@ -1665,6 +1709,14 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(
         questionsMasterUser,
         eq(questionsAllocatedUser.questionId, questionsMasterUser.id)
+      )
+      .innerJoin(
+        categories,
+        eq(questionsAllocatedUser.categoryId, categories.id)
+      )
+      .leftJoin(
+        populatedPlaces,
+        eq(questionsMasterUser.populatedPlacesId, populatedPlaces.id)
       )
       .where(eq(gameAttemptsUser.userId, userId))
       .orderBy(desc(questionsAllocatedUser.puzzleDate));
@@ -1684,6 +1736,8 @@ export class DatabaseStorage implements IStorage {
         userId: result.allocated_userId,
         puzzleDate: result.allocated_puzzleDate,
         categoryId: result.allocated_categoryId,
+        categoryName: result.categoryName,
+        placeName: result.placeName,
         masterQuestion: {
           id: result.master_id,
           answerDateCanonical: result.master_answerDateCanonical,
@@ -1691,6 +1745,7 @@ export class DatabaseStorage implements IStorage {
           eventDescription: result.master_eventDescription,
           regions: result.master_regions,
           categories: result.master_categories,
+          populatedPlacesId: result.master_populatedPlacesId,
           createdAt: result.master_createdAt,
         },
       },

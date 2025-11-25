@@ -320,6 +320,14 @@ export type UserStatsRegion = typeof userStatsRegion.$inferSelect;
 // USER GAME MODE TABLES
 // ============================================================================
 
+// Populated places - Location data for Local History category
+export const populatedPlaces = pgTable("populated_places", {
+  id: varchar("id", { length: 50 }).primaryKey(), // String ID from external source
+  name1: text("name1"), // Primary place name (e.g., "Henley-on-Thames")
+});
+
+export type PopulatedPlace = typeof populatedPlaces.$inferSelect;
+
 // Questions master (user) - Canonical question bank for user mode
 export const questionsMasterUser = pgTable("questions_master_user", {
   id: serial("id").primaryKey(),
@@ -328,6 +336,7 @@ export const questionsMasterUser = pgTable("questions_master_user", {
   eventDescription: text("event_description").notNull(),
   regions: jsonb("regions"), // Regions this question is relevant for
   categories: jsonb("categories").notNull(), // Categories this question belongs to
+  populatedPlacesId: varchar("populated_places_id", { length: 50 }), // Link to populated_places for Local History
   createdAt: timestamp("created_at").defaultNow(),
 });
 

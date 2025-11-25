@@ -634,20 +634,28 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       console.log('[GET /api/user/puzzles] Found allocated questions:', allocatedQuestions.length);
       
       // Transform to frontend-compatible format
-      const puzzles = allocatedQuestions.map(aq => ({
-        id: aq.id, // This is now allocatedUserId
-        date: aq.puzzleDate,
-        answerDateCanonical: aq.masterQuestion.answerDateCanonical,
-        eventTitle: aq.masterQuestion.eventTitle,
-        eventDescription: aq.masterQuestion.eventDescription,
-        category: aq.categoryName, // Category name from categories table
-        clue1: null, // Clues removed in new schema
-        clue2: null, // Clues removed in new schema
-        // User-specific fields
-        userId: aq.userId,
-        allocatedUserId: aq.id,
-        masterQuestionId: aq.questionId,
-      }));
+      const puzzles = allocatedQuestions.map(aq => {
+        // For Local History (category 999), append place name if available
+        let categoryDisplay = aq.categoryName;
+        if (aq.categoryId === 999 && aq.placeName) {
+          categoryDisplay = `${aq.categoryName}: ${aq.placeName}`;
+        }
+        
+        return {
+          id: aq.id, // This is now allocatedUserId
+          date: aq.puzzleDate,
+          answerDateCanonical: aq.masterQuestion.answerDateCanonical,
+          eventTitle: aq.masterQuestion.eventTitle,
+          eventDescription: aq.masterQuestion.eventDescription,
+          category: categoryDisplay, // Category name, with place for Local History
+          clue1: null, // Clues removed in new schema
+          clue2: null, // Clues removed in new schema
+          // User-specific fields
+          userId: aq.userId,
+          allocatedUserId: aq.id,
+          masterQuestionId: aq.questionId,
+        };
+      });
       
       res.json(puzzles);
     } catch (error) {
@@ -666,6 +674,12 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         return res.status(404).json({ error: "Puzzle not found" });
       }
       
+      // For Local History (category 999), append place name if available
+      let categoryDisplay = allocatedQuestion.categoryName;
+      if (allocatedQuestion.categoryId === 999 && allocatedQuestion.placeName) {
+        categoryDisplay = `${allocatedQuestion.categoryName}: ${allocatedQuestion.placeName}`;
+      }
+      
       // Transform to frontend-compatible format
       const puzzle = {
         id: allocatedQuestion.id,
@@ -673,7 +687,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         answerDateCanonical: allocatedQuestion.masterQuestion.answerDateCanonical,
         eventTitle: allocatedQuestion.masterQuestion.eventTitle,
         eventDescription: allocatedQuestion.masterQuestion.eventDescription,
-        category: allocatedQuestion.categoryName, // Category name from categories table
+        category: categoryDisplay, // Category name, with place for Local History
         clue1: null, // Clues removed in new schema
         clue2: null, // Clues removed in new schema
         userId: allocatedQuestion.userId,
