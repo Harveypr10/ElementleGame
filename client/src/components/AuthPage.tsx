@@ -268,12 +268,6 @@ const handleSubmit = async (e: React.FormEvent) => {
         console.warn("[Auth] Failed to create settings, but profile was created");
       }
 
-      toast({
-        title: "Account created!",
-        description: "Welcome to Elementle!",
-      });
-      console.log("[Auth] Toast shown: Account created!");
-
       // ✅ Switch off OTP screen, then show generating screen
       console.log("[Auth] Hiding OTP screen and showing GeneratingQuestionsScreen...");
       setShowOTPVerification(false); // critical: stop rendering OTP screen
