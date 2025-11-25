@@ -279,32 +279,41 @@ const decrementRowBlocks = () => {
           const ok = spawnIntoCell(first, text);
           if (!ok) streamQueue.unshift(text);
           if (ok) {
-            scheduledSpawns++;
-            console.log("[GeneratingQuestions] scheduledSpawns =", scheduledSpawns, "streamQueue.length =", streamQueue.length);
+            console.log("[GeneratingQuestions] immediate spawn ok; streamQueue.length =", streamQueue.length);
           }
         }
       };
 
+      // Do an immediate pick to fill one free cell now
       immediatePick();
 
-      // Single paced producer: every INTERVAL_MS pick a free cell and spawn the next queue item
-      spawnInterval = window.setInterval(() => {
+      // Delay starting the regular interval by one INTERVAL_MS so the immediate pick(s)
+      // don't race with the first interval tick and cause a burst at startup.
+      const startSpawnInterval = () => {
+        spawnInterval = window.setInterval(() => {
+          if (!mountedRef.current) return;
+
+          const next = pickNextCell();
+          if (next === null) return;
+
+          const text = popNextText(streamQueue) ?? (eventTitlesAll.length ? eventTitlesAll[Math.floor(Math.random() * eventTitlesAll.length)] : "...");
+          if (!text) return;
+
+          const ok = spawnIntoCell(next, text);
+          if (!ok) {
+            // put it back if spawn failed
+            streamQueue.unshift(text);
+          }
+        }, INTERVAL_MS);
+      };
+
+      // Start the interval after one INTERVAL_MS (push the timeout id into spawnTimeouts so cleanup clears it)
+      const initialIntervalTimeout = window.setTimeout(() => {
         if (!mountedRef.current) return;
-
-        // pick a free cell at spawn time
-        const nextCell = pickNextCell();
-        if (nextCell === null) return;
-
-        // pick next text respecting initial reserved titles
-        const text = popNextText(streamQueue) ?? (eventTitlesAll.length ? eventTitlesAll[Math.floor(Math.random() * eventTitlesAll.length)] : "...");
-        if (!text) return;
-
-        const ok = spawnIntoCell(nextCell, text);
-        if (!ok) {
-          // If spawn failed (e.g., computePositionInCell returned null), put text back at front
-          streamQueue.unshift(text);
-        }
+        startSpawnInterval();
       }, INTERVAL_MS);
+      spawnTimeouts.push(initialIntervalTimeout);
+
 
 
       // ---------- Insert here (after initial spawn scheduling, before finishTimeout) ----------
@@ -370,43 +379,23 @@ if (locations.length > 0) {
       const shuffled = locationNames.sort(() => Math.random() - 0.5);
 
       // Insert locations after any remaining initial reserved titles so they appear soon but don't replace the opening titles
-      const insertIndex = Math.max(0, INITIAL_TITLES - initialConsumed);
+      const insertIndex = Math.min(Math.max(0, INITIAL_TITLES - initialConsumed), streamQueue.length);
       streamQueue.splice(insertIndex, 0, ...shuffled);
       console.log("[GeneratingQuestions] inserted locationNames at index", insertIndex, "streamQueue length:", streamQueue.length);
 
-      // Fill any currently free cells immediately, but only up to MAX_CELLS and only for currently free cells.
-      // This avoids scheduling many timeouts and prevents bursts. The interval will continue pacing further spawns.
-      const fillFreeCells = () => {
-        for (let i = 0; i < MAX_CELLS; i++) {
-          const freeCell = pickNextCell();
-          if (freeCell === null) break;
+      // Do not fill free cells immediately here. The interval producer will consume streamQueue at a steady INTERVAL_MS pace.
+      // This prevents bursts at startup and ensures locations are shown interleaved with events.
 
-          const nextText =
-            popNextText(streamQueue) ??
-            (eventTitlesAll.length ? eventTitlesAll[Math.floor(Math.random() * eventTitlesAll.length)] : "...");
-          if (!nextText) break;
-
-          const ok = spawnIntoCell(freeCell, nextText);
-          if (!ok) {
-            // If spawn failed, put it back and stop filling to avoid tight loops
-            streamQueue.unshift(nextText);
-            break;
-          }
-        }
-      };
-
-      // Call fill once to populate any currently free cells; the interval will continue pacing further spawns
-      fillFreeCells();
-    } else {
-      console.log("[GeneratingQuestions] Step 3 Query returned no populated_places rows");
-    }
-  } catch (err) {
-    console.error("[GeneratingQuestions] Step 3 Fetch location names failed:", err);
-  }
-} else {
-  console.log("[GeneratingQuestions] Step 3 Skipped - no locations");
-}
-
+      // (end of Step 3 success branch)
+      } else {
+        console.log("[GeneratingQuestions] Step 3 Query returned no populated_places rows");
+      }
+      } catch (err) {
+        console.error("[GeneratingQuestions] Step 3 Fetch location names failed:", err);
+      }
+      } else {
+        console.log("[GeneratingQuestions] Step 3 Skipped - no locations");
+      }
 
 
       // Derive function base URL for edge functions
