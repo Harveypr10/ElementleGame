@@ -260,7 +260,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         },
         body: JSON.stringify({
           useRegionDefault: true,
-          digitPreference: "6",
+          digitPreference: "8",
         }),
       });
       console.log("[Auth] Settings response status:", settingsResponse.status);

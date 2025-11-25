@@ -102,7 +102,7 @@ export const userSettings = pgTable("user_settings", {
   // Date format preferences
   dateFormatPreference: text("date_format_preference").default("ddmmyy"), // ddmmyy, mmddyy, ddmmyyyy, mmddyyyy
   useRegionDefault: boolean("use_region_default").default(true), // Auto-detect from region
-  digitPreference: varchar("digit_preference", { length: 1 }).default("6"), // '6' or '8' for 6-digit vs 8-digit dates
+  digitPreference: varchar("digit_preference", { length: 1 }).default("8"), // '6' or '8' for 6-digit vs 8-digit dates
   
   // Category preferences (for future use)
   categoryPreferences: jsonb("category_preferences"),

@@ -26,7 +26,7 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [cluesEnabled, setCluesEnabled] = useState(true);
-  const [digitPreference, setDigitPreference] = useState<"6" | "8">("6");
+  const [digitPreference, setDigitPreference] = useState<"6" | "8">("8");
   const [dateFormatOrder, setDateFormatOrder] = useState<"ddmm" | "mmdd">("ddmm");
   const [useRegionDefault, setUseRegionDefault] = useState(true);
   const [showGenerating, setShowGenerating] = useState(false);
@@ -53,7 +53,7 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       soundManager.setEnabled(soundsEnabledValue);
       setDarkMode(cachedSettings.darkMode ?? false);
       setCluesEnabled(cachedSettings.cluesEnabled ?? true);
-      setDigitPreference(cachedSettings.digitPreference || "6");
+      setDigitPreference(cachedSettings.digitPreference || "8");
 
       // Extract date format order from dateFormatPreference
       const dateFormatPref = cachedSettings.dateFormatPreference || "ddmmyy";
@@ -95,7 +95,7 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       document.documentElement.classList.toggle("dark", isDark);
 
       setCluesEnabled(settings.cluesEnabled ?? true);
-      setDigitPreference((settings.digitPreference as "6" | "8") || "6");
+      setDigitPreference((settings.digitPreference as "6" | "8") || "8");
 
       const datePref = settings.dateFormatPreference || "ddmmyy";
       const order = datePref.startsWith("dd") ? "ddmm" : "mmdd";
