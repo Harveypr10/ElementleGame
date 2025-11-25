@@ -127,15 +127,22 @@ useEffect(() => {
         console.error("[GeneratingQuestions] fetch titles failed", err);
       }
 
-      // Prepare queue and selection state
-      const streamQueue: string[] = [...eventTitles];
-      const occupiedCells = new Set<number>();
-      const lastPicks: number[] = [];
-      const rowBlockCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0 };
-      const baseTime = Date.now();          // used for scheduling future spawns
-      let scheduledSpawns = 0;              // explicit count of how many spawns we've scheduled/used
+// Queue + selection helpers (declare together so nothing is referenced before it exists)
+const INITIAL_TITLES = 4;
+const eventTitlesAll = [...eventTitles]; // keep original list if needed
 
-      // Helper: pick and remove a random item from the queue
+// Core queue: initial reserved titles at the front, rest follow
+const streamQueue: string[] = eventTitlesAll.slice(0, INITIAL_TITLES).concat(eventTitlesAll.slice(INITIAL_TITLES));
+
+// Selection state and scheduling counters
+let initialConsumed = 0; // how many of the initial reserved titles we've shown
+const occupiedCells = new Set<number>();
+const lastPicks: number[] = [];
+const rowBlockCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0 };
+const baseTime = Date.now(); // used for scheduling future spawns
+let scheduledSpawns = 0; // explicit count of how many spawns we've scheduled/used
+
+      // Helper: pick and remove a random item from the queue (for non-initial items)
       const popRandomFromQueue = (q: string[]) => {
         if (!q || q.length === 0) return undefined;
         const idx = Math.floor(Math.random() * q.length);
@@ -143,14 +150,37 @@ useEffect(() => {
         return item;
       };
 
-      // Helper: clamp a percentage to a safe 0–100 range
-      const clampPct = (v: number) => Math.max(0, Math.min(100, Number.isFinite(v) ? v : 0));
+      // Helper: get the next text to show
+      // - If we still have reserved initial titles, return them in FIFO order (shift).
+      // - Otherwise return a random item from the remaining queue.
+      const popNextText = (q: string[]) => {
+        if (!q || q.length === 0) return undefined;
 
-      const decrementRowBlocks = () => {
-        for (const r of [0, 1, 2]) {
-          if (rowBlockCounts[r] > 0) rowBlockCounts[r] = Math.max(0, rowBlockCounts[r] - 1);
+        // If there are still initial titles not yet consumed, return them FIFO
+        if (initialConsumed < INITIAL_TITLES && q.length > 0) {
+          const val = q.shift();
+          if (val !== undefined) {
+            initialConsumed++;
+            return val;
+          }
+          return undefined;
         }
+
+        // Otherwise pick randomly from the rest
+        return popRandomFromQueue(q);
       };
+
+
+// Helper: clamp a percentage to a safe 0–100 range
+const clampPct = (v: number) => Math.max(0, Math.min(100, Number.isFinite(v) ? v : 0));
+
+// Helper: decrement row block counters (keeps rowBlockCounts in sync)
+const decrementRowBlocks = () => {
+  for (const r of [0, 1, 2]) {
+    if (rowBlockCounts[r] > 0) rowBlockCounts[r] = Math.max(0, rowBlockCounts[r] - 1);
+  }
+};
+
 
       // Helper: compute random position inside a cell, clamped so the block never overflows
       const computePositionInCell = (cellIndex: number) => {
@@ -244,7 +274,7 @@ useEffect(() => {
       const immediatePick = () => {
         const first = pickNextCell();
         if (first !== null && streamQueue.length > 0) {
-          const text = popRandomFromQueue(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
+          const text = popNextText(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
 
           const ok = spawnIntoCell(first, text);
           if (!ok) streamQueue.unshift(text);
@@ -263,7 +293,8 @@ useEffect(() => {
         const next = pickNextCell();
         if (next === null) return;
 
-        let text = popRandomFromQueue(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
+        let text = popNextText(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
+
 
         if (!text) {
           text = eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...";
@@ -339,46 +370,44 @@ if (locations.length > 0) {
       const locationNames = locData.map((l: any) => (l.name1 ?? l.id) + "...");
       console.log("[GeneratingQuestions] Step 3 Location names:", locationNames.slice(0, 3));
 
-      // Put locations near the front so they appear soon
-      const shuffled = locationNames.sort(() => Math.random() - 0.5);
-      streamQueue.unshift(...shuffled);
-      console.log("[GeneratingQuestions] prepended locationNames to front of queue; streamQueue length:", streamQueue.length);
+// Put locations near the front so they appear soon, but after any remaining initial titles
+const shuffled = locationNames.sort(() => Math.random() - 0.5);
 
-      // Try to show locations immediately in any free cells, but stagger to avoid a visual burst
-      let immediateCount = 0;
+// Insert locations after any remaining initial reserved titles so they appear soon but don't replace the opening titles
+const insertIndex = Math.max(0, INITIAL_TITLES - initialConsumed);
+streamQueue.splice(insertIndex, 0, ...shuffled);
+console.log("[GeneratingQuestions] inserted locationNames at index", insertIndex, "streamQueue length:", streamQueue.length);
 
-      for (let i = 0; i < shuffled.length && immediateCount < MAX_CELLS; i++) {
+// Try to show locations immediately in any free cells, but stagger to avoid a visual burst
+let immediateCount = 0;
+for (let i = 0; i < shuffled.length && immediateCount < MAX_CELLS; i++) {
+  // pick a free cell now
+  const freeCell = pickNextCell();
+  if (freeCell === null) break;
+  const name = shuffled[i];
 
-        // pick a free cell now
-        const freeCell = pickNextCell();
-        if (freeCell === null) break;
-
-        const name = shuffled[i];
-
-        // schedule a small stagger so they don't all appear in the same tick
-        const delayMs = i * 200; // 200ms between immediate spawns (tune as needed)
-        const spawnTimeout = window.setTimeout(() => {
-          if (!mountedRef.current) return;
-
-          const ok = spawnIntoCell(freeCell, name);
-          if (ok) {
-            if (scheduledSpawns < MAX_CELLS) {
-              scheduledSpawns++;
-            } else {
-              console.warn("[GeneratingQuestions] attempted to reserve more than MAX_CELLS spawn slots");
-            }
-            console.log("[GeneratingQuestions] immediately spawned location into cell", freeCell, name);
-          } else {
-            // if spawn failed, put it back into the front of the queue
-            streamQueue.unshift(name);
-          }
-        }, delayMs);
-
-        // track the timeout so cleanup clears it
-        spawnTimeouts.push(spawnTimeout);
-        immediateCount++;
+  // schedule a small stagger so they don't all appear in the same tick
+  const delayMs = i * 200; // 200ms between immediate spawns (tune as needed)
+  const spawnTimeout = window.setTimeout(() => {
+    if (!mountedRef.current) return;
+    const ok = spawnIntoCell(freeCell, name);
+    if (ok) {
+      if (scheduledSpawns < MAX_CELLS) {
+        scheduledSpawns++;
+      } else {
+        console.warn("[GeneratingQuestions] attempted to reserve more than MAX_CELLS spawn slots");
       }
+      console.log("[GeneratingQuestions] immediately spawned location into cell", freeCell, name);
+    } else {
+      // if spawn failed, put it back into the front of the queue
+      streamQueue.unshift(name);
+    }
+  }, delayMs);
 
+  // track the timeout so cleanup clears it
+  spawnTimeouts.push(spawnTimeout);
+  immediateCount++;
+}
 
       // Schedule any remaining cells (use same baseTime and INTERVAL_MS logic)
       const scheduledCount = scheduledSpawns;
@@ -387,9 +416,8 @@ if (locations.length > 0) {
       for (let idxToSchedule = scheduledCount; idxToSchedule < totalToSchedule; idxToSchedule++) {
         const spawnAt = baseTime + idxToSchedule * INTERVAL_MS;
 
-        // Capture the text to show at schedule time (pop a random item so order is not index-dependent)
-        const chosenText = popRandomFromQueue(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
-
+        // Capture the text to show at schedule time (respect initial reserved titles first)
+        const chosenText = popNextText(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
 
         const timeoutId = window.setTimeout(() => {
           if (!mountedRef?.current) return;
