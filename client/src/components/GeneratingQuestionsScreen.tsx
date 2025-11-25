@@ -229,8 +229,11 @@ useEffect(() => {
           if (!mountedRef.current) return;
           setTextBlocks((prev) => prev.filter((b) => b.id !== id));
           occupiedCells.delete(cellIndex);
-          console.log("[GeneratingQuestions] removed block", id, "freed cell", cellIndex);
+          // Free up a scheduled spawn slot when a block is removed
+          scheduledSpawns = Math.max(0, scheduledSpawns - 1);
+          console.log("[GeneratingQuestions] removed block", id, "freed cell", cellIndex, "scheduledSpawns =", scheduledSpawns);
         }, TEXT_LIFETIME);
+
 
         spawnTimeouts.push(removeId);
         return true;
@@ -341,23 +344,41 @@ if (locations.length > 0) {
       streamQueue.unshift(...shuffled);
       console.log("[GeneratingQuestions] prepended locationNames to front of queue; streamQueue length:", streamQueue.length);
 
-      // Try to show locations immediately in any free cells
-      for (const name of shuffled) {
+      // Try to show locations immediately in any free cells, but stagger to avoid a visual burst
+      let immediateCount = 0;
+
+      for (let i = 0; i < shuffled.length && immediateCount < MAX_CELLS; i++) {
+
+        // pick a free cell now
         const freeCell = pickNextCell();
         if (freeCell === null) break;
-        const ok = spawnIntoCell(freeCell, name);
-        if (ok) {
-          if (scheduledSpawns < MAX_CELLS) {
-            scheduledSpawns++;
+
+        const name = shuffled[i];
+
+        // schedule a small stagger so they don't all appear in the same tick
+        const delayMs = i * 200; // 200ms between immediate spawns (tune as needed)
+        const spawnTimeout = window.setTimeout(() => {
+          if (!mountedRef.current) return;
+
+          const ok = spawnIntoCell(freeCell, name);
+          if (ok) {
+            if (scheduledSpawns < MAX_CELLS) {
+              scheduledSpawns++;
+            } else {
+              console.warn("[GeneratingQuestions] attempted to reserve more than MAX_CELLS spawn slots");
+            }
+            console.log("[GeneratingQuestions] immediately spawned location into cell", freeCell, name);
           } else {
-            console.warn("[GeneratingQuestions] attempted to reserve more than MAX_CELLS spawn slots");
+            // if spawn failed, put it back into the front of the queue
+            streamQueue.unshift(name);
           }
-          console.log("[GeneratingQuestions] immediately spawned location into cell", freeCell, name);
-        } else {
-          // if spawn failed, put it back into the front of the queue
-          streamQueue.unshift(name);
-        }
+        }, delayMs);
+
+        // track the timeout so cleanup clears it
+        spawnTimeouts.push(spawnTimeout);
+        immediateCount++;
       }
+
 
       // Schedule any remaining cells (use same baseTime and INTERVAL_MS logic)
       const scheduledCount = scheduledSpawns;
@@ -390,7 +411,11 @@ if (locations.length > 0) {
           const removeId = window.setTimeout(() => {
             if (!mountedRef?.current) return;
             setTextBlocks((prev) => prev.filter((b) => b.id !== id));
+            // Free up a scheduled spawn slot when a block is removed
+            scheduledSpawns = Math.max(0, scheduledSpawns - 1);
+            console.log("[GeneratingQuestions] scheduled removal of", id, "scheduledSpawns =", scheduledSpawns);
           }, TEXT_LIFETIME);
+
           spawnTimeouts.push(removeId);
         }, Math.max(0, spawnAt - Date.now()));
 
