@@ -28,8 +28,6 @@ export function GeneratingQuestionsScreen({
   const supabase = useSupabase();
   const { toast } = useToast();
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
-  const [currentIdIndex, setCurrentIdIndex] = useState(0);
-  const [sequenceStarted, setSequenceStarted] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
 
   // Animated area ref (between hamster and footer)
@@ -137,6 +135,16 @@ useEffect(() => {
       const baseTime = Date.now();          // used for scheduling future spawns
       let scheduledSpawns = 0;              // explicit count of how many spawns we've scheduled/used
 
+      // Helper: pick and remove a random item from the queue
+      const popRandomFromQueue = (q: string[]) => {
+        if (!q || q.length === 0) return undefined;
+        const idx = Math.floor(Math.random() * q.length);
+        const [item] = q.splice(idx, 1);
+        return item;
+      };
+
+      // Helper: clamp a percentage to a safe 0–100 range
+      const clampPct = (v: number) => Math.max(0, Math.min(100, Number.isFinite(v) ? v : 0));
 
       const decrementRowBlocks = () => {
         for (const r of [0, 1, 2]) {
@@ -146,46 +154,42 @@ useEffect(() => {
 
       // Helper: compute random position inside a cell, clamped so the block never overflows
       const computePositionInCell = (cellIndex: number) => {
+        // Try to get container bounds; fall back to window size if not available
         const bounds = containerRef.current?.getBoundingClientRect();
-        if (!bounds) return null;
+        const width = bounds?.width ?? window.innerWidth;
+        const height = bounds?.height ?? window.innerHeight;
 
         const cols = 2;
         const rows = 3;
         const col = cellIndex % cols;
         const row = Math.floor(cellIndex / cols);
 
-        const cellWidth = bounds.width / cols;
-        const cellHeight = bounds.height / rows;
+        const cellWidth = width / cols;
+        const cellHeight = height / rows;
 
         // Estimated rendered block size (px). Tune if you change maxWidth or font-size.
-        const EST_BLOCK_W = 160; // px max width of the text block
-        const EST_BLOCK_H = 48;  // px height for up to 2 lines (approx)
+        const EST_BLOCK_W = 160;
+        const EST_BLOCK_H = 48;
 
-        // Padding inside the cell (px) to avoid edges
-        const padX = Math.min(24, cellWidth * 0.12); // stronger horizontal padding
+        const padX = Math.min(24, cellWidth * 0.12);
         const padY = Math.min(20, cellHeight * 0.12);
 
-        // Compute min/max in px but also reserve space for the block so center won't overflow
         const leftPxMin = col * cellWidth + padX + EST_BLOCK_W / 2;
         const leftPxMax = (col + 1) * cellWidth - padX - EST_BLOCK_W / 2;
         const topPxMin = row * cellHeight + padY + EST_BLOCK_H / 2;
         const topPxMax = (row + 1) * cellHeight - padY - EST_BLOCK_H / 2;
 
-        // If the available range is invalid (very small screens), fall back to safe center of cell
         const safeLeftPx =
-          leftPxMax > leftPxMin
-            ? leftPxMin + Math.random() * (leftPxMax - leftPxMin)
-            : col * cellWidth + cellWidth / 2;
+          leftPxMax > leftPxMin ? leftPxMin + Math.random() * (leftPxMax - leftPxMin) : col * cellWidth + cellWidth / 2;
         const safeTopPx =
-          topPxMax > topPxMin
-            ? topPxMin + Math.random() * (topPxMax - topPxMin)
-            : row * cellHeight + cellHeight / 2;
+          topPxMax > topPxMin ? topPxMin + Math.random() * (topPxMax - topPxMin) : row * cellHeight + cellHeight / 2;
 
-        const leftPct = (safeLeftPx / bounds.width) * 100;
-        const topPct = (safeTopPx / bounds.height) * 100;
+        const leftPct = (safeLeftPx / width) * 100;
+        const topPct = (safeTopPx / height) * 100;
 
         return { topPct, leftPct };
       };
+
 
 
       const pickNextCell = (): number | null => {
@@ -202,33 +206,43 @@ useEffect(() => {
         rowBlockCounts[rowOf(choice)] = 3;
         return choice;
       };
-
+      
       const spawnIntoCell = (cellIndex: number, text: string) => {
         const pos = computePositionInCell(cellIndex);
-        if (!pos) return false;
+        if (!pos) {
+          console.warn("[GeneratingQuestions] spawnIntoCell: no position available for cell", cellIndex, "text:", text);
+          return false;
+        }
+
         const id = `${Date.now()}-${cellIndex}`;
         occupiedCells.add(cellIndex);
         const spawnTime = Date.now();
+
         console.log("[GeneratingQuestions] spawnIntoCell", cellIndex, id, text);
+
         setTextBlocks((prev) => [
           ...prev,
-          { id, text, top: pos.topPct, left: pos.leftPct, opacity: 0, spawnTime },
+          { id, text, top: clampPct(pos.topPct), left: clampPct(pos.leftPct), opacity: 0, spawnTime },
         ]);
+
         const removeId = window.setTimeout(() => {
           if (!mountedRef.current) return;
           setTextBlocks((prev) => prev.filter((b) => b.id !== id));
           occupiedCells.delete(cellIndex);
           console.log("[GeneratingQuestions] removed block", id, "freed cell", cellIndex);
         }, TEXT_LIFETIME);
+
         spawnTimeouts.push(removeId);
         return true;
       };
+
 
       // Immediate first pick then interval
       const immediatePick = () => {
         const first = pickNextCell();
         if (first !== null && streamQueue.length > 0) {
-          const text = streamQueue.shift()!;
+          const text = popRandomFromQueue(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
+
           const ok = spawnIntoCell(first, text);
           if (!ok) streamQueue.unshift(text);
           if (ok) {
@@ -246,7 +260,8 @@ useEffect(() => {
         const next = pickNextCell();
         if (next === null) return;
 
-        let text = streamQueue.shift();
+        let text = popRandomFromQueue(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
+
         if (!text) {
           text = eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...";
         }
@@ -303,73 +318,96 @@ useEffect(() => {
         await new Promise((r) => setTimeout(r, 500));
       }
 
-      // Step 3: Fetch location names and append to streamQueue if we have spare cells
-      console.log("[GeneratingQuestions] Step 3: Fetching location names...");
-      if (locations.length > 0) {
-        try {
-          const locationIds = locations.map((l) => l.location_id);
-          const { data: locData, error: locErr } = await supabase
-            .from("populated_places")
-            .select("id, name1")
-            .in("id", locationIds);
+// Step 3: Fetch location names and show them (prepend + immediate spawn + schedule)
+console.log("[GeneratingQuestions] Step 3: Fetching location names...");
+if (locations.length > 0) {
+  try {
+    const locationIds = locations.map((l) => l.location_id);
+    const { data: locData, error: locErr } = await supabase
+      .from("populated_places")
+      .select("id, name1")
+      .in("id", locationIds);
 
-          if (locErr) {
-            console.error("[GeneratingQuestions] Step 3 Fetch location names error:", locErr);
-          }
+    if (locErr) {
+      console.error("[GeneratingQuestions] Step 3 Fetch location names error:", locErr);
+    }
 
-          if (locData && locData.length > 0) {
-            const locationNames = locData.map((l: any) => (l.name1 ?? l.id) + "...");
-            console.log("[GeneratingQuestions] Step 3 Location names:", locationNames.slice(0, 3));
+    if (locData && locData.length > 0) {
+      const locationNames = locData.map((l: any) => (l.name1 ?? l.id) + "...");
+      console.log("[GeneratingQuestions] Step 3 Location names:", locationNames.slice(0, 3));
 
-            // Append to streamQueue and schedule any remaining cells (if fewer than MAX_CELLS were scheduled)
-            streamQueue.push(...locationNames);
-            console.log("[GeneratingQuestions] Stream queue extended to:", streamQueue.length);
+      // Put locations near the front so they appear soon
+      const shuffled = locationNames.sort(() => Math.random() - 0.5);
+      streamQueue.unshift(...shuffled);
+      console.log("[GeneratingQuestions] prepended locationNames to front of queue; streamQueue length:", streamQueue.length);
 
-            // Schedule any remaining cells (use same baseTime and INTERVAL_MS logic)
-            const scheduledCount = scheduledSpawns;
-            const totalToSchedule = Math.min(MAX_CELLS, streamQueue.length);
-
-            for (let idxToSchedule = scheduledCount; idxToSchedule < totalToSchedule; idxToSchedule++) {
-              const spawnAt = baseTime + idxToSchedule * INTERVAL_MS;
-
-              const timeoutId = window.setTimeout(() => {
-                if (!mountedRef?.current) return;
-                const pos = computePositionInCell(idxToSchedule);
-                if (!pos) return;
-                const id = `${spawnAt}-${idxToSchedule}`;
-                setTextBlocks((prev) => [
-                  ...prev,
-                  {
-                    id,
-                    text: streamQueue[idxToSchedule],
-                    top: pos.topPct,
-                    left: pos.leftPct,
-                    opacity: 0,
-                    spawnTime: spawnAt,
-                  },
-                ]);
-                // removal
-                const removeId = window.setTimeout(() => {
-                  if (!mountedRef?.current) return;
-                  setTextBlocks((prev) => prev.filter((b) => b.id !== id));
-                }, TEXT_LIFETIME);
-                spawnTimeouts.push(removeId);
-              }, Math.max(0, spawnAt - Date.now()));
-
-              // <-- increment scheduledSpawns now that we've reserved this spawn slot
-              scheduledSpawns++;
-
-              spawnTimeouts.push(timeoutId);
-            }
+      // Try to show locations immediately in any free cells
+      for (const name of shuffled) {
+        const freeCell = pickNextCell();
+        if (freeCell === null) break;
+        const ok = spawnIntoCell(freeCell, name);
+        if (ok) {
+          if (scheduledSpawns < MAX_CELLS) {
+            scheduledSpawns++;
           } else {
-            console.log("[GeneratingQuestions] Step 3 Query returned no locations");
+            console.warn("[GeneratingQuestions] attempted to reserve more than MAX_CELLS spawn slots");
           }
-        } catch (err) {
-          console.error("[GeneratingQuestions] Step 3 Fetch location names failed:", err);
+          console.log("[GeneratingQuestions] immediately spawned location into cell", freeCell, name);
+        } else {
+          // if spawn failed, put it back into the front of the queue
+          streamQueue.unshift(name);
         }
-      } else {
-        console.log("[GeneratingQuestions] Step 3 Skipped - no locations");
       }
+
+      // Schedule any remaining cells (use same baseTime and INTERVAL_MS logic)
+      const scheduledCount = scheduledSpawns;
+      const totalToSchedule = Math.min(MAX_CELLS, streamQueue.length);
+
+      for (let idxToSchedule = scheduledCount; idxToSchedule < totalToSchedule; idxToSchedule++) {
+        const spawnAt = baseTime + idxToSchedule * INTERVAL_MS;
+
+        // Capture the text to show at schedule time (pop a random item so order is not index-dependent)
+        const chosenText = popRandomFromQueue(streamQueue) ?? (eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...");
+
+
+        const timeoutId = window.setTimeout(() => {
+          if (!mountedRef?.current) return;
+          const pos = computePositionInCell(idxToSchedule);
+          if (!pos) return;
+          const id = `${spawnAt}-${idxToSchedule}`;
+          setTextBlocks((prev) => [
+            ...prev,
+            {
+              id,
+              text: chosenText,
+              top: clampPct(pos.topPct),
+              left: clampPct(pos.leftPct),
+              opacity: 0,
+              spawnTime: spawnAt,
+            },
+          ]);
+          // removal
+          const removeId = window.setTimeout(() => {
+            if (!mountedRef?.current) return;
+            setTextBlocks((prev) => prev.filter((b) => b.id !== id));
+          }, TEXT_LIFETIME);
+          spawnTimeouts.push(removeId);
+        }, Math.max(0, spawnAt - Date.now()));
+
+        // reserve this spawn slot
+        scheduledSpawns++;
+        spawnTimeouts.push(timeoutId);
+      }
+    } else {
+      console.log("[GeneratingQuestions] Step 3 Query returned no locations");
+    }
+  } catch (err) {
+    console.error("[GeneratingQuestions] Step 3 Fetch location names failed:", err);
+  }
+} else {
+  console.log("[GeneratingQuestions] Step 3 Skipped - no locations");
+}
+
 
       // Derive function base URL for edge functions
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
