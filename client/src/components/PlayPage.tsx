@@ -556,10 +556,21 @@ export function PlayPage({
   // Only show intro once when component mounts and conditions are met
   useEffect(() => {
     if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !introScreenReady) {
+      // For authenticated users, check if there's an existing attempt with guesses
+      if (isAuthenticated && gameAttempts && puzzleId) {
+        const existingAttempt = gameAttempts.find(
+          attempt => attempt.puzzleId === puzzleId && ((attempt.numGuesses ?? 0) > 0 || attempt.result !== null)
+        );
+        // Don't show intro if there's an existing attempt with guesses or a completed game
+        if (existingAttempt) {
+          setIntroScreenReady(true); // Mark as ready but don't show
+          return;
+        }
+      }
       setShowIntroScreen(true);
       setIntroScreenReady(true);
     }
-  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady]);
+  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady, isAuthenticated, gameAttempts, puzzleId]);
 
   // Helper function to format date for intro display
   const formatDateForIntro = (dateCanonical: string): string => {
