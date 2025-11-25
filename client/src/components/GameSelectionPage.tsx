@@ -110,11 +110,12 @@ export function GameSelectionPage({
 
   // Options button moves to stay aligned with content area
   // Movement is based on content width (max-w-md), not full container width
-  // This prevents the button from going past the left edge of content on wider screens
+  // Button width is calc(50% - 0.5rem), so to move from right-aligned to left-aligned:
+  // needs to move by contentWidth/2 + 8px (the 8px accounts for the 0.5rem gap)
   const buttonX = useTransform(
     x,
     [0, -Math.max(containerWidth, 1)],
-    [0, -Math.max(contentWidth, 1) / 2 + 4], // Move by half content width (button is half-width, moves from right to center-left)
+    [0, -Math.max(contentWidth, 1) / 2 - 8], // Align left edge with Archive button on Local
     { clamp: true }
   );
 
