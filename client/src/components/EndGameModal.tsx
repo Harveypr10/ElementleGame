@@ -55,7 +55,7 @@ export function EndGameModal({
   const [showRain, setShowRain] = useState(false);
 
   // Select colors and hamster images based on mode
-  const statsColor = isLocalMode ? "#93cd78" : "#80BECA";
+  const statsColor = isLocalMode ? "#93cd78" : "#A4DB57";
   const homeColor = isLocalMode ? "#66becb" : "#7DAAE8";
   const archiveColor = isLocalMode ? "#fdab58" : "#FFD429";
   
