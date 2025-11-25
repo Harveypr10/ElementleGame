@@ -1085,14 +1085,18 @@ export function PlayPage({
 
   // Show intro screen for new games with no guesses
   if (showIntroScreen && introScreenReady) {
+    // Use puzzle date if available, otherwise use today's date
+    const today = new Date();
+    const puzzleDateToShow = puzzleDate || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    
     return (
       <IntroScreen
-        puzzleDateCanonical={answerDateCanonical}
+        puzzleDateCanonical={puzzleDateToShow}
         eventTitle={eventTitle}
         hasCluesEnabled={cluesEnabled}
         isLocalMode={isLocalMode}
+        categoryName={category}
         onPlayClick={() => setShowIntroScreen(false)}
-        onBackClick={onBack}
         formatDateForDisplay={formatDateForIntro}
       />
     );
