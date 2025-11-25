@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { WelcomePage } from "@/components/WelcomePage";
 import { GameSelectionPage } from "@/components/GameSelectionPage";
 import { PlayPage } from "@/components/PlayPage";
@@ -20,7 +22,6 @@ import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { useQuery } from "@tanstack/react-query";
-import { AnimatePresence } from "framer-motion";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback";
 
@@ -243,156 +244,192 @@ export default function Home() {
   }
 
   return (
-    <div className="relative">
-      {currentScreen === "welcome" && (
-        <WelcomePage 
-          onLogin={() => setCurrentScreen("login")}
-          onSignup={() => setCurrentScreen("signup")}
-        />
-      )}
+    <div className="relative w-full min-h-screen">
+      <AnimatePresence mode="popLayout">
+        {currentScreen === "welcome" && (
+          <motion.div key="welcome" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
+            <WelcomePage 
+              onLogin={() => setCurrentScreen("login")}
+              onSignup={() => setCurrentScreen("signup")}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "login" && (
-        <AuthPage 
-          mode="login"
-          onSuccess={() => setCurrentScreen("selection")}
-          onSwitchMode={() => setCurrentScreen("signup")}
-          onBack={() => setCurrentScreen("welcome")}
-          onForgotPassword={() => setCurrentScreen("forgot-password")}
-        />
-      )}
+        {currentScreen === "login" && (
+          <motion.div key="login" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
+            <AuthPage 
+              mode="login"
+              onSuccess={() => setCurrentScreen("selection")}
+              onSwitchMode={() => setCurrentScreen("signup")}
+              onBack={() => setCurrentScreen("welcome")}
+              onForgotPassword={() => setCurrentScreen("forgot-password")}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "signup" && (
-        <AuthPage 
-          mode="signup"
-          onSuccess={() => setCurrentScreen("selection")}
-          onSwitchMode={() => setCurrentScreen("login")}
-          onBack={() => setCurrentScreen("welcome")}
-        />
-      )}
+        {currentScreen === "signup" && (
+          <motion.div key="signup" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
+            <AuthPage 
+              mode="signup"
+              onSuccess={() => setCurrentScreen("selection")}
+              onSwitchMode={() => setCurrentScreen("login")}
+              onBack={() => setCurrentScreen("welcome")}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "forgot-password" && (
-        <ForgotPasswordPage 
-          onBack={() => setCurrentScreen("login")}
-        />
-      )}
+        {currentScreen === "forgot-password" && (
+          <motion.div key="forgot-password" className="absolute w-full top-0 left-0" {...pageVariants.slideRight} transition={pageTransition}>
+            <ForgotPasswordPage 
+              onBack={() => setCurrentScreen("login")}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "selection" && (
-        <GameSelectionPage 
-          onPlayGame={handlePlayGlobal}
-          onViewStats={handleStatsGlobal}
-          onViewArchive={handleArchiveGlobal}
-          onOpenSettings={() => setCurrentScreen("settings")}
-          onOpenOptions={handleOptionsGlobal}
-          onLogin={() => setCurrentScreen("login")}
-          todayPuzzleId={getDailyPuzzle()?.id}
-          todayPuzzleAnswerDateCanonical={getDailyPuzzle()?.answerDateCanonical}
-          onPlayGameLocal={handlePlayLocal}
-          onViewStatsLocal={handleStatsLocal}
-          onViewArchiveLocal={handleArchiveLocal}
-          onOpenOptionsLocal={handleOptionsLocal}
-        />
-      )}
+        {currentScreen === "selection" && (
+          <motion.div key="selection" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
+            <GameSelectionPage 
+              onPlayGame={handlePlayGlobal}
+              onViewStats={handleStatsGlobal}
+              onViewArchive={handleArchiveGlobal}
+              onOpenSettings={() => setCurrentScreen("settings")}
+              onOpenOptions={handleOptionsGlobal}
+              onLogin={() => setCurrentScreen("login")}
+              todayPuzzleId={getDailyPuzzle()?.id}
+              todayPuzzleAnswerDateCanonical={getDailyPuzzle()?.answerDateCanonical}
+              onPlayGameLocal={handlePlayLocal}
+              onViewStatsLocal={handleStatsLocal}
+              onViewArchiveLocal={handleArchiveLocal}
+              onOpenOptionsLocal={handleOptionsLocal}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "play" && currentPuzzle && (
-        <PlayPage
-          puzzleId={currentPuzzle.id}
-          puzzleDate={currentPuzzle.date}
-          answerDateCanonical={currentPuzzle.answerDateCanonical}
-          eventTitle={currentPuzzle.eventTitle}
-          eventDescription={currentPuzzle.eventDescription}
-          category={currentPuzzle.category}
-          clue1={currentPuzzle.clue1}
-          clue2={currentPuzzle.clue2}
-          maxGuesses={5}
-          fromArchive={previousScreen === "archive"}
-          showCelebrationFirst={showCelebrationFirst}
-          hasOpenedCelebration={hasOpenedCelebration}
-          onSetHasOpenedCelebration={setHasOpenedCelebration}
-          onBack={() => setCurrentScreen(previousScreen === "archive" ? "archive" : "selection")}
-          onHomeFromCelebration={() => {
-            setShowCelebrationFirst(false);
-            setCurrentScreen("selection");
-          }}
-          onViewStats={() => {
-            setStatsReturnScreen("play");
-            setCurrentScreen("stats");
-          }}
-          onViewArchive={() => setCurrentScreen("archive")}
-        />
-      )}
+        {currentScreen === "play" && currentPuzzle && (
+          <motion.div key="play" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <PlayPage
+              puzzleId={currentPuzzle.id}
+              puzzleDate={currentPuzzle.date}
+              answerDateCanonical={currentPuzzle.answerDateCanonical}
+              eventTitle={currentPuzzle.eventTitle}
+              eventDescription={currentPuzzle.eventDescription}
+              category={currentPuzzle.category}
+              clue1={currentPuzzle.clue1}
+              clue2={currentPuzzle.clue2}
+              maxGuesses={5}
+              fromArchive={previousScreen === "archive"}
+              showCelebrationFirst={showCelebrationFirst}
+              hasOpenedCelebration={hasOpenedCelebration}
+              onSetHasOpenedCelebration={setHasOpenedCelebration}
+              onBack={() => setCurrentScreen(previousScreen === "archive" ? "archive" : "selection")}
+              onHomeFromCelebration={() => {
+                setShowCelebrationFirst(false);
+                setCurrentScreen("selection");
+              }}
+              onViewStats={() => {
+                setStatsReturnScreen("play");
+                setCurrentScreen("stats");
+              }}
+              onViewArchive={() => setCurrentScreen("archive")}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "play" && !currentPuzzle && (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-lg">Loading puzzle...</div>
-        </div>
-      )}
+        {currentScreen === "play" && !currentPuzzle && (
+          <motion.div key="play-loading" className="absolute w-full top-0 left-0" {...pageVariants.fadeIn} transition={pageTransition}>
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="text-lg">Loading puzzle...</div>
+            </div>
+          </motion.div>
+        )}
 
-      {currentScreen === "stats" && (
-        <StatsPage 
-          onBack={() => setCurrentScreen(statsReturnScreen)}
-        />
-      )}
+        {currentScreen === "stats" && (
+          <motion.div key="stats" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <StatsPage 
+              onBack={() => setCurrentScreen(statsReturnScreen)}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "archive" && (
-        <ArchivePage 
-          onBack={() => {
-            setArchiveMonthContext(null);
-            setCurrentScreen("selection");
-          }}
-          onPlayPuzzle={handlePlayPuzzle}
-          puzzles={puzzles as any[]}
-          initialMonth={archiveMonthContext}
-          onMonthChange={setArchiveMonthContext}
-        />
-      )}
+        {currentScreen === "archive" && (
+          <motion.div key="archive" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <ArchivePage 
+              onBack={() => {
+                setArchiveMonthContext(null);
+                setCurrentScreen("selection");
+              }}
+              onPlayPuzzle={handlePlayPuzzle}
+              puzzles={puzzles as any[]}
+              initialMonth={archiveMonthContext}
+              onMonthChange={setArchiveMonthContext}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "settings" && (
-        <SettingsPage 
-          onBack={() => setCurrentScreen("selection")}
-          onOpenOptions={() => {
-            setPreviousScreen("settings");
-            setCurrentScreen("options");
-          }}
-          onAccountInfo={() => setCurrentScreen("account-info")}
-          onBugReport={() => setCurrentScreen("bug-report")}
-          onFeedback={() => setCurrentScreen("feedback")}
-          onPrivacy={() => setCurrentScreen("privacy")}
-          onTerms={() => setCurrentScreen("terms")}
-          onAbout={() => setCurrentScreen("about")}
-        />
-      )}
+        {currentScreen === "settings" && (
+          <motion.div key="settings" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <SettingsPage 
+              onBack={() => setCurrentScreen("selection")}
+              onOpenOptions={() => {
+                setPreviousScreen("settings");
+                setCurrentScreen("options");
+              }}
+              onAccountInfo={() => setCurrentScreen("account-info")}
+              onBugReport={() => setCurrentScreen("bug-report")}
+              onFeedback={() => setCurrentScreen("feedback")}
+              onPrivacy={() => setCurrentScreen("privacy")}
+              onTerms={() => setCurrentScreen("terms")}
+              onAbout={() => setCurrentScreen("about")}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "options" && (
-        <OptionsPage 
-          onBack={() => setCurrentScreen(previousScreen)}
-        />
-      )}
+        {currentScreen === "options" && (
+          <motion.div key="options" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <OptionsPage 
+              onBack={() => setCurrentScreen(previousScreen)}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "account-info" && (
-        <AccountInfoPage 
-          onBack={() => setCurrentScreen("settings")}
-        />
-      )}
+        {currentScreen === "account-info" && (
+          <motion.div key="account-info" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <AccountInfoPage 
+              onBack={() => setCurrentScreen("settings")}
+            />
+          </motion.div>
+        )}
 
-      {currentScreen === "bug-report" && (
-        <BugReportForm onBack={() => setCurrentScreen("settings")} />
-      )}
+        {currentScreen === "bug-report" && (
+          <motion.div key="bug-report" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <BugReportForm onBack={() => setCurrentScreen("settings")} />
+          </motion.div>
+        )}
 
-      {currentScreen === "feedback" && (
-        <FeedbackForm onBack={() => setCurrentScreen("settings")} />
-      )}
+        {currentScreen === "feedback" && (
+          <motion.div key="feedback" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <FeedbackForm onBack={() => setCurrentScreen("settings")} />
+          </motion.div>
+        )}
 
-      {currentScreen === "privacy" && (
-        <PrivacyPage onBack={() => setCurrentScreen("settings")} />
-      )}
+        {currentScreen === "privacy" && (
+          <motion.div key="privacy" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <PrivacyPage onBack={() => setCurrentScreen("settings")} />
+          </motion.div>
+        )}
 
-      {currentScreen === "terms" && (
-        <TermsPage onBack={() => setCurrentScreen("settings")} />
-      )}
+        {currentScreen === "terms" && (
+          <motion.div key="terms" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <TermsPage onBack={() => setCurrentScreen("settings")} />
+          </motion.div>
+        )}
 
-      {currentScreen === "about" && (
-        <AboutPage onBack={() => setCurrentScreen("settings")} />
-      )}
+        {currentScreen === "about" && (
+          <motion.div key="about" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
+            <AboutPage onBack={() => setCurrentScreen("settings")} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
