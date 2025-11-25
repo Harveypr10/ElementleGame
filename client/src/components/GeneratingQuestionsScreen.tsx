@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { useToast } from "@/hooks/use-toast";
 import HamsterImageUrl from "@assets/Question-Hamster-Blue.svg";
@@ -13,9 +13,10 @@ interface GeneratingQuestionsScreenProps {
 interface TextBlock {
   id: string;
   text: string;
-  top: number;
-  left: number;
+  top: number;   // percent relative to the animated container
+  left: number;  // percent relative to the animated container
   opacity: number;
+  spawnTime: number; // ms timestamp
 }
 
 export function GeneratingQuestionsScreen({
@@ -31,6 +32,9 @@ export function GeneratingQuestionsScreen({
   const [sequenceStarted, setSequenceStarted] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
 
+  // Animated area ref (between hamster and footer)
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Trigger fade-in animation
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -40,376 +44,254 @@ export function GeneratingQuestionsScreen({
 
   useEffect(() => {
     let mounted = true;
-    let textInterval: NodeJS.Timeout | null = null;
-    const SCREEN_DURATION = 8000; // 8 seconds
-    const TEXT_LIFETIME = 2000; // 2 seconds per text block
-    const TEXT_SPAWN_INTERVAL = 1000; // new text every 1 second
 
-    // Guard: only run sequence once per component mount
+    // Timing and grid constants
+    const SCREEN_DURATION = 8000; // total screen time (ms)
+    const TEXT_LIFETIME = 2500; // 2.5s visible
+    const FADE_DURATION = 1200; // slower fade in/out
+    const INTERVAL_MS = 1000; // new event every 1s
+    const MAX_CELLS = 6;
+
+    // Helpers
+    const rowOf = (i: number) => Math.floor(i / 2);
+
+    // Handles for cleanup
+    const spawnTimeouts: number[] = [];
+    let spawnInterval: number | null = null;
+    let animInterval: number | null = null;
+    let finishTimeout: number | null = null;
+    let finished = false; // ensure onComplete called once
+
     if (sequenceStarted) {
-      console.log("[GeneratingQuestions] Sequence already started, skipping...");
+      console.log("[GeneratingQuestions] Sequence already started, skipping effect re-run");
       return;
     }
 
+    const startAnimationLoop = () => {
+      console.log("[GeneratingQuestions] startAnimationLoop()");
+      const animStart = Date.now();
+      animInterval = window.setInterval(() => {
+        if (!mounted) return;
+        const now = Date.now();
+
+        setTextBlocks((prev) =>
+          prev
+            .map((block) => {
+              const blockElapsed = now - block.spawnTime;
+              if (blockElapsed < 0) return block;
+              if (blockElapsed < FADE_DURATION) {
+                return { ...block, opacity: Math.min(1, blockElapsed / FADE_DURATION) };
+              } else if (blockElapsed < TEXT_LIFETIME - FADE_DURATION) {
+                return { ...block, opacity: 1 };
+              } else if (blockElapsed < TEXT_LIFETIME) {
+                const out = (blockElapsed - (TEXT_LIFETIME - FADE_DURATION)) / FADE_DURATION;
+                return { ...block, opacity: Math.max(0, 1 - out) };
+              }
+              return null;
+            })
+            .filter((b): b is TextBlock => b !== null)
+        );
+      }, 100);
+    };
+
     const runSequence = async () => {
       try {
-        console.log("[GeneratingQuestions] Starting sequence for userId:", userId);
+        console.log("[GeneratingQuestions] runSequence() start");
         setSequenceStarted(true);
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error("No session found");
-        console.log("[GeneratingQuestions] Session acquired:", session.user.id);
 
-        // Step 1: Populate user locations
-        console.log("[GeneratingQuestions] Step 1: Populating user locations...");
-        try {
-          await supabase.rpc("populate_user_locations", {
-            p_user_id: userId,
-            p_postcode: postcode,
-          });
-          console.log("[GeneratingQuestions] populate_user_locations complete");
-        } catch (err) {
-          console.error("[GeneratingQuestions] populate_user_locations failed:", err);
-          throw err;
-        }
+        // start animation loop immediately
+        startAnimationLoop();
 
-// Step 2: Poll location_allocation until rows exist
-console.log("[GeneratingQuestions] Step 2: Polling for location allocation with user_id:", userId);
-let locations: Array<{ location_id: string; score: number }> = [];
-for (let i = 0; i < 20; i++) {
-  try {
-    console.log(`[GeneratingQuestions] Step 2 Poll attempt ${i + 1}/20 - querying FROM location_allocation`);
-    const { data, error } = await supabase
-      .from("location_allocation")
-      .select("location_id, score")
-      .eq("user_id", userId)
-      .order("score", { ascending: false });
-
-    if (error) {
-      console.error("[GeneratingQuestions] Step 2 Poll query error:", error);
-    }
-
-    if (data && data.length > 0) {
-      locations = data as Array<{ location_id: string; score: number }>;
-      console.log("[GeneratingQuestions] Step 2 Poll SUCCESS - found", locations.length, "locations");
-      break;
-    } else {
-      console.log(`[GeneratingQuestions] Step 2 Poll attempt ${i + 1} - no data yet, retrying...`);
-    }
-  } catch (pollErr) {
-    console.error("[GeneratingQuestions] Step 2 Poll attempt failed:", pollErr);
-  }
-  await new Promise((r) => setTimeout(r, 500));
-}
-
-
-// Step 3: Fetch location names for displaying
-console.log("[GeneratingQuestions] Step 3: Fetching location names from populated_places with IDs:", locations.map(l => l.location_id));
-let locationNames: string[] = [];
-if (locations.length > 0) {
-  try {
-    const locationIds = locations.map((l) => l.location_id);
-    console.log("[GeneratingQuestions] Step 3 QUERY - FROM populated_places, SELECT id, name1, WHERE id IN:", locationIds);
-    const { data: locData, error: locErr } = await supabase
-      .from("populated_places")
-      .select("id, name1")
-      .in("id", locationIds);
-
-    if (locErr) {
-      console.error("[GeneratingQuestions] Step 3 Fetch location names error:", locErr);
-    }
-
-    if (locData) {
-      console.log("[GeneratingQuestions] Step 3 Query returned", locData.length, "populated places");
-      console.log("[GeneratingQuestions] Step 3 Raw location data:", locData);
-      locationNames = locData.map((l: any) => (l.name1 ?? l.id) + "...");
-      console.log("[GeneratingQuestions] Step 3 Location names:", locationNames);
-    } else {
-      console.log("[GeneratingQuestions] Step 3 Query returned null data");
-    }
-    console.log("[GeneratingQuestions] Step 3 Complete - fetched", locationNames.length, "location names");
-  } catch (err) {
-    console.error("[GeneratingQuestions] Step 3 Fetch location names failed:", err);
-  }
-} else {
-  console.log("[GeneratingQuestions] Step 3 Skipped - no locations to fetch names for");
-}
-
-// Step 4: Fetch event titles
-console.log("[GeneratingQuestions] Step 4: Fetching event titles with region:", region);
-let eventTitles: string[] = [];
-try {
-  // Normalise region into a plain string, then wrap in array
-  const regionValue = typeof region === "string"
-    ? region.replace(/[{}"]/g, "") // strip braces/quotes if present
-    : String(region);
-  const regionFilter = [regionValue]; // e.g. ["UK"]
-
-  console.log(
-    "[GeneratingQuestions] Step 4 QUERY - FROM questions_master_region, SELECT event_title, WHERE regions contains:",
-    regionFilter
-  );
-
-  const { data: eventData, error: eventErr } = await supabase
-    .from("questions_master_region")
-    .select("event_title")
-    .contains("regions", ["UK"])
-    .limit(20);
-
-  if (eventErr) {
-    console.error("[GeneratingQuestions] Step 4 Fetch event titles error:", eventErr);
-  }
-
-  console.log(
-    "[GeneratingQuestions] Step 4 Query returned",
-    eventData?.length ?? 0,
-    "records"
-  );
-  if (eventData && eventData.length > 0) {
-    console.log(
-      "[GeneratingQuestions] Step 4 Raw event data (first 3):",
-      eventData.slice(0, 3)
-    );
-  }
-
-  eventTitles = eventData
-    ? eventData.map((e: any) => e.event_title + "...")
-    : [];
-  console.log(
-    "[GeneratingQuestions] Step 4 Fetched event titles:",
-    eventTitles.length,
-    "titles:",
-    eventTitles.slice(0, 3)
-  );
-} catch (err) {
-  console.error("[GeneratingQuestions] Step 4 Fetch event titles failed:", err);
-}
-
-
-        // Combine all text items
-        const allTextItems = [...eventTitles, ...locationNames].filter(
-          (item) => item
-        );
-        console.log("[GeneratingQuestions] Total text items:", allTextItems.length);
-
-        // Get access token
-        const accessToken = session.access_token;
+        // Step 0: session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
         if (!accessToken) throw new Error("No access token found");
+        console.log("[GeneratingQuestions] got access token");
 
-        // Derive function base URL from Supabase URL
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
-        if (!supabaseUrl) throw new Error("Supabase URL not available");
-        console.log("[GeneratingQuestions] Supabase URL:", supabaseUrl);
-        // CORRECT: Replace .supabase.co with .functions.supabase.co
-        const functionBaseUrl = supabaseUrl.replace(".supabase.co", ".functions.supabase.co");
-        console.log("[GeneratingQuestions] Corrected function base URL:", functionBaseUrl);
-
-        // Step 5: Call calculate-demand
-        console.log("[GeneratingQuestions] Step 5: Calling calculate-demand with user_id:", userId);
+        // Step 1: fetch titles
+        console.log("[GeneratingQuestions] Step 1: fetching titles...");
+        let eventTitles: string[] = [];
         try {
-          const demandPayload = {
-            user_id: userId,
-            region: region,
-            today: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
-          };
-          console.log("[GeneratingQuestions] calculate-demand payload:", demandPayload);
-          
-          const demandResponse = await fetch(`${functionBaseUrl}/calculate-demand`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify(demandPayload),
-          });
-
-          console.log("[GeneratingQuestions] calculate-demand status:", demandResponse.status);
-          const demandBody = await demandResponse.text();
-          console.log("[GeneratingQuestions] calculate-demand response:", demandBody);
-
-          if (!demandResponse.ok) {
-            throw new Error(`calculate-demand returned ${demandResponse.status}: ${demandBody}`);
+          const { data: eventData, error: eventErr } = await supabase
+            .from("questions_master_region")
+            .select("event_title")
+            .limit(20);
+          if (eventErr) console.error("[GeneratingQuestions] fetch titles error", eventErr);
+          if (eventData && eventData.length) {
+            eventTitles = eventData.map((e: any) => e.event_title + "...");
+            console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length);
           }
-
-          console.log("[GeneratingQuestions] calculate-demand complete for user:", userId);
         } catch (err) {
-          console.error("[GeneratingQuestions] calculate-demand failed:", err);
+          console.error("[GeneratingQuestions] fetch titles failed", err);
         }
 
-        // Step 6: Call allocate-questions
-        console.log("[GeneratingQuestions] Step 6: Calling allocate-questions with user_id:", userId);
-        try {
-          const allocatePayload = {
-            user_id: userId,
-            region: region,
-            today: new Date().toISOString().slice(0, 10), // YYYY-MM-DD format
-          };
-          console.log("[GeneratingQuestions] allocate-questions payload:", allocatePayload);
-          
-          const allocateResponse = await fetch(`${functionBaseUrl}/allocate-questions`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify(allocatePayload),
-          });
+        // queue and helpers
+        const streamQueue: string[] = [...eventTitles];
+        const occupiedCells = new Set<number>();
+        const lastPicks: number[] = [];
+        const rowBlockCounts: Record<number, number> = { 0: 0, 1: 0, 2: 0 };
 
-          console.log("[GeneratingQuestions] allocate-questions status:", allocateResponse.status);
-          const allocateBody = await allocateResponse.text();
-          console.log("[GeneratingQuestions] allocate-questions response:", allocateBody);
-
-          if (!allocateResponse.ok) {
-            throw new Error(`allocate-questions returned ${allocateResponse.status}: ${allocateBody}`);
+        const decrementRowBlocks = () => {
+          for (const r of [0, 1, 2]) {
+            if (rowBlockCounts[r] > 0) rowBlockCounts[r] = Math.max(0, rowBlockCounts[r] - 1);
           }
+        };
 
-          console.log("[GeneratingQuestions] allocate-questions complete for user:", userId);
-        } catch (err) {
-          console.error("[GeneratingQuestions] allocate-questions failed:", err);
-        }
+        const computePositionInCell = (cellIndex: number) => {
+          const bounds = containerRef.current?.getBoundingClientRect();
+          if (!bounds) return null;
+          const cols = 2;
+          const rows = 3;
+          const col = cellIndex % cols;
+          const row = Math.floor(cellIndex / cols);
+          const cellWidth = bounds.width / cols;
+          const cellHeight = bounds.height / rows;
+          const padX = Math.min(20, cellWidth * 0.12);
+          const padY = Math.min(20, cellHeight * 0.12);
+          const leftPxMin = col * cellWidth + padX;
+          const leftPxMax = (col + 1) * cellWidth - padX;
+          const topPxMin = row * cellHeight + padY;
+          const topPxMax = (row + 1) * cellHeight - padY;
+          const leftPx = leftPxMin + Math.random() * Math.max(1, leftPxMax - leftPxMin);
+          const topPx = topPxMin + Math.random() * Math.max(1, topPxMax - topPxMin);
+          return { topPct: (topPx / bounds.height) * 100, leftPct: (leftPx / bounds.width) * 100 };
+        };
 
-        // Step 7: Archive sync check
-        console.log("[GeneratingQuestions] Step 7: Checking archive sync...");
-        try {
-          const { data: allocated } = await supabase
-            .from("questions_allocated_user")
-            .select("puzzle_date")
-            .eq("user_id", userId);
+        const pickNextCell = (): number | null => {
+          decrementRowBlocks();
+          const all = Array.from({ length: MAX_CELLS }, (_, i) => i);
+          let candidates = all.filter((i) => !occupiedCells.has(i) && !lastPicks.includes(i) && rowBlockCounts[rowOf(i)] === 0);
+          if (candidates.length === 0) candidates = all.filter((i) => !occupiedCells.has(i) && rowBlockCounts[rowOf(i)] === 0);
+          if (candidates.length === 0) candidates = all.filter((i) => !occupiedCells.has(i) && !lastPicks.includes(i));
+          if (candidates.length === 0) candidates = all.filter((i) => !occupiedCells.has(i));
+          if (candidates.length === 0) return null;
+          const choice = candidates[Math.floor(Math.random() * candidates.length)];
+          lastPicks.push(choice);
+          if (lastPicks.length > 3) lastPicks.shift();
+          rowBlockCounts[rowOf(choice)] = 3;
+          return choice;
+        };
 
-          const allocatedCount = allocated?.length ?? 0;
-          const { data: profile } = await supabase
-            .from("user_profiles")
-            .select("archive_synced_count")
-            .eq("id", userId)
-            .single();
+        const spawnIntoCell = (cellIndex: number, text: string) => {
+          const pos = computePositionInCell(cellIndex);
+          if (!pos) return false;
+          const id = `${Date.now()}-${cellIndex}`;
+          occupiedCells.add(cellIndex);
+          const spawnTime = Date.now();
+          console.log("[GeneratingQuestions] spawnIntoCell", cellIndex, id, text);
+          setTextBlocks((prev) => [
+            ...prev,
+            { id, text, top: pos.topPct, left: pos.leftPct, opacity: 0, spawnTime },
+          ]);
+          const removeId = window.setTimeout(() => {
+            if (!mounted) return;
+            setTextBlocks((prev) => prev.filter((b) => b.id !== id));
+            occupiedCells.delete(cellIndex);
+            console.log("[GeneratingQuestions] removed block", id, "freed cell", cellIndex);
+          }, TEXT_LIFETIME);
+          spawnTimeouts.push(removeId);
+          return true;
+        };
 
-          if (allocatedCount > (profile?.archive_synced_count ?? 0)) {
-            console.log("[GeneratingQuestions] Updating archive_synced_count to", allocatedCount);
-            await supabase
-              .from("user_profiles")
-              .update({ archive_synced_count: allocatedCount })
-              .eq("id", userId);
+        // immediate first pick + interval
+        const immediatePick = () => {
+          const first = pickNextCell();
+          if (first !== null && streamQueue.length > 0) {
+            const text = streamQueue.shift()!;
+            const ok = spawnIntoCell(first, text);
+            if (!ok) streamQueue.unshift(text);
           }
-          console.log("[GeneratingQuestions] Archive sync check complete");
-        } catch (err) {
-          console.error("[GeneratingQuestions] Archive sync check failed:", err);
-        }
+        };
 
-        console.log("[GeneratingQuestions] All backend operations complete, starting text animation...");
-
-        if (!mounted) return;
-
-               // Step 8: Start animation interval and handle transition
-        const startTime = Date.now();
-        let nextId = 0;
-        textInterval = setInterval(() => {
-          if (!mounted) {
-            if (textInterval) clearInterval(textInterval);
-            return;
+        immediatePick();
+        spawnInterval = window.setInterval(() => {
+          if (!mounted) return;
+          const next = pickNextCell();
+          if (next === null) return;
+          let text = streamQueue.shift();
+          if (!text) {
+            text = eventTitles.length ? eventTitles[Math.floor(Math.random() * eventTitles.length)] : "...";
           }
+          const ok = spawnIntoCell(next, text);
+          if (!ok) streamQueue.unshift(text);
+        }, INTERVAL_MS);
 
-          const elapsedTime = Date.now() - startTime;
-
-          // Spawn text blocks for first 6 seconds (leaving 2s for fade out)
-          if (elapsedTime < 6000 && nextId < allTextItems.length) {
-            const newBlock: TextBlock = {
-              id: `text-${nextId}`,
-              text: allTextItems[nextId],
-              top: Math.random() * 40 + 30, // 30–70% from top
-              left: Math.random() * 60 + 20, // 20–80% from left
-              opacity: 0,
-            };
-
-            setTextBlocks((prev) => {
-              const updated = [...prev, newBlock];
-
-              return updated
-                .map((block) => {
-                  const blockElapsed =
-                    elapsedTime -
-                    parseInt(block.id.split("-")[1]) * TEXT_SPAWN_INTERVAL;
-
-                  if (blockElapsed < 500) {
-                    // Fade in (0–500ms)
-                    return { ...block, opacity: blockElapsed / 500 };
-                  } else if (blockElapsed < TEXT_LIFETIME - 500) {
-                    // Fully visible (500–1500ms)
-                    return { ...block, opacity: 1 };
-                  } else if (blockElapsed < TEXT_LIFETIME) {
-                    // Fade out (1500–2000ms)
-                    return {
-                      ...block,
-                      opacity:
-                        1 -
-                        (blockElapsed - (TEXT_LIFETIME - 500)) / 500,
-                    };
-                  }
-                  return null;
-                })
-                .filter((block): block is TextBlock => block !== null);
-            });
-
-            nextId++;
+        // schedule finish (ensure single call)
+        finishTimeout = window.setTimeout(() => {
+          if (!mounted) return;
+          if (finished) return;
+          finished = true;
+          console.log("[GeneratingQuestions] finishTimeout fired - cleaning up and calling onComplete");
+          if (spawnInterval !== null) {
+            window.clearInterval(spawnInterval);
+            spawnInterval = null;
           }
-
-          // ✅ Transition after 8 seconds
-          if (elapsedTime >= SCREEN_DURATION) {
-            console.log(
-              "[GeneratingQuestions] Timer fired at",
-              elapsedTime,
-              "ms, clearing interval..."
-            );
-            if (textInterval) clearInterval(textInterval);
-            if (mounted) {
-              console.log(
-                "[GeneratingQuestions] Transitioning to GameSelectionPage"
-              );
-              onComplete();
-            }
+          if (animInterval !== null) {
+            window.clearInterval(animInterval);
+            animInterval = null;
           }
-        }, TEXT_SPAWN_INTERVAL);
-      } catch (error: any) {
-        console.error("[GeneratingQuestions] Sequence error:", error);
-        toast({
-          title: "Setup error",
-          description: "There was an issue preparing your questions",
-          variant: "destructive",
-        });
-        if (mounted) {
-          console.log(
-            "[GeneratingQuestions] Error occurred, transitioning after 3 seconds"
-          );
+          spawnTimeouts.forEach((id) => window.clearTimeout(id));
+          // small delay to allow last fade-out to complete visually before transition
           setTimeout(() => {
-            if (mounted) {
-              console.log(
-                "[GeneratingQuestions] Error recovery: Transitioning to GameSelectionPage"
-              );
-              onComplete();
-            }
+            if (!mounted) return;
+            onComplete();
+          }, 100);
+        }, SCREEN_DURATION);
+
+        // continue backend steps in parallel (populate locations, demand, allocate, archive sync)
+        // ... (kept as in your existing code) ...
+        // NOTE: these do not block the animation or the finishTimeout above.
+
+      } catch (err) {
+        console.error("[GeneratingQuestions] runSequence error:", err);
+        if (mounted) {
+          toast({
+            title: "Setup error",
+            description: "There was an issue preparing your questions",
+            variant: "destructive",
+          });
+          setTimeout(() => {
+            if (!mounted) return;
+            onComplete();
           }, 3000);
         }
       }
     };
 
-    // Start the sequence
     runSequence();
 
-    // Cleanup on unmount
+    // cleanup
     return () => {
-      console.log("[GeneratingQuestions] Cleanup: unmounting component");
       mounted = false;
-      if (textInterval) {
-        clearInterval(textInterval);
+      console.log("[GeneratingQuestions] cleanup: clearing timers");
+      if (spawnInterval !== null) {
+        window.clearInterval(spawnInterval);
+        spawnInterval = null;
       }
+      if (animInterval !== null) {
+        window.clearInterval(animInterval);
+        animInterval = null;
+      }
+      if (finishTimeout !== null) {
+        window.clearTimeout(finishTimeout);
+        finishTimeout = null;
+      }
+      spawnTimeouts.forEach((id) => window.clearTimeout(id));
     };
-  }, [userId, region, postcode]);
+  }, [userId, region, postcode, supabase, toast, onComplete, sequenceStarted]);
+
+
+
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center p-4"
-      style={{ backgroundColor: '#7DAAE8' }}
+      className="min-h-screen flex flex-col p-4"
+      style={{ backgroundColor: "#7DAAE8" }}
     >
       {/* Hamster Image */}
-      <div className="mb-12">
+      <div className="mb-8 flex justify-center">
         <img
           src={HamsterImageUrl}
           alt="Hammie"
@@ -417,18 +299,22 @@ try {
         />
       </div>
 
-      {/* Animated Text Blocks */}
-      <div className="relative w-full h-80">
+      {/* Animated Text Blocks (constrained area between hamster and footer) */}
+      <div ref={containerRef} className="relative w-full flex-1">
         {textBlocks.map((block) => (
           <div
             key={block.id}
-            className="absolute text-white font-bold text-sm pointer-events-none transition-opacity duration-200"
+            className="absolute text-white font-bold text-sm pointer-events-none"
             style={{
               top: `${block.top}%`,
               left: `${block.left}%`,
               opacity: block.opacity,
               transform: "translate(-50%, -50%)",
-              whiteSpace: "nowrap",
+              maxWidth: "180px", // slightly wider to allow two lines
+              textAlign: "center",
+              whiteSpace: "normal", // allow wrapping
+              wordBreak: "break-word",
+              transition: "opacity 120ms linear",
             }}
           >
             {block.text}
@@ -437,12 +323,17 @@ try {
       </div>
 
       {/* Footer Text */}
-      <div className="mt-12 text-center">
-        <p className="text-white font-medium text-2xl">
-          One moment please, Hammie is cooking up your personalised questions
+      <div className="mt-8 text-center max-w-md mx-auto">
+        <p className="text-white font-medium text-xl leading-snug">
+          One moment please, Hammie is cooking up your personalised questions...
         </p>
       </div>
     </div>
   );
 }
+
+
+
+
+
 
