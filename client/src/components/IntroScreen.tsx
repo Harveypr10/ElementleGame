@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 
 interface IntroScreenProps {
@@ -29,8 +28,13 @@ export function IntroScreen({
     ? `${categoryName ? categoryName + ": " : ""}On what date in history did this event occur?`
     : "Take on the challenge of guessing a date in history!";
 
+  const handlePlayClick = () => {
+    console.log('[IntroScreen] Play button clicked');
+    onPlayClick();
+  };
+
   return (
-    <div className="min-h-screen w-full bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+    <div className="fixed inset-0 bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4 z-50">
       <div className="flex flex-col items-center justify-center max-w-md w-full space-y-6">
         {/* Hamster Image */}
         <img
@@ -58,14 +62,14 @@ export function IntroScreen({
         </div>
 
         {/* Play Button */}
-        <Button
-          onClick={onPlayClick}
-          className="w-1/2 text-white font-bold text-base py-4"
+        <button
+          onClick={handlePlayClick}
+          className="w-1/2 text-white font-bold text-base py-4 rounded-md hover:opacity-90 transition-opacity"
           style={{ backgroundColor: buttonColor }}
           data-testid="button-intro-play"
         >
           Play
-        </Button>
+        </button>
       </div>
     </div>
   );

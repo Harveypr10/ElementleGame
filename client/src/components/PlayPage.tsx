@@ -553,12 +553,13 @@ export function PlayPage({
   }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat]);
 
   // Check if we should show the intro screen (new game with no guesses)
+  // Only show intro once when component mounts and conditions are met
   useEffect(() => {
-    if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !showIntroScreen) {
+    if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !introScreenReady) {
       setShowIntroScreen(true);
       setIntroScreenReady(true);
     }
-  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, showIntroScreen]);
+  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady]);
 
   // Helper function to format date for intro display
   const formatDateForIntro = (dateCanonical: string): string => {

@@ -181,19 +181,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[GET /api/puzzles] Found allocated questions:', allocatedQuestions.length);
       
       // Transform to frontend-compatible format (keeping backward compatibility)
-      const puzzles = allocatedQuestions.map(aq => ({
-        id: aq.id, // This is now allocatedRegionId
-        date: aq.puzzleDate,
-        answerDateCanonical: aq.masterQuestion.answerDateCanonical,
-        eventTitle: aq.masterQuestion.eventTitle,
-        eventDescription: aq.masterQuestion.eventDescription,
-        clue1: null, // Clues removed in new schema
-        clue2: null, // Clues removed in new schema
-        // Region-specific fields
-        region: aq.region,
-        allocatedRegionId: aq.id,
-        masterQuestionId: aq.questionId,
-      }));
+      const puzzles = allocatedQuestions.map(aq => {
+        // Extract first category name from categories jsonb array
+        const categoriesArray = aq.masterQuestion.categories as string[] | null;
+        const categoryName = categoriesArray && categoriesArray.length > 0 ? categoriesArray[0] : null;
+        
+        return {
+          id: aq.id, // This is now allocatedRegionId
+          date: aq.puzzleDate,
+          answerDateCanonical: aq.masterQuestion.answerDateCanonical,
+          eventTitle: aq.masterQuestion.eventTitle,
+          eventDescription: aq.masterQuestion.eventDescription,
+          category: categoryName, // Add category name for IntroScreen
+          clue1: null, // Clues removed in new schema
+          clue2: null, // Clues removed in new schema
+          // Region-specific fields
+          region: aq.region,
+          allocatedRegionId: aq.id,
+          masterQuestionId: aq.questionId,
+        };
+      });
       
       res.json(puzzles);
     } catch (error) {
@@ -214,6 +221,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Puzzle not found" });
       }
       
+      // Extract first category name from categories jsonb array
+      const categoriesArray = allocatedQuestion.masterQuestion.categories as string[] | null;
+      const categoryName = categoriesArray && categoriesArray.length > 0 ? categoriesArray[0] : null;
+      
       // Transform to frontend-compatible format
       const puzzle = {
         id: allocatedQuestion.id,
@@ -221,6 +232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         answerDateCanonical: allocatedQuestion.masterQuestion.answerDateCanonical,
         eventTitle: allocatedQuestion.masterQuestion.eventTitle,
         eventDescription: allocatedQuestion.masterQuestion.eventDescription,
+        category: categoryName, // Add category name for IntroScreen
         clue1: null, // Clues removed in new schema
         clue2: null, // Clues removed in new schema
         region: allocatedQuestion.region,
