@@ -87,10 +87,12 @@ export function GameSelectionPage({
     return () => window.removeEventListener('resize', updateWidth);
   }, [containerRef]);
 
+  // Options button moves at half speed and stays clamped within visible bounds
   const buttonX = useTransform(
     x,
-    [0, -Math.max(containerWidth, 1)], // Avoid division by zero
-    [0, -(Math.max(containerWidth, 1)-16) / 2] // Half speed movement
+    [0, -Math.max(containerWidth, 1)],
+    [0, -(Math.max(containerWidth, 1)-16) / 2],
+    { clamp: true } // Clamp output to stay within visible bounds
   );
 
   // Authenticated fetch helper
@@ -333,7 +335,7 @@ export function GameSelectionPage({
             {/* Play Today's Puzzle (Global) */}
             <motion.button
               className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: "#7DAAE8" }}
+              style={{ backgroundColor: "#7DAAE8", touchAction: 'pan-y' }}
               onClick={onPlayGame}
               disabled={!todayPuzzleId}
               data-testid="button-play"
@@ -363,7 +365,7 @@ export function GameSelectionPage({
             {/* Archive (Global) */}
             <motion.button
               className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-              style={{ backgroundColor: "#FFD429" }}
+              style={{ backgroundColor: "#FFD429", touchAction: 'pan-y' }}
               onClick={onViewArchive}
               data-testid="button-archive"
               initial={{ opacity: 0, y: 20 }}
@@ -391,7 +393,7 @@ export function GameSelectionPage({
                 {/* Global Stats button */}
                 <motion.button
                   className="absolute left-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#A4DB57" }}
+                  style={{ backgroundColor: "#A4DB57", touchAction: 'pan-y' }}
                   onClick={onViewStats}
                   data-testid="button-stats-global"
                   initial={{ opacity: 0, y: 20 }}
@@ -500,7 +502,7 @@ export function GameSelectionPage({
             {/* Play Today's Puzzle (Local) */}
             <motion.button
               className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: "#66becb" }}
+              style={{ backgroundColor: "#66becb", touchAction: 'pan-y' }}
               onClick={onPlayGameLocal}
               disabled={!todayPuzzleId}
               data-testid="button-play-local"
@@ -530,7 +532,7 @@ export function GameSelectionPage({
             {/* Archive (Local) */}
             <motion.button
               className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-              style={{ backgroundColor: "#fdab58" }}
+              style={{ backgroundColor: "#fdab58", touchAction: 'pan-y' }}
               onClick={onViewArchiveLocal}
               data-testid="button-archive-local"
               initial={{ opacity: 0, y: 20 }}
@@ -558,7 +560,7 @@ export function GameSelectionPage({
                 {/* Local Stats button */}
                 <motion.button
                   className="absolute right-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#93cd78" }}
+                  style={{ backgroundColor: "#93cd78", touchAction: 'pan-y' }}
                   onClick={onViewStatsLocal}
                   data-testid="button-stats-local"
                   initial={{ opacity: 0, y: 20 }}
