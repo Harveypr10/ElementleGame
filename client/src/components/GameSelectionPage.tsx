@@ -73,23 +73,39 @@ export function GameSelectionPage({
   const isLocalMode = gameMode === 'local';
 
   // Transform for Options button - moves based on content width, not viewport
-  // Track both container width (for swipe input range) and content width (for movement limit)
+  // Track container width, content width, and Stats row vertical position
   const [containerWidth, setContainerWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
+  const [statsRowTop, setStatsRowTop] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
+  const statsRowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const updateWidth = () => {
+    const updateDimensions = () => {
       if (containerRef.current) {
         setContainerWidth(containerRef.current.offsetWidth);
       }
       if (contentRef.current) {
         setContentWidth(contentRef.current.offsetWidth);
       }
+      // Track Stats row position relative to the container
+      if (statsRowRef.current && containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const statsRect = statsRowRef.current.getBoundingClientRect();
+        setStatsRowTop(statsRect.top - containerRect.top);
+      }
     };
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    // Also observe for layout changes (text size, etc.)
+    const observer = new MutationObserver(updateDimensions);
+    if (containerRef.current) {
+      observer.observe(containerRef.current, { childList: true, subtree: true, attributes: true });
+    }
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
+      observer.disconnect();
+    };
   }, [containerRef]);
 
   // Options button moves to stay aligned with content area
@@ -396,7 +412,7 @@ export function GameSelectionPage({
 
             {/* Mobile only: Stats row - contains Global Stats button */}
             {!isDesktop && (
-              <div className="relative h-40">
+              <div ref={statsRowRef} className="relative h-40">
                 {/* Global Stats button */}
                 <motion.button
                   className="absolute left-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
@@ -816,12 +832,12 @@ export function GameSelectionPage({
             </div>
 
             {/* Options button overlay - positioned at Stats row level, moves at half-speed */}
-            {isAuthenticated && containerWidth > 0 && (
+            {isAuthenticated && containerWidth > 0 && statsRowTop > 0 && (
               <div 
                 className="absolute left-0 right-0 pointer-events-none"
                 style={{
-                  // Position at same vertical level as Stats row in document flow
-                  top: '324px'
+                  // Position at same vertical level as Stats row (dynamically tracked)
+                  top: `${statsRowTop}px`
                 }}
               >
                 <div style={{ paddingLeft: '1rem', paddingRight: '1rem' }}>
