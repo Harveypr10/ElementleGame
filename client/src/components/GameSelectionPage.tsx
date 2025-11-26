@@ -462,7 +462,13 @@ export function GameSelectionPage({
                 <motion.button
                   className="absolute left-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                   style={{ backgroundColor: "#A4DB57", touchAction: 'pan-y' }}
-                  onClick={onViewStats}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      setShowGuestRestriction('personal');
+                      return;
+                    }
+                    onViewStats();
+                  }}
                   data-testid="button-stats-global"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -829,28 +835,32 @@ export function GameSelectionPage({
               </div>
             </div>
 
-            {/* Desktop: Bottom buttons - Options always visible, Stats require auth */}
+            {/* Desktop: Bottom buttons - Options always visible, Stats visible for all */}
             <div className="flex-shrink-0 px-4 pb-24 mt-4">
               <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto flex gap-2">
-                {isAuthenticated && (
-                  <motion.button
-                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                    style={{ backgroundColor: "#A4DB57" }}
-                    onClick={onViewStats}
-                    data-testid="button-stats-desktop-global"
-                    layout
-                    transition={{ duration: 0.25 }}
-                  >
-                    <span className="text-xl font-bold text-gray-800 text-center">
-                      Global Stats
-                    </span>
-                    <img
-                      src={mathsHamsterGreen}
-                      alt="Global Stats"
-                      className="max-h-[72px] w-auto object-contain mt-4"
-                    />
-                  </motion.button>
-                )}
+                <motion.button
+                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                  style={{ backgroundColor: "#A4DB57" }}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      setShowGuestRestriction('personal');
+                      return;
+                    }
+                    onViewStats();
+                  }}
+                  data-testid="button-stats-desktop-global"
+                  layout
+                  transition={{ duration: 0.25 }}
+                >
+                  <span className="text-xl font-bold text-gray-800 text-center">
+                    Global Stats
+                  </span>
+                  <img
+                    src={mathsHamsterGreen}
+                    alt="Global Stats"
+                    className="max-h-[72px] w-auto object-contain mt-4"
+                  />
+                </motion.button>
 
                 <motion.button
                   className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
@@ -870,25 +880,29 @@ export function GameSelectionPage({
                   />
                 </motion.button>
 
-                {isAuthenticated && (
-                  <motion.button
-                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                    style={{ backgroundColor: "#93cd78" }}
-                    onClick={onViewStatsLocal}
-                    data-testid="button-stats-desktop-local"
-                    layout
-                    transition={{ duration: 0.25 }}
-                  >
-                    <span className="text-xl font-bold text-gray-800 text-center">
-                      Local Stats
-                    </span>
-                    <img
-                      src={mathsHamsterLocal}
-                      alt="Local Stats"
-                      className="max-h-[72px] w-auto object-contain mt-4"
-                    />
-                  </motion.button>
-                )}
+                <motion.button
+                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                  style={{ backgroundColor: "#93cd78" }}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      setShowGuestRestriction('personal');
+                      return;
+                    }
+                    onViewStatsLocal?.();
+                  }}
+                  data-testid="button-stats-desktop-local"
+                  layout
+                  transition={{ duration: 0.25 }}
+                >
+                  <span className="text-xl font-bold text-gray-800 text-center">
+                    Local Stats
+                  </span>
+                  <img
+                    src={mathsHamsterLocal}
+                    alt="Local Stats"
+                    className="max-h-[72px] w-auto object-contain mt-4"
+                  />
+                </motion.button>
               </div>
             </div>
           </div>
