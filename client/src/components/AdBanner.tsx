@@ -7,25 +7,39 @@ declare global {
   }
 }
 
+const ADSENSE_CLIENT_ID = 'ca-pub-3940256099942544';
+const ADSENSE_SLOT_ID = '6300978111';
+
 export function useAdBannerActive() {
-  const { isPro } = useSubscription();
-  return !isPro;
+  const { isGold, isLoading } = useSubscription();
+  if (isLoading) return false;
+  return !isGold;
 }
 
 export function AdBanner() {
   const adRef = useRef<HTMLModElement>(null);
   const [adLoaded, setAdLoaded] = useState(false);
   const [adError, setAdError] = useState(false);
-  const { isPro, isLoading: subscriptionLoading } = useSubscription();
+  const { isGold, isLoading: subscriptionLoading } = useSubscription();
 
   useEffect(() => {
-    if (subscriptionLoading || isPro) return;
+    if (subscriptionLoading || isGold) return;
     
     const loadAd = () => {
       try {
         if (typeof window !== 'undefined' && adRef.current) {
           (window.adsbygoogle = window.adsbygoogle || []).push({});
-          setAdLoaded(true);
+          
+          setTimeout(() => {
+            if (adRef.current) {
+              const iframe = adRef.current.querySelector('iframe');
+              if (iframe) {
+                setAdLoaded(true);
+              } else {
+                setAdError(true);
+              }
+            }
+          }, 2000);
         }
       } catch (e) {
         console.error('AdSense error:', e);
@@ -34,11 +48,13 @@ export function AdBanner() {
     };
 
     const timer = setTimeout(() => {
-      if (!document.querySelector('script[src*="adsbygoogle"]')) {
+      const existingScript = document.querySelector('script[src*="adsbygoogle"]');
+      if (!existingScript) {
         const script = document.createElement('script');
-        script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
+        script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`;
         script.async = true;
         script.crossOrigin = 'anonymous';
+        script.setAttribute('data-adtest', 'on');
         script.onload = loadAd;
         script.onerror = () => setAdError(true);
         document.head.appendChild(script);
@@ -48,12 +64,10 @@ export function AdBanner() {
     }, 100);
     
     return () => clearTimeout(timer);
-  }, [isPro, subscriptionLoading]);
+  }, [isGold, subscriptionLoading]);
 
   if (subscriptionLoading) return null;
-  if (isPro) return null;
-
-  const showTestBanner = adError || !adLoaded;
+  if (isGold) return null;
 
   return (
     <div 
@@ -70,12 +84,13 @@ export function AdBanner() {
           width: '100%', 
           height: '50px' 
         }}
-        data-ad-client="ca-pub-3940256099942544"
-        data-ad-slot="6300978111"
+        data-ad-client={ADSENSE_CLIENT_ID}
+        data-ad-slot={ADSENSE_SLOT_ID}
         data-ad-format="banner"
         data-full-width-responsive="true"
+        data-adtest="on"
       />
-      {showTestBanner && (
+      {(!adLoaded || adError) && (
         <div 
           className="flex items-center justify-center h-[50px] border-t border-gray-300 dark:border-gray-600"
           style={{
@@ -88,7 +103,7 @@ export function AdBanner() {
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-medium text-gray-700">Test Advertisement</span>
-              <span className="text-xs text-gray-500">Go Pro for ad-free experience</span>
+              <span className="text-xs text-gray-500">Go Pro (Gold) for ad-free experience</span>
             </div>
           </div>
         </div>
