@@ -206,8 +206,8 @@ export function ProSubscriptionDialog({
                 </div>
               </div>
 
-              <div style={{ gap: 'clamp(0.75rem, 1vh, 1rem)' }} className="flex flex-col">
-                <h3 className="font-semibold text-center text-foreground text-sm">What you get with Pro:</h3>
+              <div style={{ gap: 'clamp(0.75rem, 1vh, 1rem)' }} className="flex flex-col items-center">
+                <h3 className="font-semibold text-foreground text-sm">What you get with Pro:</h3>
                 <ul style={{ gap: 'clamp(0.5rem, 1vh, 0.75rem)' }} className="flex flex-col">
                   {[
                     'No banner ads anywhere',
