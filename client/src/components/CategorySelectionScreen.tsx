@@ -8,7 +8,6 @@ import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdBannerActive } from '@/components/AdBanner';
 import { ScreenAdBanner } from '@/components/ScreenAdBanner';
-import { readLocal, writeLocal, CACHE_KEYS } from '@/lib/localCache';
 import hamsterImage from '@assets/Question-Hamster-Grey.svg';
 
 interface Category {
@@ -32,15 +31,9 @@ export function CategorySelectionScreen({
   initialSelectedIds = [],
   isRegeneration = false,
 }: CategorySelectionScreenProps) {
-  // Initialize from cache or props for instant display
-  const [selectedCategories, setSelectedCategories] = useState<Set<number>>(() => {
-    // Try to get cached category preferences first
-    const cachedPrefs = readLocal<number[]>(CACHE_KEYS.CATEGORY_PREFERENCES);
-    if (cachedPrefs && cachedPrefs.length > 0) {
-      return new Set(cachedPrefs);
-    }
-    return new Set(initialSelectedIds);
-  });
+  const [selectedCategories, setSelectedCategories] = useState<Set<number>>(
+    new Set(initialSelectedIds)
+  );
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
@@ -109,11 +102,9 @@ export function CategorySelectionScreen({
         throw new Error('Failed to save categories');
       }
 
-      return { categoryIds };
+      return response.json();
     },
-    onSuccess: (data) => {
-      // Update local cache immediately for instant access
-      writeLocal(CACHE_KEYS.CATEGORY_PREFERENCES, data.categoryIds);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/pro-categories'] });
       onGenerate();
     },

@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { WelcomePage } from "./WelcomePage";
-import { usePreload } from "@/lib/PreloadProvider";
 import welcomeHamster from "@assets/Welcome-Hamster-Blue.svg";
+import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
+import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
+import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
+import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
+import whiteTickBlue from "@assets/Win-Hamster-Blue.svg";
+import questionHamsterBlue from "@assets/Question-Hamster-Blue.svg";
 
 interface SplashScreenProps {
   onLogin: () => void;
@@ -11,29 +16,35 @@ interface SplashScreenProps {
 export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
   const [finished, setFinished] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
-  const [minTimePassed, setMinTimePassed] = useState(false);
-  const { isPreloaded, imagesReady } = usePreload();
 
   useEffect(() => {
+    // Preload GameSelection screen images and auth/generating screens
+    const imagesToPreload = [
+      historianHamsterBlue,
+      librarianHamsterYellow,
+      mathsHamsterGreen,
+      mechanicHamsterGrey,
+      whiteTickBlue,
+      questionHamsterBlue  // Preload GeneratingQuestionsScreen hamster
+    ];
+
+    imagesToPreload.forEach(src => {
+      const img = new Image();
+      img.src = src;
+    });
+
     // Trigger fade-in animation
     requestAnimationFrame(() => {
       setFadeIn(true);
     });
 
-    // Minimum splash screen time of 2.5 seconds
+    // Show splash screen for 3 seconds
     const timer = setTimeout(() => {
-      setMinTimePassed(true);
-    }, 2500);
+      setFinished(true);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, []);
-
-  // Only finish when both minimum time passed AND preloading is complete
-  useEffect(() => {
-    if (minTimePassed && isPreloaded && imagesReady) {
-      setFinished(true);
-    }
-  }, [minTimePassed, isPreloaded, imagesReady]);
 
   if (finished) {
     return <WelcomePage onLogin={onSignup} onSignup={onSignup} />;

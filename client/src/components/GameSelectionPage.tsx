@@ -13,7 +13,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { motion, useTransform } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
 import { useModeController } from "@/hooks/useModeController";
-import { readLocal, writeLocal, CACHE_KEYS, CachedProfile } from "@/lib/localCache";
+import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useQuery } from "@tanstack/react-query";
@@ -88,11 +88,11 @@ export function GameSelectionPage({
 
   // Cache user name and region label locally to prevent flicker
   const [cachedUserName, setCachedUserName] = useState<string>(() => {
-    const cached = readLocal<CachedProfile>(CACHE_KEYS.PROFILE);
+    const cached = readLocal(CACHE_KEYS.PROFILE);
     return cached?.firstName || 'Personal';
   });
   const [cachedRegionLabel, setCachedRegionLabel] = useState<string>(() => {
-    const cached = readLocal<CachedProfile>(CACHE_KEYS.PROFILE);
+    const cached = readLocal(CACHE_KEYS.PROFILE);
     return cached?.region ? `${cached.region} Edition` : 'UK Edition';
   });
 
