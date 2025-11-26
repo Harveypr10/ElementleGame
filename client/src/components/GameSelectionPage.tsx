@@ -475,7 +475,7 @@ export function GameSelectionPage({
                   transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
-                    Global Stats
+                    {cachedRegionLabel.split(' ')[0]} Stats
                   </span>
                   <img
                     src={mathsHamsterGreen}
@@ -660,7 +660,7 @@ export function GameSelectionPage({
                   transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
-                    Local Stats
+                    Personal Stats
                   </span>
                   <img
                     src={mathsHamsterLocal}
@@ -837,7 +837,7 @@ export function GameSelectionPage({
                   transition={{ duration: 0.25 }}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
-                    {cachedRegionLabel} Stats
+                    {cachedRegionLabel.split(' ')[0]} Stats
                   </span>
                   <img
                     src={mathsHamsterGreen}
@@ -879,7 +879,7 @@ export function GameSelectionPage({
                   transition={{ duration: 0.25 }}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
-                    {cachedUserName} Stats
+                    Personal Stats
                   </span>
                   <img
                     src={mathsHamsterLocal}
