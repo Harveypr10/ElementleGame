@@ -370,7 +370,7 @@ export function GameSelectionPage({
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show region label title */}
           {isDesktop && isAuthenticated && (
-            <div className="text-center mb-4">
+            <div className="text-center mb-4 h-10 flex items-center justify-center">
               <h2 className="text-2xl font-bold text-foreground font-bold">{cachedRegionLabel}</h2>
             </div>
           )}
@@ -549,7 +549,7 @@ export function GameSelectionPage({
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show user name title */}
           {isDesktop && isAuthenticated && (
-            <div className="text-center mb-4">
+            <div className="text-center mb-4 h-10 flex items-center justify-center">
               <h2 className="text-2xl font-bold text-foreground font-bold">{cachedUserName}</h2>
             </div>
           )}
