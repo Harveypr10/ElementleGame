@@ -47,6 +47,7 @@ interface GameSelectionPageProps {
   onOpenSettings?: () => void;
   onOpenOptions?: () => void;
   onLogin?: () => void;
+  onRegister?: () => void;
   todayPuzzleId?: number;
   todayPuzzleAnswerDateCanonical?: string;
   onPlayGameLocal?: () => void;
@@ -61,7 +62,8 @@ export function GameSelectionPage({
   onViewArchive, 
   onOpenSettings, 
   onOpenOptions, 
-  onLogin, 
+  onLogin,
+  onRegister, 
   todayPuzzleId, 
   todayPuzzleAnswerDateCanonical,
   onPlayGameLocal,
@@ -995,7 +997,7 @@ export function GameSelectionPage({
         onClose={() => setShowGuestRestriction(null)}
         onRegister={() => {
           setShowGuestRestriction(null);
-          if (onLogin) onLogin();
+          if (onRegister) onRegister();
         }}
         onLogin={() => {
           setShowGuestRestriction(null);

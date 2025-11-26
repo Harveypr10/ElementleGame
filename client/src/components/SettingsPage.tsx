@@ -11,6 +11,7 @@ import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useSubscription } from "@/hooks/useSubscription";
 import { ProSubscriptionDialog } from "@/components/ProSubscriptionDialog";
 import { CategorySelectionScreen } from "@/components/CategorySelectionScreen";
+import { GuestRestrictionPopup } from "@/components/GuestRestrictionPopup";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -22,15 +23,18 @@ interface SettingsPageProps {
   onTerms?: () => void;
   onAbout?: () => void;
   onSignOut?: () => void;
+  onLogin?: () => void;
+  onRegister?: () => void;
 }
 
-export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport, onFeedback, onPrivacy, onTerms, onAbout, onSignOut }: SettingsPageProps) {
+export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport, onFeedback, onPrivacy, onTerms, onAbout, onSignOut, onLogin, onRegister }: SettingsPageProps) {
   const { user, isAuthenticated, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { subscription, isPro, isLoading: subscriptionLoading } = useSubscription();
   const [showProDialog, setShowProDialog] = useState(false);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
+  const [showGuestRestriction, setShowGuestRestriction] = useState(false);
   
   // Subscription-related items - show Go Pro for all users (including guests)
   const subscriptionItems = [
@@ -64,7 +68,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
         if (isAuthenticated && user) {
           onAccountInfo();
         } else {
-          alert("Please sign in to view account info");
+          setShowGuestRestriction(true);
         }
       },
       testId: "button-account-info",
@@ -220,6 +224,21 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
         onClose={() => setShowCategorySelection(false)}
         onGenerate={() => setShowCategorySelection(false)}
         isRegeneration={true}
+      />
+      
+      {/* Guest Restriction Popup for Account Info */}
+      <GuestRestrictionPopup
+        isOpen={showGuestRestriction}
+        type="personal"
+        onClose={() => setShowGuestRestriction(false)}
+        onRegister={() => {
+          setShowGuestRestriction(false);
+          if (onRegister) onRegister();
+        }}
+        onLogin={() => {
+          setShowGuestRestriction(false);
+          if (onLogin) onLogin();
+        }}
       />
     </div>
   );

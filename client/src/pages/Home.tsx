@@ -383,6 +383,7 @@ export default function Home() {
               onOpenSettings={() => setCurrentScreen("settings")}
               onOpenOptions={handleOptionsGlobal}
               onLogin={() => setCurrentScreen("login")}
+              onRegister={() => setCurrentScreen("signup")}
               todayPuzzleId={getDailyPuzzle()?.id}
               todayPuzzleAnswerDateCanonical={getDailyPuzzle()?.answerDateCanonical}
               onPlayGameLocal={handlePlayLocal}
@@ -470,6 +471,8 @@ export default function Home() {
               onTerms={() => setCurrentScreen("terms")}
               onAbout={() => setCurrentScreen("about")}
               onSignOut={() => setCurrentScreen("login")}
+              onLogin={() => setCurrentScreen("login")}
+              onRegister={() => setCurrentScreen("signup")}
             />
           </motion.div>
         )}
