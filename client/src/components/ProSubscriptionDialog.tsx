@@ -28,31 +28,31 @@ type TierOption = {
 
 const tiers: TierOption[] = [
   {
-    id: 'bronze',
-    name: 'Bronze',
-    price: '$3.99',
-    period: '/month',
-    description: 'Auto-renewing monthly',
+    id: 'monthly',
+    name: 'Monthly',
+    price: '£0.79',
+    period: '',
+    description: 'Auto-renews monthly',
     icon: Star,
     color: 'text-amber-700',
     bgColor: 'bg-amber-100 dark:bg-amber-900/30',
   },
   {
-    id: 'silver',
-    name: 'Silver',
-    price: '$6.99',
-    period: '/month',
-    description: 'Best value - monthly',
+    id: 'annual',
+    name: 'Annual',
+    price: '£6.99',
+    period: '',
+    description: 'Auto-renews annualy',
     icon: Sparkles,
     color: 'text-gray-500',
     bgColor: 'bg-gray-100 dark:bg-gray-800',
   },
   {
-    id: 'gold',
-    name: 'Gold',
-    price: '$9.99',
-    period: '/month',
-    description: 'Premium - monthly',
+    id: 'lifetime',
+    name: 'Lifetime*',
+    price: '£11.99',
+    period: '',
+    description: 'One off - Best value',
     icon: Crown,
     color: 'text-yellow-600',
     bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
@@ -172,8 +172,8 @@ export function ProSubscriptionDialog({
                         onClick={() => handlePurchase(tier)}
                         disabled={isProcessing}
                         className={`
-                          relative flex flex-col items-center p-4 rounded-2xl border-2 transition-all
-                          ${isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-border hover:border-primary/50'}
+                          relative flex flex-col items-center p-4 rounded-2xl transition-all
+                          ${isSelected ? 'ring-2 ring-primary/20' : ''}
                           ${tier.bgColor}
                           disabled:opacity-50 disabled:cursor-not-allowed
                         `}
@@ -214,7 +214,6 @@ export function ProSubscriptionDialog({
                     'No ads after completing puzzles',
                     'Unlimited personalised games',
                     'Choose your own categories',
-                    'Extended personal archive',
                   ].map((benefit, index) => (
                     <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
