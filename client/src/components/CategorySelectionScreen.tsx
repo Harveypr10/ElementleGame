@@ -162,7 +162,7 @@ export function CategorySelectionScreen({
               <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
             </button>
 
-            <h1 className="text-2xl font-bold text-foreground text-center" data-testid="text-categories-title">
+            <h1 className="text-3xl font-bold text-foreground text-center" data-testid="text-categories-title">
               Select Your Categories
             </h1>
           </div>
