@@ -14,7 +14,6 @@ import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useSwipeable } from "react-swipeable";
 import { useMotionValue, animate } from "framer-motion";
 import { useAdBannerActive } from "@/components/AdBanner";
-import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 
 interface ArchivePageProps {
   onBack: () => void;
@@ -514,7 +513,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           </motion.div>
         )}
       </AnimatePresence>
-      {adBannerActive && <ScreenAdBanner screenId="archive" />}
     </motion.div>
   );
 }

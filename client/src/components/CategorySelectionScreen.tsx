@@ -7,7 +7,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdBannerActive } from '@/components/AdBanner';
-import { ScreenAdBanner } from '@/components/ScreenAdBanner';
 import hamsterImage from '@assets/Question-Hamster-Grey.svg';
 
 interface Category {
@@ -254,7 +253,6 @@ export function CategorySelectionScreen({
               </Button>
             </div>
           </div>
-          {adBannerActive && <ScreenAdBanner screenId="category-selection" />}
         </motion.div>
       )}
     </AnimatePresence>

@@ -10,7 +10,6 @@ import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useAdBannerActive } from "@/components/AdBanner";
-import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 
 interface StatsPageProps {
   onBack: () => void;
@@ -289,7 +288,6 @@ export function StatsPage({ onBack }: StatsPageProps) {
           )}
         </div>
       </div>
-      {adBannerActive && <ScreenAdBanner screenId="stats" />}
     </motion.div>
   );
 }

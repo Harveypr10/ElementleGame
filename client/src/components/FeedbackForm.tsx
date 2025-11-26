@@ -8,7 +8,6 @@ import { ChevronLeft, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
 import { useAdBannerActive } from "@/components/AdBanner";
-import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 
 interface FeedbackFormProps {
   onBack: () => void;
@@ -155,7 +154,6 @@ export function FeedbackForm({ onBack }: FeedbackFormProps) {
           </CardContent>
         </Card>
       </div>
-      {adBannerActive && <ScreenAdBanner screenId="feedback" />}
     </div>
   );
 }

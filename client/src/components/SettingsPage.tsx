@@ -13,7 +13,6 @@ import { ProSubscriptionDialog } from "@/components/ProSubscriptionDialog";
 import { CategorySelectionScreen } from "@/components/CategorySelectionScreen";
 import { GuestRestrictionPopup } from "@/components/GuestRestrictionPopup";
 import { useAdBannerActive } from "@/components/AdBanner";
-import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -244,7 +243,6 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
         }}
       />
       
-      {adBannerActive && <ScreenAdBanner screenId="settings" />}
     </div>
   );
 }

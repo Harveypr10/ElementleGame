@@ -14,7 +14,6 @@ import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { GeneratingQuestionsScreen } from "@/components/GeneratingQuestionsScreen";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { useAdBannerActive } from "@/components/AdBanner";
-import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 
 interface OptionsPageProps {
   onBack: () => void;
@@ -444,7 +443,6 @@ return (
           </p>
         )}
       </div>
-      {adBannerActive && <ScreenAdBanner screenId="options" />}
     </div>
   )
 );

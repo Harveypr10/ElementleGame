@@ -18,7 +18,6 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useQuery } from "@tanstack/react-query";
 import { useAdBannerActive } from "@/components/AdBanner";
-import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import historianHamsterLocal from "@assets/Historian-Hamster-Local.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
@@ -88,11 +87,11 @@ export function GameSelectionPage({
 
   // Cache user name and region label locally to prevent flicker
   const [cachedUserName, setCachedUserName] = useState<string>(() => {
-    const cached = readLocal(CACHE_KEYS.PROFILE);
+    const cached = readLocal<{ firstName?: string; region?: string }>(CACHE_KEYS.PROFILE);
     return cached?.firstName || 'Personal';
   });
   const [cachedRegionLabel, setCachedRegionLabel] = useState<string>(() => {
-    const cached = readLocal(CACHE_KEYS.PROFILE);
+    const cached = readLocal<{ firstName?: string; region?: string }>(CACHE_KEYS.PROFILE);
     return cached?.region ? `${cached.region} Edition` : 'UK Edition';
   });
 
@@ -1008,8 +1007,6 @@ export function GameSelectionPage({
         }}
       />
 
-      {/* Screen-specific Ad Banner */}
-      {adBannerActive && <ScreenAdBanner screenId="game-selection" />}
     </div>
   );
 }
