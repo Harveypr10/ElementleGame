@@ -151,17 +151,17 @@ export function ProSubscriptionDialog({
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col items-center px-4 pt-24 pb-8 overflow-y-auto">
-            <div className="max-w-md w-full space-y-8">
-              <div className="text-center space-y-2">
-                <img src={signupHamsterGrey} alt="Pro" className="h-32 w-auto mx-auto object-contain" />
-                <h1 className="text-2xl font-bold text-foreground" data-testid="text-pro-title">
+          <div className="flex-1 flex flex-col items-center px-4 pt-16 pb-4 overflow-y-auto">
+            <div className="max-w-md w-full max-h-screen flex flex-col" style={{ gap: 'clamp(1rem, 2vh, 1.5rem)' }}>
+              <div className="text-center flex flex-col items-center" style={{ gap: 'clamp(0.5rem, 1vh, 0.75rem)' }}>
+                <img src={signupHamsterGrey} alt="Pro" className="h-24 w-auto object-contain" />
+                <h1 className="text-xl font-bold text-foreground" data-testid="text-pro-title">
                   Go Ad Free and Play Limitless Personalised Games!
                 </h1>
               </div>
 
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-3">
+              <div style={{ gap: 'clamp(0.75rem, 1.5vh, 1rem)' }} className="flex flex-col">
+                <div className="grid grid-cols-3 gap-2">
                   {tiers.map((tier) => {
                     const Icon = tier.icon;
                     const isSelected = selectedTier?.id === tier.id;
@@ -206,9 +206,9 @@ export function ProSubscriptionDialog({
                 </div>
               </div>
 
-              <div className="space-y-3 pt-4">
-                <h3 className="font-semibold text-center text-foreground">What you get with Pro:</h3>
-                <ul className="space-y-2">
+              <div style={{ gap: 'clamp(0.75rem, 1vh, 1rem)' }} className="flex flex-col">
+                <h3 className="font-semibold text-center text-foreground text-sm">What you get with Pro:</h3>
+                <ul style={{ gap: 'clamp(0.5rem, 1vh, 0.75rem)' }} className="flex flex-col">
                   {[
                     'No banner ads anywhere',
                     'No ads after completing puzzles',
