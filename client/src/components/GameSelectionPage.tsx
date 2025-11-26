@@ -480,7 +480,7 @@ export function GameSelectionPage({
                   <img
                     src={mathsHamsterGreen}
                     alt="Global Stats"
-                    className="max-h-[72px] w-auto object-contain flex-1"
+                    className="max-h-[72px] w-auto object-contain flex-1 mt-2"
                   />
                 </motion.button>
               </div>
@@ -665,7 +665,7 @@ export function GameSelectionPage({
                   <img
                     src={mathsHamsterLocal}
                     alt="Local Stats"
-                    className="max-h-[72px] w-auto object-contain flex-1"
+                    className="max-h-[72px] w-auto object-contain flex-1 mt-2"
                   />
                 </motion.button>
               </div>
