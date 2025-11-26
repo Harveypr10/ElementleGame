@@ -25,6 +25,7 @@ import { GeneratingQuestionsScreen } from "./GeneratingQuestionsScreen";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { useQuery } from "@tanstack/react-query";
 import type { Region } from "@shared/schema";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface AuthPageProps {
   mode: "login" | "signup" | "forgot-password";
@@ -41,6 +42,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const { toast } = useToast();
   const { setGameMode } = useGameMode();
   const [loading, setLoading] = useState(false);
+  const adBannerActive = useAdBannerActive();
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   const [showPostcodeWarning, setShowPostcodeWarning] = useState(false);
   const [userId, setUserId] = useState<string>("");
@@ -290,7 +292,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 pb-[60px] bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+    <div className={`min-h-screen flex items-center justify-center p-4 ${adBannerActive ? 'pb-[60px]' : ''} bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800`}>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl text-center">

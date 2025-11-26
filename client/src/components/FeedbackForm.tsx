@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface FeedbackFormProps {
   onBack: () => void;
@@ -18,6 +19,7 @@ export function FeedbackForm({ onBack }: FeedbackFormProps) {
   const [feedback, setFeedback] = useState("");
   const [rating, setRating] = useState(0);
   const [loading, setLoading] = useState(false);
+  const adBannerActive = useAdBannerActive();
 
   const userEmail = profile?.email || "";
 
@@ -68,7 +70,7 @@ export function FeedbackForm({ onBack }: FeedbackFormProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-4 pt-8 pb-[60px]">
+    <div className={`min-h-screen flex flex-col p-4 pt-8 ${adBannerActive ? 'pb-[60px]' : ''}`}>
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
           <button

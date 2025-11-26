@@ -1084,7 +1084,7 @@ export function PlayPage({
   // This prevents the grid from rendering in the wrong format and then flipping
   if (formatLoading || !digitsCheckComplete) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-[60px]">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
         <div className="text-center">
           <div className="text-2xl font-bold mb-2">Loading...</div>
           <div className="text-muted-foreground">Preparing your game</div>
@@ -1116,7 +1116,7 @@ export function PlayPage({
       
       {/* Main game content - hidden behind intro screen when showing */}
       <div 
-        className="min-h-screen flex flex-col p-4 pb-[60px]"
+        className="min-h-screen flex flex-col p-4"
       >
       <div className="flex items-center justify-between mb-0">
         <button

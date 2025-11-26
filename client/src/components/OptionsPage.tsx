@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { GeneratingQuestionsScreen } from "@/components/GeneratingQuestionsScreen";
 import { useSupabase } from "@/lib/SupabaseProvider";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface OptionsPageProps {
   onBack: () => void;
@@ -21,6 +22,7 @@ interface OptionsPageProps {
 export function OptionsPage({ onBack }: OptionsPageProps) {
   const { isAuthenticated } = useAuth();
   const { settings, updateSettings } = useUserSettings();
+  const adBannerActive = useAdBannerActive();
 
   const [textSize, setTextSize] = useState<"small" | "medium" | "large">("medium");
   const [soundsEnabled, setSoundsEnabled] = useState(true);
@@ -306,7 +308,7 @@ return (
     />
   ) : (
     <div
-      className="min-h-screen flex flex-col p-4 pb-[60px]"
+      className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[60px]' : ''}`}
     >
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">

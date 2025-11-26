@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface BugReportFormProps {
   onBack: () => void;
@@ -17,6 +18,7 @@ export function BugReportForm({ onBack }: BugReportFormProps) {
   const { toast } = useToast();
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const adBannerActive = useAdBannerActive();
 
   const userEmail = profile?.email || "";
 
@@ -65,7 +67,7 @@ export function BugReportForm({ onBack }: BugReportFormProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-4 pt-8 pb-[60px]">
+    <div className={`min-h-screen flex flex-col p-4 pt-8 ${adBannerActive ? 'pb-[60px]' : ''}`}>
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
           <button

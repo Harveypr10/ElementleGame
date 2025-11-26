@@ -9,6 +9,7 @@ import { useGameData } from "@/hooks/useGameData";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface StatsPageProps {
   onBack: () => void;
@@ -32,6 +33,7 @@ export function StatsPage({ onBack }: StatsPageProps) {
   const { isAuthenticated } = useAuth();
   const { stats: supabaseStats, isLoading: loadingStats } = useUserStats();
   const { gameAttempts, loadingAttempts } = useGameData();
+  const adBannerActive = useAdBannerActive();
   
   const [stats, setStats] = useState<GameStats>({
     played: 0,
@@ -139,7 +141,7 @@ export function StatsPage({ onBack }: StatsPageProps) {
 
   return (
     <motion.div 
-      className="min-h-screen flex flex-col p-4 pb-[60px]"
+      className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[60px]' : ''}`}
       initial={pageVariants.slideLeft.initial}
       animate={pageVariants.slideLeft.animate}
       exit={pageVariants.slideLeft.exit}

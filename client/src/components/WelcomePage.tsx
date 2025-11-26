@@ -11,7 +11,7 @@ interface WelcomePageProps {
 
 export function WelcomePage({ onLogin, onSignup, onContinueAsGuest, showAuthButtons = false }: WelcomePageProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 pb-[60px]">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-lg p-8">
         <div className="text-center space-y-4">
           <img

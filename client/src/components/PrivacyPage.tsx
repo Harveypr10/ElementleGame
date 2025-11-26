@@ -3,6 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useProfile } from "@/hooks/useProfile";
 import { useState } from "react";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface PrivacyPageProps {
   onBack: () => void;
@@ -11,6 +12,7 @@ interface PrivacyPageProps {
 export function PrivacyPage({ onBack }: PrivacyPageProps) {
   const { profile, isLoading, updateProfile } = useProfile();
   const [saving, setSaving] = useState(false);
+  const adBannerActive = useAdBannerActive();
 
   const handleAdsConsentChange = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -24,7 +26,7 @@ export function PrivacyPage({ onBack }: PrivacyPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col p-4 pb-[60px]">
+    <div className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[60px]' : ''}`}>
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={onBack}

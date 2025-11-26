@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useSwipeable } from "react-swipeable";
 import { useMotionValue, animate } from "framer-motion";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface ArchivePageProps {
   onBack: () => void;
@@ -43,6 +44,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   const { formatCanonicalDate } = useUserDateFormat();
   const { isLocalMode } = useGameMode();
   const queryClient = useQueryClient();
+  const adBannerActive = useAdBannerActive();
   
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (initialMonth) {
@@ -327,7 +329,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
 
   return (
     <motion.div 
-      className="min-h-screen flex flex-col p-4 pb-[60px]"
+      className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[60px]' : ''}`}
       initial={pageVariants.fadeIn.initial}
       animate={pageVariants.fadeIn.animate}
       exit={pageVariants.fadeIn.exit}

@@ -2,14 +2,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, ChevronLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface AboutPageProps {
   onBack: () => void;
 }
 
 export function AboutPage({ onBack }: AboutPageProps) {
+  const adBannerActive = useAdBannerActive();
+  
   return (
-    <div className="min-h-screen flex flex-col p-4 pb-[60px]">
+    <div className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[60px]' : ''}`}>
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={onBack}

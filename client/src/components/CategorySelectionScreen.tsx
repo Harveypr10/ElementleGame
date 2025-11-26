@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdBannerActive } from '@/components/AdBanner';
 import hamsterImage from '@assets/Question-Hamster-Grey.svg';
 
 interface Category {
@@ -35,6 +36,7 @@ export function CategorySelectionScreen({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
+  const adBannerActive = useAdBannerActive();
 
   const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
@@ -149,7 +151,7 @@ export function CategorySelectionScreen({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[100] bg-background flex flex-col pb-[60px]"
+          className={`fixed inset-0 z-[100] bg-background flex flex-col ${adBannerActive ? 'pb-[60px]' : ''}`}
           data-testid="category-selection-screen"
         >
           {/* Fixed Header - title centered on full screen */}

@@ -17,6 +17,7 @@ import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useQuery } from "@tanstack/react-query";
+import { useAdBannerActive } from "@/components/AdBanner";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import historianHamsterLocal from "@assets/Historian-Hamster-Local.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
@@ -73,6 +74,7 @@ export function GameSelectionPage({
 }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const { profile } = useProfile();
+  const adBannerActive = useAdBannerActive();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
   const { isPro, tier } = useSubscription();
@@ -671,7 +673,7 @@ export function GameSelectionPage({
   };
 
   return (
-    <div className="flex flex-col min-h-screen overflow-hidden pb-[60px]">
+    <div className={`flex flex-col min-h-screen overflow-hidden ${adBannerActive ? 'pb-[60px]' : ''}`}>
       {/* Mobile: Fixed Header with dynamic greeting text */}
       {!isDesktop ? (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background">

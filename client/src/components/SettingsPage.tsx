@@ -12,6 +12,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { ProSubscriptionDialog } from "@/components/ProSubscriptionDialog";
 import { CategorySelectionScreen } from "@/components/CategorySelectionScreen";
 import { GuestRestrictionPopup } from "@/components/GuestRestrictionPopup";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -32,6 +33,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { subscription, isPro, isLoading: subscriptionLoading } = useSubscription();
+  const adBannerActive = useAdBannerActive();
   const [showProDialog, setShowProDialog] = useState(false);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   const [showGuestRestriction, setShowGuestRestriction] = useState(false);
@@ -138,7 +140,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
 
   return (
     <div 
-      className="min-h-screen flex flex-col p-4 pb-[60px]"
+      className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[60px]' : ''}`}
     >
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">

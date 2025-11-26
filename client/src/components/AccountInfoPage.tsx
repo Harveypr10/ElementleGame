@@ -27,6 +27,7 @@ import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordVal
 import { OTPVerificationScreen } from "./OTPVerificationScreen";
 import { useQuery } from "@tanstack/react-query";
 import type { Region } from "@shared/schema";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 interface AccountInfoPageProps {
   onBack: () => void;
@@ -38,6 +39,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const { profile, updateProfile } = useProfile();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const adBannerActive = useAdBannerActive();
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [originalEmail, setOriginalEmail] = useState("");
   const [showRegionConfirm, setShowRegionConfirm] = useState(false);
@@ -327,7 +329,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col p-4 pb-[60px]">
+    <div className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[60px]' : ''}`}>
       <div className="w-full max-w-md mx-auto space-y-6">
         <div className="flex items-center justify-between mb-6">
           <button
