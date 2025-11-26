@@ -24,6 +24,7 @@ import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { useQuery } from "@tanstack/react-query";
+import { AdBannerContext } from "@/components/AdBanner";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
 
@@ -313,16 +314,23 @@ export default function Home() {
 
   if (showSplash) {
     return (
-      <SplashScreen 
-        onLogin={() => setCurrentScreen("login")}
-        onSignup={() => setCurrentScreen("signup")}
-      />
+      <AdBannerContext.Provider value={false}>
+        <SplashScreen 
+          onLogin={() => setCurrentScreen("login")}
+          onSignup={() => setCurrentScreen("signup")}
+        />
+      </AdBannerContext.Provider>
     );
   }
 
+  // Screens where ad banner should never appear
+  const hideAdOnScreens: Screen[] = ["splash", "welcome", "play"];
+  const shouldShowAd = !hideAdOnScreens.includes(currentScreen);
+
   return (
-    <div className="relative w-full min-h-screen">
-      <AnimatePresence mode="popLayout">
+    <AdBannerContext.Provider value={shouldShowAd}>
+      <div className="relative w-full min-h-screen">
+        <AnimatePresence mode="popLayout">
         {currentScreen === "welcome" && (
           <motion.div key="welcome" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
             <WelcomePage 
@@ -539,6 +547,7 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </AdBannerContext.Provider>
   );
 }

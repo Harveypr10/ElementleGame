@@ -11,11 +11,19 @@ interface AdBannerProps {
   className?: string;
 }
 
-// Context to track if ads should be shown
+// Context to track if ads should be shown on current screen
 export const AdBannerContext = createContext<boolean>(true);
 
 export function useAdBannerVisibility() {
   return useContext(AdBannerContext);
+}
+
+// Hook that returns whether the ad banner is actually visible (combines isPro + screen context)
+// Use this to determine if bottom padding is needed
+export function useAdBannerActive() {
+  const { isPro } = useSubscription();
+  const shouldShowOnScreen = useAdBannerVisibility();
+  return !isPro && shouldShowOnScreen;
 }
 
 export function AdBanner({ className = '' }: AdBannerProps) {
