@@ -777,26 +777,10 @@ export function GameSelectionPage({
               </button>
             </div>
 
-            <div className="flex items-center pr-2 mb-2 relative">
-              {/* Mode toggle - always centered */}
-              <div className="flex-1 flex justify-center">
-                <ModeToggle 
-                  onModeChange={(mode) => {
-                    if (mode === 'local' && !isAuthenticated) {
-                      setShowGuestRestriction('personal');
-                      snapTo('global');
-                      return;
-                    }
-                    snapTo(mode);
-                  }} 
-                  onLocalClickGuest={() => setShowGuestRestriction('personal')}
-                  globalLabel={cachedRegionLabel || profile?.region || 'UK Edition'}
-                />
-              </div>
-
+            <div className="flex items-center pr-2 mb-2 justify-end">
               {/* Go Pro / Ads button - right side, only for authenticated users */}
               {isAuthenticated && (
-                <div className="absolute right-0 flex-shrink-0">
+                <div className="flex-shrink-0">
                   {isPro ? (
                     <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
                   ) : (
