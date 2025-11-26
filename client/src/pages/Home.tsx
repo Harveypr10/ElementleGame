@@ -54,6 +54,7 @@ export default function Home() {
   const [archiveMonthContext, setArchiveMonthContext] = useState<Date | null>(null);
   const [hasExistingProgress, setHasExistingProgress] = useState(false);
   const [needsFirstLoginSetup, setNeedsFirstLoginSetup] = useState(false);
+  const [showAuthButtons, setShowAuthButtons] = useState(false);
   
   // Fetch puzzles from API (mode-aware, guest-aware)
   // Guests use /api/puzzles/guest, authenticated users use mode-specific endpoints
@@ -81,15 +82,16 @@ export default function Home() {
   }, [isLoading, showSplash]);
   
   // Auto-navigate from welcome to selection after a brief display (2 seconds)
+  // Only auto-navigate if we're not showing auth buttons (after sign-out, we show buttons)
   useEffect(() => {
-    if (currentScreen === "welcome" && !hasAutoNavigated) {
+    if (currentScreen === "welcome" && !hasAutoNavigated && !showAuthButtons) {
       const timer = setTimeout(() => {
         setCurrentScreen("selection");
         setHasAutoNavigated(true);
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [currentScreen, hasAutoNavigated]);
+  }, [currentScreen, hasAutoNavigated, showAuthButtons]);
   
   // Check for first login when user becomes authenticated and is on selection screen
   // This catches cases where onSuccess callback ran before auth state was fully updated
@@ -324,8 +326,19 @@ export default function Home() {
         {currentScreen === "welcome" && (
           <motion.div key="welcome" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
             <WelcomePage 
-              onLogin={() => setCurrentScreen("login")}
-              onSignup={() => setCurrentScreen("signup")}
+              onLogin={() => {
+                setShowAuthButtons(false);
+                setCurrentScreen("login");
+              }}
+              onSignup={() => {
+                setShowAuthButtons(false);
+                setCurrentScreen("signup");
+              }}
+              onContinueAsGuest={() => {
+                setShowAuthButtons(false);
+                setCurrentScreen("selection");
+              }}
+              showAuthButtons={showAuthButtons}
             />
           </motion.div>
         )}
@@ -470,7 +483,10 @@ export default function Home() {
               onPrivacy={() => setCurrentScreen("privacy")}
               onTerms={() => setCurrentScreen("terms")}
               onAbout={() => setCurrentScreen("about")}
-              onSignOut={() => setCurrentScreen("login")}
+              onSignOut={() => {
+                setShowAuthButtons(true);
+                setCurrentScreen("welcome");
+              }}
               onLogin={() => setCurrentScreen("login")}
               onRegister={() => setCurrentScreen("signup")}
             />
