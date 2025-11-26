@@ -566,7 +566,13 @@ export function GameSelectionPage({
             <motion.button
               className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: "#66becb", touchAction: 'pan-y' }}
-              onClick={onPlayGameLocal}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setShowGuestRestriction('personal');
+                  return;
+                }
+                onPlayGameLocal?.();
+              }}
               disabled={!todayPuzzleId}
               data-testid="button-play-local"
               initial={{ opacity: 0, y: 20 }}
@@ -575,11 +581,11 @@ export function GameSelectionPage({
             >
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">
-                  {playContentLocal.title}
+                  {isAuthenticated ? playContentLocal.title : 'Play today\'s puzzle'}
                 </span>
-                {playContentLocal.subtitle && (
+                {(isAuthenticated ? playContentLocal.subtitle : 'Sign in to access') && (
                   <span className="text-sm font-medium text-gray-700 mt-0.5">
-                    {playContentLocal.subtitle}
+                    {isAuthenticated ? playContentLocal.subtitle : 'Sign in to access'}
                   </span>
                 )}
               </div>
@@ -596,7 +602,13 @@ export function GameSelectionPage({
             <motion.button
               className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
               style={{ backgroundColor: "#fdab58", touchAction: 'pan-y' }}
-              onClick={onViewArchiveLocal}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setShowGuestRestriction('personal');
+                  return;
+                }
+                onViewArchiveLocal?.();
+              }}
               data-testid="button-archive-local"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -605,7 +617,7 @@ export function GameSelectionPage({
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">Archive</span>
                 <span className="text-sm font-medium text-gray-700 mt-0.5">
-                  {totalGamesLocal} total games played
+                  {isAuthenticated ? `${totalGamesLocal} total games played` : 'Sign in to access'}
                 </span>
               </div>
               <div className="flex-shrink-0 flex items-center">
@@ -624,7 +636,13 @@ export function GameSelectionPage({
                 <motion.button
                   className="absolute right-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                   style={{ backgroundColor: "#93cd78", touchAction: 'pan-y' }}
-                  onClick={onViewStatsLocal}
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      setShowGuestRestriction('personal');
+                      return;
+                    }
+                    onViewStatsLocal?.();
+                  }}
                   data-testid="button-stats-local"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}

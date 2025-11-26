@@ -42,8 +42,8 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
     }
   };
 
-  // Subscription-related items (only for authenticated users)
-  const subscriptionItems = isAuthenticated ? [
+  // Subscription-related items - show Go Pro for all users (including guests)
+  const subscriptionItems = [
     {
       icon: Crown,
       label: isPro ? `Subscription (${getTierDisplayName()})` : "Go Pro",
@@ -59,7 +59,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       onClick: () => setShowCategorySelection(true),
       testId: "button-regenerate-questions",
     }] : []),
-  ] : [];
+  ];
   
   const menuItems = [
     {
