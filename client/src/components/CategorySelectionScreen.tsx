@@ -59,15 +59,23 @@ export function CategorySelectionScreen({
     enabled: isOpen,
   });
 
-  const { data: userCategories = [], isLoading: loadingUserCategories } = useQuery<number[]>({
+  const { data: userCategories = [], isLoading: loadingUserCategories, isFetching, refetch } = useQuery<number[]>({
     queryKey: ['/api/user/pro-categories'],
     queryFn: async () => {
-      if (!isAuthenticated) return [];
+      console.log('[CategorySelection] Fetching user pro categories...');
+      if (!isAuthenticated) {
+        console.log('[CategorySelection] Not authenticated, returning empty');
+        return [];
+      }
       
       const supabase = await getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return [];
+      if (!session) {
+        console.log('[CategorySelection] No session, returning empty');
+        return [];
+      }
 
+      console.log('[CategorySelection] Making API request...');
       const response = await fetch('/api/user/pro-categories', {
         credentials: 'include',
         headers: {
@@ -75,14 +83,30 @@ export function CategorySelectionScreen({
         },
       });
       
-      if (!response.ok) return [];
+      if (!response.ok) {
+        console.log('[CategorySelection] API error:', response.status);
+        return [];
+      }
       const data = await response.json();
+      console.log('[CategorySelection] Got user categories:', data.categoryIds);
       return data.categoryIds || [];
     },
     enabled: isOpen && isAuthenticated,
     staleTime: 0,
-    refetchOnMount: 'always',
   });
+  
+  // Force refetch when screen opens with authenticated user
+  useEffect(() => {
+    if (isOpen && isAuthenticated) {
+      console.log('[CategorySelection] Screen opened, forcing refetch...');
+      refetch();
+    }
+  }, [isOpen, isAuthenticated, refetch]);
+  
+  // Debug: Log query state
+  useEffect(() => {
+    console.log('[CategorySelection] State:', { isOpen, isAuthenticated, userCategories, loadingUserCategories, isFetching, cachedCategoryIds });
+  }, [isOpen, isAuthenticated, userCategories, loadingUserCategories, isFetching, cachedCategoryIds]);
 
   // Sync from API and update cache when categories are fetched
   useEffect(() => {
