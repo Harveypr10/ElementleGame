@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
-import hamsterImage from '@assets/generated_images/Question-Hamster-Grey.svg';
+import hamsterImage from '@assets/Question-Hamster-Grey.svg';
 
 interface Category {
   id: number;
