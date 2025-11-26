@@ -2137,14 +2137,16 @@ export class DatabaseStorage implements IStorage {
 
   async getUserProCategories(userId: string): Promise<number[]> {
     try {
+      // Read from user_category_preferences table (existing Supabase table)
       const result = await db.execute(
-        sql`SELECT category_id FROM user_pro_categories WHERE user_id = ${userId}`
+        sql`SELECT category_id FROM user_category_preferences WHERE user_id = ${userId}`
       );
+      console.log('[getUserProCategories] Found categories for user:', userId, 'count:', result.rows?.length);
       return (result.rows || []).map((row: any) => row.category_id);
     } catch (error: any) {
       // Table might not exist yet
       if (error?.code === '42P01') {
-        console.log('Note: user_pro_categories table not available yet');
+        console.log('Note: user_category_preferences table not available yet');
         return [];
       }
       throw error;
@@ -2153,19 +2155,21 @@ export class DatabaseStorage implements IStorage {
 
   async saveUserProCategories(userId: string, categoryIds: number[]): Promise<void> {
     try {
+      // Save to user_category_preferences table (existing Supabase table)
       // Delete existing categories
-      await db.execute(sql`DELETE FROM user_pro_categories WHERE user_id = ${userId}`);
+      await db.execute(sql`DELETE FROM user_category_preferences WHERE user_id = ${userId}`);
       
       // Insert new categories
       for (const categoryId of categoryIds) {
         await db.execute(
-          sql`INSERT INTO user_pro_categories (user_id, category_id) VALUES (${userId}, ${categoryId})`
+          sql`INSERT INTO user_category_preferences (user_id, category_id) VALUES (${userId}, ${categoryId})`
         );
       }
+      console.log('[saveUserProCategories] Saved categories for user:', userId, 'count:', categoryIds.length);
     } catch (error: any) {
       // Table might not exist yet
       if (error?.code === '42P01') {
-        console.log('Note: user_pro_categories table not available yet');
+        console.log('Note: user_category_preferences table not available yet');
         return;
       }
       throw error;

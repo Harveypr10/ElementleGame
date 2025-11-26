@@ -682,9 +682,9 @@ export function GameSelectionPage({
                 </button>
               </div>
 
-              <div className="flex justify-between items-center pr-2 mb-1">
-                {/* Mode toggle - always visible (left side) */}
-                <div className="flex-1">
+              <div className="flex items-center pr-2 mb-1 relative">
+                {/* Mode toggle - always centered */}
+                <div className="flex-1 flex justify-center">
                   <ModeToggle 
                     onModeChange={(mode) => {
                       if (mode === 'local' && !isAuthenticated) {
@@ -699,17 +699,15 @@ export function GameSelectionPage({
                   />
                 </div>
 
-                {/* Go Pro / Ads button - right side */}
-                {isPro ? (
-                  <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
-                ) : (
-                  <GoProButton onClick={() => {
-                    if (!isAuthenticated) {
-                      setShowGuestRestriction('personal');
-                      return;
-                    }
-                    setShowProDialog(true);
-                  }} />
+                {/* Go Pro / Ads button - right side, only for authenticated users */}
+                {isAuthenticated && (
+                  <div className="absolute right-2 flex-shrink-0">
+                    {isPro ? (
+                      <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
+                    ) : (
+                      <GoProButton onClick={() => setShowProDialog(true)} />
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -750,9 +748,9 @@ export function GameSelectionPage({
               </button>
             </div>
 
-            <div className="flex justify-between items-center pr-2 mb-2">
-              {/* Mode toggle - always visible (left side) */}
-              <div className="flex-1">
+            <div className="flex items-center pr-2 mb-2 relative">
+              {/* Mode toggle - always centered */}
+              <div className="flex-1 flex justify-center">
                 <ModeToggle 
                   onModeChange={(mode) => {
                     if (mode === 'local' && !isAuthenticated) {
@@ -767,17 +765,15 @@ export function GameSelectionPage({
                 />
               </div>
 
-              {/* Go Pro / Ads button - right side */}
-              {isPro ? (
-                <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
-              ) : (
-                <GoProButton onClick={() => {
-                  if (!isAuthenticated) {
-                    setShowGuestRestriction('personal');
-                    return;
-                  }
-                  setShowProDialog(true);
-                }} />
+              {/* Go Pro / Ads button - right side, only for authenticated users */}
+              {isAuthenticated && (
+                <div className="absolute right-2 flex-shrink-0">
+                  {isPro ? (
+                    <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
+                  ) : (
+                    <GoProButton onClick={() => setShowProDialog(true)} />
+                  )}
+                </div>
               )}
             </div>
 

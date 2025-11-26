@@ -1117,7 +1117,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   // SUBSCRIPTION & PRO ROUTES
   // ============================================================================
 
-  // Get user subscription - uses existing Supabase user_current_tier derived table
+  // Get user subscription - reads tier from user_profiles.tier column
   app.get("/api/subscription", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
@@ -1131,17 +1131,19 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         isActive: false,
       };
       
-      // Query the existing user_current_tier table (derived table in Supabase)
-      // This table contains user_id and tier columns, where "free" is standard and "pro" is pro tier
+      // Read tier from user_profiles.tier column
       try {
         const result = await db.execute(
-          sql`SELECT tier FROM user_current_tier WHERE user_id = ${userId} LIMIT 1`
+          sql`SELECT tier FROM user_profiles WHERE id = ${userId} LIMIT 1`
         );
         
         if (result.rows && result.rows.length > 0) {
-          const userTier = result.rows[0].tier;
+          const userTier = (result.rows[0] as any).tier;
           // Map "pro" from database to a specific tier, or keep as is if it's one of our tiers
+          // pro = bronze level (basic pro tier)
           const tier = userTier === 'pro' ? 'bronze' : (userTier || 'free');
+          
+          console.log('[subscription] User tier from user_profiles:', userTier, '-> mapped to:', tier);
           
           return res.json({
             tier,
@@ -1152,8 +1154,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
           });
         }
       } catch (tableError: any) {
-        // Table might not exist, fall through to default
-        console.log('[subscription] user_current_tier table query error:', tableError?.code || tableError);
+        console.log('[subscription] user_profiles.tier query error:', tableError?.code || tableError);
       }
       
       res.json(defaultFreeResponse);
@@ -1174,16 +1175,13 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       }
 
       // TODO: Integrate with Stripe to create checkout session
-      // For now, simulate successful subscription by updating user_current_tier table
+      // For now, simulate successful subscription by updating user_profiles.tier column
       try {
         await db.execute(
-          sql`INSERT INTO user_current_tier (user_id, tier) 
-              VALUES (${userId}, 'pro')
-              ON CONFLICT (user_id) 
-              DO UPDATE SET tier = 'pro'`
+          sql`UPDATE user_profiles SET tier = 'pro' WHERE id = ${userId}`
         );
       } catch (tableError: any) {
-        console.log('[checkout] user_current_tier table update error:', tableError?.code || tableError);
+        console.log('[checkout] user_profiles.tier update error:', tableError?.code || tableError);
       }
 
       res.json({ success: true, subscription: { userId, tier, isActive: true } });

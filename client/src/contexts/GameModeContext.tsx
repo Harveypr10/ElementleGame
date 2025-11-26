@@ -7,6 +7,7 @@ interface GameModeContextType {
   setGameMode: (mode: GameMode) => void;
   isGlobalMode: boolean;
   isLocalMode: boolean;
+  forceGlobalMode: () => void;
 }
 
 const GameModeContext = createContext<GameModeContextType | undefined>(undefined);
@@ -19,9 +20,9 @@ interface GameModeProviderProps {
 
 export function GameModeProvider({ children }: GameModeProviderProps) {
   const [gameMode, setGameModeState] = useState<GameMode>(() => {
-    // Initialize from localStorage or default to 'global'
-    const stored = localStorage.getItem(GAME_MODE_STORAGE_KEY);
-    return (stored === 'local' || stored === 'global') ? stored : 'global';
+    // Always initialize to 'global' - guests should see Global mode
+    // Authenticated users will have their preference applied after auth check
+    return 'global';
   });
 
   const setGameMode = (mode: GameMode) => {
@@ -29,11 +30,18 @@ export function GameModeProvider({ children }: GameModeProviderProps) {
     localStorage.setItem(GAME_MODE_STORAGE_KEY, mode);
   };
 
+  // Force global mode (used when user logs out or for guests)
+  const forceGlobalMode = () => {
+    setGameModeState('global');
+    localStorage.setItem(GAME_MODE_STORAGE_KEY, 'global');
+  };
+
   const value: GameModeContextType = {
     gameMode,
     setGameMode,
     isGlobalMode: gameMode === 'global',
     isLocalMode: gameMode === 'local',
+    forceGlobalMode,
   };
 
   return (
