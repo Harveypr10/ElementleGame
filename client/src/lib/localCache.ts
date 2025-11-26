@@ -31,7 +31,7 @@ export function removeLocal(key: string): void {
 }
 
 export function clearUserCache(): void {
-  // Clear all user-specific cached data on logout
+  // Clear all user-specific cached data on logout/login
   const userKeys = [
     'cached-profile',
     'cached-settings',
@@ -40,11 +40,13 @@ export function clearUserCache(): void {
     'cached-today-outcome',
     'cached-percentile',
     'cached-pro-categories',
+    'elementle-stats',
+    'cluesEnabled',
   ];
   
   userKeys.forEach(key => removeLocal(key));
   
-  // Clear archive caches and in-progress puzzle data
+  // Clear dynamic keys: archive caches, puzzle progress, guess cache, format cache
   try {
     const allKeys = Object.keys(localStorage);
     allKeys.forEach(key => {
@@ -56,9 +58,17 @@ export function clearUserCache(): void {
       if (key.startsWith('puzzle-progress-')) {
         removeLocal(key);
       }
+      // Clear guess cache data
+      if (key.startsWith('guess-cache-')) {
+        removeLocal(key);
+      }
+      // Clear format cache (region/digit preferences)
+      if (key.startsWith('elementle-format-')) {
+        removeLocal(key);
+      }
     });
   } catch (error) {
-    console.error('Error clearing archive caches and puzzle progress:', error);
+    console.error('Error clearing user caches:', error);
   }
 }
 

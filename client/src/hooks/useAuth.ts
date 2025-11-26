@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/lib/SupabaseProvider';
 import type { User } from '@supabase/supabase-js';
 import { clearUserCache } from '@/lib/localCache';
+import { queryClient } from '@/lib/queryClient';
 
 export function useAuth() {
   const supabase = useSupabase();
@@ -70,6 +71,8 @@ export function useAuth() {
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
     // Clear any guest game data before signing up to prevent conflicts
     clearUserCache();
+    // Also clear React Query cache to ensure fresh data fetch
+    queryClient.clear();
     
     // Call server-side signup endpoint which creates both auth user and profile
     const response = await fetch('/api/auth/signup', {
@@ -98,6 +101,8 @@ export function useAuth() {
   const signIn = async (email: string, password: string) => {
     // Clear any guest game data before signing in to prevent conflicts
     clearUserCache();
+    // Also clear React Query cache to ensure fresh data fetch
+    queryClient.clear();
     
     const { data, error} = await supabase.auth.signInWithPassword({
       email,
