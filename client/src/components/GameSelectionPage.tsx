@@ -87,11 +87,11 @@ export function GameSelectionPage({
 
   // Cache user name and region label locally to prevent flicker
   const [cachedUserName, setCachedUserName] = useState<string>(() => {
-    const cached = readLocal<{ firstName?: string; region?: string }>(CACHE_KEYS.PROFILE);
+    const cached = readLocal(CACHE_KEYS.PROFILE);
     return cached?.firstName || 'Personal';
   });
   const [cachedRegionLabel, setCachedRegionLabel] = useState<string>(() => {
-    const cached = readLocal<{ firstName?: string; region?: string }>(CACHE_KEYS.PROFILE);
+    const cached = readLocal(CACHE_KEYS.PROFILE);
     return cached?.region ? `${cached.region} Edition` : 'UK Edition';
   });
 
@@ -1006,7 +1006,6 @@ export function GameSelectionPage({
           if (onLogin) onLogin();
         }}
       />
-
     </div>
   );
 }

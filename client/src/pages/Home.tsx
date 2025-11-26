@@ -24,7 +24,7 @@ import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { useQuery } from "@tanstack/react-query";
-import { AdBanner } from "@/components/AdBanner";
+import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
 
@@ -314,15 +314,22 @@ export default function Home() {
 
   if (showSplash) {
     return (
-      <SplashScreen 
-        onLogin={() => setCurrentScreen("login")}
-        onSignup={() => setCurrentScreen("signup")}
-      />
+      <AdBannerContext.Provider value={false}>
+        <SplashScreen 
+          onLogin={() => setCurrentScreen("login")}
+          onSignup={() => setCurrentScreen("signup")}
+        />
+      </AdBannerContext.Provider>
     );
   }
 
+  // Screens where ad banner should never appear (splash, welcome, play/intro, login, signup, forgot-password, generating-questions)
+  const hideAdOnScreens: Screen[] = ["splash", "welcome", "play", "login", "signup", "forgot-password", "generating-questions"];
+  const shouldShowAd = !hideAdOnScreens.includes(currentScreen);
+
   return (
-    <div className="relative w-full min-h-screen">
+    <AdBannerContext.Provider value={shouldShowAd}>
+      <div className="relative w-full min-h-screen">
         <AnimatePresence mode="popLayout">
         {currentScreen === "welcome" && (
           <motion.div key="welcome" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
@@ -540,11 +547,8 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-      
-      {/* Global Ad Banner - shown on most screens except protected ones */}
-      {!["splash", "welcome", "play", "login", "signup", "forgot-password", "generating-questions"].includes(currentScreen) && (
-        <AdBanner />
-      )}
-    </div>
+      </div>
+      <AdBanner />
+    </AdBannerContext.Provider>
   );
 }

@@ -242,7 +242,6 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
           if (onLogin) onLogin();
         }}
       />
-      
     </div>
   );
 }

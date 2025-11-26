@@ -552,7 +552,6 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
     </div>
   );
 }
