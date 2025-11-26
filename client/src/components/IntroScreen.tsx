@@ -54,11 +54,13 @@ export function IntroScreen({
 
         {/* Clue Text */}
         <div className="text-center space-y-2">
-          <p className="text-lg font-bold text-gray-600 dark:text-gray-400" data-testid="text-intro-clue-prompt">
+          <p className="text-lg font-bold" data-testid="text-intro-clue-prompt">
             {hasCluesEnabled && categoryName && (
               <span className="text-gray-900 dark:text-gray-100">{categoryName}: </span>
             )}
-            {hasCluesEnabled ? "On what date in history did this event occur?" : "Take on the challenge of guessing a date in history!"}
+            <span className="text-gray-700 dark:text-gray-500">
+              {hasCluesEnabled ? "On what date in history did this event occur?" : "Take on the challenge of guessing a date in history!"}
+            </span>
           </p>
           {hasCluesEnabled && (
             <p className="text-xl font-bold text-gray-600 dark:text-gray-400" data-testid="text-intro-event-title">
