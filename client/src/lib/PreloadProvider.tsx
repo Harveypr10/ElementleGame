@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { queryClient } from '@/lib/queryClient';
 import { writeLocal, CACHE_KEYS, CachedProfile } from '@/lib/localCache';
@@ -229,131 +229,24 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
     setIsDataReady(true);
   }, [isAuthenticated, user]);
 
+  // Track if refresh is in progress to prevent duplicate calls
+  const refreshInProgressRef = useRef(false);
+  
   const refreshUserData = useCallback(async () => {
-    // Check Supabase session directly instead of relying on React state
-    // This handles the case where auth state hasn't propagated yet after login
-    const supabase = await getSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.user) {
-      console.log('[PreloadProvider] No active session for refresh');
+    // Prevent concurrent refresh calls
+    if (refreshInProgressRef.current) {
       return;
     }
     
-    console.log('[PreloadProvider] Refreshing user data for:', session.user.id);
+    refreshInProgressRef.current = true;
     setIsDataReady(false);
     
-    // Force prefetch even if isAuthenticated state hasn't updated yet
     try {
-      const prefetchTasks = [
-        fetchWithAuth('/api/settings')
-          .then(data => ({ key: 'settings', data }))
-          .catch(() => ({ key: 'settings', data: null })),
-
-        fetchWithAuth('/api/auth/profile')
-          .then(data => ({ key: 'profile', data }))
-          .catch(() => ({ key: 'profile', data: null })),
-
-        fetchWithAuth('/api/stats')
-          .then(data => ({ key: 'stats', data }))
-          .catch(() => ({ key: 'stats', data: null })),
-
-        fetchWithAuth('/api/game-attempts/user')
-          .then(data => ({ key: 'attempts', data }))
-          .catch(() => ({ key: 'attempts', data: null })),
-
-        fetchWithAuth('/api/puzzles')
-          .then(data => ({ key: 'puzzles', data }))
-          .catch(() => ({ key: 'puzzles', data: null })),
-
-        fetchWithAuth('/api/subscription')
-          .then(data => ({ key: 'subscription', data }))
-          .catch(() => ({ key: 'subscription', data: null })),
-
-        fetchWithAuth('/api/user/pro-categories')
-          .then(data => ({ key: 'categories', data }))
-          .catch(() => ({ key: 'categories', data: null })),
-      ];
-
-      const results = await Promise.allSettled(prefetchTasks);
-
-      const dataMap: Record<string, any> = {};
-      results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value?.data) {
-          dataMap[result.value.key] = result.value.data;
-        }
-      });
-
-      // Cache settings
-      if (dataMap.settings) {
-        writeLocal(CACHE_KEYS.SETTINGS, dataMap.settings);
-        queryClient.setQueryData(['/api/settings'], dataMap.settings);
-        
-        if (dataMap.settings.digitPreference) {
-          setCachedDigitPreference(dataMap.settings.digitPreference);
-        }
-        if (dataMap.settings.useRegionDefault !== undefined) {
-          setCachedUseRegionDefault(dataMap.settings.useRegionDefault);
-        }
-        if (dataMap.settings.dateFormatPreference) {
-          setCachedDateFormatPreference(dataMap.settings.dateFormatPreference);
-        }
-      }
-
-      // Cache profile
-      if (dataMap.profile?.user) {
-        const profileData = dataMap.profile.user as CachedProfile;
-        writeLocal(CACHE_KEYS.PROFILE, profileData);
-        queryClient.setQueryData(['/api/auth/profile'], dataMap.profile);
-        
-        if (profileData.firstName) {
-          const displayName = profileData.firstName.length >= 12 ? null : profileData.firstName;
-          writeLocal(CACHE_KEYS.FIRST_NAME, displayName);
-          setCachedFirstName(displayName);
-        }
-        
-        if (profileData.region) {
-          setCachedRegion(profileData.region);
-          setCachedRegion_State(profileData.region);
-        }
-      }
-
-      // Cache stats
-      if (dataMap.stats) {
-        writeLocal(CACHE_KEYS.STATS, dataMap.stats);
-        queryClient.setQueryData(['/api/stats'], dataMap.stats);
-      }
-
-      // Cache attempts
-      if (dataMap.attempts) {
-        writeLocal(CACHE_KEYS.ATTEMPTS, dataMap.attempts);
-        queryClient.setQueryData(['/api/game-attempts/user'], dataMap.attempts);
-      }
-
-      // Cache puzzles
-      if (dataMap.puzzles && Array.isArray(dataMap.puzzles)) {
-        queryClient.setQueryData(['/api/puzzles'], dataMap.puzzles);
-      }
-
-      // Cache subscription
-      if (dataMap.subscription) {
-        writeLocal(CACHE_KEYS.SUBSCRIPTION, dataMap.subscription);
-        queryClient.setQueryData(['/api/subscription'], dataMap.subscription);
-      }
-
-      // Cache category preferences
-      if (dataMap.categories?.categoryIds) {
-        writeLocal(CACHE_KEYS.CATEGORY_PREFERENCES, dataMap.categories.categoryIds);
-        queryClient.setQueryData(['/api/user/pro-categories'], dataMap.categories);
-      }
-
-      console.log('[PreloadProvider] User data refresh complete');
-    } catch (error) {
-      console.error('[PreloadProvider] Error refreshing user data:', error);
+      await prefetchUserData();
+    } finally {
+      refreshInProgressRef.current = false;
     }
-
-    setIsDataReady(true);
-  }, []);
+  }, [prefetchUserData]);
 
   useEffect(() => {
     if (authLoading) return;

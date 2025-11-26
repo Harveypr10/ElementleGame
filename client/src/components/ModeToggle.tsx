@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameMode, type GameMode } from '@/contexts/GameModeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { readLocal, CACHE_KEYS } from '@/lib/localCache';
+import { usePreload } from '@/lib/PreloadProvider';
 
 interface ModeToggleProps {
   onModeChange?: (mode: GameMode) => void;
@@ -16,22 +16,22 @@ export function ModeToggle({ onModeChange, onLocalClickGuest, globalLabel, local
   const { gameMode, setGameMode, isGlobalMode } = useGameMode();
   const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
+  const { cachedFirstName } = usePreload();
   const toggleRef = useRef<HTMLDivElement>(null);
 
-  // Get cached profile for instant display
-  const cachedProfile = useMemo(() => readLocal(CACHE_KEYS.PROFILE), []);
-
   // Determine local label with name length check
+  // Use cachedFirstName from PreloadProvider for reactive updates
   const localLabel = useMemo(() => {
     if (externalLocalLabel) return externalLocalLabel;
     
-    const firstName = profile?.firstName || cachedProfile?.firstName;
+    // Priority: profile from query > cached name from preload
+    const firstName = profile?.firstName || cachedFirstName;
     if (isAuthenticated && firstName) {
       // If name is 12+ characters, use "Personal" instead
       return firstName.length >= 12 ? 'Personal' : firstName;
     }
     return 'Personal';
-  }, [isAuthenticated, profile?.firstName, cachedProfile?.firstName, externalLocalLabel]);
+  }, [isAuthenticated, profile?.firstName, cachedFirstName, externalLocalLabel]);
 
   // Calculate if we need a wider toggle (for longer names)
   const needsWiderToggle = useMemo(() => {
