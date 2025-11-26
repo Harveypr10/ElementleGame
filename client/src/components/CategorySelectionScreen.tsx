@@ -151,7 +151,8 @@ export function CategorySelectionScreen({
           className="fixed inset-0 z-[100] bg-background flex flex-col"
           data-testid="category-selection-screen"
         >
-          <div className="flex items-center p-4">
+          {/* Fixed Header */}
+          <div className="flex items-center justify-between p-4 flex-shrink-0">
             <button
               onClick={onClose}
               className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -159,79 +160,85 @@ export function CategorySelectionScreen({
             >
               <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
             </button>
+
+            <h1 className="text-2xl font-bold text-foreground" data-testid="text-categories-title">
+              Choose Your Categories
+            </h1>
+
+            <div className="w-14" />
           </div>
 
-          <div className="flex-1 flex flex-col px-4 pb-8 overflow-hidden">
-            <div className="max-w-md mx-auto w-full space-y-6 flex flex-col flex-1">
-              <div className="text-center space-y-2">
-                <h1 className="text-2xl font-bold text-foreground" data-testid="text-categories-title">
-                  Choose Your Categories
-                </h1>
-                <p className="text-muted-foreground">
-                  Select at least 3 categories for your personalised puzzles
-                </p>
-                <p className="text-sm font-medium text-foreground">
-                  {selectedCategories.size} selected
-                  {selectedCategories.size < 3 && (
-                    <span className="text-muted-foreground"> (need {3 - selectedCategories.size} more)</span>
-                  )}
-                </p>
-              </div>
+          {/* Fixed Description Area */}
+          <div className="px-4 pb-4 text-center space-y-2 flex-shrink-0">
+            <p className="text-muted-foreground">
+              Select at least 3 categories for your personalised puzzles
+            </p>
+            <p className="text-sm font-medium text-foreground">
+              {selectedCategories.size} selected
+              {selectedCategories.size < 3 && (
+                <span className="text-muted-foreground"> (need {3 - selectedCategories.size} more)</span>
+              )}
+            </p>
+          </div>
 
-              <div className="flex-1 overflow-y-auto">
-                {loadingCategories ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
+          {/* Scrollable Categories Area */}
+          <div className="flex-1 overflow-y-auto px-4">
+            <div className="max-w-md mx-auto w-full">
+              {loadingCategories ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 pb-4">
+                  {categories.map((category) => {
+                    const isSelected = selectedCategories.has(category.id);
+                    
+                    return (
+                      <button
+                        key={category.id}
+                        onClick={() => toggleCategory(category.id)}
+                        className={`
+                          px-4 py-3 rounded-xl text-sm font-medium transition-all
+                          ${isSelected 
+                            ? 'bg-blue-500 text-white font-bold' 
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                          }
+                        `}
+                        data-testid={`button-category-${category.id}`}
+                      >
+                        {category.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Fixed Footer Button */}
+          <div className="px-4 py-4 flex-shrink-0">
+            <div className="max-w-md mx-auto w-full">
+              <Button
+                onClick={handleGenerate}
+                disabled={!canGenerate || saveCategoriesMutation.isPending}
+                className={`
+                  w-full h-14 text-lg font-bold rounded-full transition-all
+                  ${canGenerate 
+                    ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                    : 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
+                  }
+                `}
+                data-testid="button-generate"
+              >
+                {saveCategoriesMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    Saving...
+                  </>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2 pb-4">
-                    {categories.map((category) => {
-                      const isSelected = selectedCategories.has(category.id);
-                      
-                      return (
-                        <button
-                          key={category.id}
-                          onClick={() => toggleCategory(category.id)}
-                          className={`
-                            px-4 py-3 rounded-xl text-sm font-medium transition-all
-                            ${isSelected 
-                              ? 'bg-blue-500 text-white font-bold' 
-                              : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                            }
-                          `}
-                          data-testid={`button-category-${category.id}`}
-                        >
-                          {category.name}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  isRegeneration ? 'Re-Generate' : 'Generate'
                 )}
-              </div>
-
-              <div className="pt-4">
-                <Button
-                  onClick={handleGenerate}
-                  disabled={!canGenerate || saveCategoriesMutation.isPending}
-                  className={`
-                    w-full h-14 text-lg font-bold rounded-full transition-all
-                    ${canGenerate 
-                      ? 'bg-blue-500 hover:bg-blue-600 text-white' 
-                      : 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
-                    }
-                  `}
-                  data-testid="button-generate"
-                >
-                  {saveCategoriesMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                      Saving...
-                    </>
-                  ) : (
-                    isRegeneration ? 'Re-Generate' : 'Generate'
-                  )}
-                </Button>
-              </div>
+              </Button>
             </div>
           </div>
         </motion.div>
