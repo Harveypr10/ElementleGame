@@ -18,6 +18,7 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useQuery } from "@tanstack/react-query";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import historianHamsterLocal from "@assets/Historian-Hamster-Local.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
@@ -1006,6 +1007,9 @@ export function GameSelectionPage({
           if (onLogin) onLogin();
         }}
       />
+
+      {/* Screen-specific Ad Banner */}
+      {adBannerActive && <ScreenAdBanner screenId="game-selection" />}
     </div>
   );
 }

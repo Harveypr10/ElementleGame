@@ -28,6 +28,7 @@ import { OTPVerificationScreen } from "./OTPVerificationScreen";
 import { useQuery } from "@tanstack/react-query";
 import type { Region } from "@shared/schema";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 
 interface AccountInfoPageProps {
   onBack: () => void;
@@ -552,6 +553,8 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {adBannerActive && <ScreenAdBanner screenId="account-info" />}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, ChevronLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 
 interface AboutPageProps {
   onBack: () => void;
@@ -84,6 +85,7 @@ export function AboutPage({ onBack }: AboutPageProps) {
           </CardContent>
         </Card>
       </ScrollArea>
+      {adBannerActive && <ScreenAdBanner screenId="about" />}
     </div>
   );
 }

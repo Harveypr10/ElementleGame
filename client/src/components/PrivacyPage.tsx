@@ -4,6 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useProfile } from "@/hooks/useProfile";
 import { useState } from "react";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 
 interface PrivacyPageProps {
   onBack: () => void;
@@ -165,6 +166,7 @@ export function PrivacyPage({ onBack }: PrivacyPageProps) {
           </CardContent>
         </Card>
       </ScrollArea>
+      {adBannerActive && <ScreenAdBanner screenId="privacy" />}
     </div>
   );
 }

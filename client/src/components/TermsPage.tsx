@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, ChevronLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { ScreenAdBanner } from "@/components/ScreenAdBanner";
 
 interface TermsPageProps {
   onBack: () => void;
@@ -107,6 +108,7 @@ export function TermsPage({ onBack }: TermsPageProps) {
           </CardContent>
         </Card>
       </ScrollArea>
+      {adBannerActive && <ScreenAdBanner screenId="terms" />}
     </div>
   );
 }
