@@ -4,6 +4,7 @@ import { useGameMode, type GameMode } from '@/contexts/GameModeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { readLocal, CACHE_KEYS } from '@/lib/localCache';
+import type { UserProfile } from "@shared/schema";
 
 interface ModeToggleProps {
   onModeChange?: (mode: GameMode) => void;
@@ -19,7 +20,7 @@ export function ModeToggle({ onModeChange, onLocalClickGuest, globalLabel, local
   const toggleRef = useRef<HTMLDivElement>(null);
 
   // Get cached profile for instant display
-  const cachedProfile = useMemo(() => readLocal(CACHE_KEYS.PROFILE), []);
+  const cachedProfile = useMemo(() => readLocal<UserProfile>(CACHE_KEYS.PROFILE), []);
 
   // Determine local label with name length check
   const localLabel = useMemo(() => {

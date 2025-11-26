@@ -4,6 +4,7 @@ import { useAuth } from "./useAuth";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { UserProfile } from "@shared/schema";
 import { setCachedRegion } from "@/lib/formatCache";
+import { writeLocal, CACHE_KEYS } from "@/lib/localCache";
 
 // Helper to PATCH profile
 async function patchProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
@@ -56,18 +57,25 @@ export function useProfile() {
     enabled: isAuthenticated,
   });
 
-  // Sync region to localStorage cache when it loads/changes
+  // Sync profile to localStorage cache when it loads/changes
   useEffect(() => {
-    if (profile?.region) {
-      setCachedRegion(profile.region);
+    if (profile) {
+      // Cache full profile for instant access on next page load
+      writeLocal(CACHE_KEYS.PROFILE, profile);
+      // Also update region in format cache
+      if (profile.region) {
+        setCachedRegion(profile.region);
+      }
     }
-  }, [profile?.region]);
+  }, [profile]);
 
   // Mutation for updates
   const mutation = useMutation({
     mutationFn: patchProfile,
     onSuccess: (data) => {
-      // Update cache immediately with new region
+      // Update localStorage cache immediately with updated profile
+      writeLocal(CACHE_KEYS.PROFILE, data);
+      // Also update region in format cache
       if (data.region) {
         setCachedRegion(data.region);
       }
