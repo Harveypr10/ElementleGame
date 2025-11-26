@@ -673,7 +673,7 @@ export function GameSelectionPage({
   };
 
   return (
-    <div className={`flex flex-col min-h-screen overflow-hidden ${adBannerActive ? 'pb-[60px]' : ''}`}>
+    <div className={`flex flex-col min-h-screen overflow-hidden ${adBannerActive ? 'pb-[50px]' : ''}`}>
       {/* Mobile: Fixed Header with dynamic greeting text */}
       {!isDesktop ? (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background">

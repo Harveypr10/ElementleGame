@@ -141,7 +141,7 @@ export function StatsPage({ onBack }: StatsPageProps) {
 
   return (
     <motion.div 
-      className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[60px]' : ''}`}
+      className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[50px]' : ''}`}
       initial={pageVariants.slideLeft.initial}
       animate={pageVariants.slideLeft.animate}
       exit={pageVariants.slideLeft.exit}

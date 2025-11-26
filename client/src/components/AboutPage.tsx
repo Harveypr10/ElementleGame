@@ -12,7 +12,7 @@ export function AboutPage({ onBack }: AboutPageProps) {
   const adBannerActive = useAdBannerActive();
   
   return (
-    <div className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[60px]' : ''}`}>
+    <div className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[50px]' : ''}`}>
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={onBack}
