@@ -155,7 +155,7 @@ export function ProSubscriptionDialog({
             <div className="max-w-md w-full max-h-screen flex flex-col" style={{ gap: 'clamp(1rem, 2vh, 1.5rem)' }}>
               <div className="text-center flex flex-col items-center" style={{ gap: 'clamp(0.5rem, 1vh, 0.75rem)' }}>
                 <img src={signupHamsterGrey} alt="Pro" className="h-24 w-auto object-contain" />
-                <h1 className="text-xl font-bold text-foreground" data-testid="text-pro-title">
+                <h1 className="text-2xl font-bold text-foreground" data-testid="text-pro-title">
                   Go Ad Free and Play Limitless Personalised Games!
                 </h1>
               </div>
@@ -207,7 +207,7 @@ export function ProSubscriptionDialog({
               </div>
 
               <div style={{ gap: 'clamp(0.75rem, 1vh, 1rem)' }} className="flex flex-col items-center">
-                <h3 className="font-semibold text-foreground text-sm">What you get with Pro:</h3>
+                <h3 className="font-semibold text-foreground text-xl">Benefits of Pro:</h3>
                 <ul style={{ gap: 'clamp(0.5rem, 1vh, 0.75rem)' }} className="flex flex-col">
                   {[
                     'No banner ads anywhere',
@@ -221,6 +221,9 @@ export function ProSubscriptionDialog({
                     </li>
                   ))}
                 </ul>
+                <p className="text-xs text-gray-400 dark:text-gray-600 mt-4">
+                  *always a pro member for the full service life of the game Elementle
+                </p>
               </div>
             </div>
           </div>
