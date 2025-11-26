@@ -58,7 +58,7 @@ export function IntroScreen({
             {clueText}
           </p>
           {hasCluesEnabled && (
-            <p className="text-base text-gray-600 dark:text-gray-400" data-testid="text-intro-event-title">
+            <p className="text-xl font-bold text-gray-600 dark:text-gray-400" data-testid="text-intro-event-title">
               {eventTitle}
             </p>
           )}
