@@ -180,19 +180,17 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
                 }`}
                 data-testid={item.testId}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1">
                   <item.icon className={`h-5 w-5 flex-shrink-0 ${
                     isProItem ? "text-white" : highlight ? "text-amber-500" : "text-muted-foreground"
                   }`} />
-                  <div className="flex flex-col gap-1 items-start">
-                    <div className="flex items-center gap-2 whitespace-nowrap">
-                      <span className={`font-medium ${isProItem ? "text-white" : ""}`}>{item.label}</span>
-                      {inlineLabel && (
-                        <span className={`text-sm ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{inlineLabel}</span>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-3 flex-1">
+                    <span className={`font-medium whitespace-nowrap ${isProItem ? "text-white" : ""}`}>{item.label}</span>
+                    {inlineLabel && (
+                      <span className={`text-sm ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{inlineLabel}</span>
+                    )}
                     {sublabel && (
-                      <div className={`text-sm max-w-xs ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{sublabel}</div>
+                      <div className={`text-sm max-w-[120px] ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{sublabel}</div>
                     )}
                   </div>
                 </div>
