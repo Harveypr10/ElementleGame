@@ -35,21 +35,23 @@ export function CategorySelectionScreen({
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
 
-  const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
+  const { data: categories = [], isLoading: loadingCategories, error: categoriesError } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
     queryFn: async () => {
-      const supabase = await getSupabaseClient();
-      const { data, error } = await supabase
-        .from('categories')
-        .select('id, name, description')
-        .neq('id', 999)
-        .order('name');
-      
-      if (error) throw error;
+      const response = await fetch('/api/categories');
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+      const data = await response.json();
+      console.log('[CategorySelectionScreen] Fetched categories:', data?.length);
       return data || [];
     },
     enabled: isOpen,
   });
+  
+  if (categoriesError) {
+    console.error('[CategorySelectionScreen] Error fetching categories:', categoriesError);
+  }
 
   const { data: userCategories = [] } = useQuery<number[]>({
     queryKey: ['/api/user/pro-categories'],

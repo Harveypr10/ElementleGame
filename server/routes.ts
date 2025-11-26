@@ -1199,8 +1199,11 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   // Get all categories (excluding Local History - id 999)
   app.get("/api/categories", async (req, res) => {
     try {
+      console.log("[GET /api/categories] Fetching categories...");
       const categories = await storage.getAllCategories();
+      console.log("[GET /api/categories] Found categories:", categories?.length);
       const filtered = categories.filter(c => c.id !== 999);
+      console.log("[GET /api/categories] After filtering id 999:", filtered?.length);
       res.json(filtered);
     } catch (error) {
       console.error("Error fetching categories:", error);
