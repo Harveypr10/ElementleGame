@@ -24,7 +24,7 @@ import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { useQuery } from "@tanstack/react-query";
-import { AdBannerContext } from "@/components/AdBanner";
+import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
 
@@ -323,8 +323,8 @@ export default function Home() {
     );
   }
 
-  // Screens where ad banner should never appear
-  const hideAdOnScreens: Screen[] = ["splash", "welcome", "play"];
+  // Screens where ad banner should never appear (splash, welcome, play/intro, login, signup, forgot-password, generating-questions)
+  const hideAdOnScreens: Screen[] = ["splash", "welcome", "play", "login", "signup", "forgot-password", "generating-questions"];
   const shouldShowAd = !hideAdOnScreens.includes(currentScreen);
 
   return (
@@ -548,6 +548,7 @@ export default function Home() {
         )}
       </AnimatePresence>
       </div>
+      <AdBanner />
     </AdBannerContext.Provider>
   );
 }

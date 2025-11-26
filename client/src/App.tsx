@@ -18,7 +18,6 @@ import { StatsPage } from "@/components/StatsPage";
 import { ArchivePage } from "@/components/ArchivePage";
 import { StreakCelebrationPopup } from "@/components/StreakCelebrationPopup";
 import { RoutePersistence } from "./lib/RoutePersistence";
-import { AdBanner } from "@/components/AdBanner";
 
 function Router() {
   return (
@@ -41,7 +40,6 @@ function App() {
                   <Toaster />
                   <RoutePersistence />
                   <Router />
-                  <AdBanner />
                 </TooltipProvider>
               </GuessCacheProvider>
             </GameModeProvider>
