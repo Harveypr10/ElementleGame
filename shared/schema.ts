@@ -33,6 +33,10 @@ export const insertPostcodeSchema = createInsertSchema(postcodes).omit({
 export type InsertPostcode = z.infer<typeof insertPostcodeSchema>;
 export type Postcode = typeof postcodes.$inferSelect;
 
+// Pro Subscription tiers
+export const ProTierEnum = z.enum(['free', 'bronze', 'silver', 'gold']);
+export type ProTier = z.infer<typeof ProTierEnum>;
+
 // User profiles table - extends Supabase Auth users
 // References auth.users(id) from Supabase Auth
 export const userProfiles = pgTable("user_profiles", {
@@ -58,6 +62,10 @@ export const userProfiles = pgTable("user_profiles", {
   postcode: text("postcode"), // References postcodes.name1
   location: text("location"), // Stored as text for now (will be geometry later if needed)
 
+  // Note: first_login_completed column planned but needs Supabase migration
+  // Will be added via Supabase dashboard SQL editor
+  // firstLoginCompleted: boolean("first_login_completed").default(false),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -76,6 +84,66 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles)
 
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
+
+// User Pro Subscriptions table - stores user subscription information
+// Note: This table needs to be created in Supabase SQL editor
+// CREATE TABLE user_subscriptions (
+//   id SERIAL PRIMARY KEY,
+//   user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL UNIQUE,
+//   tier VARCHAR(20) DEFAULT 'free' NOT NULL,
+//   is_active BOOLEAN DEFAULT false NOT NULL,
+//   expires_at TIMESTAMP WITH TIME ZONE,
+//   stripe_customer_id VARCHAR(255),
+//   stripe_subscription_id VARCHAR(255),
+//   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+//   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+// );
+export const userSubscriptions = pgTable("user_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().unique().references(() => userProfiles.id, { onDelete: "cascade" }),
+  tier: varchar("tier", { length: 20 }).default("free").notNull(),
+  isActive: boolean("is_active").default(false).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
+export type UserSubscription = typeof userSubscriptions.$inferSelect;
+
+// User Pro Categories table - stores selected categories for Pro users
+// Note: This table needs to be created in Supabase SQL editor
+// CREATE TABLE user_pro_categories (
+//   id SERIAL PRIMARY KEY,
+//   user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+//   category_id INTEGER NOT NULL,
+//   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+//   UNIQUE(user_id, category_id)
+// );
+export const userProCategories = pgTable("user_pro_categories", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  categoryId: integer("category_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  userCategoryUnique: unique().on(table.userId, table.categoryId),
+}));
+
+export const insertUserProCategorySchema = createInsertSchema(userProCategories).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserProCategory = z.infer<typeof insertUserProCategorySchema>;
+export type UserProCategory = typeof userProCategories.$inferSelect;
 
 // LEGACY: Puzzles table removed - use questions_master_region and questions_allocated_region instead
 // Types kept for backward compatibility in frontend
@@ -151,29 +219,6 @@ export type UserStats = {
   guessDistribution?: Record<string, number>;
   updatedAt?: Date;
 };
-
-// User subscriptions table - tracks Pro/Free tier status
-// Note: This table may already exist in database from previous manual operations
-// TODO: Align schema with existing table structure if needed
-export const userSubscriptions = pgTable("user_subscriptions", {
-  id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().unique().references(() => userProfiles.id, { onDelete: "cascade" }),
-  tier: varchar("tier", { length: 20 }).notNull().default("free"), // 'free' or 'pro'
-  startDate: timestamp("start_date").defaultNow(),
-  endDate: timestamp("end_date"), // null for free tier or active subscriptions
-  autoRenew: boolean("auto_renew").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
-export type UserSubscription = typeof userSubscriptions.$inferSelect;
 
 // ============================================================================
 // REGION GAME MODE TABLES

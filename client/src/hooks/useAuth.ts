@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/lib/SupabaseProvider';
 import type { User } from '@supabase/supabase-js';
 
@@ -14,7 +14,7 @@ export function useAuth() {
         setUser(session?.user ?? null);
         setIsLoading(false);
 
-        // 🔍 Debug: log the current user ID
+        // Debug: log the current user ID
         if (session?.user) {
           console.log("Current logged-in user ID:", session.user.id);
         } else {
@@ -36,6 +36,34 @@ export function useAuth() {
     });
 
     return () => subscription.unsubscribe();
+  }, [supabase]);
+  
+  // Check if user has completed first login (from user_metadata)
+  const hasCompletedFirstLogin = useCallback((): boolean => {
+    if (!user) return false;
+    return user.user_metadata?.first_login_completed === true;
+  }, [user]);
+  
+  // Mark first login as completed (stores in user_metadata)
+  const markFirstLoginCompleted = useCallback(async (): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { first_login_completed: true }
+      });
+      if (error) {
+        console.error("Failed to mark first login completed:", error);
+        return false;
+      }
+      // Refresh the user to get updated metadata
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        setUser(data.user);
+      }
+      return true;
+    } catch (error) {
+      console.error("Error marking first login completed:", error);
+      return false;
+    }
   }, [supabase]);
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
@@ -85,5 +113,7 @@ export function useAuth() {
     signUp,
     signIn,
     signOut,
+    hasCompletedFirstLogin,
+    markFirstLoginCompleted,
   };
 }

@@ -1,16 +1,30 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useGameMode, type GameMode } from '@/contexts/GameModeContext';
+import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 
 interface ModeToggleProps {
   onModeChange?: (mode: GameMode) => void;
+  onLocalClickGuest?: () => void;
+  globalLabel?: string;
 }
 
-export function ModeToggle({ onModeChange }: ModeToggleProps) {
+export function ModeToggle({ onModeChange, onLocalClickGuest, globalLabel }: ModeToggleProps) {
   const { gameMode, setGameMode, isGlobalMode } = useGameMode();
+  const { isAuthenticated } = useAuth();
+  const { profile } = useProfile();
   const toggleRef = useRef<HTMLDivElement>(null);
 
+  const localLabel = isAuthenticated && profile?.firstName 
+    ? profile.firstName 
+    : 'Personal';
+
   const handleToggle = (mode: GameMode) => {
+    if (mode === 'local' && !isAuthenticated && onLocalClickGuest) {
+      onLocalClickGuest();
+      return;
+    }
     setGameMode(mode);
     onModeChange?.(mode);
   };
@@ -63,7 +77,7 @@ export function ModeToggle({ onModeChange }: ModeToggleProps) {
         onClick={() => handleToggle('global')}
         onKeyDown={(e) => handleKeyDown(e, 'global')}
         className={`
-          relative z-10 flex-1 text-sm font-medium transition-colors duration-200
+          relative z-10 flex-1 text-sm font-medium transition-colors duration-200 truncate px-1
           ${isGlobalMode ? 'text-foreground' : 'text-muted-foreground'}
         `}
         data-testid="button-mode-global"
@@ -72,15 +86,15 @@ export function ModeToggle({ onModeChange }: ModeToggleProps) {
         aria-controls="global-pane"
         tabIndex={isGlobalMode ? 0 : -1}
       >
-        Global
+        {globalLabel || 'Global'}
       </button>
 
-      {/* Local button */}
+      {/* Local/Personal button */}
       <button
         onClick={() => handleToggle('local')}
         onKeyDown={(e) => handleKeyDown(e, 'local')}
         className={`
-          relative z-10 flex-1 text-sm font-medium transition-colors duration-200
+          relative z-10 flex-1 text-sm font-medium transition-colors duration-200 truncate px-1
           ${!isGlobalMode ? 'text-foreground' : 'text-muted-foreground'}
         `}
         data-testid="button-mode-local"
@@ -89,7 +103,7 @@ export function ModeToggle({ onModeChange }: ModeToggleProps) {
         aria-controls="local-pane"
         tabIndex={!isGlobalMode ? 0 : -1}
       >
-        Local
+        {localLabel}
       </button>
     </div>
   );

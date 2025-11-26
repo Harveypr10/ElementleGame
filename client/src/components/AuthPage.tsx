@@ -21,7 +21,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
-import { OTPVerificationScreen } from "./OTPVerificationScreen";
 import { GeneratingQuestionsScreen } from "./GeneratingQuestionsScreen";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -41,7 +40,6 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const { toast } = useToast();
   const { setGameMode } = useGameMode();
   const [loading, setLoading] = useState(false);
-  const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   const [showPostcodeWarning, setShowPostcodeWarning] = useState(false);
   const [userId, setUserId] = useState<string>("");
@@ -155,14 +153,13 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   try {
     if (mode === "signup") {
-      // Send OTP code to email (this sends a 6-digit code, not a confirmation link)
-      console.log("[AUTH] Calling signInWithOtp for signup");
-      console.log("[AUTH] Parameters: { shouldCreateUser: true, emailRedirectTo: undefined }");
-
-      const { error } = await supabase.auth.signInWithOtp({
+      // Direct email/password signup (no OTP verification)
+      console.log("[AUTH] Calling signUp for direct email/password signup");
+      
+      const { data, error } = await supabase.auth.signUp({
         email: formData.email,
+        password: formData.password,
         options: {
-          shouldCreateUser: true,
           data: {
             first_name: formData.firstName,
             last_name: formData.lastName,
@@ -172,24 +169,96 @@ const handleSubmit = async (e: React.FormEvent) => {
         },
       });
 
-      console.log(
-        "[AUTH] signInWithOtp result:",
-        error ? `Error: ${error.message}` : "Success - OTP sent"
-      );
+      console.log("[AUTH] signUp result:", error ? `Error: ${error.message}` : "Success");
       if (error) throw error;
 
-      // Show OTP verification screen
-      setShowOTPVerification(true);
-      toast({
-        title: "Verification code sent!",
-        description: `Please check ${formData.email} for your 6-digit code`,
-      });
+      if (data.user) {
+        // Try to get session - if email confirmation is disabled, we get a session immediately
+        // If email confirmation is enabled, session will be null and user needs to confirm email first
+        let session = data.session;
+        
+        if (!session) {
+          // Session not immediately available - try signing in with the credentials
+          console.log("[AUTH] No immediate session, attempting sign in...");
+          const signInResult = await supabase.auth.signInWithPassword({
+            email: formData.email,
+            password: formData.password,
+          });
+          
+          if (signInResult.error) {
+            // If sign-in fails, it might mean email confirmation is required
+            console.log("[AUTH] Sign in after signup failed:", signInResult.error.message);
+            toast({
+              title: "Account created!",
+              description: "Please check your email to confirm your account, then log in.",
+            });
+            onSwitchMode(); // Switch to login mode
+            setLoading(false);
+            return;
+          }
+          
+          session = signInResult.data.session;
+        }
+
+        if (!session) {
+          toast({
+            title: "Account created!",
+            description: "Please log in with your new credentials.",
+          });
+          onSwitchMode(); // Switch to login mode
+          return;
+        }
+
+        // Create user profile in database
+        console.log("[Auth] Sending PATCH /api/auth/profile...");
+        const profileResponse = await fetch("/api/auth/profile", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            region: formData.region,
+            postcode: formData.postcode || null,
+            acceptedTerms: formData.acceptedTerms,
+            adsConsent: formData.adsConsent,
+            tier: "standard",
+          }),
+        });
+        console.log("[Auth] Profile response status:", profileResponse.status);
+        if (!profileResponse.ok) {
+          throw new Error("Failed to create profile");
+        }
+
+        // Create initial user settings
+        console.log("[Auth] Sending POST /api/settings...");
+        const settingsResponse = await fetch("/api/settings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            useRegionDefault: true,
+            digitPreference: "8",
+          }),
+        });
+        console.log("[Auth] Settings response status:", settingsResponse.status);
+
+        // Show generating questions screen for first signup
+        setUserId(data.user.id);
+        setShowGeneratingQuestions(true);
+        
+        toast({
+          title: "Account created!",
+          description: "Setting up your personalized questions...",
+        });
+      }
     } else {
       await signIn(formData.email, formData.password);
-    }
-
-    // Only call onSuccess for login, not signup (signup success happens after OTP verification)
-    if (mode !== "signup") {
       onSuccess();
     }
   } catch (error: any) {
@@ -203,120 +272,8 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 
-  const handleOTPVerified = async () => {
-    console.log("[Auth] handleOTPVerified called");
-    setLoading(true);
-    try {
-      // Get the session to verify user is authenticated
-      console.log("[Auth] Fetching session...");
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log("[Auth] Session result:", session);
-      if (!session) {
-        throw new Error("No session after verification");
-      }
-
-      // Set the password for the account (OTP login creates passwordless account)
-      console.log("[Auth] Updating user password...");
-      const { error: passwordError } = await supabase.auth.updateUser({
-        password: formData.password,
-      });
-      if (passwordError) {
-        console.error("[Auth] Password update failed:", passwordError);
-        throw passwordError;
-      }
-      console.log("[Auth] Password update complete");
-
-      // Create or update user profile in database
-      console.log("[Auth] Sending PATCH /api/auth/profile...");
-      const profileResponse = await fetch("/api/auth/profile", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          region: formData.region,
-          postcode: formData.postcode || null,
-          acceptedTerms: formData.acceptedTerms,
-          adsConsent: formData.adsConsent,
-          tier: "standard",
-        }),
-      });
-      console.log("[Auth] Profile response status:", profileResponse.status);
-      if (!profileResponse.ok) {
-        throw new Error("Failed to create profile");
-      }
-
-      // Create initial user settings
-      console.log("[Auth] Sending POST /api/settings...");
-      const settingsResponse = await fetch("/api/settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          useRegionDefault: true,
-          digitPreference: "8",
-        }),
-      });
-      console.log("[Auth] Settings response status:", settingsResponse.status);
-      if (!settingsResponse.ok) {
-        console.warn("[Auth] Failed to create settings, but profile was created");
-      }
-
-      // ✅ Switch off OTP screen, then show generating screen
-      console.log("[Auth] Hiding OTP screen and showing GeneratingQuestionsScreen...");
-      setShowOTPVerification(false); // critical: stop rendering OTP screen
-      setUserId(session.user.id);
-      setShowGeneratingQuestions(true);
-
-      console.log("[Auth] State updated:", {
-        userId: session.user.id,
-        showOTPVerification: false,
-        showGeneratingQuestions: true,
-      });
-    } catch (error: any) {
-      console.error("[Auth] Error in handleOTPVerified:", error);
-      toast({
-        title: "Error creating account",
-        description: error.message || "Failed to create account",
-        variant: "destructive",
-      });
-    } finally {
-      console.log("[Auth] handleOTPVerified finally block, setLoading(false)");
-      setLoading(false);
-    }
-  };
-
-
-
-
-  const handleCancelVerification = () => {
-    setShowOTPVerification(false);
-    toast({
-      title: "Verification cancelled",
-      description: "You can edit your details and try again",
-    });
-  };
-
-  // Show OTP verification screen for signup
-  if (mode === "signup" && showOTPVerification) {
-    return (
-      <OTPVerificationScreen
-        email={formData.email}
-        type="signup"
-        onVerified={handleOTPVerified}
-        onCancel={handleCancelVerification}
-      />
-    );
-  }
-
   // Show generating questions screen after signup
-  if (mode === "signup" && !showOTPVerification && showGeneratingQuestions && userId) {
+  if (mode === "signup" && showGeneratingQuestions && userId) {
     return (
       <GeneratingQuestionsScreen
         userId={userId}
@@ -622,14 +579,13 @@ const handleSubmit = async (e: React.FormEvent) => {
             <AlertDialogAction 
               onClick={async () => {
                 setShowPostcodeWarning(false);
-                // Continue with signup without postcode by setting it to empty string and proceeding
-                // Re-run the submission logic
+                // Continue with signup without postcode
                 setLoading(true);
                 try {
-                  const { error } = await supabase.auth.signInWithOtp({
+                  const { data, error } = await supabase.auth.signUp({
                     email: formData.email,
+                    password: formData.password,
                     options: {
-                      shouldCreateUser: true,
                       data: {
                         first_name: formData.firstName,
                         last_name: formData.lastName,
@@ -641,11 +597,74 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                   if (error) throw error;
 
-                  setShowOTPVerification(true);
-                  toast({
-                    title: "Verification code sent!",
-                    description: `Please check ${formData.email} for your 6-digit code`,
-                  });
+                  if (data.user) {
+                    let session = data.session;
+                    
+                    if (!session) {
+                      // Try signing in with the credentials
+                      const signInResult = await supabase.auth.signInWithPassword({
+                        email: formData.email,
+                        password: formData.password,
+                      });
+                      
+                      if (signInResult.error) {
+                        toast({
+                          title: "Account created!",
+                          description: "Please check your email to confirm your account, then log in.",
+                        });
+                        onSwitchMode();
+                        setLoading(false);
+                        return;
+                      }
+                      session = signInResult.data.session;
+                    }
+
+                    if (!session) {
+                      toast({
+                        title: "Account created!",
+                        description: "Please log in with your new credentials.",
+                      });
+                      onSwitchMode();
+                      return;
+                    }
+
+                    // Create user profile
+                    const profileResponse = await fetch("/api/auth/profile", {
+                      method: "PATCH",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${session.access_token}`,
+                      },
+                      body: JSON.stringify({
+                        firstName: formData.firstName,
+                        lastName: formData.lastName,
+                        email: formData.email,
+                        region: formData.region,
+                        postcode: null, // No postcode
+                        acceptedTerms: formData.acceptedTerms,
+                        adsConsent: formData.adsConsent,
+                        tier: "standard",
+                      }),
+                    });
+                    if (!profileResponse.ok) throw new Error("Failed to create profile");
+
+                    // Create initial settings
+                    await fetch("/api/settings", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${session.access_token}`,
+                      },
+                      body: JSON.stringify({ useRegionDefault: true, digitPreference: "8" }),
+                    });
+
+                    setUserId(data.user.id);
+                    setShowGeneratingQuestions(true);
+                    toast({
+                      title: "Account created!",
+                      description: "Setting up your personalized questions...",
+                    });
+                  }
                 } catch (error: any) {
                   toast({
                     title: "Error",

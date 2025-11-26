@@ -139,7 +139,7 @@ export function StatsPage({ onBack }: StatsPageProps) {
 
   return (
     <motion.div 
-      className="min-h-screen flex flex-col p-4"
+      className="min-h-screen flex flex-col p-4 pb-[60px]"
       initial={pageVariants.slideLeft.initial}
       animate={pageVariants.slideLeft.animate}
       exit={pageVariants.slideLeft.exit}

@@ -186,6 +186,24 @@ export interface IStorage {
   upsertUserStatsUser(stats: InsertUserStatsUser): Promise<UserStatsUser>;
   recalculateUserStatsUser(userId: string): Promise<UserStatsUser>;
   getUserPercentileRankingUser(userId: string): Promise<number>;
+
+  // ========================================================================
+  // SUBSCRIPTION & PRO CATEGORY OPERATIONS
+  // ========================================================================
+  
+  // Subscription operations
+  getUserSubscription(userId: string): Promise<any | undefined>;
+  upsertUserSubscription(subscription: { userId: string; tier: string; autoRenew?: boolean; endDate?: Date | null }): Promise<any>;
+  
+  // Category operations
+  getAllCategories(): Promise<Category[]>;
+  
+  // Pro category preferences
+  getUserProCategories(userId: string): Promise<number[]>;
+  saveUserProCategories(userId: string, categoryIds: number[]): Promise<void>;
+  
+  // First login tracking
+  markFirstLoginCompleted(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2067,6 +2085,97 @@ export class DatabaseStorage implements IStorage {
 
     const percentile = ((userPosition + 1) / allUserStats.length) * 100;
     return Math.round(percentile * 10) / 10;
+  }
+
+  // ========================================================================
+  // SUBSCRIPTION & PRO CATEGORY OPERATIONS
+  // ========================================================================
+
+  async getUserSubscription(userId: string): Promise<any | undefined> {
+    try {
+      // Query the user_subscriptions table directly via SQL
+      const result = await db.execute(
+        sql`SELECT * FROM user_subscriptions WHERE user_id = ${userId} LIMIT 1`
+      );
+      return result.rows?.[0] || undefined;
+    } catch (error: any) {
+      // Table might not exist yet
+      if (error?.code === '42P01') {
+        console.log('Note: user_subscriptions table not available yet');
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  async upsertUserSubscription(subscription: { userId: string; tier: string; autoRenew?: boolean; endDate?: Date | null }): Promise<any> {
+    const { userId, tier, autoRenew = true, endDate } = subscription;
+    const now = new Date();
+    
+    try {
+      const result = await db.execute(
+        sql`INSERT INTO user_subscriptions (user_id, tier, auto_renew, start_date, end_date, updated_at)
+            VALUES (${userId}, ${tier}, ${autoRenew}, ${now}, ${endDate}, ${now})
+            ON CONFLICT (user_id) 
+            DO UPDATE SET tier = ${tier}, auto_renew = ${autoRenew}, end_date = ${endDate}, updated_at = ${now}
+            RETURNING *`
+      );
+      return result.rows?.[0];
+    } catch (error: any) {
+      // Table might not exist yet
+      if (error?.code === '42P01') {
+        console.log('Note: user_subscriptions table not available yet');
+        return { userId, tier, autoRenew, startDate: now, endDate };
+      }
+      throw error;
+    }
+  }
+
+  async getAllCategories(): Promise<Category[]> {
+    return await db.select().from(categories).orderBy(categories.name);
+  }
+
+  async getUserProCategories(userId: string): Promise<number[]> {
+    try {
+      const result = await db.execute(
+        sql`SELECT category_id FROM user_pro_categories WHERE user_id = ${userId}`
+      );
+      return (result.rows || []).map((row: any) => row.category_id);
+    } catch (error: any) {
+      // Table might not exist yet
+      if (error?.code === '42P01') {
+        console.log('Note: user_pro_categories table not available yet');
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async saveUserProCategories(userId: string, categoryIds: number[]): Promise<void> {
+    try {
+      // Delete existing categories
+      await db.execute(sql`DELETE FROM user_pro_categories WHERE user_id = ${userId}`);
+      
+      // Insert new categories
+      for (const categoryId of categoryIds) {
+        await db.execute(
+          sql`INSERT INTO user_pro_categories (user_id, category_id) VALUES (${userId}, ${categoryId})`
+        );
+      }
+    } catch (error: any) {
+      // Table might not exist yet
+      if (error?.code === '42P01') {
+        console.log('Note: user_pro_categories table not available yet');
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async markFirstLoginCompleted(userId: string): Promise<void> {
+    // Note: first_login_completed column not yet in database
+    // This is a no-op until Supabase migration is applied
+    console.log(`First login completed flag would be set for user ${userId}`);
   }
 }
 

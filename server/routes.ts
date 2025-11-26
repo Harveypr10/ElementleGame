@@ -7,6 +7,17 @@ import { supabaseAdmin } from "./supabase";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 
+// Helper to calculate subscription end date
+function calculateEndDate(tier: string): Date | null {
+  const now = new Date();
+  if (tier === 'bronze') {
+    return new Date(now.setMonth(now.getMonth() + 1));
+  } else if (tier === 'silver') {
+    return new Date(now.setFullYear(now.getFullYear() + 1));
+  }
+  return null; // Gold is lifetime
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Supabase config endpoint (public - anon key is safe to expose)
   app.get("/api/supabase-config", (req, res) => {
@@ -123,8 +134,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { firstName, lastName, email, region, postcode, acceptedTerms, adsConsent } = req.body;
 
       const existing = await storage.getUserProfile(userId);
+      
+      // If no profile exists, create a new one (upsert behavior for new signups)
       if (!existing) {
-        return res.status(404).json({ error: "Profile not found" });
+        console.log("Profile not found, creating new profile for user:", userId);
+        const now = new Date();
+        
+        // Get the region's default date format
+        const regions = await storage.getRegions();
+        const finalRegion = region || (regions.length > 0 ? regions[0].code : null);
+        const selectedRegion = regions.find(r => r.code === finalRegion);
+        const defaultDateFormat = selectedRegion?.defaultDateFormat ?? 'ddmmyy';
+        
+        const newProfile = await storage.upsertUserProfile({
+          id: userId,
+          email: email || req.user.email,
+          firstName: firstName || '',
+          lastName: lastName || '',
+          region: finalRegion,
+          postcode: postcode || null,
+          acceptedTerms: acceptedTerms ?? false,
+          adsConsent: adsConsent ?? false,
+          acceptedTermsAt: acceptedTerms ? now : null,
+          adsConsentUpdatedAt: adsConsent ? now : null,
+          emailVerified: false,
+        });
+        
+        // Also create default user settings
+        await storage.upsertUserSettings({
+          userId,
+          dateFormatPreference: defaultDateFormat,
+          useRegionDefault: true,
+          digitPreference: '8',
+          soundsEnabled: true,
+          darkMode: false,
+          cluesEnabled: true,
+          categoryPreferences: null,
+        });
+        
+        return res.json(newProfile);
       }
 
       const now = new Date();
@@ -1020,6 +1068,134 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     } catch (error) {
       console.error("Error fetching user percentile:", error);
       res.status(500).json({ error: "Failed to fetch user percentile" });
+    }
+  });
+
+  // ============================================================================
+  // SUBSCRIPTION & PRO ROUTES
+  // ============================================================================
+
+  // Get user subscription
+  app.get("/api/subscription", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const subscription = await storage.getUserSubscription(userId);
+      
+      // Default free subscription response (always consistent shape with all fields)
+      const defaultFreeResponse = { 
+        tier: 'free' as const, 
+        startDate: null as string | null, 
+        endDate: null as string | null, 
+        autoRenew: false,
+        isActive: false,
+      };
+      
+      if (!subscription) {
+        return res.json(defaultFreeResponse);
+      }
+      
+      // Map snake_case DB fields to camelCase for frontend (explicit mapping)
+      const mappedSubscription = {
+        tier: subscription.tier || 'free',
+        startDate: (subscription.start_date || subscription.startDate || null) as string | null,
+        endDate: (subscription.end_date || subscription.endDate || null) as string | null,
+        autoRenew: subscription.auto_renew ?? subscription.autoRenew ?? false,
+        isActive: subscription.is_active ?? subscription.isActive ?? false,
+      };
+      
+      // Check if subscription has expired - return full consistent response
+      if (mappedSubscription.endDate && new Date(mappedSubscription.endDate) < new Date()) {
+        return res.json({ 
+          ...defaultFreeResponse, 
+          expired: true,
+          originalTier: mappedSubscription.tier, // Keep track of what tier expired
+        });
+      }
+      
+      res.json(mappedSubscription);
+    } catch (error) {
+      console.error("Error fetching subscription:", error);
+      res.status(500).json({ error: "Failed to fetch subscription" });
+    }
+  });
+
+  // Create checkout session for Pro subscription
+  app.post("/api/subscription/create-checkout", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { tier } = req.body;
+
+      if (!['bronze', 'silver', 'gold'].includes(tier)) {
+        return res.status(400).json({ error: "Invalid tier" });
+      }
+
+      // TODO: Integrate with Stripe to create checkout session
+      // For now, simulate successful subscription
+      const subscription = await storage.upsertUserSubscription({
+        userId,
+        tier,
+        autoRenew: tier !== 'gold',
+        endDate: tier === 'gold' ? null : calculateEndDate(tier),
+      });
+
+      res.json({ success: true, subscription });
+    } catch (error) {
+      console.error("Error creating checkout:", error);
+      res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+
+  // Get all categories (excluding Local History - id 999)
+  app.get("/api/categories", async (req, res) => {
+    try {
+      const categories = await storage.getAllCategories();
+      const filtered = categories.filter(c => c.id !== 999);
+      res.json(filtered);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ error: "Failed to fetch categories" });
+    }
+  });
+
+  // Get user's Pro category selections
+  app.get("/api/user/pro-categories", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const categoryIds = await storage.getUserProCategories(userId);
+      res.json({ categoryIds });
+    } catch (error) {
+      console.error("Error fetching pro categories:", error);
+      res.status(500).json({ error: "Failed to fetch pro categories" });
+    }
+  });
+
+  // Save user's Pro category selections
+  app.post("/api/user/pro-categories", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { categoryIds } = req.body;
+
+      if (!Array.isArray(categoryIds) || categoryIds.length < 3) {
+        return res.status(400).json({ error: "Must select at least 3 categories" });
+      }
+
+      await storage.saveUserProCategories(userId, categoryIds);
+      res.json({ success: true, categoryIds });
+    } catch (error) {
+      console.error("Error saving pro categories:", error);
+      res.status(500).json({ error: "Failed to save pro categories" });
+    }
+  });
+
+  // Mark first login as completed
+  app.post("/api/user/first-login-completed", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await storage.markFirstLoginCompleted(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking first login:", error);
+      res.status(500).json({ error: "Failed to mark first login" });
     }
   });
 

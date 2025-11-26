@@ -5,6 +5,7 @@ import { EndGameModal } from "./EndGameModal";
 import { HelpDialog } from "./HelpDialog";
 import { StreakCelebrationPopup } from "./StreakCelebrationPopup";
 import { IntroScreen } from "./IntroScreen";
+import { useInterstitialAd } from "./InterstitialAd";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -88,6 +89,7 @@ export function PlayPage({
   const { settings } = useUserSettings();
   const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
   const { isLocalMode } = useGameMode();
+  const { showAd, triggerAd, handleClose: closeInterstitialAd, InterstitialAdComponent } = useInterstitialAd();
   
   // Get user's date format preferences
   const {
@@ -1082,7 +1084,7 @@ export function PlayPage({
   // This prevents the grid from rendering in the wrong format and then flipping
   if (formatLoading || !digitsCheckComplete) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 pb-[60px]">
         <div className="text-center">
           <div className="text-2xl font-bold mb-2">Loading...</div>
           <div className="text-muted-foreground">Preparing your game</div>
@@ -1114,7 +1116,7 @@ export function PlayPage({
       
       {/* Main game content - hidden behind intro screen when showing */}
       <div 
-        className="min-h-screen flex flex-col p-4"
+        className="min-h-screen flex flex-col p-4 pb-[60px]"
       >
       <div className="flex items-center justify-between mb-0">
         <button
@@ -1249,7 +1251,16 @@ export function PlayPage({
         eventDescription={eventDescription}
         numGuesses={guesses.length}
         onPlayAgain={handlePlayAgain}
-        onHome={onHomeFromCelebration || onBack}
+        onHome={() => {
+          const isTodaysPuzzle = isPlayingTodaysPuzzle();
+          if (!isTodaysPuzzle && fromArchive) {
+            triggerAd(() => {
+              (onHomeFromCelebration || onBack)();
+            });
+          } else {
+            (onHomeFromCelebration || onBack)();
+          }
+        }}
         onViewStats={onViewStats}
         onViewArchive={onViewArchive}
         isLocalMode={isLocalMode}
@@ -1263,6 +1274,8 @@ export function PlayPage({
           onDismiss={() => setShowStreakCelebration(false)}
         />
       )}
+      
+      <InterstitialAdComponent />
       </div>
     </>
   );

@@ -327,7 +327,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
 
   return (
     <motion.div 
-      className="min-h-screen flex flex-col p-4"
+      className="min-h-screen flex flex-col p-4 pb-[60px]"
       initial={pageVariants.fadeIn.initial}
       animate={pageVariants.fadeIn.animate}
       exit={pageVariants.fadeIn.exit}

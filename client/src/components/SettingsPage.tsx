@@ -1,12 +1,16 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Bug, MessageSquare, Info, Lock, FileText, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Bug, MessageSquare, Info, Lock, FileText, LogOut, Crown, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearUserCache } from "@/lib/localCache";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
+import { useSubscription } from "@/hooks/useSubscription";
+import { ProSubscriptionDialog } from "@/components/ProSubscriptionDialog";
+import { CategorySelectionScreen } from "@/components/CategorySelectionScreen";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -23,7 +27,40 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const { user, isAuthenticated, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { subscription, isPro, isLoading: subscriptionLoading } = useSubscription();
+  const [showProDialog, setShowProDialog] = useState(false);
+  const [showCategorySelection, setShowCategorySelection] = useState(false);
+  
+  // Get subscription tier display name
+  const getTierDisplayName = () => {
+    if (!isPro) return "Free";
+    switch (subscription?.tier) {
+      case "bronze": return "Bronze";
+      case "silver": return "Silver";
+      case "gold": return "Gold";
+      default: return "Pro";
+    }
+  };
 
+  // Subscription-related items (only for authenticated users)
+  const subscriptionItems = isAuthenticated ? [
+    {
+      icon: Crown,
+      label: isPro ? `Subscription (${getTierDisplayName()})` : "Go Pro",
+      sublabel: isPro ? "Manage your subscription" : "Remove ads & customize categories",
+      onClick: () => setShowProDialog(true),
+      testId: "button-subscription",
+      highlight: !isPro, // Highlight if not Pro
+    },
+    ...(isPro ? [{
+      icon: RefreshCw,
+      label: "Regenerate Questions",
+      sublabel: "Choose new categories for your puzzles",
+      onClick: () => setShowCategorySelection(true),
+      testId: "button-regenerate-questions",
+    }] : []),
+  ] : [];
+  
   const menuItems = [
     {
       icon: User,
@@ -37,6 +74,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       },
       testId: "button-account-info",
     },
+    ...subscriptionItems,
     {
       icon: SettingsIcon,
       label: "Options",
@@ -97,7 +135,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
 
   return (
     <div 
-      className="min-h-screen flex flex-col p-4"
+      className="min-h-screen flex flex-col p-4 pb-[60px]"
     >
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
@@ -122,13 +160,18 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
             <button
               key={item.label}
               onClick={item.onClick}
-              className="w-full flex items-center justify-between p-3 rounded-md hover-elevate active-elevate-2 transition-colors"
+              className={`w-full flex items-center justify-between p-3 rounded-md hover-elevate active-elevate-2 transition-colors ${
+                (item as any).highlight ? "bg-amber-50 dark:bg-amber-950/30" : ""
+              }`}
               data-testid={item.testId}
             >
               <div className="flex items-center gap-3">
-                <item.icon className="h-5 w-5 text-muted-foreground" />
+                <item.icon className={`h-5 w-5 ${(item as any).highlight ? "text-amber-500" : "text-muted-foreground"}`} />
                 <div className="text-left">
                   <div className="font-medium">{item.label}</div>
+                  {(item as any).sublabel && (
+                    <div className="text-sm text-muted-foreground">{(item as any).sublabel}</div>
+                  )}
                 </div>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -148,6 +191,24 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
           </Button>
         )}
       </div>
+      
+      {/* Pro Subscription Dialog */}
+      <ProSubscriptionDialog
+        open={showProDialog}
+        onOpenChange={setShowProDialog}
+      />
+      
+      {/* Category Selection Screen (for Pro users) */}
+      {showCategorySelection && user && (
+        <div className="fixed inset-0 z-50 bg-background">
+          <CategorySelectionScreen
+            userId={user.id}
+            selectedCategories={[]}
+            onComplete={() => setShowCategorySelection(false)}
+            onBack={() => setShowCategorySelection(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

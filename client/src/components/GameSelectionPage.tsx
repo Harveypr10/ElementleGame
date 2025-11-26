@@ -2,9 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { HelpDialog } from "./HelpDialog";
 import { ModeToggle } from "./ModeToggle";
+import { GoProButton } from "./GoProButton";
+import { ProSubscriptionDialog } from "./ProSubscriptionDialog";
+import { GuestRestrictionPopup } from "./GuestRestrictionPopup";
+import { CategorySelectionScreen } from "./CategorySelectionScreen";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
+import { useSubscription } from "@/hooks/useSubscription";
 import { motion, useTransform } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
 import { useModeController } from "@/hooks/useModeController";
@@ -68,8 +73,12 @@ export function GameSelectionPage({
   const { profile } = useProfile();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
+  const { isPro, tier } = useSubscription();
   const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController();
   const [showHelp, setShowHelp] = useState(false);
+  const [showProDialog, setShowProDialog] = useState(false);
+  const [showGuestRestriction, setShowGuestRestriction] = useState<'archive' | 'personal' | null>(null);
+  const [showCategorySelection, setShowCategorySelection] = useState(false);
   const isLocalMode = gameMode === 'local';
 
   // Transform for Options button - moves based on content width, not viewport
@@ -612,7 +621,7 @@ export function GameSelectionPage({
   };
 
   return (
-    <div className="flex flex-col min-h-screen overflow-hidden">
+    <div className="flex flex-col min-h-screen overflow-hidden pb-[60px]">
       {/* Mobile: Fixed Header with dynamic greeting text */}
       {!isDesktop ? (
         <div className="fixed top-0 left-0 right-0 z-50 bg-background">
@@ -643,12 +652,23 @@ export function GameSelectionPage({
                 </button>
               </div>
 
-              <div className="flex justify-end pr-2 mb-1">
+              <div className="flex justify-between items-center pr-2 mb-1">
+                {/* Go Pro button - left side */}
+                {isAuthenticated && !isPro && (
+                  <GoProButton onClick={() => setShowProDialog(true)} />
+                )}
+                {isAuthenticated && isPro && (
+                  <GoProButton onClick={() => setShowCategorySelection(true)} />
+                )}
+                {!isAuthenticated && <div className="w-16" />}
+
+                {/* Login button - right side */}
                 {!isAuthenticated && (
                   <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
                     Login
                   </Button>
                 )}
+                {isAuthenticated && <div className="w-16" />}
               </div>
 
               {isAuthenticated && (
@@ -695,12 +715,23 @@ export function GameSelectionPage({
               </button>
             </div>
 
-            <div className="flex justify-end pr-2 mb-2">
+            <div className="flex justify-between items-center pr-2 mb-2">
+              {/* Go Pro button - left side */}
+              {isAuthenticated && !isPro && (
+                <GoProButton onClick={() => setShowProDialog(true)} />
+              )}
+              {isAuthenticated && isPro && (
+                <GoProButton onClick={() => setShowCategorySelection(true)} />
+              )}
+              {!isAuthenticated && <div className="w-16" />}
+
+              {/* Login button - right side */}
               {!isAuthenticated && (
                 <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
                   Login
                 </Button>
               )}
+              {isAuthenticated && <div className="w-16" />}
             </div>
 
             {isAuthenticated && (
@@ -875,6 +906,41 @@ export function GameSelectionPage({
       </div>
 
       <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* Pro Subscription Dialog */}
+      <ProSubscriptionDialog
+        isOpen={showProDialog}
+        onClose={() => setShowProDialog(false)}
+        onSuccess={(selectedTier) => {
+          setShowProDialog(false);
+          setShowCategorySelection(true);
+        }}
+        onLoginRequired={onLogin}
+      />
+
+      {/* Category Selection Screen (after Pro subscription) */}
+      <CategorySelectionScreen
+        isOpen={showCategorySelection}
+        onClose={() => setShowCategorySelection(false)}
+        onGenerate={() => {
+          setShowCategorySelection(false);
+        }}
+      />
+
+      {/* Guest Restriction Popups */}
+      <GuestRestrictionPopup
+        isOpen={showGuestRestriction !== null}
+        type={showGuestRestriction || 'archive'}
+        onClose={() => setShowGuestRestriction(null)}
+        onRegister={() => {
+          setShowGuestRestriction(null);
+          if (onLogin) onLogin();
+        }}
+        onLogin={() => {
+          setShowGuestRestriction(null);
+          if (onLogin) onLogin();
+        }}
+      />
     </div>
   );
 }

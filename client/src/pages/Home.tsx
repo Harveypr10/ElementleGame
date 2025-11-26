@@ -17,13 +17,15 @@ import { TermsPage } from "@/components/TermsPage";
 import { AboutPage } from "@/components/AboutPage";
 import { BugReportForm } from "@/components/BugReportForm";
 import { FeedbackForm } from "@/components/FeedbackForm";
+import { GeneratingQuestionsScreen } from "@/components/GeneratingQuestionsScreen";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { useQuery } from "@tanstack/react-query";
 
-type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback";
+type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
 
 interface Puzzle {
   id: number;
@@ -37,7 +39,8 @@ interface Puzzle {
 }
 
 export default function Home() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, hasCompletedFirstLogin, markFirstLoginCompleted } = useAuth();
+  const { profile } = useProfile();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
   const { isLocalMode, setGameMode } = useGameMode();
@@ -50,6 +53,7 @@ export default function Home() {
   const [hasOpenedCelebration, setHasOpenedCelebration] = useState(false);
   const [archiveMonthContext, setArchiveMonthContext] = useState<Date | null>(null);
   const [hasExistingProgress, setHasExistingProgress] = useState(false);
+  const [needsFirstLoginSetup, setNeedsFirstLoginSetup] = useState(false);
   
   // Fetch puzzles from API (mode-aware)
   const puzzlesEndpoint = isLocalMode ? '/api/user/puzzles' : '/api/puzzles';
@@ -57,23 +61,42 @@ export default function Home() {
     queryKey: [puzzlesEndpoint],
   });
   
+  // Track if we've shown welcome page and auto-navigated to selection
+  const [hasAutoNavigated, setHasAutoNavigated] = useState(false);
+  
   useEffect(() => {
     if (isLoading) return;
     
-    if (isAuthenticated && showSplash) {
-      // Skip splash and go directly to selection for logged-in users
-      setTimeout(() => {
-        setShowSplash(false);
-        setCurrentScreen("selection");
-      }, 3000);
-    } else if (!isAuthenticated && showSplash) {
-      // Show splash, then welcome page for non-authenticated users
+    if (showSplash) {
+      // Show splash, then welcome page briefly, then auto-navigate to selection
       setTimeout(() => {
         setShowSplash(false);
         setCurrentScreen("welcome");
       }, 3000);
     }
-  }, [isAuthenticated, isLoading, showSplash]);
+  }, [isLoading, showSplash]);
+  
+  // Auto-navigate from welcome to selection after a brief display (2 seconds)
+  useEffect(() => {
+    if (currentScreen === "welcome" && !hasAutoNavigated) {
+      const timer = setTimeout(() => {
+        setCurrentScreen("selection");
+        setHasAutoNavigated(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentScreen, hasAutoNavigated]);
+  
+  // Check for first login when user becomes authenticated and is on selection screen
+  // This catches cases where onSuccess callback ran before auth state was fully updated
+  useEffect(() => {
+    if (currentScreen === "selection" && isAuthenticated && user && !needsFirstLoginSetup) {
+      if (!hasCompletedFirstLogin()) {
+        setNeedsFirstLoginSetup(true);
+        setCurrentScreen("generating-questions");
+      }
+    }
+  }, [currentScreen, isAuthenticated, user, needsFirstLoginSetup, hasCompletedFirstLogin]);
 
   const getDailyPuzzle = (): Puzzle | undefined => {
     if (puzzles.length === 0) return undefined;
@@ -255,6 +278,24 @@ export default function Home() {
     setPreviousScreen("selection");
     setCurrentScreen("options");
   };
+  
+  // Handle login success - check if user needs first login setup
+  const handleLoginSuccess = () => {
+    if (isAuthenticated && !hasCompletedFirstLogin()) {
+      // User hasn't completed first login - show GeneratingQuestionsScreen
+      setNeedsFirstLoginSetup(true);
+      setCurrentScreen("generating-questions");
+    } else {
+      setCurrentScreen("selection");
+    }
+  };
+  
+  // Handle completion of GeneratingQuestionsScreen (from first login)
+  const handleGeneratingQuestionsComplete = async () => {
+    await markFirstLoginCompleted();
+    setNeedsFirstLoginSetup(false);
+    setCurrentScreen("selection");
+  };
 
   if (isLoading) {
     return (
@@ -289,7 +330,7 @@ export default function Home() {
           <motion.div key="login" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
             <AuthPage 
               mode="login"
-              onSuccess={() => setCurrentScreen("selection")}
+              onSuccess={handleLoginSuccess}
               onSwitchMode={() => setCurrentScreen("signup")}
               onBack={() => setCurrentScreen("welcome")}
               onForgotPassword={() => setCurrentScreen("forgot-password")}
@@ -312,6 +353,17 @@ export default function Home() {
           <motion.div key="forgot-password" className="absolute w-full top-0 left-0" {...pageVariants.slideRight} transition={pageTransition}>
             <ForgotPasswordPage 
               onBack={() => setCurrentScreen("login")}
+            />
+          </motion.div>
+        )}
+
+        {currentScreen === "generating-questions" && user && (
+          <motion.div key="generating-questions" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
+            <GeneratingQuestionsScreen
+              userId={user.id}
+              region={profile?.region || "GB"}
+              postcode={profile?.postcode || ""}
+              onComplete={handleGeneratingQuestionsComplete}
             />
           </motion.div>
         )}
