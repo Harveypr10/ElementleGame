@@ -9,7 +9,7 @@ interface AboutPageProps {
 
 export function AboutPage({ onBack }: AboutPageProps) {
   return (
-    <div className="min-h-screen flex flex-col p-4">
+    <div className="min-h-screen flex flex-col p-4 pb-[60px]">
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={onBack}

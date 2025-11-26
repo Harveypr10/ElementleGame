@@ -47,28 +47,42 @@ export function AdBanner({ className = '' }: AdBannerProps) {
 
   if (isPro) return null;
 
+  // In development/test mode, always show the test banner placeholder
+  const showTestBanner = !adLoaded || adError;
+
   return (
     <div 
       id="banner-ad" 
-      className={`fixed bottom-0 left-0 right-0 z-[90] bg-gray-100 dark:bg-gray-900 ${className}`}
+      className={`fixed bottom-0 left-0 right-0 z-[90] ${className}`}
       style={{ minHeight: '50px' }}
       data-testid="ad-banner-container"
     >
-      <ins 
-        ref={adRef}
-        className="adsbygoogle"
-        style={{ display: 'block', width: '100%', height: '50px' }}
-        data-ad-client="ca-pub-3940256099942544"
-        data-ad-slot="6300978111"
-        data-ad-format="banner"
-        data-full-width-responsive="true"
-      />
-      {(!adLoaded || adError) && (
-        <div className="flex items-center justify-center h-[50px] bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span>Advertisement</span>
-            <span className="text-xs text-gray-400">• Ad-free with Pro</span>
+      {!showTestBanner && (
+        <ins 
+          ref={adRef}
+          className="adsbygoogle"
+          style={{ display: 'block', width: '100%', height: '50px' }}
+          data-ad-client="ca-pub-3940256099942544"
+          data-ad-slot="6300978111"
+          data-ad-format="banner"
+          data-full-width-responsive="true"
+        />
+      )}
+      {showTestBanner && (
+        <div 
+          className="flex items-center justify-center h-[50px] border-t border-gray-300 dark:border-gray-600"
+          style={{
+            background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 50%, #f0f0f0 100%)',
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded bg-blue-500 text-white text-xs font-bold">
+              AD
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-gray-700">Test Advertisement</span>
+              <span className="text-xs text-gray-500">Go Pro for ad-free experience</span>
+            </div>
           </div>
         </div>
       )}

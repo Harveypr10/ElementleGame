@@ -9,7 +9,7 @@ interface TermsPageProps {
 
 export function TermsPage({ onBack }: TermsPageProps) {
   return (
-    <div className="min-h-screen flex flex-col p-4">
+    <div className="min-h-screen flex flex-col p-4 pb-[60px]">
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={onBack}
