@@ -1141,9 +1141,9 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         
         if (profile) {
           const userTier = profile.tier;
-          // Map "pro" from database to a specific tier, or keep as is if it's one of our tiers
-          // pro = bronze level (basic pro tier)
-          const tier = userTier === 'pro' ? 'bronze' : (userTier || 'free');
+          // Map "pro" from database to bronze tier (Pro subscriber)
+          // All other tiers (standard, free, null) map to 'free' (non-subscribers)
+          const tier = userTier === 'pro' ? 'bronze' : 'free';
           
           console.log('[subscription] User tier from user_profiles:', userTier, '-> mapped to:', tier);
           
