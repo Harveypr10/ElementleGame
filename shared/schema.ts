@@ -62,6 +62,9 @@ export const userProfiles = pgTable("user_profiles", {
   postcode: text("postcode"), // References postcodes.name1
   location: text("location"), // Stored as text for now (will be geometry later if needed)
 
+  // Subscription tier - 'standard' or 'pro'
+  tier: text("tier").default("standard"),
+
   // Note: first_login_completed column planned but needs Supabase migration
   // Will be added via Supabase dashboard SQL editor
   // firstLoginCompleted: boolean("first_login_completed").default(false),

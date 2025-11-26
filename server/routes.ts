@@ -1121,6 +1121,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   app.get("/api/subscription", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      console.log('[subscription] Checking subscription for userId:', userId);
       
       // Default free subscription response (always consistent shape with all fields)
       const defaultFreeResponse = { 
@@ -1131,14 +1132,15 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         isActive: false,
       };
       
-      // Read tier from user_profiles.tier column
+      // Read tier from user_profiles.tier column using storage method
       try {
-        const result = await db.execute(
-          sql`SELECT tier FROM user_profiles WHERE id = ${userId} LIMIT 1`
-        );
+        console.log('[subscription] Fetching user profile...');
+        const profile = await storage.getUserProfile(userId);
         
-        if (result.rows && result.rows.length > 0) {
-          const userTier = (result.rows[0] as any).tier;
+        console.log('[subscription] Profile found:', !!profile, 'tier:', profile?.tier);
+        
+        if (profile) {
+          const userTier = profile.tier;
           // Map "pro" from database to a specific tier, or keep as is if it's one of our tiers
           // pro = bronze level (basic pro tier)
           const tier = userTier === 'pro' ? 'bronze' : (userTier || 'free');
@@ -1152,11 +1154,14 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
             autoRenew: false,
             isActive: tier !== 'free',
           });
+        } else {
+          console.log('[subscription] No profile found for userId:', userId);
         }
       } catch (tableError: any) {
-        console.log('[subscription] user_profiles.tier query error:', tableError?.code || tableError);
+        console.log('[subscription] user_profiles.tier query error:', tableError?.code || tableError?.message || tableError);
       }
       
+      console.log('[subscription] Returning default free response');
       res.json(defaultFreeResponse);
     } catch (error) {
       console.error("Error fetching subscription:", error);
