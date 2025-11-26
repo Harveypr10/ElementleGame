@@ -222,7 +222,7 @@ export function ProSubscriptionDialog({
                   ))}
                 </ul>
                 <p className="text-xs text-gray-400 dark:text-gray-600 mt-4 text-center">
-                  *always a pro member for the full service life of the game Elementle
+                  *always a pro member for the full serviceable life of the game
                 </p>
               </div>
             </div>
