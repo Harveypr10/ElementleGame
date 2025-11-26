@@ -1011,7 +1011,11 @@ export function GameSelectionPage({
       <GuestRestrictionPopup
         isOpen={showGuestRestriction !== null}
         type={showGuestRestriction || 'archive'}
-        onClose={() => setShowGuestRestriction(null)}
+        onClose={() => {
+          setShowGuestRestriction(null);
+          // Always snap back to Global mode when closing restriction popup
+          snapTo('global');
+        }}
         onRegister={() => {
           setShowGuestRestriction(null);
           if (onRegister) onRegister();
