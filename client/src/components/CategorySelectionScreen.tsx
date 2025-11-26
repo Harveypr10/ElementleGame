@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdBannerActive } from '@/components/AdBanner';
+import { readLocal, writeLocal, CACHE_KEYS } from '@/lib/localCache';
 import hamsterImage from '@assets/Question-Hamster-Grey.svg';
 
 interface Category {
@@ -30,13 +31,21 @@ export function CategorySelectionScreen({
   initialSelectedIds = [],
   isRegeneration = false,
 }: CategorySelectionScreenProps) {
-  const [selectedCategories, setSelectedCategories] = useState<Set<number>>(
-    new Set(initialSelectedIds)
-  );
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
   const adBannerActive = useAdBannerActive();
+
+  // Read cached categories immediately for instant display
+  const cachedCategoryIds = useMemo(() => {
+    const cached = readLocal<number[]>(CACHE_KEYS.PRO_CATEGORIES);
+    return cached || [];
+  }, []);
+
+  // Initialize with cached categories for instant display
+  const [selectedCategories, setSelectedCategories] = useState<Set<number>>(
+    () => new Set(cachedCategoryIds.length > 0 ? cachedCategoryIds : initialSelectedIds)
+  );
 
   const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
@@ -75,9 +84,12 @@ export function CategorySelectionScreen({
     refetchOnMount: 'always',
   });
 
+  // Sync from API and update cache when categories are fetched
   useEffect(() => {
     if (isOpen && userCategories.length > 0) {
       setSelectedCategories(new Set(userCategories));
+      // Update cache with fresh data from API
+      writeLocal(CACHE_KEYS.PRO_CATEGORIES, userCategories);
     }
   }, [userCategories, isOpen]);
 
@@ -103,7 +115,9 @@ export function CategorySelectionScreen({
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, categoryIds) => {
+      // Update cache with newly saved categories
+      writeLocal(CACHE_KEYS.PRO_CATEGORIES, categoryIds);
       queryClient.invalidateQueries({ queryKey: ['/api/user/pro-categories'] });
       onGenerate();
     },

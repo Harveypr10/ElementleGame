@@ -39,6 +39,7 @@ export function clearUserCache(): void {
     'cached-attempts',
     'cached-today-outcome',
     'cached-percentile',
+    'cached-pro-categories',
   ];
   
   userKeys.forEach(key => removeLocal(key));
@@ -70,4 +71,5 @@ export const CACHE_KEYS = {
   TODAY_OUTCOME: 'cached-today-outcome',
   ARCHIVE_PREFIX: 'cached-archive-',
   PERCENTILE: 'cached-percentile',
+  PRO_CATEGORIES: 'cached-pro-categories',
 } as const;
