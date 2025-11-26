@@ -1,12 +1,13 @@
-import { useState } from 'react';
 import { useSubscription } from '@/hooks/useSubscription';
 
 interface GoProButtonProps {
   onClick: () => void;
+  isPro?: boolean;
 }
 
-export function GoProButton({ onClick }: GoProButtonProps) {
-  const { isPro, tier } = useSubscription();
+export function GoProButton({ onClick, isPro: externalIsPro }: GoProButtonProps) {
+  const { isPro: hookIsPro, tier } = useSubscription();
+  const isPro = externalIsPro ?? hookIsPro;
 
   if (isPro) {
     return (
@@ -31,9 +32,9 @@ export function GoProButton({ onClick }: GoProButtonProps) {
     >
       <div className="flex items-center gap-1">
         <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-        <span className="text-xs font-bold text-white">Ads on</span>
+        <span className="text-xs font-normal text-white">Ads on</span>
       </div>
-      <span className="text-[10px] font-medium text-orange-100">Go Pro</span>
+      <span className="text-sm font-bold text-white">Go Pro</span>
     </button>
   );
 }

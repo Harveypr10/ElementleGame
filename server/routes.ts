@@ -38,6 +38,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PUBLIC puzzle endpoint for guests (defaults to UK region)
+  app.get("/api/puzzles/guest", async (req, res) => {
+    try {
+      const region = 'UK'; // Default region for guests
+      
+      console.log('[GET /api/puzzles/guest] Fetching puzzles for guest with region:', region);
+      
+      const allocatedQuestions = await storage.getAllocatedQuestionsByRegion(region);
+      
+      console.log('[GET /api/puzzles/guest] Found allocated questions:', allocatedQuestions.length);
+      
+      // Transform to frontend-compatible format
+      const puzzles = await Promise.all(allocatedQuestions.map(async (aq) => {
+        const categoriesArray = aq.masterQuestion.categories as number[] | null;
+        let categoryName: string | null = null;
+        if (categoriesArray && categoriesArray.length > 0) {
+          const category = await storage.getCategoryById(categoriesArray[0]);
+          categoryName = category?.name || null;
+        }
+        
+        return {
+          id: aq.id,
+          date: aq.puzzleDate,
+          answerDateCanonical: aq.masterQuestion.answerDateCanonical,
+          eventTitle: aq.masterQuestion.eventTitle,
+          eventDescription: aq.masterQuestion.eventDescription,
+          category: categoryName,
+          clue1: null,
+          clue2: null,
+          region: aq.region,
+          allocatedRegionId: aq.id,
+          masterQuestionId: aq.questionId,
+        };
+      }));
+      
+      res.json(puzzles);
+    } catch (error) {
+      console.error("Error fetching guest puzzles:", error);
+      res.status(500).json({ error: "Failed to fetch puzzles" });
+    }
+  });
+
   // Server-side signup endpoint - creates both Supabase Auth user and profile
   app.post("/api/auth/signup", async (req, res) => {
     try {
@@ -1075,11 +1117,10 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   // SUBSCRIPTION & PRO ROUTES
   // ============================================================================
 
-  // Get user subscription
+  // Get user subscription - uses existing Supabase user_current_tier derived table
   app.get("/api/subscription", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const subscription = await storage.getUserSubscription(userId);
       
       // Default free subscription response (always consistent shape with all fields)
       const defaultFreeResponse = { 
@@ -1090,29 +1131,32 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         isActive: false,
       };
       
-      if (!subscription) {
-        return res.json(defaultFreeResponse);
+      // Query the existing user_current_tier table (derived table in Supabase)
+      // This table contains user_id and tier columns, where "free" is standard and "pro" is pro tier
+      try {
+        const result = await db.execute(
+          sql`SELECT tier FROM user_current_tier WHERE user_id = ${userId} LIMIT 1`
+        );
+        
+        if (result.rows && result.rows.length > 0) {
+          const userTier = result.rows[0].tier;
+          // Map "pro" from database to a specific tier, or keep as is if it's one of our tiers
+          const tier = userTier === 'pro' ? 'bronze' : (userTier || 'free');
+          
+          return res.json({
+            tier,
+            startDate: null,
+            endDate: null,
+            autoRenew: false,
+            isActive: tier !== 'free',
+          });
+        }
+      } catch (tableError: any) {
+        // Table might not exist, fall through to default
+        console.log('[subscription] user_current_tier table query error:', tableError?.code || tableError);
       }
       
-      // Map snake_case DB fields to camelCase for frontend (explicit mapping)
-      const mappedSubscription = {
-        tier: subscription.tier || 'free',
-        startDate: (subscription.start_date || subscription.startDate || null) as string | null,
-        endDate: (subscription.end_date || subscription.endDate || null) as string | null,
-        autoRenew: subscription.auto_renew ?? subscription.autoRenew ?? false,
-        isActive: subscription.is_active ?? subscription.isActive ?? false,
-      };
-      
-      // Check if subscription has expired - return full consistent response
-      if (mappedSubscription.endDate && new Date(mappedSubscription.endDate) < new Date()) {
-        return res.json({ 
-          ...defaultFreeResponse, 
-          expired: true,
-          originalTier: mappedSubscription.tier, // Keep track of what tier expired
-        });
-      }
-      
-      res.json(mappedSubscription);
+      res.json(defaultFreeResponse);
     } catch (error) {
       console.error("Error fetching subscription:", error);
       res.status(500).json({ error: "Failed to fetch subscription" });
@@ -1130,15 +1174,19 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       }
 
       // TODO: Integrate with Stripe to create checkout session
-      // For now, simulate successful subscription
-      const subscription = await storage.upsertUserSubscription({
-        userId,
-        tier,
-        autoRenew: tier !== 'gold',
-        endDate: tier === 'gold' ? null : calculateEndDate(tier),
-      });
+      // For now, simulate successful subscription by updating user_current_tier table
+      try {
+        await db.execute(
+          sql`INSERT INTO user_current_tier (user_id, tier) 
+              VALUES (${userId}, 'pro')
+              ON CONFLICT (user_id) 
+              DO UPDATE SET tier = 'pro'`
+        );
+      } catch (tableError: any) {
+        console.log('[checkout] user_current_tier table update error:', tableError?.code || tableError);
+      }
 
-      res.json({ success: true, subscription });
+      res.json({ success: true, subscription: { userId, tier, isActive: true } });
     } catch (error) {
       console.error("Error creating checkout:", error);
       res.status(500).json({ error: "Failed to create checkout session" });

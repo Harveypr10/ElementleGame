@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useMotionValue, animate } from 'framer-motion';
 import { useGameMode } from '@/contexts/GameModeContext';
+import { useAuth } from '@/hooks/useAuth';
 
-export function useModeController() {
+export function useModeController(onGuestRestriction?: () => void) {
   const { gameMode, setGameMode } = useGameMode();
+  const { isAuthenticated } = useAuth();
   const [containerWidth, setContainerWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -41,6 +43,23 @@ export function useModeController() {
   }, []);
 
   const snapTo = useCallback((mode: 'global' | 'local') => {
+    // Prevent guests from accessing Local mode
+    if (mode === 'local' && !isAuthenticated) {
+      if (onGuestRestriction) {
+        onGuestRestriction();
+      }
+      // Snap back to global
+      if (!isDesktop && containerWidth > 0) {
+        animate(x, 0, {
+          type: 'spring',
+          stiffness: 300,
+          damping: 30,
+          mass: 1,
+        });
+      }
+      return;
+    }
+
     if (isDesktop) {
       setGameMode(mode);
       return;
@@ -62,7 +81,7 @@ export function useModeController() {
     }
     
     setGameMode(mode);
-  }, [containerWidth, setGameMode, x, isDesktop]);
+  }, [containerWidth, setGameMode, x, isDesktop, isAuthenticated, onGuestRestriction]);
 
   useEffect(() => {
     if (!isDesktop && containerWidth > 0) {

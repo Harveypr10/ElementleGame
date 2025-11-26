@@ -74,12 +74,36 @@ export function GameSelectionPage({
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
   const { isPro, tier } = useSubscription();
-  const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController();
+  const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController(() => setShowGuestRestriction('personal'));
   const [showHelp, setShowHelp] = useState(false);
   const [showProDialog, setShowProDialog] = useState(false);
   const [showGuestRestriction, setShowGuestRestriction] = useState<'archive' | 'personal' | null>(null);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   const isLocalMode = gameMode === 'local';
+
+  // Cache user name and region label locally to prevent flicker
+  const [cachedUserName, setCachedUserName] = useState<string>(() => {
+    const cached = readLocal(CACHE_KEYS.PROFILE);
+    return cached?.firstName || 'Personal';
+  });
+  const [cachedRegionLabel, setCachedRegionLabel] = useState<string>(() => {
+    const cached = readLocal(CACHE_KEYS.PROFILE);
+    return cached?.region ? `${cached.region} Edition` : 'UK Edition';
+  });
+
+  // Update cache when profile loads
+  useEffect(() => {
+    if (profile) {
+      if (profile.firstName) {
+        // If name is 12+ characters, use "Personal" instead
+        const displayName = profile.firstName.length >= 12 ? 'Personal' : profile.firstName;
+        setCachedUserName(displayName);
+      }
+      if (profile.region) {
+        setCachedRegionLabel(`${profile.region} Edition`);
+      }
+    }
+  }, [profile]);
 
   // Transform for Options button - moves based on content width, not viewport
   // Track container width, content width, and Stats row vertical position
@@ -399,7 +423,13 @@ export function GameSelectionPage({
             <motion.button
               className="w-full h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
               style={{ backgroundColor: "#FFD429", touchAction: 'pan-y' }}
-              onClick={onViewArchive}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  setShowGuestRestriction('archive');
+                  return;
+                }
+                onViewArchive();
+              }}
               data-testid="button-archive"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -408,7 +438,7 @@ export function GameSelectionPage({
               <div className="flex flex-col items-start justify-center text-left">
                 <span className="text-xl font-bold text-gray-800">Archive</span>
                 <span className="text-sm font-medium text-gray-700 mt-0.5">
-                  {totalGamesGlobal} total games played
+                  {isAuthenticated ? `${totalGamesGlobal} total games played` : 'Sign in to access'}
                 </span>
               </div>
               <div className="flex-shrink-0 flex items-center">
@@ -653,36 +683,41 @@ export function GameSelectionPage({
               </div>
 
               <div className="flex justify-between items-center pr-2 mb-1">
-                {/* Go Pro button - left side */}
-                {isAuthenticated && !isPro && (
-                  <GoProButton onClick={() => setShowProDialog(true)} />
-                )}
-                {isAuthenticated && isPro && (
-                  <GoProButton onClick={() => setShowCategorySelection(true)} />
-                )}
-                {!isAuthenticated && <div className="w-16" />}
+                {/* Mode toggle - always visible (left side) */}
+                <div className="flex-1">
+                  <ModeToggle 
+                    onModeChange={(mode) => {
+                      if (mode === 'local' && !isAuthenticated) {
+                        setShowGuestRestriction('personal');
+                        snapTo('global'); // Snap back to global
+                        return;
+                      }
+                      snapTo(mode);
+                    }} 
+                    onLocalClickGuest={() => setShowGuestRestriction('personal')}
+                    globalLabel={cachedRegionLabel || profile?.region || 'UK Edition'}
+                  />
+                </div>
 
-                {/* Login button - right side */}
-                {!isAuthenticated && (
-                  <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
-                    Login
-                  </Button>
+                {/* Go Pro / Ads button - right side */}
+                {isPro ? (
+                  <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
+                ) : (
+                  <GoProButton onClick={() => {
+                    if (!isAuthenticated) {
+                      setShowGuestRestriction('personal');
+                      return;
+                    }
+                    setShowProDialog(true);
+                  }} />
                 )}
-                {isAuthenticated && <div className="w-16" />}
               </div>
 
-              {isAuthenticated && (
-                <>
-                  <div className="flex justify-center mb-1">
-                    <ModeToggle onModeChange={(mode) => snapTo(mode)} />
-                  </div>
-                  <div className="text-center mb-1">
-                    <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-fixed">
-                      {getGreeting()}
-                    </div>
-                  </div>
-                </>
-              )}
+              <div className="text-center mb-1">
+                <div className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-200" data-testid="intro-first-line-fixed">
+                  {getGreeting()}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -716,33 +751,43 @@ export function GameSelectionPage({
             </div>
 
             <div className="flex justify-between items-center pr-2 mb-2">
-              {/* Go Pro button - left side */}
-              {isAuthenticated && !isPro && (
-                <GoProButton onClick={() => setShowProDialog(true)} />
-              )}
-              {isAuthenticated && isPro && (
-                <GoProButton onClick={() => setShowCategorySelection(true)} />
-              )}
-              {!isAuthenticated && <div className="w-16" />}
+              {/* Mode toggle - always visible (left side) */}
+              <div className="flex-1">
+                <ModeToggle 
+                  onModeChange={(mode) => {
+                    if (mode === 'local' && !isAuthenticated) {
+                      setShowGuestRestriction('personal');
+                      snapTo('global');
+                      return;
+                    }
+                    snapTo(mode);
+                  }} 
+                  onLocalClickGuest={() => setShowGuestRestriction('personal')}
+                  globalLabel={cachedRegionLabel || profile?.region || 'UK Edition'}
+                />
+              </div>
 
-              {/* Login button - right side */}
-              {!isAuthenticated && (
-                <Button variant="ghost" size="sm" onClick={onLogin} data-testid="link-login" className="text-sm">
-                  Login
-                </Button>
+              {/* Go Pro / Ads button - right side */}
+              {isPro ? (
+                <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
+              ) : (
+                <GoProButton onClick={() => {
+                  if (!isAuthenticated) {
+                    setShowGuestRestriction('personal');
+                    return;
+                  }
+                  setShowProDialog(true);
+                }} />
               )}
-              {isAuthenticated && <div className="w-16" />}
             </div>
 
-            {isAuthenticated && (
-              <div className="flex justify-center mb-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-foreground">
-                    {getGreeting()}
-                  </div>
+            <div className="flex justify-center mb-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-foreground">
+                  {getGreeting()}
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
@@ -765,10 +810,10 @@ export function GameSelectionPage({
               </div>
             </div>
 
-            {/* Desktop: Three equal-width bottom buttons spanning both panes */}
-            {isAuthenticated && (
-              <div className="flex-shrink-0 px-4 pb-24 mt-4">
-                <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto flex gap-2">
+            {/* Desktop: Bottom buttons - Options always visible, Stats require auth */}
+            <div className="flex-shrink-0 px-4 pb-24 mt-4">
+              <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto flex gap-2">
+                {isAuthenticated && (
                   <motion.button
                     className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                     style={{ backgroundColor: "#A4DB57" }}
@@ -786,25 +831,27 @@ export function GameSelectionPage({
                       className="max-h-[72px] w-auto object-contain mt-4"
                     />
                   </motion.button>
+                )}
 
-                  <motion.button
-                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                    style={{ backgroundColor: "#C4C9D4" }}
-                    onClick={onOpenOptions}
-                    data-testid="button-options-desktop"
-                    layout
-                    transition={{ duration: 0.25 }}
-                  >
-                    <span className="text-xl font-bold text-gray-800 text-center">
-                      Options
-                    </span>
-                    <img
-                      src={mechanicHamsterGrey}
-                      alt="Options"
-                      className="max-h-[72px] w-auto object-contain mt-4"
-                    />
-                  </motion.button>
+                <motion.button
+                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                  style={{ backgroundColor: "#C4C9D4" }}
+                  onClick={onOpenOptions}
+                  data-testid="button-options-desktop"
+                  layout
+                  transition={{ duration: 0.25 }}
+                >
+                  <span className="text-xl font-bold text-gray-800 text-center">
+                    Options
+                  </span>
+                  <img
+                    src={mechanicHamsterGrey}
+                    alt="Options"
+                    className="max-h-[72px] w-auto object-contain mt-4"
+                  />
+                </motion.button>
 
+                {isAuthenticated && (
                   <motion.button
                     className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                     style={{ backgroundColor: "#93cd78" }}
@@ -822,9 +869,9 @@ export function GameSelectionPage({
                       className="max-h-[72px] w-auto object-contain mt-4"
                     />
                   </motion.button>
-                </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         ) : (
           /* Mobile: Swipeable panes with floating Options button */
@@ -864,7 +911,7 @@ export function GameSelectionPage({
             </div>
 
             {/* Options button overlay - positioned at Stats row level, moves at half-speed */}
-            {isAuthenticated && containerWidth > 0 && statsRowTop > 0 && (
+            {containerWidth > 0 && statsRowTop > 0 && (
               <div 
                 className="absolute left-0 right-0 pointer-events-none"
                 style={{

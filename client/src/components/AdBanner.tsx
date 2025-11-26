@@ -14,6 +14,7 @@ interface AdBannerProps {
 export function AdBanner({ className = '' }: AdBannerProps) {
   const adRef = useRef<HTMLModElement>(null);
   const [adLoaded, setAdLoaded] = useState(false);
+  const [adError, setAdError] = useState(false);
   const { isPro } = useSubscription();
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function AdBanner({ className = '' }: AdBannerProps) {
         }
       } catch (e) {
         console.error('AdSense error:', e);
+        setAdError(true);
       }
     };
 
@@ -36,6 +38,7 @@ export function AdBanner({ className = '' }: AdBannerProps) {
       script.async = true;
       script.crossOrigin = 'anonymous';
       script.onload = loadAd;
+      script.onerror = () => setAdError(true);
       document.head.appendChild(script);
     } else {
       loadAd();
@@ -60,9 +63,13 @@ export function AdBanner({ className = '' }: AdBannerProps) {
         data-ad-format="banner"
         data-full-width-responsive="true"
       />
-      {!adLoaded && (
-        <div className="flex items-center justify-center h-[50px] text-xs text-gray-500">
-          Advertisement
+      {(!adLoaded || adError) && (
+        <div className="flex items-center justify-center h-[50px] bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
+            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span>Advertisement</span>
+            <span className="text-xs text-gray-400">• Ad-free with Pro</span>
+          </div>
         </div>
       )}
     </div>

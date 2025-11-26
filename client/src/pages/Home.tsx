@@ -55,10 +55,14 @@ export default function Home() {
   const [hasExistingProgress, setHasExistingProgress] = useState(false);
   const [needsFirstLoginSetup, setNeedsFirstLoginSetup] = useState(false);
   
-  // Fetch puzzles from API (mode-aware)
-  const puzzlesEndpoint = isLocalMode ? '/api/user/puzzles' : '/api/puzzles';
+  // Fetch puzzles from API (mode-aware, guest-aware)
+  // Guests use /api/puzzles/guest, authenticated users use mode-specific endpoints
+  const puzzlesEndpoint = isAuthenticated 
+    ? (isLocalMode ? '/api/user/puzzles' : '/api/puzzles')
+    : '/api/puzzles/guest';
   const { data: puzzles = [], isLoading: puzzlesLoading } = useQuery<Puzzle[]>({
     queryKey: [puzzlesEndpoint],
+    // Endpoint includes authentication state in its path, no need for separate cache key
   });
   
   // Track if we've shown welcome page and auto-navigated to selection

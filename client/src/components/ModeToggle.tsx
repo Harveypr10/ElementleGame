@@ -1,24 +1,51 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useGameMode, type GameMode } from '@/contexts/GameModeContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { readLocal, CACHE_KEYS } from '@/lib/localCache';
 
 interface ModeToggleProps {
   onModeChange?: (mode: GameMode) => void;
   onLocalClickGuest?: () => void;
   globalLabel?: string;
+  localLabel?: string;
 }
 
-export function ModeToggle({ onModeChange, onLocalClickGuest, globalLabel }: ModeToggleProps) {
+export function ModeToggle({ onModeChange, onLocalClickGuest, globalLabel, localLabel: externalLocalLabel }: ModeToggleProps) {
   const { gameMode, setGameMode, isGlobalMode } = useGameMode();
   const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
   const toggleRef = useRef<HTMLDivElement>(null);
 
-  const localLabel = isAuthenticated && profile?.firstName 
-    ? profile.firstName 
-    : 'Personal';
+  // Get cached profile for instant display
+  const cachedProfile = useMemo(() => readLocal(CACHE_KEYS.PROFILE), []);
+
+  // Determine local label with name length check
+  const localLabel = useMemo(() => {
+    if (externalLocalLabel) return externalLocalLabel;
+    
+    const firstName = profile?.firstName || cachedProfile?.firstName;
+    if (isAuthenticated && firstName) {
+      // If name is 12+ characters, use "Personal" instead
+      return firstName.length >= 12 ? 'Personal' : firstName;
+    }
+    return 'Personal';
+  }, [isAuthenticated, profile?.firstName, cachedProfile?.firstName, externalLocalLabel]);
+
+  // Calculate if we need a wider toggle (for longer names)
+  const needsWiderToggle = useMemo(() => {
+    const globalLen = (globalLabel || 'UK Edition').length;
+    const localLen = localLabel.length;
+    return globalLen > 10 || localLen > 8;
+  }, [globalLabel, localLabel]);
+
+  // Calculate if we need smaller text (to prevent overflow)
+  const needsSmallerText = useMemo(() => {
+    const globalLen = (globalLabel || 'UK Edition').length;
+    const localLen = localLabel.length;
+    return globalLen > 12 || localLen > 10;
+  }, [globalLabel, localLabel]);
 
   const handleToggle = (mode: GameMode) => {
     if (mode === 'local' && !isAuthenticated && onLocalClickGuest) {
@@ -49,10 +76,13 @@ export function ModeToggle({ onModeChange, onLocalClickGuest, globalLabel }: Mod
     }
   }, []);
 
+  const toggleWidth = needsWiderToggle ? 'w-56' : 'w-48';
+  const textSize = needsSmallerText ? 'text-xs' : 'text-sm';
+
   return (
     <div 
       ref={toggleRef}
-      className="relative inline-flex items-center rounded-full bg-muted p-1 w-48 h-10"
+      className={`relative inline-flex items-center rounded-full bg-muted p-1 ${toggleWidth} h-10`}
       data-testid="toggle-mode"
       role="tablist"
       aria-label="Game mode selection"
@@ -77,7 +107,7 @@ export function ModeToggle({ onModeChange, onLocalClickGuest, globalLabel }: Mod
         onClick={() => handleToggle('global')}
         onKeyDown={(e) => handleKeyDown(e, 'global')}
         className={`
-          relative z-10 flex-1 text-sm font-medium transition-colors duration-200 truncate px-1
+          relative z-10 flex-1 ${textSize} font-medium transition-colors duration-200 truncate px-1
           ${isGlobalMode ? 'text-foreground' : 'text-muted-foreground'}
         `}
         data-testid="button-mode-global"
@@ -86,7 +116,7 @@ export function ModeToggle({ onModeChange, onLocalClickGuest, globalLabel }: Mod
         aria-controls="global-pane"
         tabIndex={isGlobalMode ? 0 : -1}
       >
-        {globalLabel || 'Global'}
+        {globalLabel || 'UK Edition'}
       </button>
 
       {/* Local/Personal button */}
@@ -94,7 +124,7 @@ export function ModeToggle({ onModeChange, onLocalClickGuest, globalLabel }: Mod
         onClick={() => handleToggle('local')}
         onKeyDown={(e) => handleKeyDown(e, 'local')}
         className={`
-          relative z-10 flex-1 text-sm font-medium transition-colors duration-200 truncate px-1
+          relative z-10 flex-1 ${textSize} font-medium transition-colors duration-200 truncate px-1
           ${!isGlobalMode ? 'text-foreground' : 'text-muted-foreground'}
         `}
         data-testid="button-mode-local"
