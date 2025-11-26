@@ -338,6 +338,7 @@ export default function Home() {
               onSwitchMode={() => setCurrentScreen("signup")}
               onBack={() => setCurrentScreen("welcome")}
               onForgotPassword={() => setCurrentScreen("forgot-password")}
+              onContinueAsGuest={() => setCurrentScreen("selection")}
             />
           </motion.div>
         )}
@@ -349,6 +350,7 @@ export default function Home() {
               onSuccess={() => setCurrentScreen("selection")}
               onSwitchMode={() => setCurrentScreen("login")}
               onBack={() => setCurrentScreen("welcome")}
+              onContinueAsGuest={() => setCurrentScreen("selection")}
             />
           </motion.div>
         )}

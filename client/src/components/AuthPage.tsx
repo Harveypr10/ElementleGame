@@ -32,9 +32,10 @@ interface AuthPageProps {
   onSwitchMode: () => void;
   onBack: () => void;
   onForgotPassword?: () => void;
+  onContinueAsGuest?: () => void;
 }
 
-export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword }: AuthPageProps) {
+export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword, onContinueAsGuest }: AuthPageProps) {
   const { signIn } = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
@@ -544,16 +545,18 @@ const handleSubmit = async (e: React.FormEvent) => {
             </button>
           </div>
 
-          <div className="mt-2 text-center">
-            <button
-              type="button"
-              onClick={onBack}
-              className="text-sm text-muted-foreground hover:underline"
-              data-testid="button-back"
-            >
-              Back to welcome
-            </button>
-          </div>
+          {onContinueAsGuest && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={onContinueAsGuest}
+                className="text-sm text-[#7DAAE8] hover:underline"
+                data-testid="button-continue-guest"
+              >
+                Continue without logging in
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
