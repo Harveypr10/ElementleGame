@@ -3,6 +3,30 @@
  * with type safety and error handling
  */
 
+// Type definitions for cached data
+export interface CachedProfile {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  region?: string;
+  postcode?: string;
+  tier?: string;
+}
+
+export interface CachedSettings {
+  id?: number;
+  userId?: string;
+  textSize?: string;
+  soundsEnabled?: boolean;
+  darkMode?: boolean;
+  cluesEnabled?: boolean;
+  dateFormatPreference?: string;
+  useRegionDefault?: boolean;
+  digitPreference?: string;
+  categoryPreferences?: number[];
+}
+
 export function readLocal<T>(key: string): T | null {
   try {
     const item = localStorage.getItem(key);
@@ -39,6 +63,8 @@ export function clearUserCache(): void {
     'cached-attempts',
     'cached-today-outcome',
     'cached-percentile',
+    'cached-category-preferences',
+    'cached-subscription',
   ];
   
   userKeys.forEach(key => removeLocal(key));
@@ -70,4 +96,7 @@ export const CACHE_KEYS = {
   TODAY_OUTCOME: 'cached-today-outcome',
   ARCHIVE_PREFIX: 'cached-archive-',
   PERCENTILE: 'cached-percentile',
+  CATEGORY_PREFERENCES: 'cached-category-preferences',
+  SUBSCRIPTION: 'cached-subscription',
+  FIRST_NAME: 'cached-first-name',
 } as const;

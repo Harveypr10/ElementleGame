@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { WelcomePage } from "@/components/WelcomePage";
@@ -23,6 +23,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
+import { usePreload } from "@/lib/PreloadProvider";
 import { useQuery } from "@tanstack/react-query";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
@@ -44,6 +45,7 @@ export default function Home() {
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
   const { isLocalMode, setGameMode } = useGameMode();
+  const { refreshUserData, isPreloaded, isDataReady } = usePreload();
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -285,8 +287,11 @@ export default function Home() {
     setCurrentScreen("options");
   };
   
-  // Handle login success - check if user needs first login setup
-  const handleLoginSuccess = () => {
+  // Handle login success - refresh user data and check if user needs first login setup
+  const handleLoginSuccess = useCallback(async () => {
+    // Trigger background refresh of user data after login
+    await refreshUserData();
+    
     if (isAuthenticated && !hasCompletedFirstLogin()) {
       // User hasn't completed first login - show GeneratingQuestionsScreen
       setNeedsFirstLoginSetup(true);
@@ -294,14 +299,16 @@ export default function Home() {
     } else {
       setCurrentScreen("selection");
     }
-  };
+  }, [isAuthenticated, hasCompletedFirstLogin, refreshUserData]);
   
   // Handle completion of GeneratingQuestionsScreen (from first login)
-  const handleGeneratingQuestionsComplete = async () => {
+  const handleGeneratingQuestionsComplete = useCallback(async () => {
     await markFirstLoginCompleted();
+    // Refresh user data to get newly generated puzzles and preferences
+    await refreshUserData();
     setNeedsFirstLoginSetup(false);
     setCurrentScreen("selection");
-  };
+  }, [markFirstLoginCompleted, refreshUserData]);
 
   if (isLoading) {
     return (
@@ -360,7 +367,7 @@ export default function Home() {
           <motion.div key="signup" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
             <AuthPage 
               mode="signup"
-              onSuccess={() => setCurrentScreen("selection")}
+              onSuccess={handleLoginSuccess}
               onSwitchMode={() => setCurrentScreen("login")}
               onBack={() => setCurrentScreen("welcome")}
               onContinueAsGuest={() => setCurrentScreen("selection")}

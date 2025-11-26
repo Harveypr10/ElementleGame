@@ -1,0 +1,57 @@
+📋 Detailed Specifics to Implement
+1. User Settings Pre‑load
+On login/signup, fetch all user settings (theme, toggles, preferences, subscription status).
+
+Store them in a global cache/context (e.g. React Query cache, Zustand, or Redux).
+
+Ensure every screen that depends on settings reads from cache instantly, not by firing a fresh DB call on mount.
+
+2. Category Preferences (Pro Users)
+When a Pro user logs in, pre‑fetch their category preferences.
+
+Cache them so that CategorySelectionScreen always shows the existing preferences immediately.
+
+No flicker between “empty” and “loaded” states.
+
+3. First Name Pre‑load
+Fetch and cache the user’s first name at login.
+
+Ensure GameSelectionPage always shows the name instantly in the “Personal” toggle box.
+
+Avoid the flicker where it shows “Personal” then switches to the name after DB response.
+
+4. Image Pre‑loading
+Pre‑load all images/icons (e.g. banners, buttons, logos) into memory when the app starts.
+
+Use a preload manifest or new Image().src = ... calls to cache them.
+
+Ensure screens only render once their images are ready, so there’s no “late appearing” assets.
+
+Prefer a short pause before screen load rather than images popping in after render.
+
+5. Background Refresh
+After key events (login, signup, finishing a game), trigger background refreshes of cached data (profile, stats, preferences).
+
+This ensures the next screen navigated to already has fresh data.
+
+6. Implementation Notes
+Use React Query’s prefetchQuery or equivalent to warm caches before navigation.
+
+Wrap screens in Suspense or a preload provider so they don’t render until required data is ready.
+
+Provide skeleton loaders only if absolutely necessary, but the default should be “screen waits until ready.”
+
+Document which queries are pre‑loaded at login and after game completion.
+
+✅ Acceptance Checklist
+[ ] User settings are available before any screen renders.
+
+[ ] CategorySelectionScreen always shows saved preferences instantly.
+
+[ ] GameSelectionPage always shows the user’s first name immediately.
+
+[ ] Images/icons are visible at screen load, never appearing late.
+
+[ ] Background refresh keeps cached data up to date after login and gameplay.
+
+[ ] No flicker or dynamic UI changes after screen mount.
