@@ -368,10 +368,10 @@ export function GameSelectionPage({
     return (
       <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
-          {/* Desktop: Show "Global" title */}
+          {/* Desktop: Show region label title */}
           {isDesktop && isAuthenticated && (
             <div className="text-center mb-4">
-              <h2 className="text-2xl font-bold text-foreground font-bold">Global</h2>
+              <h2 className="text-2xl font-bold text-foreground font-bold">{cachedRegionLabel}</h2>
             </div>
           )}
 
@@ -547,10 +547,10 @@ export function GameSelectionPage({
     return (
       <div className={isDesktop ? "w-full flex-shrink-0" : "w-1/2 flex-shrink-0"} style={{ paddingLeft: isDesktop ? 0 : '1rem', paddingRight: isDesktop ? 0 : '1rem' }}>
         <div className="max-w-md mx-auto w-full">
-          {/* Desktop: Show "Local" title */}
+          {/* Desktop: Show user name title */}
           {isDesktop && isAuthenticated && (
             <div className="text-center mb-4">
-              <h2 className="text-2xl font-bold text-foreground font-bold">Local</h2>
+              <h2 className="text-2xl font-bold text-foreground font-bold">{cachedUserName}</h2>
             </div>
           )}
 
