@@ -460,7 +460,7 @@ export function GameSelectionPage({
               <div ref={statsRowRef} className="relative h-40">
                 {/* Global Stats button */}
                 <motion.button
-                  className="absolute left-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                  className="absolute left-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center px-4 py-3 rounded-3xl shadow-sm hover:shadow-md"
                   style={{ backgroundColor: "#A4DB57", touchAction: 'pan-y' }}
                   onClick={() => {
                     if (!isAuthenticated) {
@@ -474,13 +474,13 @@ export function GameSelectionPage({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
                 >
-                  <span className="text-xl font-bold text-gray-800 text-center">
+                  <span className="text-xl font-bold text-gray-800 text-center h-12 flex items-center">
                     {cachedRegionLabel.split(' ')[0]} Stats
                   </span>
                   <img
                     src={mathsHamsterGreen}
                     alt="Global Stats"
-                    className="max-h-[72px] w-auto object-contain mt-4"
+                    className="max-h-[72px] w-auto object-contain flex-1"
                   />
                 </motion.button>
               </div>
@@ -645,7 +645,7 @@ export function GameSelectionPage({
               <div className="relative h-40">
                 {/* Local Stats button */}
                 <motion.button
-                  className="absolute right-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                  className="absolute right-0 h-40 w-[calc(50%-0.5rem)] flex flex-col items-center px-4 py-3 rounded-3xl shadow-sm hover:shadow-md"
                   style={{ backgroundColor: "#93cd78", touchAction: 'pan-y' }}
                   onClick={() => {
                     if (!isAuthenticated) {
@@ -659,13 +659,13 @@ export function GameSelectionPage({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.25, delay: 0.3, ease: "easeOut" }}
                 >
-                  <span className="text-xl font-bold text-gray-800 text-center">
+                  <span className="text-xl font-bold text-gray-800 text-center h-12 flex items-center">
                     Personal Stats
                   </span>
                   <img
                     src={mathsHamsterLocal}
                     alt="Local Stats"
-                    className="max-h-[72px] w-auto object-contain mt-4"
+                    className="max-h-[72px] w-auto object-contain flex-1"
                   />
                 </motion.button>
               </div>
