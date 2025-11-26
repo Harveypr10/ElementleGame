@@ -1,0 +1,97 @@
+Objective: Rework the Elementle app’s sign in, game selection, ads, and Pro subscription flows to match the following specification.
+1. Initial Load (Not Signed In)
+•	On app load, after the WelcomePage has displayed, always take the user directly to GameSelectionPage.
+•	Default view is the Global side, rename to default to “UK” (or the user’s region when signed-in).
+•	Restrictions when not signed in:
+o	Left/right swiping disabled on mobile view. On full screen view all the buttons on the “Local” game should result in the same pop up as the Personal toggle pop-up described below.
+o	Archive button → opens pop up:
+	Title: “Access the Elementle Archives”
+	Text: “Unlock years of history and track your progress as you uncover events you never knew happened.”
+	Buttons: Register / Login
+	Back button closes pop up and returns to GameSelectionPage.
+	The layout, colours used for background, fonts and buttons, plus the hamster image should all be based on the “IntroScreen” page that we made yesterday
+o	Personal toggle (rename “Local” to “Personal”, and make it dynamically change to the user’s first name when signed in):
+	If not signed in, clicking opens pop up:
+	Title: “Access your personalised games”
+	Text: “Hammie the hamster will generate personalised questions based on your location, mixed up with other interesting events he thinks you’ll enjoy.”
+	Buttons: Register / Login
+	Back button closes pop up and returns to GameSelectionPage.
+	The layout, colours used for background, fonts and buttons, plus the hamster image should all be based on the “IntroScreen” page that we made yesterday
+•	Banner advert:
+o	Fixed at bottom of screen on all pages except PlayPage, HelpDialog, and StreakCelebrationPopup.
+o	Banner does not move with scrolling.
+o	  Add a <div> container fixed to the bottom of the viewport on all screens except PlayPage, HelpDialog, and StreakCelebrationPopup.
+o	  Integrate Google AdSense/AdMob test banner ad into this container.
+o	  Use Google’s test ad unit ID for banners:
+o	ca-app-pub-3940256099942544/6300978111
+o	  Example implementation:
+<div id="banner-ad" style="position:fixed;bottom:0;width:100%;z-index:1000;">
+  <!-- Google test banner ad -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+  <ins class="adsbygoogle"
+       style="display:block"
+       data-ad-client="ca-pub-3940256099942544"
+       data-ad-slot="6300978111"
+       data-ad-format="banner"
+       data-full-width-responsive="true"></ins>
+  <script>
+    (adsbygoogle = window.adsbygoogle || []).push({});
+  </script>
+</div>
+
+2. Sign In Flow
+•	First sign in:
+o	User enters details (❌ remove two factor authentication).
+o	Immediately run GeneratingQuestionsScreen.
+•	Subsequent loads when signed in:
+o	User has access to:
+	Global game + full archive.
+	Personal game + archive.
+o	Personal toggle now displays the user’s name (e.g. “Paul”).
+3. Ads Behaviour
+•	When signed in (non Pro):
+o	After completing a game (and streak screen if applicable), show a full screen advert before EndGameModal.
+o	Exception: Play today’s puzzle → no advert. Implement like this:
+o	After a game ends (and after streak screen if applicable), trigger a Google test interstitial ad before showing EndGameModal.
+o	Use Google’s test ad unit ID for interstitials:
+o	ca-app-pub-3940256099942544/1033173712
+o	Example implementation (simplified):
+javascript
+function showInterstitialAd() {
+  // Load Google test interstitial ad
+  const adUnitId = "ca-app-pub-3940256099942544/1033173712";
+  // Pseudo-code: integrate with Google Ad SDK
+  // Ensure ad loads, then display before EndGameModal
+}
+
+// Call this after game completion (except "Play today’s puzzle")
+if (gameCompleted && !isTodaysPuzzle) {
+  showInterstitialAd();
+}
+
+•	Banner ads remain visible as described above (though not when playing the interstitial ad).
+4. Ads Toggle & Pro Upgrade
+•	Add orange button below settings icon, to the right of Global/Personal toggle:
+o	Text: “Ads on” with green light icon.
+o	Below: “Go Pro”.
+•	Clicking opens new screen:
+o	Title: “Go Ad Free and Play Limitless Personalised Games!”
+o	Three subscription options (side by side buttons):
+	Bronze: 1 month £0.69 (auto renew).
+	Silver: 1 year £4.99 (auto renew).
+	Gold: Lifetime £11.99.
+o	Back button returns to previous screen.
+•	After purchase:
+o	Show a new Category Selection Screen, displaying all 20 categories “name” from the categories table (not category “999” “Local History”) as selectable buttons that toggle on/off with the button going from light grey fill and dark grey font, to blue and white, bold font.
+o	User must select at least 3 categories and don’t enable the generate button until at least 3 have been selected
+o	Clicking Generate runs GeneratingQuestionsScreen again, but only with:
+	Event_titles from chosen categories.
+	Their populated_places.
+o	Show a new menu at the top of the Settings screen, above Account Info, for Pro. In here state the pro subscription they are on and a button to take them to the Category Selection Screen, that shows the same screen as above, but with their current selections selected, that they can then amend and “Re-Generate”, which takes them through the GeneratingQuestionsScreen again
+•	Pro subscription removes all ads:
+o	No banner ads.
+o	No post game adverts.
+5. Summary of End State
+•	Guest users: Can play today’s puzzle on Global side, but Archive and Personal are locked behind Register/Login pop ups. Banner ads always visible.
+•	Signed in users (non Pro): Full access to Global + archive, Personal + archive. Banner ads visible on most screens. Full screen ads after games (except today’s puzzle).
+•	Pro users: No ads at all. Category selection available. Extended Personal archive (this happens within Supabase and I’m handling those changes.
