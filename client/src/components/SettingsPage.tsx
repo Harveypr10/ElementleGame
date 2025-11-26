@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Bug, MessageSquare, Info, Lock, FileText, LogOut, Crown, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Bug, MessageSquare, Info, Lock, FileText, LogOut, Crown, Grid } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -31,33 +31,27 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const [showProDialog, setShowProDialog] = useState(false);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   
-  // Get subscription tier display name
-  const getTierDisplayName = () => {
-    if (!isPro) return "Free";
-    switch (subscription?.tier) {
-      case "bronze": return "Bronze";
-      case "silver": return "Silver";
-      case "gold": return "Gold";
-      default: return "Pro";
-    }
-  };
-
   // Subscription-related items - show Go Pro for all users (including guests)
   const subscriptionItems = [
     {
       icon: Crown,
-      label: isPro ? `Subscription (${getTierDisplayName()})` : "Go Pro",
-      sublabel: isPro ? "Manage your subscription" : "Remove ads & customize categories",
+      label: isPro ? "Pro" : "Go Pro",
+      inlineLabel: isPro ? "Manage your subscription" : null,
+      sublabel: !isPro ? "Remove ads & customize categories" : null,
       onClick: () => setShowProDialog(true),
       testId: "button-subscription",
-      highlight: !isPro, // Highlight if not Pro
+      highlight: !isPro,
+      proItem: isPro,
     },
     ...(isPro ? [{
-      icon: RefreshCw,
-      label: "Regenerate Questions",
-      sublabel: "Choose new categories for your puzzles",
+      icon: Grid,
+      label: "Select Categories",
+      inlineLabel: null,
+      sublabel: null,
       onClick: () => setShowCategorySelection(true),
-      testId: "button-regenerate-questions",
+      testId: "button-select-categories",
+      highlight: false,
+      proItem: true,
     }] : []),
   ];
   
@@ -156,27 +150,43 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
         </div>
 
         <Card className="p-4 space-y-2">
-          {menuItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={item.onClick}
-              className={`w-full flex items-center justify-between p-3 rounded-md hover-elevate active-elevate-2 transition-colors ${
-                (item as any).highlight ? "bg-amber-50 dark:bg-amber-950/30" : ""
-              }`}
-              data-testid={item.testId}
-            >
-              <div className="flex items-center gap-3">
-                <item.icon className={`h-5 w-5 ${(item as any).highlight ? "text-amber-500" : "text-muted-foreground"}`} />
-                <div className="text-left">
-                  <div className="font-medium">{item.label}</div>
-                  {(item as any).sublabel && (
-                    <div className="text-sm text-muted-foreground">{(item as any).sublabel}</div>
+          {menuItems.map((item) => {
+            const isProItem = (item as any).proItem;
+            const inlineLabel = (item as any).inlineLabel;
+            const sublabel = (item as any).sublabel;
+            const highlight = (item as any).highlight;
+            
+            return (
+              <button
+                key={item.label}
+                onClick={item.onClick}
+                className={`w-full flex items-center justify-between p-3 rounded-md transition-colors ${
+                  isProItem 
+                    ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600" 
+                    : highlight 
+                      ? "bg-amber-50 dark:bg-amber-950/30 hover-elevate active-elevate-2" 
+                      : "hover-elevate active-elevate-2"
+                }`}
+                data-testid={item.testId}
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon className={`h-5 w-5 ${
+                    isProItem ? "text-white" : highlight ? "text-amber-500" : "text-muted-foreground"
+                  }`} />
+                  <div className="flex items-center gap-2">
+                    <span className={`font-medium ${isProItem ? "text-white" : ""}`}>{item.label}</span>
+                    {inlineLabel && (
+                      <span className={`text-sm ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{inlineLabel}</span>
+                    )}
+                  </div>
+                  {sublabel && (
+                    <div className="text-sm text-muted-foreground ml-0">{sublabel}</div>
                   )}
                 </div>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            </button>
-          ))}
+                <ChevronRight className={`h-5 w-5 ${isProItem ? "text-white" : "text-muted-foreground"}`} />
+              </button>
+            );
+          })}
         </Card>
 
         {isAuthenticated && (
@@ -194,21 +204,18 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       
       {/* Pro Subscription Dialog */}
       <ProSubscriptionDialog
-        open={showProDialog}
-        onOpenChange={setShowProDialog}
+        isOpen={showProDialog}
+        onClose={() => setShowProDialog(false)}
+        onSuccess={() => setShowProDialog(false)}
       />
       
       {/* Category Selection Screen (for Pro users) */}
-      {showCategorySelection && user && (
-        <div className="fixed inset-0 z-50 bg-background">
-          <CategorySelectionScreen
-            userId={user.id}
-            selectedCategories={[]}
-            onComplete={() => setShowCategorySelection(false)}
-            onBack={() => setShowCategorySelection(false)}
-          />
-        </div>
-      )}
+      <CategorySelectionScreen
+        isOpen={showCategorySelection}
+        onClose={() => setShowCategorySelection(false)}
+        onGenerate={() => setShowCategorySelection(false)}
+        isRegeneration={true}
+      />
     </div>
   );
 }

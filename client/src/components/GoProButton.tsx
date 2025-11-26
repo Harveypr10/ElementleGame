@@ -6,20 +6,17 @@ interface GoProButtonProps {
 }
 
 export function GoProButton({ onClick, isPro: externalIsPro }: GoProButtonProps) {
-  const { isPro: hookIsPro, tier } = useSubscription();
+  const { isPro: hookIsPro } = useSubscription();
   const isPro = externalIsPro ?? hookIsPro;
 
   if (isPro) {
     return (
       <button
         onClick={onClick}
-        className="flex flex-col items-center justify-center px-2 py-1.5 rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 shadow-sm hover:shadow-md transition-all"
+        className="flex items-center justify-center px-3 py-1.5 rounded-lg bg-gradient-to-b from-orange-400 to-orange-500 shadow-sm hover:shadow-md transition-all"
         data-testid="button-pro-status"
       >
-        <div className="flex items-center gap-0.5">
-          <span className="text-[10px] font-bold text-amber-900 uppercase">{tier}</span>
-        </div>
-        <span className="text-[9px] font-medium text-amber-800">Pro</span>
+        <span className="text-sm font-bold text-white">Pro</span>
       </button>
     );
   }
