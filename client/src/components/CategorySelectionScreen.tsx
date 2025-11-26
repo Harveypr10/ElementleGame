@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
+import hamsterImage from '@assets/generated_images/Question-Hamster-Grey.svg';
 
 interface Category {
   id: number;
@@ -152,37 +153,41 @@ export function CategorySelectionScreen({
           data-testid="category-selection-screen"
         >
           {/* Fixed Header */}
-          <div className="flex items-center justify-between p-4 flex-shrink-0">
+          <div className="flex items-center justify-center p-4 flex-shrink-0 relative">
             <button
               onClick={onClose}
-              className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="absolute left-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               data-testid="button-close-categories"
             >
               <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
             </button>
 
             <h1 className="text-2xl font-bold text-foreground" data-testid="text-categories-title">
-              Choose Your Categories
+              Select Your Categories
             </h1>
-
-            <div className="w-14" />
           </div>
 
           {/* Fixed Description Area */}
-          <div className="px-4 pb-4 text-center space-y-2 flex-shrink-0">
-            <p className="text-muted-foreground">
-              Select at least 3 categories for your personalised puzzles
-            </p>
-            <p className="text-sm font-medium text-foreground">
-              {selectedCategories.size} selected
-              {selectedCategories.size < 3 && (
-                <span className="text-muted-foreground"> (need {3 - selectedCategories.size} more)</span>
-              )}
-            </p>
+          <div className="px-4 pb-4 flex-shrink-0">
+            <div className="flex items-start gap-4">
+              <img
+                src={hamsterImage}
+                alt="Hammie"
+                className="h-12 w-12 flex-shrink-0"
+              />
+              <div className="flex-1 space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Choose your favourite subjects so Hammie can personalise your puzzles
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  {selectedCategories.size} selected (min 3)
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Scrollable Categories Area */}
-          <div className="flex-1 overflow-y-auto px-4">
+          <div className="flex-1 overflow-y-auto px-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             <div className="max-w-md mx-auto w-full">
               {loadingCategories ? (
                 <div className="flex items-center justify-center py-8">
