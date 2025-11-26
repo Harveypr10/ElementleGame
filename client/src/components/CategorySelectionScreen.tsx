@@ -163,7 +163,7 @@ export function CategorySelectionScreen({
             </button>
 
             <h1 className="text-3xl font-bold text-foreground text-center" data-testid="text-categories-title">
-              Select Your Categories
+              Select Your<br />Categories
             </h1>
           </div>
 
