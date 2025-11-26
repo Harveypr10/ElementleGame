@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, createContext, useContext } from 'react';
 import { useSubscription } from '@/hooks/useSubscription';
 
 declare global {
@@ -11,14 +11,22 @@ interface AdBannerProps {
   className?: string;
 }
 
+// Context to track if ads should be shown
+export const AdBannerContext = createContext<boolean>(true);
+
+export function useAdBannerVisibility() {
+  return useContext(AdBannerContext);
+}
+
 export function AdBanner({ className = '' }: AdBannerProps) {
   const adRef = useRef<HTMLModElement>(null);
   const [adLoaded, setAdLoaded] = useState(false);
   const [adError, setAdError] = useState(false);
   const { isPro } = useSubscription();
+  const shouldShowBanner = useAdBannerVisibility();
 
   useEffect(() => {
-    if (isPro) return;
+    if (isPro || !shouldShowBanner) return;
     
     const loadAd = () => {
       try {
@@ -45,7 +53,7 @@ export function AdBanner({ className = '' }: AdBannerProps) {
     }
   }, [isPro]);
 
-  if (isPro) return null;
+  if (isPro || !shouldShowBanner) return null;
 
   // In development/test mode, always show the test banner placeholder
   const showTestBanner = !adLoaded || adError;
