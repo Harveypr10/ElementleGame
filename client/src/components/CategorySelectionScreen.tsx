@@ -35,25 +35,19 @@ export function CategorySelectionScreen({
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
 
-  const { data: categories = [], isLoading: loadingCategories, error: categoriesError } = useQuery<Category[]>({
+  const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
     queryFn: async () => {
       const response = await fetch('/api/categories');
       if (!response.ok) {
         throw new Error('Failed to fetch categories');
       }
-      const data = await response.json();
-      console.log('[CategorySelectionScreen] Fetched categories:', data?.length);
-      return data || [];
+      return await response.json() || [];
     },
     enabled: isOpen,
   });
-  
-  if (categoriesError) {
-    console.error('[CategorySelectionScreen] Error fetching categories:', categoriesError);
-  }
 
-  const { data: userCategories = [] } = useQuery<number[]>({
+  const { data: userCategories = [], isLoading: loadingUserCategories } = useQuery<number[]>({
     queryKey: ['/api/user/pro-categories'],
     queryFn: async () => {
       if (!isAuthenticated) return [];
@@ -73,14 +67,16 @@ export function CategorySelectionScreen({
       const data = await response.json();
       return data.categoryIds || [];
     },
-    enabled: isOpen && isRegeneration && isAuthenticated,
+    enabled: isOpen && isAuthenticated,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   useEffect(() => {
-    if (isRegeneration && userCategories.length > 0) {
+    if (isOpen && userCategories.length > 0) {
       setSelectedCategories(new Set(userCategories));
     }
-  }, [userCategories, isRegeneration]);
+  }, [userCategories, isOpen]);
 
   const saveCategoriesMutation = useMutation({
     mutationFn: async (categoryIds: number[]) => {

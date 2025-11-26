@@ -2138,12 +2138,16 @@ export class DatabaseStorage implements IStorage {
   async getUserProCategories(userId: string): Promise<number[]> {
     try {
       // Read from user_category_preferences table (existing Supabase table)
-      const result = await db.execute(
-        sql`SELECT category_id FROM user_category_preferences WHERE user_id = ${userId}`
+      const result: any = await db.execute(
+        sql`SELECT category_id FROM user_category_preferences WHERE user_id = ${userId}::uuid`
       );
-      console.log('[getUserProCategories] Found categories for user:', userId, 'count:', result.rows?.length);
-      return (result.rows || []).map((row: any) => row.category_id);
+      
+      // Drizzle with Neon can return rows directly or in result.rows
+      const rows = Array.isArray(result) ? result : (result.rows || []);
+      console.log('[getUserProCategories] Found', rows.length, 'categories for user:', userId);
+      return rows.map((row: any) => row.category_id);
     } catch (error: any) {
+      console.error('[getUserProCategories] Error:', error);
       // Table might not exist yet
       if (error?.code === '42P01') {
         console.log('Note: user_category_preferences table not available yet');
@@ -2157,16 +2161,17 @@ export class DatabaseStorage implements IStorage {
     try {
       // Save to user_category_preferences table (existing Supabase table)
       // Delete existing categories
-      await db.execute(sql`DELETE FROM user_category_preferences WHERE user_id = ${userId}`);
+      await db.execute(sql`DELETE FROM user_category_preferences WHERE user_id = ${userId}::uuid`);
       
       // Insert new categories
       for (const categoryId of categoryIds) {
         await db.execute(
-          sql`INSERT INTO user_category_preferences (user_id, category_id) VALUES (${userId}, ${categoryId})`
+          sql`INSERT INTO user_category_preferences (user_id, category_id) VALUES (${userId}::uuid, ${categoryId})`
         );
       }
-      console.log('[saveUserProCategories] Saved categories for user:', userId, 'count:', categoryIds.length);
+      console.log('[saveUserProCategories] Saved', categoryIds.length, 'categories for user:', userId);
     } catch (error: any) {
+      console.error('[saveUserProCategories] Error:', error);
       // Table might not exist yet
       if (error?.code === '42P01') {
         console.log('Note: user_category_preferences table not available yet');
