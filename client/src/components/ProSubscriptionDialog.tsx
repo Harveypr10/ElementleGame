@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getSupabaseClient } from '@/lib/supabaseClient';
+import signupHamsterGrey from '@assets/Signup-Hamster-Grey.svg';
 import type { ProTier } from '@shared/schema';
 
 interface ProSubscriptionDialogProps {
@@ -153,7 +154,7 @@ export function ProSubscriptionDialog({
           <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8 overflow-y-auto">
             <div className="max-w-md w-full space-y-8">
               <div className="text-center space-y-2">
-                <Crown className="h-16 w-16 mx-auto text-yellow-500" />
+                <img src={signupHamsterGrey} alt="Pro" className="h-32 w-auto mx-auto object-contain" />
                 <h1 className="text-2xl font-bold text-foreground" data-testid="text-pro-title">
                   Go Ad Free and Play Limitless Personalised Games!
                 </h1>
