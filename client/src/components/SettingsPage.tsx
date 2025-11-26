@@ -21,9 +21,10 @@ interface SettingsPageProps {
   onPrivacy?: () => void;
   onTerms?: () => void;
   onAbout?: () => void;
+  onSignOut?: () => void;
 }
 
-export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport, onFeedback, onPrivacy, onTerms, onAbout }: SettingsPageProps) {
+export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport, onFeedback, onPrivacy, onTerms, onAbout, onSignOut }: SettingsPageProps) {
   const { user, isAuthenticated, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -119,8 +120,12 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       // Sign out from Supabase
       await signOut();
       
-      // Immediately redirect to login page
-      window.location.href = "/";
+      // Navigate to login screen using callback (if provided) or fallback to reload
+      if (onSignOut) {
+        onSignOut();
+      } else {
+        window.location.href = "/";
+      }
     } catch (error) {
       console.error("Error signing out:", error);
       alert("Failed to sign out. Please try again.");

@@ -469,6 +469,7 @@ export default function Home() {
               onPrivacy={() => setCurrentScreen("privacy")}
               onTerms={() => setCurrentScreen("terms")}
               onAbout={() => setCurrentScreen("about")}
+              onSignOut={() => setCurrentScreen("login")}
             />
           </motion.div>
         )}
