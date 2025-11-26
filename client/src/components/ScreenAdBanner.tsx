@@ -27,7 +27,7 @@ export function ScreenAdBanner({ screenId }: ScreenAdBannerProps) {
     
     const loadAd = () => {
       try {
-        if (typeof window !== 'undefined' && window.adsbygoogle && adRef.current) {
+        if (typeof window !== 'undefined' && adRef.current) {
           (window.adsbygoogle = window.adsbygoogle || []).push({});
           setAdLoaded(true);
         }
@@ -37,24 +37,27 @@ export function ScreenAdBanner({ screenId }: ScreenAdBannerProps) {
       }
     };
 
-    if (!document.querySelector('script[src*="adsbygoogle"]')) {
-      const script = document.createElement('script');
-      script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
-      script.async = true;
-      script.crossOrigin = 'anonymous';
-      script.onload = loadAd;
-      script.onerror = () => setAdError(true);
-      document.head.appendChild(script);
-    } else {
-      const timer = setTimeout(loadAd, 100);
-      return () => clearTimeout(timer);
-    }
+    const timer = setTimeout(() => {
+      if (!document.querySelector('script[src*="adsbygoogle"]')) {
+        const script = document.createElement('script');
+        script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
+        script.async = true;
+        script.crossOrigin = 'anonymous';
+        script.onload = loadAd;
+        script.onerror = () => setAdError(true);
+        document.head.appendChild(script);
+      } else {
+        loadAd();
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, [isPro, subscriptionLoading, instanceKey]);
 
   if (subscriptionLoading) return null;
   if (isPro) return null;
 
-  const showTestBanner = !adLoaded || adError;
+  const showTestBanner = adError || !adLoaded;
 
   return (
     <div 
@@ -64,17 +67,19 @@ export function ScreenAdBanner({ screenId }: ScreenAdBannerProps) {
       style={{ minHeight: '50px' }}
       data-testid={`ad-banner-${screenId}`}
     >
-      {!showTestBanner && (
-        <ins 
-          ref={adRef}
-          className="adsbygoogle"
-          style={{ display: 'block', width: '100%', height: '50px' }}
-          data-ad-client="ca-pub-3940256099942544"
-          data-ad-slot="6300978111"
-          data-ad-format="banner"
-          data-full-width-responsive="true"
-        />
-      )}
+      <ins 
+        ref={adRef}
+        className="adsbygoogle"
+        style={{ 
+          display: adLoaded && !adError ? 'block' : 'none', 
+          width: '100%', 
+          height: '50px' 
+        }}
+        data-ad-client="ca-pub-3940256099942544"
+        data-ad-slot="6300978111"
+        data-ad-format="banner"
+        data-full-width-responsive="true"
+      />
       {showTestBanner && (
         <div 
           className="flex items-center justify-center h-[50px] border-t border-gray-300 dark:border-gray-600"
