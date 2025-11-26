@@ -184,15 +184,15 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
                   <item.icon className={`h-5 w-5 flex-shrink-0 ${
                     isProItem ? "text-white" : highlight ? "text-amber-500" : "text-muted-foreground"
                   }`} />
-                  <div className="flex items-center gap-3 flex-1">
-                    <span className={`font-medium whitespace-nowrap ${isProItem ? "text-white" : ""}`}>{item.label}</span>
-                    {inlineLabel && (
-                      <span className={`text-sm ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{inlineLabel}</span>
-                    )}
-                    {sublabel && (
-                      <div className={`text-sm max-w-[120px] ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{sublabel}</div>
-                    )}
-                  </div>
+                  <span className={`font-medium whitespace-nowrap ${isProItem ? "text-white" : ""}`}>{item.label}</span>
+                  {inlineLabel && (
+                    <span className={`text-sm ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{inlineLabel}</span>
+                  )}
+                  {sublabel && (
+                    <div className={`flex-1 flex justify-center`}>
+                      <div className={`text-sm max-w-[150px] text-center ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{sublabel}</div>
+                    </div>
+                  )}
                 </div>
                 <ChevronRight className={`h-5 w-5 flex-shrink-0 ${isProItem ? "text-white" : "text-muted-foreground"}`} />
               </button>
