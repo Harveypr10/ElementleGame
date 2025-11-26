@@ -149,46 +149,54 @@ export function CategorySelectionScreen({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-[100] bg-background flex flex-col"
+          className="fixed inset-0 z-[100] bg-background flex flex-col pb-[60px]"
           data-testid="category-selection-screen"
         >
-          {/* Fixed Header */}
-          <div className="flex items-center justify-center p-4 flex-shrink-0 relative">
-            <button
-              onClick={onClose}
-              className="absolute left-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              data-testid="button-close-categories"
-            >
-              <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
-            </button>
+          {/* Fixed Header - constrained width like other settings screens */}
+          <div className="p-4 flex-shrink-0">
+            <div className="max-w-md mx-auto w-full">
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  onClick={onClose}
+                  className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  data-testid="button-close-categories"
+                >
+                  <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
+                </button>
 
-            <h1 className="text-2xl font-bold text-foreground" data-testid="text-categories-title">
-              Select Your Categories
-            </h1>
-          </div>
+                <h1 className="text-2xl font-bold text-foreground" data-testid="text-categories-title">
+                  Select Your Categories
+                </h1>
 
-          {/* Fixed Description Area */}
-          <div className="px-4 pb-4 flex-shrink-0">
-            <div className="flex items-start gap-4">
-              <img
-                src={hamsterImage}
-                alt="Hammie"
-                className="h-12 w-12 flex-shrink-0"
-              />
-              <div className="flex-1 space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Choose your favourite subjects so Hammie can personalise your puzzles
-                </p>
-                <p className="text-sm font-medium text-foreground">
-                  {selectedCategories.size} selected (min 3)
-                </p>
+                {/* Spacer to balance layout */}
+                <div className="w-14" />
               </div>
             </div>
           </div>
 
-          {/* Scrollable Categories Area */}
+          {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto px-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             <div className="max-w-md mx-auto w-full">
+              {/* Hamster and Text Description */}
+              <div className="flex items-start gap-4 mb-6">
+                {/* Hamster image with natural aspect ratio */}
+                <img
+                  src={hamsterImage}
+                  alt="Hammie"
+                  className="w-16 h-auto flex-shrink-0"
+                />
+                {/* Text boxes - centered text, centered in the remaining space */}
+                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-1">
+                  <p className="text-sm text-muted-foreground">
+                    Choose your favourite subjects so Hammie can personalise your puzzles
+                  </p>
+                  <p className="text-sm font-medium text-foreground">
+                    {selectedCategories.size} selected (min 3)
+                  </p>
+                </div>
+              </div>
+
+              {/* Categories Grid */}
               {loadingCategories ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
