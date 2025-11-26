@@ -151,7 +151,7 @@ export function ProSubscriptionDialog({
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col items-center justify-center px-4 pb-8 overflow-y-auto">
+          <div className="flex-1 flex flex-col items-center px-4 pt-24 pb-8 overflow-y-auto">
             <div className="max-w-md w-full space-y-8">
               <div className="text-center space-y-2">
                 <img src={signupHamsterGrey} alt="Pro" className="h-32 w-auto mx-auto object-contain" />
