@@ -36,7 +36,9 @@ Preferred communication style: Simple, everyday language.
   - "Select Categories" button (replaces "Regenerate Questions") navigates to CategorySelectionScreen
   - Categories are fetched from `categories` table in Supabase (20 items, excludes id 999)
   - User category preferences stored in `user_category_preferences` table (links user_id to category_id)
-- **Advertising System**: Banner ads via `AdBanner` component with Google AdMob test ID (ca-app-pub-3940256099942544/2435281174), fixed bottom positioning with z-index 90. All pages include pb-16 padding to accommodate. Interstitial ads via `InterstitialAd` component shown after archive puzzle completions with 5-second countdown, z-index 200 overlay. Pro subscribers have ads disabled.
+- **Advertising System**: Per-screen ad banners via `ScreenAdBanner` component with unique screenId props for proper impression counting. Each ad-enabled screen renders its own banner that requests a fresh ad on mount. Uses Google AdSense test ID (ca-pub-3940256099942544), fixed bottom-0 positioning, 50px height, z-index 90. Dynamic padding via `useAdBannerActive()` hook determines `pb-[50px]` for screens showing ads. Interstitial ads via `InterstitialAd` component shown after archive puzzle completions with 5-second countdown, z-index 200 overlay. Pro subscribers have ads disabled throughout.
+  - **Ad-enabled screens**: GameSelectionPage, StatsPage, ArchivePage, SettingsPage, OptionsPage, AccountInfoPage, PrivacyPage, TermsPage, AboutPage, BugReportForm, FeedbackForm, CategorySelectionScreen
+  - **Screens without ads**: SplashScreen, WelcomePage, PlayPage (includes IntroScreen), Login, Signup, ForgotPassword, GeneratingQuestionsScreen
 - **Guest Mode & Restrictions**: 
   - Guest users (unauthenticated) can play Global puzzles using the `/api/puzzles/guest` endpoint (defaults to UK region).
   - Guests cannot swipe to Personal (Local) mode or access Archive - attempts trigger snap-back animation and `GuestRestrictionPopup` with hamster image and Register/Login buttons.
