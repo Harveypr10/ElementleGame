@@ -837,7 +837,7 @@ export function GameSelectionPage({
                   transition={{ duration: 0.25 }}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
-                    Global Stats
+                    {cachedRegionLabel} Stats
                   </span>
                   <img
                     src={mathsHamsterGreen}
@@ -879,7 +879,7 @@ export function GameSelectionPage({
                   transition={{ duration: 0.25 }}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
-                    Local Stats
+                    {cachedUserName} Stats
                   </span>
                   <img
                     src={mathsHamsterLocal}
