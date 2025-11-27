@@ -248,8 +248,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(updatedProfile);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating profile:", error);
+      
+      // Check for postcode guard trigger error (14-day restriction)
+      if (error?.message?.includes('postcode once every 14 days')) {
+        return res.status(400).json({ 
+          error: "You can only change your postcode once every 14 days. Please try again later.",
+          code: "POSTCODE_COOLDOWN"
+        });
+      }
+      
+      // Check for RLS policy violations
+      if (error?.code === '42501' || error?.message?.includes('permission denied') || error?.message?.includes('row-level security')) {
+        return res.status(403).json({ 
+          error: "You don't have permission to update this profile.",
+          code: "PERMISSION_DENIED"
+        });
+      }
+      
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
