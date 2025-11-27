@@ -216,6 +216,48 @@ export function GameSelectionPage({
     enabled: isAuthenticated,
   });
 
+  // Fetch Global puzzles (for authenticated users - uses region data)
+  const { data: globalPuzzles = [] } = useQuery<any[]>({
+    queryKey: ['/api/puzzles'],
+    queryFn: () => fetchAuthenticated('/api/puzzles'),
+    enabled: isAuthenticated,
+  });
+
+  // Fetch Local puzzles (for authenticated users - uses user-specific data)
+  const { data: localPuzzles = [] } = useQuery<any[]>({
+    queryKey: ['/api/user/puzzles'],
+    queryFn: () => fetchAuthenticated('/api/user/puzzles'),
+    enabled: isAuthenticated,
+  });
+
+  // Fetch guest puzzles (for unauthenticated users - Global mode only)
+  const { data: guestPuzzles = [] } = useQuery<any[]>({
+    queryKey: ['/api/puzzles/guest'],
+    queryFn: async () => {
+      const response = await fetch('/api/puzzles/guest');
+      if (!response.ok) throw new Error('Failed to fetch guest puzzles');
+      return response.json();
+    },
+    enabled: !isAuthenticated,
+  });
+
+  // Helper to find today's puzzle from a list
+  const findTodayPuzzle = (puzzles: any[]): any | undefined => {
+    if (!puzzles || puzzles.length === 0) return undefined;
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayDate = `${year}-${month}-${day}`;
+    return puzzles.find(p => p.date === todayDate);
+  };
+
+  // Compute today's puzzle ID for each mode independently
+  const todayGlobalPuzzle = isAuthenticated ? findTodayPuzzle(globalPuzzles) : findTodayPuzzle(guestPuzzles);
+  const todayLocalPuzzle = isAuthenticated ? findTodayPuzzle(localPuzzles) : undefined;
+  const todayGlobalPuzzleId = todayGlobalPuzzle?.id;
+  const todayLocalPuzzleId = todayLocalPuzzle?.id;
+
   // Helper function to compute play button status for a given set of attempts
   const computePlayButtonStatus = (attempts: any[], puzzleId?: number) => {
     if (!isAuthenticated || !puzzleId || !attempts) {
@@ -314,7 +356,7 @@ export function GameSelectionPage({
   // Render Global Pane
   const renderGlobalPane = () => {
     // Compute Global-specific data
-    const globalPlayStatus = computePlayButtonStatus(globalGameAttempts, todayPuzzleId);
+    const globalPlayStatus = computePlayButtonStatus(globalGameAttempts, todayGlobalPuzzleId);
     const totalGamesGlobal = globalGameAttempts.filter(attempt => attempt.result === "won" || attempt.result === "lost").length;
     const globalStreak = globalStats?.currentStreak || 0;
     const globalPercentile = globalPercentileData?.percentile ?? null;
@@ -399,7 +441,7 @@ export function GameSelectionPage({
               className="w-full h-32 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: "#7DAAE8", touchAction: 'pan-y' }}
               onClick={onPlayGame}
-              disabled={!todayPuzzleId}
+              disabled={!todayGlobalPuzzleId}
               data-testid="button-play"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -497,7 +539,7 @@ export function GameSelectionPage({
   // Render Local Pane
   const renderLocalPane = () => {
     // Compute Local-specific data
-    const localPlayStatus = computePlayButtonStatus(localGameAttempts, todayPuzzleId);
+    const localPlayStatus = computePlayButtonStatus(localGameAttempts, todayLocalPuzzleId);
     const totalGamesLocal = localGameAttempts.filter(attempt => attempt.result === "won" || attempt.result === "lost").length;
     const localStreak = localStats?.currentStreak || 0;
     const localPercentile = localPercentileData?.percentile ?? null;
@@ -584,7 +626,7 @@ export function GameSelectionPage({
                 }
                 onPlayGameLocal?.();
               }}
-              disabled={!todayPuzzleId}
+              disabled={!todayLocalPuzzleId}
               data-testid="button-play-local"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

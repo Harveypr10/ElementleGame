@@ -115,12 +115,9 @@ export default function Home() {
     const day = String(today.getDate()).padStart(2, '0');
     const todayDate = `${year}-${month}-${day}`;
     
-    // Try to find today's puzzle
-    const todayPuzzle = puzzles.find(p => p.date === todayDate);
-    if (todayPuzzle) return todayPuzzle;
-    
-    // Fallback to first puzzle
-    return puzzles[0];
+    // Try to find today's puzzle - return undefined if no puzzle for today
+    // This ensures the Play button is disabled when there's no puzzle available
+    return puzzles.find(p => p.date === todayDate);
   };
 
   const currentPuzzle = selectedPuzzleId 
