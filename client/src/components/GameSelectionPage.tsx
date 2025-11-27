@@ -264,8 +264,8 @@ export function GameSelectionPage({
     return puzzles.some(p => p.date === todayDate);
   };
 
-  // Force data refresh on mount for authenticated users if today's puzzle is missing
-  // Keeps refreshing on each navigation until today's puzzle is loaded
+  // Force data refresh for authenticated users if today's puzzle is missing
+  // Triggers on: mount, mode switch (Global <-> Local), or when puzzle data changes
   const lastRefreshRef = useRef<number>(0);
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -279,7 +279,7 @@ export function GameSelectionPage({
       const now = Date.now();
       if (now - lastRefreshRef.current > 1000) {
         lastRefreshRef.current = now;
-        console.log('[GameSelectionPage] Today puzzle missing - refreshing data', { hasTodayGlobal, hasTodayLocal });
+        console.log('[GameSelectionPage] Today puzzle missing - refreshing data', { gameMode, hasTodayGlobal, hasTodayLocal });
         queryClient.refetchQueries({ queryKey: ['/api/user/puzzles'] });
         queryClient.refetchQueries({ queryKey: ['/api/puzzles'] });
         queryClient.refetchQueries({ queryKey: ['/api/user/game-attempts/user'] });
@@ -288,7 +288,7 @@ export function GameSelectionPage({
     } else {
       console.log('[GameSelectionPage] Today puzzles loaded - no refresh needed');
     }
-  }, [isAuthenticated, globalPuzzles, localPuzzles, queryClient]);
+  }, [isAuthenticated, globalPuzzles, localPuzzles, queryClient, gameMode]);
 
   // Helper to find today's puzzle from a list
   const findTodayPuzzle = (puzzles: any[]): any | undefined => {
