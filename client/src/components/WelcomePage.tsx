@@ -29,7 +29,8 @@ export function WelcomePage({ onLogin, onSignup, onContinueAsGuest, showAuthButt
             <div className="space-y-3 pt-4">
               <Button 
                 onClick={onSignup} 
-                className="w-full"
+                className="w-full h-14 text-lg font-bold rounded-full"
+                style={{ backgroundColor: '#7DAAE8' }}
                 data-testid="button-register"
               >
                 Register
@@ -37,7 +38,7 @@ export function WelcomePage({ onLogin, onSignup, onContinueAsGuest, showAuthButt
               <Button 
                 onClick={onLogin} 
                 variant="outline"
-                className="w-full"
+                className="w-full h-14 text-lg font-bold rounded-full border-2 border-gray-300"
                 data-testid="button-login"
               >
                 Login
