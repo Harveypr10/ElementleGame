@@ -37,6 +37,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const [showProDialog, setShowProDialog] = useState(false);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   const [showGuestRestriction, setShowGuestRestriction] = useState(false);
+  const [showGuestRestrictionPro, setShowGuestRestrictionPro] = useState(false);
   
   // Subscription-related items - show Go Pro for all users (including guests)
   const subscriptionItems = [
@@ -45,7 +46,13 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       label: isPro ? "Pro" : "Go Pro",
       inlineLabel: isPro ? "Manage your subscription" : null,
       sublabel: !isPro ? "Remove ads & customize categories" : null,
-      onClick: () => setShowProDialog(true),
+      onClick: () => {
+        if (isAuthenticated && user) {
+          setShowProDialog(true);
+        } else {
+          setShowGuestRestrictionPro(true);
+        }
+      },
       testId: "button-subscription",
       highlight: !isPro,
       proItem: isPro,
@@ -239,6 +246,21 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
         }}
         onLogin={() => {
           setShowGuestRestriction(false);
+          if (onLogin) onLogin();
+        }}
+      />
+      
+      {/* Guest Restriction Popup for Go Pro */}
+      <GuestRestrictionPopup
+        isOpen={showGuestRestrictionPro}
+        type="pro"
+        onClose={() => setShowGuestRestrictionPro(false)}
+        onRegister={() => {
+          setShowGuestRestrictionPro(false);
+          if (onRegister) onRegister();
+        }}
+        onLogin={() => {
+          setShowGuestRestrictionPro(false);
           if (onLogin) onLogin();
         }}
       />

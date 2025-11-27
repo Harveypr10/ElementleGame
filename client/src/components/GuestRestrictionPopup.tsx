@@ -5,10 +5,12 @@ import welcomeHamsterGrey from "@assets/Welcome-Hamster-Grey.svg";
 
 interface GuestRestrictionPopupProps {
   isOpen: boolean;
-  type: 'archive' | 'personal';
+  type: 'archive' | 'personal' | 'pro';
   onClose: () => void;
   onRegister: () => void;
   onLogin: () => void;
+  customTitle?: string;
+  customText?: string;
 }
 
 export function GuestRestrictionPopup({
@@ -17,11 +19,23 @@ export function GuestRestrictionPopup({
   onClose,
   onRegister,
   onLogin,
+  customTitle,
+  customText,
 }: GuestRestrictionPopupProps) {
-  const content = type === 'archive' 
+  const content = customTitle && customText 
+    ? {
+        title: customTitle,
+        text: customText
+      }
+    : type === 'archive' 
     ? {
         title: "Access the Elementle Archives",
         text: "Unlock years of history and track your progress as you uncover events you never knew happened."
+      }
+    : type === 'pro'
+    ? {
+        title: "Register your details to Go Pro!",
+        text: "Register first and Hammie the hamster will generate personalised questions based on your location. You can then Go Pro to get rid of those pesky ads and personalise your questions!"
       }
     : {
         title: "Access your personalised games",
