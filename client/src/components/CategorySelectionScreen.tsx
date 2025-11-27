@@ -101,19 +101,26 @@ export function CategorySelectionScreen({
     }
   }, [isOpen, isAuthenticated, refetch]);
 
-  // Sync from API once data is fetched (even if empty)
+  // Sync from API once data is fetched - prefer cache on first load
   useEffect(() => {
     if (isOpen && isFetched && !loadingUserCategories && !hasSyncedFromApi) {
       const apiCategories = userCategories || [];
-      console.log('[CategorySelectionScreen] Syncing from API:', apiCategories);
-      setSelectedCategories(new Set(apiCategories));
-      setHasSyncedFromApi(true);
-      // Update cache with fresh data from API
-      if (apiCategories.length > 0) {
+      
+      // On first load: if we have cached categories and API is empty, trust the cache
+      // This happens when user leaves without regenerating, then comes back
+      if (cachedCategoryIds.length > 0 && apiCategories.length === 0) {
+        console.log('[CategorySelectionScreen] Using cached categories (API empty)', cachedCategoryIds);
+        setSelectedCategories(new Set(cachedCategoryIds));
+      } else if (apiCategories.length > 0) {
+        // If API has data, use it (this means fresh data from server)
+        console.log('[CategorySelectionScreen] Syncing from API:', apiCategories);
+        setSelectedCategories(new Set(apiCategories));
         writeLocal(CACHE_KEYS.PRO_CATEGORIES, apiCategories);
       }
+      
+      setHasSyncedFromApi(true);
     }
-  }, [userCategories, isOpen, isFetched, loadingUserCategories, hasSyncedFromApi]);
+  }, [userCategories, isOpen, isFetched, loadingUserCategories, hasSyncedFromApi, cachedCategoryIds]);
 
   const saveCategoriesMutation = useMutation({
     mutationFn: async (categoryIds: number[]) => {

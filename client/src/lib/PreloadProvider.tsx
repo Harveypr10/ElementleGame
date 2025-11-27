@@ -108,6 +108,19 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             staleTime: 5 * 60 * 1000,
           }).then(data => ({ key: 'attempts', data })).catch(() => ({ key: 'attempts', data: null })),
 
+          // Prefetch user categories
+          queryClient.fetchQuery({
+            queryKey: ['/api/user/pro-categories'],
+            queryFn: async () => {
+              const response = await fetch('/api/user/pro-categories', {
+                credentials: 'include',
+              });
+              if (!response.ok) throw new Error('Failed to fetch categories');
+              return response.json();
+            },
+            staleTime: 30 * 60 * 1000, // Cache for 30 mins since categories rarely change
+          }).then(data => ({ key: 'categories', data })).catch(() => ({ key: 'categories', data: null })),
+
           // Prefetch puzzles (public data)
           queryClient.fetchQuery({
             queryKey: ['/api/puzzles'],
@@ -148,6 +161,11 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
 
         if (dataMap.attempts) {
           writeLocal(CACHE_KEYS.ATTEMPTS, dataMap.attempts);
+        }
+
+        if (dataMap.categories?.categoryIds && Array.isArray(dataMap.categories.categoryIds)) {
+          writeLocal(CACHE_KEYS.PRO_CATEGORIES, dataMap.categories.categoryIds);
+          console.log('[PreloadProvider] Cached user categories:', dataMap.categories.categoryIds);
         }
 
         // Cache current month's archive if we have puzzles
