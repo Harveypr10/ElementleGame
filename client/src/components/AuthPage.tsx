@@ -21,7 +21,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
-import { GeneratingQuestionsScreen } from "./GeneratingQuestionsScreen";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { useQuery } from "@tanstack/react-query";
 import type { Region } from "@shared/schema";
@@ -43,9 +42,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const { setGameMode } = useGameMode();
   const [loading, setLoading] = useState(false);
   const adBannerActive = useAdBannerActive();
-  const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   const [showPostcodeWarning, setShowPostcodeWarning] = useState(false);
-  const [userId, setUserId] = useState<string>("");
   const [fadeIn, setFadeIn] = useState(false);
 
   // Fetch available regions
@@ -251,9 +248,9 @@ const handleSubmit = async (e: React.FormEvent) => {
         });
         console.log("[Auth] Settings response status:", settingsResponse.status);
 
-        // Show generating questions screen for first signup
-        setUserId(data.user.id);
-        setShowGeneratingQuestions(true);        
+        // Navigate to Home.tsx which will handle the GeneratingQuestionsScreen for first login
+        setGameMode('global');
+        onSuccess();
       }
     } else {
       await signIn(formData.email, formData.password);
@@ -269,22 +266,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     setLoading(false);
   }
 };
-
-  // Show generating questions screen after signup
-  if (mode === "signup" && showGeneratingQuestions && userId) {
-    return (
-      <GeneratingQuestionsScreen
-        userId={userId}
-        region={formData.region}
-        postcode={formData.postcode}
-        onComplete={() => {
-          setShowGeneratingQuestions(false);
-          setGameMode('global'); // Set to Global mode
-          onSuccess();
-        }}
-      />
-    );
-  }
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 ${adBannerActive ? 'pb-[50px]' : ''} bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800`}>
@@ -658,8 +639,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                       body: JSON.stringify({ useRegionDefault: true, digitPreference: "8" }),
                     });
 
-                    setUserId(data.user.id);
-                    setShowGeneratingQuestions(true);
+                    // Navigate to Home.tsx which will handle the GeneratingQuestionsScreen for first login
+                    setGameMode('global');
+                    onSuccess();
                   }
                 } catch (error: any) {
                   toast({
