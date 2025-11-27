@@ -45,18 +45,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('[GET /api/puzzles/guest] Fetching puzzles for guest with region:', region);
       
-      const allocatedQuestions = await storage.getAllocatedQuestionsByRegion(region);
+      // Set a timeout for the database query to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout')), 5000)
+      );
+      
+      const allocatedQuestions = await Promise.race([
+        storage.getAllocatedQuestionsByRegion(region),
+        timeoutPromise
+      ]);
       
       console.log('[GET /api/puzzles/guest] Found allocated questions:', allocatedQuestions.length);
       
-      // Transform to frontend-compatible format
-      const puzzles = await Promise.all(allocatedQuestions.map(async (aq) => {
+      // Transform to frontend-compatible format - avoid N+1 queries by not fetching categories
+      const puzzles = allocatedQuestions.map((aq) => {
         const categoriesArray = aq.masterQuestion.categories as number[] | null;
-        let categoryName: string | null = null;
-        if (categoriesArray && categoriesArray.length > 0) {
-          const category = await storage.getCategoryById(categoriesArray[0]);
-          categoryName = category?.name || null;
-        }
+        const categoryId = categoriesArray && categoriesArray.length > 0 ? categoriesArray[0] : null;
         
         return {
           id: aq.id,
@@ -64,14 +68,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           answerDateCanonical: aq.masterQuestion.answerDateCanonical,
           eventTitle: aq.masterQuestion.eventTitle,
           eventDescription: aq.masterQuestion.eventDescription,
-          category: categoryName,
+          category: null, // Skip category name lookup for guests to improve performance
           clue1: null,
           clue2: null,
           region: aq.region,
           allocatedRegionId: aq.id,
           masterQuestionId: aq.questionId,
         };
-      }));
+      });
       
       res.json(puzzles);
     } catch (error) {
