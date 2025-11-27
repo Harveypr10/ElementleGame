@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { ChevronLeft } from "lucide-react";
 import welcomeHamsterGrey from "@assets/Welcome-Hamster-Grey.svg";
 
 interface IntroScreenProps {
@@ -8,6 +9,7 @@ interface IntroScreenProps {
   isLocalMode: boolean;
   categoryName?: string;
   onPlayClick: () => void;
+  onBack: () => void;
   formatDateForDisplay: (date: string) => string;
 }
 
@@ -18,6 +20,7 @@ export function IntroScreen({
   isLocalMode,
   categoryName,
   onPlayClick,
+  onBack,
   formatDateForDisplay,
 }: IntroScreenProps) {
   const displayDate = formatDateForDisplay(puzzleDateCanonical);
@@ -43,6 +46,15 @@ export function IntroScreen({
       className="fixed inset-0 flex flex-col items-center justify-center p-4 z-50"
       style={{ backgroundColor: '#FAFAFA' }}
     >
+      {/* Back Button - top left corner */}
+      <button
+        onClick={onBack}
+        className="absolute top-4 left-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        data-testid="button-intro-back"
+      >
+        <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
+      </button>
+
       <div className="flex flex-col items-center justify-center max-w-md w-full space-y-6">
         {/* Hamster Image */}
         <img

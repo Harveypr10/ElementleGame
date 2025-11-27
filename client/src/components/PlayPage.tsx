@@ -1109,6 +1109,7 @@ export function PlayPage({
             isLocalMode={isLocalMode}
             categoryName={category}
             onPlayClick={() => setShowIntroScreen(false)}
+            onBack={onBack}
             formatDateForDisplay={formatDateForIntro}
           />
         )}
