@@ -138,6 +138,11 @@ export default function Home() {
     }
   }, [currentScreen, isAuthenticated, user, needsFirstLoginSetup, hasCompletedFirstLogin, hasShownGeneratingScreen]);
 
+  // Scroll to top when screen changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentScreen]);
+
   const getDailyPuzzle = (): Puzzle | undefined => {
     if (puzzles.length === 0) return undefined;
     
