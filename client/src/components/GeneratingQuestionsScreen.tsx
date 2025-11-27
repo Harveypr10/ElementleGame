@@ -32,6 +32,9 @@
 
       // Animated area ref (between hamster and footer)
       const containerRef = useRef<HTMLDivElement>(null);
+      
+      // Ref to track if sequence has started - prevents duplicate runs across re-renders
+      const sequenceStartedRef = useRef(false);
 
       // Trigger fade-in animation
       useEffect(() => {
@@ -41,9 +44,15 @@
       }, []);
 
     useEffect(() => {
+      // If we've already started the sequence, do nothing (prevents duplicate starts)
+      if (sequenceStartedRef.current) {
+        console.log("[GeneratingQuestions] Sequence already started, skipping effect re-run");
+        return;
+      }
+      sequenceStartedRef.current = true;
+      
       // Use refs to avoid effect re-run issues and to keep flags stable across renders
       const mountedRef = { current: true };
-      const startedRef = { current: false };
       const finishedRef = { current: false };
 
       // Timing and grid constants
@@ -61,13 +70,6 @@
       let spawnInterval: number | null = null;
       let animInterval: number | null = null;
       let finishTimeout: number | null = null;
-
-      // If we've already started the sequence, do nothing (prevents duplicate starts)
-      if (startedRef.current) {
-        console.log("[GeneratingQuestions] Sequence already started, skipping effect re-run");
-        return;
-      }
-      startedRef.current = true;
 
       // Start animation loop immediately so opacity updates run while backend work proceeds
       const startAnimationLoop = () => {

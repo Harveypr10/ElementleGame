@@ -38,10 +38,10 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
       setFadeIn(true);
     });
 
-    // Show splash screen for 4 seconds
+    // Show splash screen for 3 seconds
     const timer = setTimeout(() => {
       setFinished(true);
-    }, 4000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, []);
