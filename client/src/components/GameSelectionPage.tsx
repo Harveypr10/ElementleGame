@@ -605,7 +605,7 @@ export function GameSelectionPage({
       } else {
         localIntroMessage = { 
           firstLine: "Welcome back", 
-          secondLine: "Play your local puzzles" 
+          secondLine: "Play your personalised puzzles" 
         };
       }
     }
