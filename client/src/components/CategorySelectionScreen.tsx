@@ -6,8 +6,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 import { useAdBannerActive } from '@/components/AdBanner';
 import { readLocal, writeLocal, CACHE_KEYS } from '@/lib/localCache';
+import { GeneratingQuestionsScreen } from './GeneratingQuestionsScreen';
 import hamsterImage from '@assets/Question-Hamster-Grey.svg';
 
 interface Category {
@@ -33,8 +35,10 @@ export function CategorySelectionScreen({
 }: CategorySelectionScreenProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { profile } = useProfile();
   const adBannerActive = useAdBannerActive();
+  const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
 
   // Read cached categories immediately for instant display
   const cachedCategoryIds = useMemo(() => {
@@ -105,6 +109,7 @@ export function CategorySelectionScreen({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
+      // Step 1: Save categories
       const response = await fetch('/api/user/pro-categories', {
         method: 'POST',
         credentials: 'include',
@@ -119,13 +124,38 @@ export function CategorySelectionScreen({
         throw new Error('Failed to save categories');
       }
 
+      // Step 2: Call reset-and-reallocate-user Edge Function
+      console.log('[CategorySelectionScreen] Categories saved - calling reset-and-reallocate-user');
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (supabaseUrl && user?.id) {
+        const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
+        
+        const resetResponse = await fetch(`${functionBaseUrl}/reset-and-reallocate-user`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ user_id: user.id }),
+        });
+        
+        const resetBody = await resetResponse.text();
+        console.log('[CategorySelectionScreen] reset-and-reallocate-user response:', resetResponse.status, resetBody);
+        
+        if (!resetResponse.ok) {
+          console.error('[CategorySelectionScreen] reset-and-reallocate-user failed:', resetBody);
+          throw new Error('Failed to reset allocations');
+        }
+      }
+
       return response.json();
     },
     onSuccess: (_, categoryIds) => {
       // Update cache with newly saved categories
       writeLocal(CACHE_KEYS.PRO_CATEGORIES, categoryIds);
       queryClient.invalidateQueries({ queryKey: ['/api/user/pro-categories'] });
-      onGenerate();
+      // Show GeneratingQuestionsScreen instead of immediately calling onGenerate
+      setShowGeneratingQuestions(true);
     },
     onError: (error) => {
       toast({
@@ -148,6 +178,27 @@ export function CategorySelectionScreen({
     });
   };
 
+  // Check if selected categories differ from saved categories
+  const categoriesHaveChanged = useMemo(() => {
+    // If we're still loading saved categories, don't allow regeneration yet
+    // Wait until we know what the saved state is before enabling
+    if (loadingUserCategories) return false;
+    
+    // For first-time category selection (no saved categories yet), allow generation
+    // But only after loading is complete to avoid false positives
+    if (userCategories.length === 0) return true;
+    
+    // Check if the sets are different
+    if (selectedCategories.size !== userCategories.length) return true;
+    
+    // Check if all saved categories are still selected
+    for (const catId of userCategories) {
+      if (!selectedCategories.has(catId)) return true;
+    }
+    
+    return false;
+  }, [selectedCategories, userCategories, loadingUserCategories]);
+
   const handleGenerate = () => {
     if (selectedCategories.size < 3) {
       toast({
@@ -161,7 +212,37 @@ export function CategorySelectionScreen({
     saveCategoriesMutation.mutate(Array.from(selectedCategories));
   };
 
-  const canGenerate = selectedCategories.size >= 3;
+  // Handler for when GeneratingQuestionsScreen completes
+  const handleGeneratingQuestionsComplete = () => {
+    console.log('[CategorySelectionScreen] GeneratingQuestionsScreen complete');
+    setShowGeneratingQuestions(false);
+    // Invalidate queries to refresh data
+    queryClient.invalidateQueries({ queryKey: ['/api/user/puzzles'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/puzzles'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/user/game-attempts/user'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
+    toast({
+      title: 'Categories Updated!',
+      description: 'Your puzzles are being refreshed with your new preferences.',
+    });
+    onGenerate(); // Close and return to GameSelectionPage
+  };
+
+  // For regeneration, only enable if categories have actually changed
+  // For first-time setup, just require minimum 3 categories
+  const canGenerate = selectedCategories.size >= 3 && (isRegeneration ? categoriesHaveChanged : true);
+
+  // Show GeneratingQuestionsScreen after categories are saved
+  if (showGeneratingQuestions && user?.id && profile?.region && profile?.postcode) {
+    return (
+      <GeneratingQuestionsScreen
+        userId={user.id}
+        region={profile.region}
+        postcode={profile.postcode}
+        onComplete={handleGeneratingQuestionsComplete}
+      />
+    );
+  }
 
   return (
     <AnimatePresence>

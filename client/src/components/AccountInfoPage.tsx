@@ -25,6 +25,7 @@ import { useSupabase } from "@/lib/SupabaseProvider";
 import { queryClient } from "@/lib/queryClient";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 import { OTPVerificationScreen } from "./OTPVerificationScreen";
+import { GeneratingQuestionsScreen } from "./GeneratingQuestionsScreen";
 import { useQuery } from "@tanstack/react-query";
 import type { Region } from "@shared/schema";
 import { useAdBannerActive } from "@/components/AdBanner";
@@ -42,8 +43,10 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const adBannerActive = useAdBannerActive();
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [originalEmail, setOriginalEmail] = useState("");
+  const [originalPostcode, setOriginalPostcode] = useState("");
   const [showRegionConfirm, setShowRegionConfirm] = useState(false);
   const [pendingRegion, setPendingRegion] = useState<string | null>(null);
+  const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   
   // Fetch available regions
   const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
@@ -69,6 +72,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         postcode: profile.postcode || "",
       });
       setOriginalEmail(profile.email || "");
+      setOriginalPostcode(profile.postcode || "");
     }
   }, [profile, regions]);
 
@@ -131,6 +135,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
 
     try {
       const emailChanged = profileData.email !== originalEmail;
+      const postcodeChanged = profileData.postcode !== originalPostcode;
 
       if (emailChanged) {
         // Initiate email change - Supabase will send OTP to new email
@@ -158,11 +163,14 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         if (error) throw error;
 
         // Update user profile in database via API
+        const session = (await supabase.auth.getSession()).data.session;
+        const accessToken = session?.access_token;
+        
         const response = await fetch('/api/auth/profile', {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
             firstName: profileData.firstName,
@@ -177,6 +185,41 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         }
 
         await queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
+
+        // If postcode changed, call reset-and-reallocate-user then show GeneratingQuestionsScreen
+        if (postcodeChanged && user?.id && profileData.postcode) {
+          console.log('[AccountInfoPage] Postcode changed - calling reset-and-reallocate-user');
+          
+          // Call the reset-and-reallocate-user Edge Function
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          if (supabaseUrl) {
+            const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
+            
+            const resetResponse = await fetch(`${functionBaseUrl}/reset-and-reallocate-user`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({ user_id: user.id }),
+            });
+            
+            const resetBody = await resetResponse.text();
+            console.log('[AccountInfoPage] reset-and-reallocate-user response:', resetResponse.status, resetBody);
+            
+            if (!resetResponse.ok) {
+              console.error('[AccountInfoPage] reset-and-reallocate-user failed:', resetBody);
+              throw new Error('Failed to reset allocations');
+            }
+          }
+          
+          // Update original postcode reference
+          setOriginalPostcode(profileData.postcode);
+          
+          // Show GeneratingQuestionsScreen to repopulate locations and allocate questions
+          setShowGeneratingQuestions(true);
+          return; // Don't show toast - GeneratingQuestionsScreen will handle completion
+        }
 
         toast({
           title: "Profile updated!",
@@ -315,6 +358,35 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
       setLoading(false);
     }
   };
+
+  // Handler for when GeneratingQuestionsScreen completes
+  const handleGeneratingQuestionsComplete = () => {
+    console.log('[AccountInfoPage] GeneratingQuestionsScreen complete - navigating back');
+    setShowGeneratingQuestions(false);
+    setLoading(false);
+    // Invalidate queries to refresh data
+    queryClient.invalidateQueries({ queryKey: ['/api/user/puzzles'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/puzzles'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/user/game-attempts/user'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
+    toast({
+      title: "Profile updated!",
+      description: "Your postcode and puzzles have been updated.",
+    });
+    onBack(); // Navigate back to GameSelectionPage
+  };
+
+  // Show GeneratingQuestionsScreen after postcode change
+  if (showGeneratingQuestions && user?.id && profile?.region && profileData.postcode) {
+    return (
+      <GeneratingQuestionsScreen
+        userId={user.id}
+        region={profile.region}
+        postcode={profileData.postcode}
+        onComplete={handleGeneratingQuestionsComplete}
+      />
+    );
+  }
 
   // Show OTP verification screen for email change
   if (showOTPVerification) {

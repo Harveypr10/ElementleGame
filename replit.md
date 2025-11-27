@@ -38,6 +38,7 @@ Preferred communication style: Simple, everyday language.
   - "Select Categories" button (replaces "Regenerate Questions") navigates to CategorySelectionScreen
   - Categories are fetched from `categories` table in Supabase (20 items, excludes id 999)
   - User category preferences stored in `user_category_preferences` table (links user_id to category_id)
+- **Question Regeneration Workflow**: When users change their postcode (AccountInfoPage) or categories (CategorySelectionScreen), the system: (1) Saves the changes, (2) Calls `reset-and-reallocate-user` Edge Function to clear unattempted allocations and location data, (3) Shows GeneratingQuestionsScreen which repopulates locations and calls `calculate-demand` (which auto-triggers `allocate-questions` server-side), (4) Returns to GameSelectionPage on completion. The "Re-Generate" button in CategorySelectionScreen is only enabled when categories actually differ from saved preferences (disabled while loading or when unchanged).
 - **Advertising System**: Banner ads via `AdBanner` component with Google AdMob test ID (ca-app-pub-3940256099942544/2435281174), fixed bottom positioning with z-index 90. All pages include pb-16 padding to accommodate. Interstitial ads via `InterstitialAd` component shown after archive puzzle completions with 5-second countdown, z-index 200 overlay. Pro subscribers have ads disabled.
 - **Guest Mode & Restrictions**: 
   - Guest users (unauthenticated) can play Global puzzles using the `/api/puzzles/guest` endpoint (defaults to UK region).

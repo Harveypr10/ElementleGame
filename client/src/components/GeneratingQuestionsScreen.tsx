@@ -436,52 +436,23 @@ if (!supabaseUrl) {
   const functionBaseUrl = supabaseUrl.replace(".supabase.co", ".functions.supabase.co");
   console.log("[GeneratingQuestions] Function base URL:", functionBaseUrl);
 
-  // Step 5 + Step 6: calculate-demand then allocate-questions (sequential)
+  // Step 5: calculate-demand only (allocate-questions is triggered automatically server-side)
   try {
     console.log("[GeneratingQuestions] Step 5: Calling calculate-demand");
-    const demandPayload = {
-      user_id: userId,
-      region,
-      today: new Date().toISOString().slice(0, 10),
-    };
+    const demandPayload = { user_id: userId, region, today: new Date().toISOString().slice(0, 10) };
     const demandResponse = await fetch(`${functionBaseUrl}/calculate-demand`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify(demandPayload),
     });
     const demandBody = await demandResponse.text();
     console.log("[GeneratingQuestions] calculate-demand status:", demandResponse.status, demandBody);
-    if (!demandResponse.ok) {
-      throw new Error(`calculate-demand returned error: ${demandResponse.status}`);
-    }
-
-    // Only proceed to Step 6 once demand has completed
-    console.log("[GeneratingQuestions] Step 6: Calling allocate-questions");
-    const allocatePayload = {
-      user_id: userId,
-      region,
-      today: new Date().toISOString().slice(0, 10),
-    };
-    const allocateResponse = await fetch(`${functionBaseUrl}/allocate-questions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(allocatePayload),
-    });
-    const allocateBody = await allocateResponse.text();
-    console.log("[GeneratingQuestions] allocate-questions status:", allocateResponse.status, allocateBody);
-    if (!allocateResponse.ok) {
-      throw new Error(`allocate-questions returned error: ${allocateResponse.status}`);
-    }
+    if (!demandResponse.ok) throw new Error(`calculate-demand returned error: ${demandResponse.status}`);
   } catch (err) {
-    console.error("[GeneratingQuestions] Step 5/6 failed:", err);
+    console.error("[GeneratingQuestions] Step 5 failed:", err);
   }
 }
+  // Step 6 removed and is now called within calculate-demand
 
 // Step 7: Archive sync check (best-effort)
 (async () => {

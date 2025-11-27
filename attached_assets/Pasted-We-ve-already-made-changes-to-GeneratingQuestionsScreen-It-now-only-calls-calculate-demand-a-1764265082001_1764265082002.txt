@@ -1,0 +1,33 @@
+We’ve already made changes to GeneratingQuestionsScreen:
+•	It now only calls calculate-demand.
+•	allocate-questions is triggered automatically server side when demand rows are inserted.
+•	This means the UI no longer needs to call allocate-questions directly.
+Please sync to this current state.
+1. Postcode changes (AccountInfoPage)
+•	When a user changes their postcode and clicks “Save Changes”:
+1.	After the profile update succeeds, call the new reset-and-reallocate-user Edge Function with the user_id.
+	This clears unattempted allocations and deletes existing location_allocation rows for the user.
+2.	Then launch GeneratingQuestionsScreen.
+	This will run populate_user_locations for the new postcode.
+	Poll until new location_allocation rows exist.
+	Call calculate-demand (which triggers allocate-questions).
+	Perform archive sync check.
+3.	When GeneratingQuestionsScreen completes, return to GameSelectionPage.
+2. Category changes (CategorySelectionScreen)
+•	When a user changes their categories and clicks “Generate” (or “Re Generate”):
+1.	Save the new categories into user_category_preferences (this is already implemented).
+2.	After saving succeeds, call the new reset-and-reallocate-user Edge Function with the user_id.
+	This clears unattempted allocations and deletes existing location_allocation rows.
+3.	Then launch GeneratingQuestionsScreen.
+	This will repopulate locations, run calculate-demand, and trigger allocate-questions.
+4.	When GeneratingQuestionsScreen completes, return to GameSelectionPage
+•	Additional requirement:
+o	Only enable the “Re Generate” button when the user has actually altered their category choices compared to their current saved preferences.
+o	If they de select one or more categories but then re select them so the final set matches the existing saved choices, the button should be disabled again.
+o	In other words, the button should only be active when the selected set differs from the last saved set.
+✅ Outcome
+•	New sign ups: GeneratingQuestionsScreen runs once, calls calculate-demand, allocations happen.
+•	Existing users changing postcode: Reset allocations + location rows → run GeneratingQuestionsScreen → allocations refreshed immediately.
+•	Existing users changing categories: Save preferences → reset allocations + location rows → run GeneratingQuestionsScreen → allocations refreshed immediately.
+•	UI consistency: Both workflows reuse the same GeneratingQuestionsScreen logic, so orchestration is clean and predictable.
+•	UX improvement: The “Re Generate” button only appears active when there’s a real change in category selection.
