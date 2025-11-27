@@ -562,28 +562,44 @@ export function GameSelectionPage({
     }
 
     // Compute Local play button content
+    // Check if puzzle is still loading/not available for authenticated users
+    const isPuzzleLoading = isAuthenticated && !todayLocalPuzzleId;
+    
     let playContentLocal;
-    switch (localPlayStatus.status) {
-      case 'solved':
-        playContentLocal = {
-          title: "Today's puzzle solved!",
-          subtitle: `Solved in ${localPlayStatus.count} ${localPlayStatus.count === 1 ? 'guess' : 'guesses'}`,
-          image: winhamsterlocal
-        };
-        break;
-      case 'failed':
-        playContentLocal = {
-          title: "Better luck tomorrow...",
-          subtitle: "",
-          image: losthamsterlocal
-        };
-        break;
-      default:
-        playContentLocal = {
-          title: "Play today's puzzle",
-          subtitle: getFormattedDate(),
-          image: historianHamsterLocal
-        };
+    if (isPuzzleLoading) {
+      // Special message when puzzle hasn't loaded yet
+      playContentLocal = {
+        title: "Hammie is still cooking up today's personal puzzle for you - won't take long...",
+        subtitle: "",
+        image: historianHamsterLocal,
+        isLoading: true
+      };
+    } else {
+      switch (localPlayStatus.status) {
+        case 'solved':
+          playContentLocal = {
+            title: "Today's puzzle solved!",
+            subtitle: `Solved in ${localPlayStatus.count} ${localPlayStatus.count === 1 ? 'guess' : 'guesses'}`,
+            image: winhamsterlocal,
+            isLoading: false
+          };
+          break;
+        case 'failed':
+          playContentLocal = {
+            title: "Better luck tomorrow...",
+            subtitle: "",
+            image: losthamsterlocal,
+            isLoading: false
+          };
+          break;
+        default:
+          playContentLocal = {
+            title: "Play today's puzzle",
+            subtitle: getFormattedDate(),
+            image: historianHamsterLocal,
+            isLoading: false
+          };
+      }
     }
 
     return (
@@ -633,7 +649,7 @@ export function GameSelectionPage({
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
               <div className="flex flex-col items-start justify-center text-left">
-                <span className="text-xl font-bold text-gray-800">
+                <span className={`font-bold text-gray-800 ${playContentLocal.isLoading ? 'text-base' : 'text-xl'}`}>
                   {isAuthenticated ? playContentLocal.title : 'Play today\'s puzzle'}
                 </span>
                 {(isAuthenticated ? playContentLocal.subtitle : 'Sign in to access') && (
