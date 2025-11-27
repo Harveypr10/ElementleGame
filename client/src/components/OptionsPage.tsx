@@ -11,8 +11,6 @@ import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { soundManager } from "@/lib/sounds";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
-import { GeneratingQuestionsScreen } from "@/components/GeneratingQuestionsScreen";
-import { useSupabase } from "@/lib/SupabaseProvider";
 import { useAdBannerActive } from "@/components/AdBanner";
 
 interface OptionsPageProps {
@@ -31,17 +29,6 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
   const [digitPreference, setDigitPreference] = useState<"6" | "8">("8");
   const [dateFormatOrder, setDateFormatOrder] = useState<"ddmm" | "mmdd">("ddmm");
   const [useRegionDefault, setUseRegionDefault] = useState(true);
-  const [showGenerating, setShowGenerating] = useState(false);
-  const supabase = useSupabase();
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUserId(session?.user?.id ?? null);
-    };
-    fetchSession();
-  }, [supabase]);
 
 
   // Load settings from cache first for instant rendering
@@ -299,17 +286,9 @@ const handleUseRegionDefaultToggle = async (checked: boolean) => {
   }
 };
 return (
-  showGenerating ? (
-    <GeneratingQuestionsScreen
-      userId={userId ?? ""}
-      region="UK"
-      postcode="RG9"
-      onComplete={() => setShowGenerating(false)}
-    />
-  ) : (
-    <div
-      className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[50px]' : ''}`}
-    >
+  <div
+    className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[50px]' : ''}`}
+  >
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
           <button
@@ -425,16 +404,6 @@ return (
             <p className="text-sm text-muted-foreground">Choose date format order</p>
           </div>
 
-          {/* Run GeneratingQuestionsScreen */}
-          <div className="pt-4">
-            <Button
-              className="w-full bg-blue-600 text-white"
-              onClick={() => setShowGenerating(true)}
-              data-testid="button-run-generating"
-            >
-              Run GeneratingQuestionsScreen
-            </Button>
-          </div>
         </Card>
 
         {!isAuthenticated && (
@@ -444,7 +413,6 @@ return (
         )}
       </div>
     </div>
-  )
 );
 }
 
