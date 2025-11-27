@@ -21,7 +21,8 @@ export function WelcomePage({ onLogin, onSignup, onContinueAsGuest, showAuthButt
           />
           <h1 className="text-4xl md:text-5xl font-bold">Elementle</h1>
           <p className="text-muted-foreground">
-            Guess the historical date. A new puzzle every day!
+            Guess the historical date.<br />
+            A new puzzle every day!
           </p>
           
           {showAuthButtons && (

@@ -253,12 +253,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
         // Show generating questions screen for first signup
         setUserId(data.user.id);
-        setShowGeneratingQuestions(true);
-        
-        toast({
-          title: "Account created!",
-          description: "Setting up your personalized questions...",
-        });
+        setShowGeneratingQuestions(true);        
       }
     } else {
       await signIn(formData.email, formData.password);
@@ -665,10 +660,6 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                     setUserId(data.user.id);
                     setShowGeneratingQuestions(true);
-                    toast({
-                      title: "Account created!",
-                      description: "Setting up your personalized questions...",
-                    });
                   }
                 } catch (error: any) {
                   toast({
