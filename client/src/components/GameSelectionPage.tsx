@@ -649,9 +649,15 @@ export function GameSelectionPage({
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
               <div className="flex flex-col items-start justify-center text-left">
-                <span className={`font-bold text-gray-800 ${playContentLocal.isLoading ? 'text-base' : 'text-xl'}`}>
-                  {isAuthenticated ? playContentLocal.title : 'Play today\'s puzzle'}
-                </span>
+                {playContentLocal.isLoading ? (
+                  <span className="text-base text-gray-800">
+                    <span className="font-bold">Hammie</span> is still cooking up today's personal puzzle for you - won't take long...
+                  </span>
+                ) : (
+                  <span className={`font-bold text-gray-800 ${playContentLocal.isLoading ? 'text-base' : 'text-xl'}`}>
+                    {isAuthenticated ? playContentLocal.title : 'Play today\'s puzzle'}
+                  </span>
+                )}
                 {(isAuthenticated ? playContentLocal.subtitle : 'Sign in to access') && (
                   <span className="text-sm font-medium text-gray-700 mt-0.5">
                     {isAuthenticated ? playContentLocal.subtitle : 'Sign in to access'}
