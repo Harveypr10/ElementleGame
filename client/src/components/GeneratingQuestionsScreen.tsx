@@ -558,7 +558,9 @@ if (!supabaseUrl) {
       // Cleanup on unmount
       return () => {
         mountedRef.current = false;
-        console.log("[GeneratingQuestions] cleanup: clearing timers");
+        // Reset sequenceStartedRef so sequence can restart on remount (handles React StrictMode double-mount)
+        sequenceStartedRef.current = false;
+        console.log("[GeneratingQuestions] cleanup: clearing timers and resetting sequence flag");
         if (spawnInterval !== null) {
           window.clearInterval(spawnInterval);
           spawnInterval = null;
