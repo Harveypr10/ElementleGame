@@ -34,7 +34,8 @@ export function useGameData() {
   const { data: gameAttempts, isLoading: loadingAttempts } = useQuery<GameAttempt[]>({
     queryKey: [endpoint],
     enabled: isAuthenticated,
-    staleTime: 0, // Always consider data stale to ensure refetch on Archive mount
+    staleTime: 30000, // Consider data stale after 30 seconds
+    refetchOnMount: true, // Refetch when Archive mounts but respect staleTime
   });
 
   // Create a new game attempt (mode-aware)

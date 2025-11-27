@@ -48,7 +48,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   const { isLocalMode } = useGameMode();
   const queryClient = useQueryClient();
   const adBannerActive = useAdBannerActive();
-  const { refreshGlobalData, refreshLocalData } = useRealtimeSubscriptions({
+  // Set up realtime subscriptions for automatic UI refresh when database changes occur
+  useRealtimeSubscriptions({
     userId: user?.id,
     region: profile?.region || 'UK',
     isAuthenticated,
@@ -66,20 +67,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   const containerRef = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
   const swipeStartX = useRef<number>(0);
-  
-  // Refresh data on mount as a safety net (also enables realtime subscriptions)
-  const mountRefreshDone = useRef(false);
-  useEffect(() => {
-    if (isAuthenticated && !mountRefreshDone.current) {
-      mountRefreshDone.current = true;
-      console.log('[Archive] Refreshing data on mount');
-      if (isLocalMode) {
-        refreshLocalData();
-      } else {
-        refreshGlobalData();
-      }
-    }
-  }, [isAuthenticated, isLocalMode, refreshGlobalData, refreshLocalData]);
 
   useEffect(() => {
     if (initialMonth) {
@@ -95,8 +82,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     if (cachedMonthData && Array.isArray(cachedMonthData)) {
       const statusMap: Record<string, DayStatus> = {};
       cachedMonthData.forEach((puzzle: any) => {
-        if (puzzle.completed) {
-          statusMap[puzzle.answerDateCanonical] = {
+        if (puzzle.completed && puzzle.date) {
+          statusMap[puzzle.date] = {
             completed: true,
             won: puzzle.won || false,
             guessCount: puzzle.guessCount || 0
@@ -111,13 +98,16 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     if (isAuthenticated && gameAttempts && !loadingAttempts) {
       const statusMap: Record<string, DayStatus> = {};
       gameAttempts.forEach(attempt => {
-        const puzzle = puzzles.find(p => p.id === attempt.puzzleId);
-        if (puzzle) {
+        const embeddedPuzzle = (attempt as any).puzzle;
+        const puzzle = embeddedPuzzle || puzzles.find(p => p.id === attempt.puzzleId);
+        
+        const puzzleDate = puzzle?.date || embeddedPuzzle?.date;
+        if (puzzleDate) {
           const isCompleted = attempt.result !== null;
           const isWon = attempt.result === "won";
           const isInProgress = attempt.result === null && (attempt.numGuesses ?? 0) > 0;
           
-          statusMap[puzzle.answerDateCanonical] = {
+          statusMap[puzzleDate] = {
             completed: isCompleted,
             won: isWon,
             guessCount: attempt.numGuesses ?? 0,
@@ -131,9 +121,9 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
       const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
       const monthPuzzles = puzzles.map(puzzle => ({
         ...puzzle,
-        completed: statusMap[puzzle.answerDateCanonical]?.completed || false,
-        won: statusMap[puzzle.answerDateCanonical]?.won || false,
-        guessCount: statusMap[puzzle.answerDateCanonical]?.guessCount || 0,
+        completed: statusMap[puzzle.date]?.completed || false,
+        won: statusMap[puzzle.date]?.won || false,
+        guessCount: statusMap[puzzle.date]?.guessCount || 0,
       }));
       writeLocal(`${CACHE_KEYS.ARCHIVE_PREFIX}${monthKey}`, monthPuzzles);
     } else if (!isAuthenticated) {
@@ -147,8 +137,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
         const formattedAnswer = formatCanonicalDate(puzzle.answerDateCanonical);
         const completion = completions[formattedAnswer];
         
-        if (completion) {
-          statusMap[puzzle.answerDateCanonical] = {
+        if (completion && puzzle.date) {
+          statusMap[puzzle.date] = {
             completed: completion.completed || false,
             won: completion.won || false,
             guessCount: completion.guessCount,
@@ -182,10 +172,12 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   };
 
   const getDayStatus = (day: number, month: Date): DayStatus | null => {
-    const puzzle = getPuzzleForDay(day, month);
-    if (!puzzle) return null;
+    const year = month.getFullYear();
+    const monthStr = String(month.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    const puzzleDate = `${year}-${monthStr}-${dayStr}`;
     
-    return dayStatuses[puzzle.answerDateCanonical] || null;
+    return dayStatuses[puzzleDate] || null;
   };
 
   const renderCalendarDays = (month: Date) => {

@@ -15,11 +15,16 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
   const channelRef = useRef<RealtimeChannel | null>(null);
   const currentRegionRef = useRef<string | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
+  const isSubscribedRef = useRef(false);
+  
+  // Store queryClient in a ref to avoid dependency issues
+  const queryClientRef = useRef(queryClient);
+  queryClientRef.current = queryClient;
 
-  const refreshGlobalData = useCallback(() => {
-    console.log('[Realtime] Refreshing global data');
-    // Invalidate all puzzle-related queries (including any today-specific variants)
-    queryClient.invalidateQueries({
+  // Invalidation functions - use refs to keep them stable
+  const invalidateGlobalData = useCallback(() => {
+    console.log('[Realtime] Invalidating global data');
+    queryClientRef.current.invalidateQueries({
       predicate: (query) => {
         const key = query.queryKey[0];
         if (typeof key !== 'string') return false;
@@ -29,12 +34,11 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
                key === '/api/stats/percentile';
       }
     });
-  }, [queryClient]);
+  }, []);
 
-  const refreshLocalData = useCallback(() => {
-    console.log('[Realtime] Refreshing local data');
-    // Invalidate all user-specific puzzle-related queries
-    queryClient.invalidateQueries({
+  const invalidateLocalData = useCallback(() => {
+    console.log('[Realtime] Invalidating local data');
+    queryClientRef.current.invalidateQueries({
       predicate: (query) => {
         const key = query.queryKey[0];
         if (typeof key !== 'string') return false;
@@ -44,27 +48,20 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
                key === '/api/user/stats/percentile';
       }
     });
-  }, [queryClient]);
+  }, []);
 
-  const refreshProfile = useCallback(() => {
-    console.log('[Realtime] Refreshing profile data');
-    queryClient.invalidateQueries({ queryKey: ['/api/auth/profile'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/user/settings'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/user/preferences'] });
-  }, [queryClient]);
+  const invalidateProfile = useCallback(() => {
+    console.log('[Realtime] Invalidating profile data');
+    queryClientRef.current.invalidateQueries({ queryKey: ['/api/auth/profile'] });
+    queryClientRef.current.invalidateQueries({ queryKey: ['/api/user/settings'] });
+    queryClientRef.current.invalidateQueries({ queryKey: ['/api/user/preferences'] });
+  }, []);
 
-  const refreshCategories = useCallback(() => {
-    console.log('[Realtime] Refreshing category preferences');
-    queryClient.invalidateQueries({ queryKey: ['/api/user/categories'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
-  }, [queryClient]);
-
-  const refreshAllData = useCallback(() => {
-    refreshGlobalData();
-    refreshLocalData();
-    refreshProfile();
-    refreshCategories();
-  }, [refreshGlobalData, refreshLocalData, refreshProfile, refreshCategories]);
+  const invalidateCategories = useCallback(() => {
+    console.log('[Realtime] Invalidating category preferences');
+    queryClientRef.current.invalidateQueries({ queryKey: ['/api/user/categories'] });
+    queryClientRef.current.invalidateQueries({ queryKey: ['/api/categories'] });
+  }, []);
 
   useEffect(() => {
     // Helper to cleanup channel
@@ -75,6 +72,7 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
           console.warn('[Realtime] Error removing channel:', error);
         });
         channelRef.current = null;
+        isSubscribedRef.current = false;
       }
     };
 
@@ -86,12 +84,13 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
       return;
     }
 
-    // Check if we need to recreate the channel (user or region changed)
-    const needsRecreate = 
-      userId !== currentUserIdRef.current || 
-      region !== currentRegionRef.current;
-
-    if (!needsRecreate && channelRef.current) {
+    // Check if we already have an active subscription for this user/region
+    if (
+      isSubscribedRef.current &&
+      channelRef.current && 
+      userId === currentUserIdRef.current && 
+      region === currentRegionRef.current
+    ) {
       // No changes needed, channel is already set up
       return;
     }
@@ -107,7 +106,7 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
     const channelName = `elementle-realtime-${userId}-${Date.now()}`;
     const channel = supabase.channel(channelName);
 
-    // User allocations - refresh both local AND global data (for "Play today's question" button)
+    // User allocations - refresh both local AND global data
     channel.on(
       'postgres_changes',
       { 
@@ -118,8 +117,8 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
       },
       (payload) => {
         console.log('[Realtime] User allocation INSERT:', payload);
-        refreshLocalData();
-        refreshGlobalData();
+        invalidateLocalData();
+        invalidateGlobalData();
       }
     );
 
@@ -134,7 +133,7 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
       },
       (payload) => {
         console.log('[Realtime] Region allocation INSERT:', payload);
-        refreshGlobalData();
+        invalidateGlobalData();
       }
     );
 
@@ -149,9 +148,9 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
       },
       (payload) => {
         console.log('[Realtime] Location allocation change:', payload);
-        refreshProfile();
-        refreshGlobalData();
-        refreshLocalData();
+        invalidateProfile();
+        invalidateGlobalData();
+        invalidateLocalData();
       }
     );
 
@@ -166,8 +165,8 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
       },
       (payload) => {
         console.log('[Realtime] Category preferences change:', payload);
-        refreshCategories();
-        refreshLocalData();
+        invalidateCategories();
+        invalidateLocalData();
       }
     );
 
@@ -182,7 +181,7 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
       },
       (payload) => {
         console.log('[Realtime] Profile update:', payload);
-        refreshProfile();
+        invalidateProfile();
       }
     );
 
@@ -192,8 +191,10 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
       
       if (status === 'SUBSCRIBED') {
         channelRef.current = channel;
+        isSubscribedRef.current = true;
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         console.warn('[Realtime] Subscription failed with status:', status, error);
+        isSubscribedRef.current = false;
         supabase.removeChannel(channel).catch((e) => {
           console.warn('[Realtime] Error cleaning up failed channel:', e);
         });
@@ -202,22 +203,21 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
 
     // Cleanup on unmount or when dependencies change
     return cleanupChannel;
-  }, [
-    isAuthenticated, 
-    userId, 
-    region, 
-    supabase, 
-    refreshGlobalData, 
-    refreshLocalData, 
-    refreshProfile, 
-    refreshCategories
-  ]);
+    // Note: invalidate* functions are stable (empty deps + using refs) so not included in deps array
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, userId, region, supabase]);
 
+  // Return manual refresh functions for use by components if needed
   return {
-    refreshAllData,
-    refreshGlobalData,
-    refreshLocalData,
-    refreshProfile,
-    refreshCategories,
+    refreshGlobalData: invalidateGlobalData,
+    refreshLocalData: invalidateLocalData,
+    refreshProfile: invalidateProfile,
+    refreshCategories: invalidateCategories,
+    refreshAllData: useCallback(() => {
+      invalidateGlobalData();
+      invalidateLocalData();
+      invalidateProfile();
+      invalidateCategories();
+    }, [invalidateGlobalData, invalidateLocalData, invalidateProfile, invalidateCategories]),
   };
 }

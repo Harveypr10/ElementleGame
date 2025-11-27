@@ -81,7 +81,8 @@ export function GameSelectionPage({
   const { formatCanonicalDate } = useUserDateFormat();
   const { isPro, tier } = useSubscription();
   const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController(() => setShowGuestRestriction('personal'));
-  const { refreshAllData } = useRealtimeSubscriptions({
+  // Set up realtime subscriptions for automatic UI refresh when database changes occur
+  useRealtimeSubscriptions({
     userId: user?.id,
     region: profile?.region || 'UK',
     isAuthenticated,
@@ -91,16 +92,6 @@ export function GameSelectionPage({
   const [showGuestRestriction, setShowGuestRestriction] = useState<'archive' | 'personal' | null>(null);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   const isLocalMode = gameMode === 'local';
-  
-  // Refresh all data on mount as a safety net
-  const mountRefreshDone = useRef(false);
-  useEffect(() => {
-    if (isAuthenticated && !mountRefreshDone.current) {
-      mountRefreshDone.current = true;
-      console.log('[GameSelectionPage] Refreshing all data on mount');
-      refreshAllData();
-    }
-  }, [isAuthenticated, refreshAllData]);
 
   // Cache user name and region label locally to prevent flicker
   const [cachedUserName, setCachedUserName] = useState<string>(() => {
