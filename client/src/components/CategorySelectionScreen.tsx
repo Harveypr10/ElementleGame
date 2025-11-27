@@ -4,7 +4,7 @@ import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSupabaseClient } from '@/lib/supabaseClient';
+import { useSupabase } from '@/lib/SupabaseProvider';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useAdBannerActive } from '@/components/AdBanner';
@@ -38,6 +38,7 @@ export function CategorySelectionScreen({
   const { isAuthenticated, user } = useAuth();
   const { profile } = useProfile();
   const adBannerActive = useAdBannerActive();
+  const supabase = useSupabase();
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
 
   // Read cached categories immediately for instant display
@@ -68,7 +69,6 @@ export function CategorySelectionScreen({
     queryFn: async () => {
       if (!isAuthenticated) return [];
       
-      const supabase = await getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return [];
 
@@ -105,16 +105,16 @@ export function CategorySelectionScreen({
 
   const saveCategoriesMutation = useMutation({
     mutationFn: async (categoryIds: number[]) => {
-      const supabase = await getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
+      const accessToken = session.access_token;
 
       // Step 1: Save categories
       const response = await fetch('/api/user/pro-categories', {
         method: 'POST',
         credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ categoryIds }),
@@ -126,25 +126,40 @@ export function CategorySelectionScreen({
 
       // Step 2: Call reset-and-reallocate-user Edge Function
       console.log('[CategorySelectionScreen] Categories saved - calling reset-and-reallocate-user');
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (supabaseUrl && user?.id) {
+      
+      if (!accessToken) {
+        throw new Error('No access token found');
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
+      if (!supabaseUrl) {
+        console.warn('[CategorySelectionScreen] Supabase URL not available; skipping reset-and-reallocate-user');
+      } else {
         const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
+        console.log('[CategorySelectionScreen] Function base URL:', functionBaseUrl);
         
-        const resetResponse = await fetch(`${functionBaseUrl}/reset-and-reallocate-user`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ user_id: user.id }),
-        });
-        
-        const resetBody = await resetResponse.text();
-        console.log('[CategorySelectionScreen] reset-and-reallocate-user response:', resetResponse.status, resetBody);
-        
-        if (!resetResponse.ok) {
-          console.error('[CategorySelectionScreen] reset-and-reallocate-user failed:', resetBody);
-          throw new Error('Failed to reset allocations');
+        if (user?.id) {
+          try {
+            const resetPayload = { user_id: user.id };
+            const resetResponse = await fetch(`${functionBaseUrl}/reset-and-reallocate-user`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify(resetPayload),
+            });
+            
+            const resetBody = await resetResponse.text();
+            console.log('[CategorySelectionScreen] reset-and-reallocate-user status:', resetResponse.status, resetBody);
+            
+            if (!resetResponse.ok) {
+              throw new Error(`reset-and-reallocate-user returned error: ${resetResponse.status}`);
+            }
+          } catch (err) {
+            console.error('[CategorySelectionScreen] reset-and-reallocate-user failed:', err);
+            throw err;
+          }
         }
       }
 
@@ -160,7 +175,7 @@ export function CategorySelectionScreen({
     onError: (error) => {
       toast({
         title: 'Error',
-        description: 'Failed to save your category preferences.',
+        description: error instanceof Error ? error.message : 'Failed to save your category preferences.',
         variant: 'destructive',
       });
     },
