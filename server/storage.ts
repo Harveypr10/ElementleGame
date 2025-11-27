@@ -14,6 +14,7 @@ import {
   gameAttemptsUser,
   guessesUser,
   userStatsUser,
+  adminSettings,
   type UserProfile,
   type InsertUserProfile,
   type Puzzle,
@@ -42,6 +43,8 @@ import {
   type InsertGuessUser,
   type UserStatsUser,
   type InsertUserStatsUser,
+  type AdminSetting,
+  type InsertAdminSetting,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, isNull, sql, notInArray } from "drizzle-orm";
@@ -115,6 +118,11 @@ export interface IStorage {
 
   // Admin export operations
   getAllGameAttemptsForExport(): Promise<any[]>;
+
+  // Admin settings operations
+  getAdminSettings(): Promise<AdminSetting[]>;
+  getAdminSetting(key: string): Promise<AdminSetting | undefined>;
+  upsertAdminSetting(setting: InsertAdminSetting): Promise<AdminSetting>;
 
   // ========================================================================
   // REGION GAME MODE OPERATIONS
@@ -677,6 +685,51 @@ export class DatabaseStorage implements IStorage {
       })
       .from(gameAttempts)
       .orderBy(desc(gameAttempts.completedAt));
+  }
+
+  // Admin settings operations
+  async getAdminSettings(): Promise<AdminSetting[]> {
+    return await db
+      .select()
+      .from(adminSettings)
+      .orderBy(adminSettings.key);
+  }
+
+  async getAdminSetting(key: string): Promise<AdminSetting | undefined> {
+    const [setting] = await db
+      .select()
+      .from(adminSettings)
+      .where(eq(adminSettings.key, key));
+    return setting;
+  }
+
+  async upsertAdminSetting(setting: InsertAdminSetting): Promise<AdminSetting> {
+    const existing = await this.getAdminSetting(setting.key);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(adminSettings)
+        .set({
+          value: setting.value,
+          description: setting.description,
+          updatedAt: new Date(),
+          updatedBy: setting.updatedBy,
+        })
+        .where(eq(adminSettings.key, setting.key))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(adminSettings)
+        .values({
+          key: setting.key,
+          value: setting.value,
+          description: setting.description,
+          updatedBy: setting.updatedBy,
+        })
+        .returning();
+      return created;
+    }
   }
 
   // ========================================================================

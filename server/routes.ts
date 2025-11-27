@@ -1303,6 +1303,52 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Admin settings routes
+  app.get("/api/admin/settings", verifySupabaseAuth, requireAdmin, async (req, res) => {
+    try {
+      const settings = await storage.getAdminSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching admin settings:", error);
+      res.status(500).json({ error: "Failed to fetch admin settings" });
+    }
+  });
+
+  app.put("/api/admin/settings", verifySupabaseAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { key, value, description } = req.body;
+
+      if (!key || value === undefined) {
+        return res.status(400).json({ error: "Key and value are required" });
+      }
+
+      const setting = await storage.upsertAdminSetting({
+        key,
+        value: String(value),
+        description: description || null,
+        updatedBy: userId,
+      });
+
+      res.json(setting);
+    } catch (error) {
+      console.error("Error updating admin setting:", error);
+      res.status(500).json({ error: "Failed to update admin setting" });
+    }
+  });
+
+  // Get postcode restriction days (public endpoint for validation)
+  app.get("/api/settings/postcode-restriction-days", async (req, res) => {
+    try {
+      const setting = await storage.getAdminSetting('postcode_restriction_days');
+      const days = setting ? parseInt(setting.value, 10) : 14; // Default to 14 days
+      res.json({ days });
+    } catch (error) {
+      console.error("Error fetching postcode restriction:", error);
+      res.json({ days: 14 }); // Default to 14 on error
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

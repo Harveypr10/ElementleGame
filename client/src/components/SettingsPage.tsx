@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Bug, MessageSquare, Info, Lock, FileText, LogOut, Crown, Grid } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Bug, MessageSquare, Info, Lock, FileText, LogOut, Crown, Grid, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { clearUserCache } from "@/lib/localCache";
@@ -13,6 +14,7 @@ import { ProSubscriptionDialog } from "@/components/ProSubscriptionDialog";
 import { CategorySelectionScreen } from "@/components/CategorySelectionScreen";
 import { GuestRestrictionPopup } from "@/components/GuestRestrictionPopup";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { AdminPage } from "@/components/AdminPage";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -30,6 +32,7 @@ interface SettingsPageProps {
 
 export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport, onFeedback, onPrivacy, onTerms, onAbout, onSignOut, onLogin, onRegister }: SettingsPageProps) {
   const { user, isAuthenticated, signOut } = useAuth();
+  const { profile } = useProfile();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { subscription, isPro, isLoading: subscriptionLoading } = useSubscription();
@@ -38,6 +41,9 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   const [showGuestRestriction, setShowGuestRestriction] = useState(false);
   const [showGuestRestrictionPro, setShowGuestRestrictionPro] = useState(false);
+  const [showAdminPage, setShowAdminPage] = useState(false);
+  
+  const isAdmin = profile?.isAdmin === true;
   
   // Subscription-related items - show Go Pro for all users (including guests)
   const subscriptionItems = [
@@ -69,6 +75,15 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
     }] : []),
   ];
   
+  // Admin menu item - only visible for admin users
+  const adminItems = isAdmin ? [{
+    icon: Shield,
+    label: "Admin",
+    onClick: () => setShowAdminPage(true),
+    testId: "button-admin",
+    adminItem: true,
+  }] : [];
+
   const menuItems = [
     {
       icon: User,
@@ -83,6 +98,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       testId: "button-account-info",
     },
     ...subscriptionItems,
+    ...adminItems,
     {
       icon: SettingsIcon,
       label: "Options",
@@ -145,6 +161,11 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
     }
   };
 
+  // Show AdminPage if selected
+  if (showAdminPage) {
+    return <AdminPage onBack={() => setShowAdminPage(false)} />;
+  }
+
   return (
     <div 
       className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[50px]' : ''}`}
@@ -170,6 +191,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
         <Card className="p-4 space-y-2">
           {menuItems.map((item) => {
             const isProItem = (item as any).proItem;
+            const isAdminItem = (item as any).adminItem;
             const inlineLabel = (item as any).inlineLabel;
             const sublabel = (item as any).sublabel;
             const highlight = (item as any).highlight;
@@ -179,29 +201,31 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
                 key={item.label}
                 onClick={item.onClick}
                 className={`w-full flex items-center justify-between p-3 rounded-md transition-colors ${
-                  isProItem 
-                    ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600" 
-                    : highlight 
-                      ? "bg-amber-50 dark:bg-amber-950/30 hover-elevate active-elevate-2" 
-                      : "hover-elevate active-elevate-2"
+                  isAdminItem
+                    ? "bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700"
+                    : isProItem 
+                      ? "bg-gradient-to-r from-orange-400 to-orange-500 text-white hover:from-orange-500 hover:to-orange-600" 
+                      : highlight 
+                        ? "bg-amber-50 dark:bg-amber-950/30 hover-elevate active-elevate-2" 
+                        : "hover-elevate active-elevate-2"
                 }`}
                 data-testid={item.testId}
               >
                 <div className="flex items-center gap-3 flex-1">
                   <item.icon className={`h-5 w-5 flex-shrink-0 ${
-                    isProItem ? "text-white" : highlight ? "text-amber-500" : "text-muted-foreground"
+                    isAdminItem ? "text-white" : isProItem ? "text-white" : highlight ? "text-amber-500" : "text-muted-foreground"
                   }`} />
-                  <span className={`font-medium whitespace-nowrap ${isProItem ? "text-white" : ""}`}>{item.label}</span>
+                  <span className={`font-medium whitespace-nowrap ${isAdminItem || isProItem ? "text-white" : ""}`}>{item.label}</span>
                   {inlineLabel && (
-                    <span className={`text-sm ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{inlineLabel}</span>
+                    <span className={`text-sm ${isAdminItem || isProItem ? "text-white/90" : "text-muted-foreground"}`}>{inlineLabel}</span>
                   )}
                   {sublabel && (
                     <div className={`flex-1 flex justify-center`}>
-                      <div className={`text-sm max-w-[150px] text-center ${isProItem ? "text-white/90" : "text-muted-foreground"}`}>{sublabel}</div>
+                      <div className={`text-sm max-w-[150px] text-center ${isAdminItem || isProItem ? "text-white/90" : "text-muted-foreground"}`}>{sublabel}</div>
                     </div>
                   )}
                 </div>
-                <ChevronRight className={`h-5 w-5 flex-shrink-0 ${isProItem ? "text-white" : "text-muted-foreground"}`} />
+                <ChevronRight className={`h-5 w-5 flex-shrink-0 ${isAdminItem || isProItem ? "text-white" : "text-muted-foreground"}`} />
               </button>
             );
           })}

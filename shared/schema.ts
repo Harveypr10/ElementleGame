@@ -484,3 +484,21 @@ export const insertUserStatsUserSchema = createInsertSchema(userStatsUser).omit(
 
 export type InsertUserStatsUser = z.infer<typeof insertUserStatsUserSchema>;
 export type UserStatsUser = typeof userStatsUser.$inferSelect;
+
+// Admin Settings table - stores configurable system settings
+export const adminSettings = pgTable("admin_settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  value: text("value").notNull(),
+  description: text("description"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedBy: uuid("updated_by").references(() => userProfiles.id),
+});
+
+export const insertAdminSettingSchema = createInsertSchema(adminSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
+export type AdminSetting = typeof adminSettings.$inferSelect;
