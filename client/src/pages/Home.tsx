@@ -56,6 +56,7 @@ export default function Home() {
   const [hasExistingProgress, setHasExistingProgress] = useState(false);
   const [needsFirstLoginSetup, setNeedsFirstLoginSetup] = useState(false);
   const [showAuthButtons, setShowAuthButtons] = useState(false);
+  const [hasShownGeneratingScreen, setHasShownGeneratingScreen] = useState(false);
   
   // Fetch puzzles from API (mode-aware, guest-aware)
   // Guests use /api/puzzles/guest, authenticated users use mode-specific endpoints
@@ -96,14 +97,16 @@ export default function Home() {
   
   // Check for first login when user becomes authenticated and is on selection screen
   // This catches cases where onSuccess callback ran before auth state was fully updated
+  // hasShownGeneratingScreen prevents the screen from showing twice in the same session
   useEffect(() => {
-    if (currentScreen === "selection" && isAuthenticated && user && !needsFirstLoginSetup) {
+    if (currentScreen === "selection" && isAuthenticated && user && !needsFirstLoginSetup && !hasShownGeneratingScreen) {
       if (!hasCompletedFirstLogin()) {
         setNeedsFirstLoginSetup(true);
+        setHasShownGeneratingScreen(true);
         setCurrentScreen("generating-questions");
       }
     }
-  }, [currentScreen, isAuthenticated, user, needsFirstLoginSetup, hasCompletedFirstLogin]);
+  }, [currentScreen, isAuthenticated, user, needsFirstLoginSetup, hasCompletedFirstLogin, hasShownGeneratingScreen]);
 
   const getDailyPuzzle = (): Puzzle | undefined => {
     if (puzzles.length === 0) return undefined;
@@ -285,9 +288,10 @@ export default function Home() {
   
   // Handle login success - check if user needs first login setup
   const handleLoginSuccess = () => {
-    if (isAuthenticated && !hasCompletedFirstLogin()) {
+    if (isAuthenticated && !hasCompletedFirstLogin() && !hasShownGeneratingScreen) {
       // User hasn't completed first login - show GeneratingQuestionsScreen
       setNeedsFirstLoginSetup(true);
+      setHasShownGeneratingScreen(true);
       setCurrentScreen("generating-questions");
     } else {
       setCurrentScreen("selection");
