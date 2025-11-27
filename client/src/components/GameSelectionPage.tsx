@@ -18,7 +18,7 @@ import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import type { UserProfile } from "@shared/schema";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdBannerActive } from "@/components/AdBanner";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import historianHamsterLocal from "@assets/Historian-Hamster-Local.svg";
@@ -82,11 +82,12 @@ export function GameSelectionPage({
   const { isPro, tier } = useSubscription();
   const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController(() => setShowGuestRestriction('personal'));
   // Set up realtime subscriptions for automatic UI refresh when database changes occur
-  useRealtimeSubscriptions({
+  const { refreshLocalData, refreshGlobalData } = useRealtimeSubscriptions({
     userId: user?.id,
     region: profile?.region || 'UK',
     isAuthenticated,
   });
+  const queryClient = useQueryClient();
   const [showHelp, setShowHelp] = useState(false);
   const [showProDialog, setShowProDialog] = useState(false);
   const [showGuestRestriction, setShowGuestRestriction] = useState<'archive' | 'personal' | null>(null);
@@ -247,6 +248,44 @@ export function GameSelectionPage({
     },
     enabled: !isAuthenticated,
   });
+
+  // Retry mechanism for missing puzzle data - handles case where realtime events were missed
+  // (e.g., during initial signup when subscription isn't ready before Worker allocates questions)
+  const retryCountRef = useRef(0);
+  const maxRetries = 5;
+  const retryDelayMs = 2000; // 2 seconds between retries
+  
+  useEffect(() => {
+    // Only retry for authenticated users when puzzle data is missing
+    if (!isAuthenticated) {
+      retryCountRef.current = 0;
+      return;
+    }
+
+    const hasMissingData = (localPuzzles.length === 0) || (globalPuzzles.length === 0);
+    
+    if (hasMissingData && retryCountRef.current < maxRetries) {
+      const timer = setTimeout(() => {
+        console.log('[GameSelectionPage] Retrying data fetch, attempt:', retryCountRef.current + 1);
+        retryCountRef.current++;
+        
+        // Force refetch the puzzle data
+        if (localPuzzles.length === 0) {
+          queryClient.refetchQueries({ queryKey: ['/api/user/puzzles'] });
+        }
+        if (globalPuzzles.length === 0) {
+          queryClient.refetchQueries({ queryKey: ['/api/puzzles'] });
+        }
+      }, retryDelayMs);
+      
+      return () => clearTimeout(timer);
+    }
+    
+    // Reset retry count when we have data
+    if (!hasMissingData) {
+      retryCountRef.current = 0;
+    }
+  }, [isAuthenticated, localPuzzles.length, globalPuzzles.length, queryClient]);
 
   // Helper to find today's puzzle from a list
   const findTodayPuzzle = (puzzles: any[]): any | undefined => {

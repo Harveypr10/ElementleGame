@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { WelcomePage } from "@/components/WelcomePage";
@@ -63,11 +63,41 @@ export default function Home() {
   const puzzlesEndpoint = isAuthenticated 
     ? (isLocalMode ? '/api/user/puzzles' : '/api/puzzles')
     : '/api/puzzles/guest';
-  const { data: puzzles = [], isLoading: puzzlesLoading } = useQuery<Puzzle[]>({
+  const { data: puzzles = [], isLoading: puzzlesLoading, refetch: refetchPuzzles } = useQuery<Puzzle[]>({
     queryKey: [puzzlesEndpoint],
     // Endpoint includes authentication state in its path, no need for separate cache key
   });
   
+  // Retry mechanism for missing puzzle data - handles case where realtime events were missed
+  const puzzleRetryCountRef = useRef(0);
+  const maxPuzzleRetries = 5;
+  const puzzleRetryDelayMs = 2000;
+  
+  useEffect(() => {
+    // Only retry for authenticated users when puzzle data is missing
+    if (!isAuthenticated) {
+      puzzleRetryCountRef.current = 0;
+      return;
+    }
+
+    const hasMissingData = puzzles.length === 0;
+    
+    if (hasMissingData && puzzleRetryCountRef.current < maxPuzzleRetries && !puzzlesLoading) {
+      const timer = setTimeout(() => {
+        console.log('[Home] Retrying puzzles fetch, attempt:', puzzleRetryCountRef.current + 1);
+        puzzleRetryCountRef.current++;
+        refetchPuzzles();
+      }, puzzleRetryDelayMs);
+      
+      return () => clearTimeout(timer);
+    }
+    
+    // Reset retry count when we have data
+    if (!hasMissingData) {
+      puzzleRetryCountRef.current = 0;
+    }
+  }, [isAuthenticated, puzzles.length, puzzlesLoading, refetchPuzzles]);
+
   // Track if we've shown welcome page and auto-navigated to selection
   const [hasAutoNavigated, setHasAutoNavigated] = useState(false);
   

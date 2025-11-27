@@ -21,10 +21,11 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
   const queryClientRef = useRef(queryClient);
   queryClientRef.current = queryClient;
 
-  // Invalidation functions - use refs to keep them stable
+  // Refetch functions - use refetchQueries to force immediate refetch regardless of staleTime
+  // This is necessary because staleTime: Infinity means invalidateQueries alone won't trigger refetch
   const invalidateGlobalData = useCallback(() => {
-    console.log('[Realtime] Invalidating global data');
-    queryClientRef.current.invalidateQueries({
+    console.log('[Realtime] Refetching global data');
+    queryClientRef.current.refetchQueries({
       predicate: (query) => {
         const key = query.queryKey[0];
         if (typeof key !== 'string') return false;
@@ -37,8 +38,8 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
   }, []);
 
   const invalidateLocalData = useCallback(() => {
-    console.log('[Realtime] Invalidating local data');
-    queryClientRef.current.invalidateQueries({
+    console.log('[Realtime] Refetching local data');
+    queryClientRef.current.refetchQueries({
       predicate: (query) => {
         const key = query.queryKey[0];
         if (typeof key !== 'string') return false;
@@ -51,16 +52,16 @@ export function useRealtimeSubscriptions({ userId, region, isAuthenticated }: Us
   }, []);
 
   const invalidateProfile = useCallback(() => {
-    console.log('[Realtime] Invalidating profile data');
-    queryClientRef.current.invalidateQueries({ queryKey: ['/api/auth/profile'] });
-    queryClientRef.current.invalidateQueries({ queryKey: ['/api/user/settings'] });
-    queryClientRef.current.invalidateQueries({ queryKey: ['/api/user/preferences'] });
+    console.log('[Realtime] Refetching profile data');
+    queryClientRef.current.refetchQueries({ queryKey: ['/api/auth/profile'] });
+    queryClientRef.current.refetchQueries({ queryKey: ['/api/user/settings'] });
+    queryClientRef.current.refetchQueries({ queryKey: ['/api/user/preferences'] });
   }, []);
 
   const invalidateCategories = useCallback(() => {
-    console.log('[Realtime] Invalidating category preferences');
-    queryClientRef.current.invalidateQueries({ queryKey: ['/api/user/categories'] });
-    queryClientRef.current.invalidateQueries({ queryKey: ['/api/categories'] });
+    console.log('[Realtime] Refetching category preferences');
+    queryClientRef.current.refetchQueries({ queryKey: ['/api/user/categories'] });
+    queryClientRef.current.refetchQueries({ queryKey: ['/api/categories'] });
   }, []);
 
   useEffect(() => {
