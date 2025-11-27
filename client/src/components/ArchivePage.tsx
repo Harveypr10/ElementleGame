@@ -54,6 +54,21 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     region: profile?.region || 'UK',
     isAuthenticated,
   });
+
+  // Force immediate data refresh on mount for authenticated users
+  // This ensures fresh data is fetched every time user navigates to Archive
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (isAuthenticated && !hasMountedRef.current) {
+      hasMountedRef.current = true;
+      console.log('[ArchivePage] Mount: forcing data refresh for authenticated user');
+      // Refetch puzzles and game attempts
+      queryClient.refetchQueries({ queryKey: ['/api/user/puzzles'] });
+      queryClient.refetchQueries({ queryKey: ['/api/puzzles'] });
+      queryClient.refetchQueries({ queryKey: ['/api/user/game-attempts/user'] });
+      queryClient.refetchQueries({ queryKey: ['/api/game-attempts/user'] });
+    }
+  }, [isAuthenticated, queryClient]);
   
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (initialMonth) {

@@ -249,6 +249,20 @@ export function GameSelectionPage({
     enabled: !isAuthenticated,
   });
 
+  // Force immediate data refresh on mount for authenticated users
+  // This ensures fresh data is fetched every time user navigates to this page
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (isAuthenticated && !hasMountedRef.current) {
+      hasMountedRef.current = true;
+      console.log('[GameSelectionPage] Mount: forcing data refresh for authenticated user');
+      queryClient.refetchQueries({ queryKey: ['/api/user/puzzles'] });
+      queryClient.refetchQueries({ queryKey: ['/api/puzzles'] });
+      queryClient.refetchQueries({ queryKey: ['/api/user/game-attempts/user'] });
+      queryClient.refetchQueries({ queryKey: ['/api/game-attempts/user'] });
+    }
+  }, [isAuthenticated, queryClient]);
+
   // Retry mechanism for missing puzzle data - handles case where realtime events were missed
   // (e.g., during initial signup when subscription isn't ready before Worker allocates questions)
   const retryCountRef = useRef(0);
