@@ -249,57 +249,46 @@ export function GameSelectionPage({
     enabled: !isAuthenticated,
   });
 
-  // Force immediate data refresh on mount for authenticated users
-  // This ensures fresh data is fetched every time user navigates to this page
-  const hasMountedRef = useRef(false);
-  useEffect(() => {
-    if (isAuthenticated && !hasMountedRef.current) {
-      hasMountedRef.current = true;
-      console.log('[GameSelectionPage] Mount: forcing data refresh for authenticated user');
-      queryClient.refetchQueries({ queryKey: ['/api/user/puzzles'] });
-      queryClient.refetchQueries({ queryKey: ['/api/puzzles'] });
-      queryClient.refetchQueries({ queryKey: ['/api/user/game-attempts/user'] });
-      queryClient.refetchQueries({ queryKey: ['/api/game-attempts/user'] });
-    }
-  }, [isAuthenticated, queryClient]);
+  // Helper to find today's puzzle from a list
+  const getTodayDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
-  // Retry mechanism for missing puzzle data - handles case where realtime events were missed
-  // (e.g., during initial signup when subscription isn't ready before Worker allocates questions)
-  const retryCountRef = useRef(0);
-  const maxRetries = 5;
-  const retryDelayMs = 2000; // 2 seconds between retries
-  
-  useEffect(() => {
-    // Only retry for authenticated users when puzzle data is missing
-    if (!isAuthenticated) {
-      retryCountRef.current = 0;
-      return;
-    }
+  const hasTodayPuzzle = (puzzles: any[]): boolean => {
+    if (!puzzles || puzzles.length === 0) return false;
+    const todayDate = getTodayDateString();
+    return puzzles.some(p => p.date === todayDate);
+  };
 
-    const hasMissingData = (localPuzzles.length === 0) || (globalPuzzles.length === 0);
+  // Force data refresh on mount for authenticated users if today's puzzle is missing
+  // Keeps refreshing on each navigation until today's puzzle is loaded
+  const lastRefreshRef = useRef<number>(0);
+  useEffect(() => {
+    if (!isAuthenticated) return;
     
-    if (hasMissingData && retryCountRef.current < maxRetries) {
-      const timer = setTimeout(() => {
-        console.log('[GameSelectionPage] Retrying data fetch, attempt:', retryCountRef.current + 1);
-        retryCountRef.current++;
-        
-        // Force refetch the puzzle data
-        if (localPuzzles.length === 0) {
-          queryClient.refetchQueries({ queryKey: ['/api/user/puzzles'] });
-        }
-        if (globalPuzzles.length === 0) {
-          queryClient.refetchQueries({ queryKey: ['/api/puzzles'] });
-        }
-      }, retryDelayMs);
-      
-      return () => clearTimeout(timer);
-    }
+    const hasTodayGlobal = hasTodayPuzzle(globalPuzzles);
+    const hasTodayLocal = hasTodayPuzzle(localPuzzles);
     
-    // Reset retry count when we have data
-    if (!hasMissingData) {
-      retryCountRef.current = 0;
+    // Only refresh if today's puzzle is missing from either mode
+    if (!hasTodayGlobal || !hasTodayLocal) {
+      // Prevent rapid refreshes - minimum 1 second between refreshes
+      const now = Date.now();
+      if (now - lastRefreshRef.current > 1000) {
+        lastRefreshRef.current = now;
+        console.log('[GameSelectionPage] Today puzzle missing - refreshing data', { hasTodayGlobal, hasTodayLocal });
+        queryClient.refetchQueries({ queryKey: ['/api/user/puzzles'] });
+        queryClient.refetchQueries({ queryKey: ['/api/puzzles'] });
+        queryClient.refetchQueries({ queryKey: ['/api/user/game-attempts/user'] });
+        queryClient.refetchQueries({ queryKey: ['/api/game-attempts/user'] });
+      }
+    } else {
+      console.log('[GameSelectionPage] Today puzzles loaded - no refresh needed');
     }
-  }, [isAuthenticated, localPuzzles.length, globalPuzzles.length, queryClient]);
+  }, [isAuthenticated, globalPuzzles, localPuzzles, queryClient]);
 
   // Helper to find today's puzzle from a list
   const findTodayPuzzle = (puzzles: any[]): any | undefined => {
