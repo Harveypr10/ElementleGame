@@ -264,9 +264,8 @@ export function CategorySelectionScreen({
     onGenerate(); // Close and return to GameSelectionPage
   };
 
-  // For regeneration, only enable if categories have actually changed
-  // For first-time setup, just require minimum 3 categories
-  const canGenerate = selectedCategories.size >= 3 && (isRegeneration ? categoriesHaveChanged : true);
+  // Button only enabled when 3+ categories selected AND they differ from saved categories
+  const canGenerate = selectedCategories.size >= 3 && categoriesHaveChanged;
 
   // Show GeneratingQuestionsScreen after categories are saved
   if (showGeneratingQuestions && user?.id && profile?.region && profile?.postcode) {
