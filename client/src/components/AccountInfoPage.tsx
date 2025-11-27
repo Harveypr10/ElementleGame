@@ -191,26 +191,39 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         if (postcodeChanged && user?.id && profileData.postcode) {
           console.log('[AccountInfoPage] Postcode changed - calling reset-and-reallocate-user');
           
+          // Validate that we have an access token
+          if (!accessToken) {
+            throw new Error("No access token found");
+          }
+          
           // Call the reset-and-reallocate-user Edge Function
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          if (supabaseUrl) {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
+          if (!supabaseUrl) {
+            console.warn('[AccountInfoPage] Supabase URL not available; skipping reset-and-reallocate-user');
+          } else {
             const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
+            console.log('[AccountInfoPage] Function base URL:', functionBaseUrl);
             
-            const resetResponse = await fetch(`${functionBaseUrl}/reset-and-reallocate-user`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`,
-              },
-              body: JSON.stringify({ user_id: user.id }),
-            });
-            
-            const resetBody = await resetResponse.text();
-            console.log('[AccountInfoPage] reset-and-reallocate-user response:', resetResponse.status, resetBody);
-            
-            if (!resetResponse.ok) {
-              console.error('[AccountInfoPage] reset-and-reallocate-user failed:', resetBody);
-              throw new Error('Failed to reset allocations');
+            try {
+              const resetPayload = { user_id: user.id };
+              const resetResponse = await fetch(`${functionBaseUrl}/reset-and-reallocate-user`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify(resetPayload),
+              });
+              
+              const resetBody = await resetResponse.text();
+              console.log('[AccountInfoPage] reset-and-reallocate-user status:', resetResponse.status, resetBody);
+              
+              if (!resetResponse.ok) {
+                throw new Error(`reset-and-reallocate-user returned error: ${resetResponse.status}`);
+              }
+            } catch (err) {
+              console.error('[AccountInfoPage] reset-and-reallocate-user failed:', err);
+              throw err;
             }
           }
           
