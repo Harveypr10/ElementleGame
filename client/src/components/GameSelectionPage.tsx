@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
 import { motion, useTransform } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
 import { useModeController } from "@/hooks/useModeController";
@@ -80,11 +81,26 @@ export function GameSelectionPage({
   const { formatCanonicalDate } = useUserDateFormat();
   const { isPro, tier } = useSubscription();
   const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController(() => setShowGuestRestriction('personal'));
+  const { refreshAllData } = useRealtimeSubscriptions({
+    userId: user?.id,
+    region: profile?.region || 'UK',
+    isAuthenticated,
+  });
   const [showHelp, setShowHelp] = useState(false);
   const [showProDialog, setShowProDialog] = useState(false);
   const [showGuestRestriction, setShowGuestRestriction] = useState<'archive' | 'personal' | null>(null);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   const isLocalMode = gameMode === 'local';
+  
+  // Refresh all data on mount as a safety net
+  const mountRefreshDone = useRef(false);
+  useEffect(() => {
+    if (isAuthenticated && !mountRefreshDone.current) {
+      mountRefreshDone.current = true;
+      console.log('[GameSelectionPage] Refreshing all data on mount');
+      refreshAllData();
+    }
+  }, [isAuthenticated, refreshAllData]);
 
   // Cache user name and region label locally to prevent flicker
   const [cachedUserName, setCachedUserName] = useState<string>(() => {

@@ -1,0 +1,89 @@
+lease add Supabase realtime subscriptions in the frontend so the UI automatically refreshes whenever new allocations or preference/location changes occur.
+
+Requirements:
+
+Subscribe to questions_allocated_user with a filter user_id=eq.auth.uid().
+
+On INSERT events, re‑fetch the archive list and refresh the “Play today’s question” button state.
+
+Subscribe to questions_allocated_region with a filter region=eq.<current region>.
+
+On INSERT events, refresh the region‑based archive/game list.
+
+Subscribe to location_allocation and user_category_preferences with a filter user_id=eq.auth.uid().
+
+On INSERT or UPDATE events, refresh the user’s preferences and location allocations in memory.
+
+Also trigger a refresh on page entry (mount) for GameSelectionPage and ArchivePage as a safety net.
+
+Clean up subscriptions on unmount to avoid memory leaks.
+
+The goal is that:
+
+Allocations appear instantly in the archive and “Play today’s question” button.
+
+User preference or postcode changes immediately trigger a refresh.
+
+Returning to the page always shows the latest state.
+
+⚛️ Example React Hook (illustrative only)
+Here’s an example of how you could implement the subscriptions. You don’t have to use this exact code, but it shows the pattern:
+
+tsx
+import { useEffect } from "react";
+import { supabase } from "../supabaseClient";
+
+export function useRealtimeUserData(userId: string, region: string, refreshArchive: () => void, refreshTodaysQuestion: () => void, refreshPrefs: () => void, refreshLocations: () => void) {
+  useEffect(() => {
+    const channel = supabase.channel("realtime-subscriptions");
+
+    // User allocations
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "questions_allocated_user", filter: `user_id=eq.${userId}` },
+      () => {
+        refreshArchive();
+        refreshTodaysQuestion();
+      }
+    );
+
+    // Region allocations
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "questions_allocated_region", filter: `region=eq.${region}` },
+      () => {
+        refreshArchive();
+      }
+    );
+
+    // Location allocations
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "location_allocation", filter: `user_id=eq.${userId}` },
+      () => {
+        refreshLocations();
+      }
+    );
+
+    // Category preferences
+    channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "user_category_preferences", filter: `user_id=eq.${userId}` },
+      () => {
+        refreshPrefs();
+      }
+    );
+
+    channel.subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, region, refreshArchive, refreshTodaysQuestion, refreshPrefs, refreshLocations]);
+}
+✅ Summary
+Supabase side is already prepared with realtime enabled and RLS policies.
+
+Replit needs to wire up subscriptions in the frontend, refresh data on events, and clean up on unmount.
+
+The hook above shows one way to do it, but they can adapt it to their existing architecture.

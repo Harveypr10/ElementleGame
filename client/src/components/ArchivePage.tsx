@@ -5,9 +5,11 @@ import { Card } from "@/components/ui/card";
 import { ArrowLeft, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
+import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { motion, AnimatePresence } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
@@ -39,12 +41,18 @@ interface DayStatus {
 }
 
 export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMonthChange }: ArchivePageProps) {
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const { profile } = useProfile();
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
   const { isLocalMode } = useGameMode();
   const queryClient = useQueryClient();
   const adBannerActive = useAdBannerActive();
+  const { refreshGlobalData, refreshLocalData } = useRealtimeSubscriptions({
+    userId: user?.id,
+    region: profile?.region || 'UK',
+    isAuthenticated,
+  });
   
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (initialMonth) {
@@ -58,15 +66,20 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   const containerRef = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
   const swipeStartX = useRef<number>(0);
-
+  
+  // Refresh data on mount as a safety net (also enables realtime subscriptions)
+  const mountRefreshDone = useRef(false);
   useEffect(() => {
-    if (isAuthenticated) {
-      console.log('[Archive] Refetching game attempts on mount');
-      const queryKey = isLocalMode ? ["/api/user/game-attempts/user"] : ["/api/game-attempts/user"];
-      queryClient.invalidateQueries({ queryKey });
-      queryClient.refetchQueries({ queryKey });
+    if (isAuthenticated && !mountRefreshDone.current) {
+      mountRefreshDone.current = true;
+      console.log('[Archive] Refreshing data on mount');
+      if (isLocalMode) {
+        refreshLocalData();
+      } else {
+        refreshGlobalData();
+      }
     }
-  }, [isAuthenticated, isLocalMode, queryClient]);
+  }, [isAuthenticated, isLocalMode, refreshGlobalData, refreshLocalData]);
 
   useEffect(() => {
     if (initialMonth) {
