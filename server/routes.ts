@@ -1254,6 +1254,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const purchasableTiers = tiers.filter(t => t.tier !== 'standard');
       
       console.log('[tiers] Found purchasable tiers:', purchasableTiers.length);
+      console.log('[tiers] Tier data:', purchasableTiers.map(t => ({ tier: t.tier, subscriptionCost: t.subscriptionCost, currency: t.currency })));
       
       return res.json(purchasableTiers);
     } catch (tableError: any) {
