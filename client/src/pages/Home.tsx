@@ -57,6 +57,8 @@ export default function Home() {
   const [needsFirstLoginSetup, setNeedsFirstLoginSetup] = useState(false);
   const [showAuthButtons, setShowAuthButtons] = useState(false);
   const [hasShownGeneratingScreen, setHasShownGeneratingScreen] = useState(false);
+  // Track which mode the puzzle was selected in (to prevent mode mismatch issues)
+  const [puzzleSourceMode, setPuzzleSourceMode] = useState<'global' | 'local'>('global');
   
   // Fetch puzzles from API (mode-aware, guest-aware)
   // Guests use /api/puzzles/guest, authenticated users use mode-specific endpoints
@@ -166,6 +168,10 @@ export default function Home() {
     const puzzle = puzzles.find(p => p.id.toString() === puzzleId);
     if (!puzzle) return;
     
+    // Capture the current mode when the puzzle is selected
+    // This ensures PlayPage uses the correct mode for data fetching
+    setPuzzleSourceMode(isLocalMode ? 'local' : 'global');
+    
     // Check if this puzzle has any existing progress (completed or in-progress)
     let isCompleted = false;
     let hasProgress = false;
@@ -220,6 +226,9 @@ export default function Home() {
   const handlePlayToday = () => {
     setSelectedPuzzleId(null);
     setPreviousScreen("selection");
+    
+    // Capture the current mode when playing today's puzzle
+    setPuzzleSourceMode(isLocalMode ? 'local' : 'global');
     
     // Check if today's puzzle has any existing progress (completed or in-progress)
     const todayPuzzle = getDailyPuzzle();
@@ -467,6 +476,7 @@ export default function Home() {
               hasExistingProgress={hasExistingProgress}
               showCelebrationFirst={showCelebrationFirst}
               hasOpenedCelebration={hasOpenedCelebration}
+              puzzleSourceMode={puzzleSourceMode}
               onSetHasOpenedCelebration={setHasOpenedCelebration}
               onBack={() => setCurrentScreen(previousScreen === "archive" ? "archive" : "selection")}
               onHomeFromCelebration={() => {

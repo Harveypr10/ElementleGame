@@ -23,11 +23,20 @@ interface UpdateGameAttemptData {
   numGuesses: number;
 }
 
-export function useGameData() {
+interface UseGameDataOptions {
+  modeOverride?: 'global' | 'local'; // Override context mode when specified
+}
+
+export function useGameData(options?: UseGameDataOptions) {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const supabase = useSupabase();
-  const { isLocalMode } = useGameMode();
+  const { isLocalMode: contextIsLocalMode } = useGameMode();
+  
+  // Use mode override if provided, otherwise fall back to context mode
+  const isLocalMode = options?.modeOverride 
+    ? options.modeOverride === 'local' 
+    : contextIsLocalMode;
 
   // Get all game attempts for the current user (mode-aware)
   const endpoint = isLocalMode ? "/api/user/game-attempts/user" : "/api/game-attempts/user";

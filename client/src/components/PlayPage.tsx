@@ -40,6 +40,7 @@ interface PlayPageProps {
   hasExistingProgress?: boolean; // Whether the game has any existing guesses or is completed
   showCelebrationFirst?: boolean;
   hasOpenedCelebration?: boolean;
+  puzzleSourceMode?: 'global' | 'local'; // Explicit mode from parent - overrides context when set
   onBack: () => void;
   onHomeFromCelebration?: () => void;
   onSetHasOpenedCelebration?: (value: boolean) => void;
@@ -77,6 +78,7 @@ export function PlayPage({
   hasExistingProgress = false,
   showCelebrationFirst = false,
   hasOpenedCelebration = false,
+  puzzleSourceMode,
   onBack,
   onHomeFromCelebration,
   onSetHasOpenedCelebration,
@@ -84,11 +86,18 @@ export function PlayPage({
   onViewArchive,
 }: PlayPageProps) {
   const { user, isAuthenticated } = useAuth();
-  const { gameAttempts, getAllGuesses, loadingAttempts } = useGameData();
+  // Pass puzzleSourceMode to useGameData to ensure we fetch from the correct tables
+  const { gameAttempts, getAllGuesses, loadingAttempts } = useGameData(
+    puzzleSourceMode ? { modeOverride: puzzleSourceMode } : undefined
+  );
   const { stats: supabaseStats } = useUserStats();
   const { settings } = useUserSettings();
   const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
-  const { isLocalMode } = useGameMode();
+  const { isLocalMode: contextIsLocalMode } = useGameMode();
+  
+  // Use explicit puzzleSourceMode if provided, otherwise fall back to context mode
+  // This ensures we use the correct mode that was active when the puzzle was selected
+  const isLocalMode = puzzleSourceMode ? puzzleSourceMode === 'local' : contextIsLocalMode;
   const { showAd, triggerAd, handleClose: closeInterstitialAd, InterstitialAdComponent } = useInterstitialAd();
   
   // Get user's date format preferences
