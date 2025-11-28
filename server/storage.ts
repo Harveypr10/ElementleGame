@@ -739,18 +739,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Demand scheduler config operations (uses raw SQL as table is in Supabase)
+  // Uses singleton pattern - only ONE row should exist with fixed ID
   async getDemandSchedulerConfig(): Promise<DemandSchedulerConfig | undefined> {
     const result = await db.execute(sql`
       SELECT id, start_time, frequency_hours, updated_at, updated_by
       FROM demand_scheduler_config
+      ORDER BY updated_at DESC
       LIMIT 1
-    `) as unknown as { rows: any[] };
+    `);
     
-    if (!result.rows || result.rows.length === 0) {
+    // Handle different result formats from drizzle execute
+    const rows = Array.isArray(result) ? result : (result as any).rows || [];
+    
+    if (!rows || rows.length === 0) {
       return undefined;
     }
     
-    const row = result.rows[0];
+    const row = rows[0];
     return {
       id: row.id,
       start_time: row.start_time,
@@ -761,72 +766,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertDemandSchedulerConfig(config: InsertDemandSchedulerConfig & { updated_by?: string }): Promise<DemandSchedulerConfig> {
-    // Check if a config already exists
-    const existing = await this.getDemandSchedulerConfig();
+    // Use a singleton pattern with a fixed ID to ensure only ONE row ever exists
+    const SINGLETON_ID = '00000000-0000-0000-0000-000000000001';
     
-    if (existing) {
-      // Update existing config
-      const result = await db.execute(sql`
-        UPDATE demand_scheduler_config
-        SET start_time = ${config.start_time},
-            frequency_hours = ${config.frequency_hours},
-            updated_at = NOW(),
-            updated_by = ${config.updated_by || null}
-        WHERE id = ${existing.id}
-        RETURNING id, start_time, frequency_hours, updated_at, updated_by
-      `);
-      
-      // Handle different result formats from drizzle execute
-      const rows = Array.isArray(result) ? result : (result as any).rows || [];
-      console.log('[DemandScheduler] Update result rows:', JSON.stringify(rows));
-      
-      if (!rows || rows.length === 0) {
-        // Fallback: return the updated config by fetching it
-        const updated = await this.getDemandSchedulerConfig();
-        if (!updated) {
-          throw new Error('Failed to update demand scheduler config');
-        }
-        return updated;
-      }
-      
-      const row = rows[0];
-      return {
-        id: row.id,
-        start_time: row.start_time,
-        frequency_hours: row.frequency_hours,
-        updated_at: row.updated_at?.toISOString?.() || row.updated_at,
-        updated_by: row.updated_by,
-      };
-    } else {
-      // Insert new config
-      const result = await db.execute(sql`
-        INSERT INTO demand_scheduler_config (start_time, frequency_hours, updated_by)
-        VALUES (${config.start_time}, ${config.frequency_hours}, ${config.updated_by || null})
-        RETURNING id, start_time, frequency_hours, updated_at, updated_by
-      `);
-      
-      // Handle different result formats from drizzle execute
-      const rows = Array.isArray(result) ? result : (result as any).rows || [];
-      console.log('[DemandScheduler] Insert result rows:', JSON.stringify(rows));
-      
-      if (!rows || rows.length === 0) {
-        // Fallback: return the inserted config by fetching it
-        const inserted = await this.getDemandSchedulerConfig();
-        if (!inserted) {
-          throw new Error('Failed to insert demand scheduler config');
-        }
-        return inserted;
-      }
-      
-      const row = rows[0];
-      return {
-        id: row.id,
-        start_time: row.start_time,
-        frequency_hours: row.frequency_hours,
-        updated_at: row.updated_at?.toISOString?.() || row.updated_at,
-        updated_by: row.updated_by,
-      };
+    // Use INSERT ... ON CONFLICT to ensure atomic upsert with single row
+    await db.execute(sql`
+      INSERT INTO demand_scheduler_config (id, start_time, frequency_hours, updated_at, updated_by)
+      VALUES (${SINGLETON_ID}, ${config.start_time}, ${config.frequency_hours}, NOW(), ${config.updated_by || null})
+      ON CONFLICT (id) DO UPDATE SET
+        start_time = EXCLUDED.start_time,
+        frequency_hours = EXCLUDED.frequency_hours,
+        updated_at = NOW(),
+        updated_by = EXCLUDED.updated_by
+    `);
+    
+    // Fetch and return the updated config
+    const result = await this.getDemandSchedulerConfig();
+    if (!result) {
+      throw new Error('Failed to upsert demand scheduler config');
     }
+    return result;
   }
 
   // ========================================================================

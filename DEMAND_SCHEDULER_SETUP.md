@@ -14,19 +14,20 @@ Ensure these environment variables are set in your Replit project (they should a
 Run this SQL in your Supabase SQL Editor to create the required table:
 
 ```sql
--- Create demand_scheduler_config table
+-- Create demand_scheduler_config table (singleton - only ONE row should ever exist)
 CREATE TABLE IF NOT EXISTS public.demand_scheduler_config (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id uuid PRIMARY KEY,
   start_time text NOT NULL, -- format 'HH:mm'
   frequency_hours integer NOT NULL CHECK (frequency_hours > 0),
   updated_at timestamp with time zone DEFAULT now(),
   updated_by uuid REFERENCES user_profiles(id)
 );
 
--- Insert default config (01:00 daily)
-INSERT INTO public.demand_scheduler_config (start_time, frequency_hours)
-VALUES ('01:00', 24)
-ON CONFLICT DO NOTHING;
+-- Insert the singleton config with a fixed ID (01:00 daily default)
+-- The app always uses this fixed ID for upserts
+INSERT INTO public.demand_scheduler_config (id, start_time, frequency_hours)
+VALUES ('00000000-0000-0000-0000-000000000001', '01:00', 24)
+ON CONFLICT (id) DO NOTHING;
 
 -- Grant access to authenticated users (admins will be checked in API)
 ALTER TABLE public.demand_scheduler_config ENABLE ROW LEVEL SECURITY;
@@ -43,6 +44,28 @@ CREATE POLICY "Allow service role full access"
   ON public.demand_scheduler_config
   FOR ALL
   USING (auth.role() = 'service_role');
+```
+
+### Cleanup: If you have duplicate rows
+
+If you already created the table and have multiple rows, run this to clean up:
+
+```sql
+-- Step 1: Delete all rows except keep the most recent one
+DELETE FROM demand_scheduler_config
+WHERE id NOT IN (
+  SELECT id FROM demand_scheduler_config 
+  ORDER BY updated_at DESC 
+  LIMIT 1
+);
+
+-- Step 2: Update the remaining row to use the singleton ID
+UPDATE demand_scheduler_config
+SET id = '00000000-0000-0000-0000-000000000001'
+WHERE id != '00000000-0000-0000-0000-000000000001';
+
+-- Verify: Should show exactly 1 row with the singleton ID
+SELECT * FROM demand_scheduler_config;
 ```
 
 ## 2. Database Function for Cron Update
