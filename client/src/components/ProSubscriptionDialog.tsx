@@ -221,19 +221,10 @@ export function ProSubscriptionDialog({
                           `}
                           data-testid={`button-tier-${tier.tier}`}
                         >
-                          {isLifetime && (
-                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-yellow-500 rounded-full">
-                              <span className="text-[10px] font-bold text-white uppercase">Best Value</span>
-                            </div>
-                          )}
-                          
                           <Icon className={`h-8 w-8 mb-2 ${style.color}`} />
                           <span className="font-bold text-sm text-foreground">{style.displayName}</span>
                           <span className="text-lg font-bold text-foreground mt-1">
                             {formatPrice(tier.subscriptionCost, tier.currency)}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground mt-1 text-center">
-                            {tier.description || (isLifetime ? 'One off - Best value' : tier.subscriptionDurationMonths === 1 ? 'Auto-renews monthly' : 'Auto-renews annually')}
                           </span>
                           
                           {isSelected && isProcessing && (
