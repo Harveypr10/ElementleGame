@@ -883,7 +883,7 @@ export function GameSelectionPage({
 
                 {/* Go Pro / Ads button - right side, only for authenticated users */}
                 {isAuthenticated && (
-                  <div className="absolute right-0 flex-shrink-0">
+                  <div className={`absolute flex-shrink-0 ${isPro ? 'right-2' : 'right-0'}`}>
                     {isPro ? (
                       <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
                     ) : (
@@ -933,7 +933,7 @@ export function GameSelectionPage({
             <div className="flex items-center pr-2 mb-2 justify-end">
               {/* Go Pro / Ads button - right side, only for authenticated users */}
               {isAuthenticated && (
-                <div className="flex-shrink-0">
+                <div className={`flex-shrink-0 ${isPro ? 'mr-2' : ''}`}>
                   {isPro ? (
                     <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
                   ) : (
