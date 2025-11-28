@@ -15,6 +15,7 @@ import {
   guessesUser,
   userStatsUser,
   adminSettings,
+  userTier,
   type UserProfile,
   type InsertUserProfile,
   type Puzzle,
@@ -47,6 +48,8 @@ import {
   type InsertAdminSetting,
   type DemandSchedulerConfig,
   type InsertDemandSchedulerConfig,
+  type UserTier,
+  type UserActiveTier,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, isNull, sql, notInArray } from "drizzle-orm";
@@ -84,6 +87,11 @@ export interface IStorage {
   // User profile operations
   getUserProfile(id: string): Promise<UserProfile | undefined>;
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+
+  // User tier operations (new subscription system)
+  getUserActiveTier(userId: string): Promise<UserActiveTier | undefined>;
+  getAvailableTiers(region: string): Promise<UserTier[]>;
+  createUserSubscription(subscription: { userId: string; userTierId: string; amountPaid?: number; currency?: string; expiresAt?: Date; autoRenew?: boolean; source?: string }): Promise<void>;
 
   // Puzzle operations (LEGACY - will be deprecated)
   getPuzzle(id: number): Promise<Puzzle | undefined>;
@@ -257,6 +265,93 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return profile;
+  }
+
+  // User tier operations (new subscription system)
+  async getUserActiveTier(userId: string): Promise<UserActiveTier | undefined> {
+    // Query the user_active_tier_view which resolves active subscription or falls back to standard tier
+    const result = await db.execute(sql`
+      SELECT 
+        user_id as "userId",
+        tier_id as "tierId",
+        tier,
+        region,
+        subscription_cost as "subscriptionCost",
+        currency,
+        subscription_duration_months as "subscriptionDurationMonths",
+        streak_savers as "streakSavers",
+        holiday_savers as "holidaySavers",
+        holiday_duration_days as "holidayDurationDays",
+        description,
+        expires_at as "expiresAt",
+        auto_renew as "autoRenew",
+        is_active as "isActive"
+      FROM user_active_tier_view
+      WHERE user_id = ${userId}
+    `);
+    
+    const rows = Array.isArray(result) ? result : (result as any).rows || [];
+    if (!rows || rows.length === 0) {
+      return undefined;
+    }
+    
+    const row = rows[0];
+    return {
+      userId: row.userId,
+      tierId: row.tierId,
+      tier: row.tier,
+      region: row.region,
+      subscriptionCost: row.subscriptionCost,
+      currency: row.currency,
+      subscriptionDurationMonths: row.subscriptionDurationMonths,
+      streakSavers: row.streakSavers || 0,
+      holidaySavers: row.holidaySavers || 0,
+      holidayDurationDays: row.holidayDurationDays || 0,
+      description: row.description,
+      expiresAt: row.expiresAt?.toISOString?.() || row.expiresAt,
+      autoRenew: row.autoRenew || false,
+      isActive: row.isActive || false,
+    };
+  }
+
+  async getAvailableTiers(region: string): Promise<UserTier[]> {
+    // Query available tiers for the given region, ordered by sort_order
+    const tiers = await db
+      .select()
+      .from(userTier)
+      .where(and(eq(userTier.region, region), eq(userTier.active, true)))
+      .orderBy(userTier.sortOrder);
+    
+    return tiers;
+  }
+
+  async createUserSubscription(subscription: { 
+    userId: string; 
+    userTierId: string; 
+    amountPaid?: number; 
+    currency?: string; 
+    expiresAt?: Date; 
+    autoRenew?: boolean; 
+    source?: string 
+  }): Promise<void> {
+    // Insert new subscription - Supabase trigger will sync user_profiles.tier and user_tier_id
+    await db.execute(sql`
+      INSERT INTO user_subscriptions (
+        id, user_id, user_tier_id, amount_paid, currency, expires_at, auto_renew, source, validity, effective_start_at
+      )
+      VALUES (
+        gen_random_uuid(),
+        ${subscription.userId},
+        ${subscription.userTierId},
+        ${subscription.amountPaid || null},
+        ${subscription.currency || null},
+        ${subscription.expiresAt || null},
+        ${subscription.autoRenew || false},
+        ${subscription.source || 'web'},
+        'active',
+        NOW()
+      )
+    `);
   }
 
   // Puzzle operations

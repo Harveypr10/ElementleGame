@@ -1,63 +1,75 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Check, Crown, Sparkles, Star } from 'lucide-react';
+import { ChevronLeft, Check, Crown, Sparkles, Star, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getSupabaseClient } from '@/lib/supabaseClient';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import signupHamsterGrey from '@assets/Signup-Hamster-Grey.svg';
-import type { ProTier } from '@shared/schema';
 
 interface ProSubscriptionDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (tier: ProTier) => void;
+  onSuccess: (tierName: string) => void;
   onLoginRequired?: () => void;
 }
 
-type TierOption = {
-  id: Exclude<ProTier, 'free'>;
-  name: string;
-  price: string;
-  period: string;
-  description: string;
-  icon: typeof Crown;
-  color: string;
-  bgColor: string;
-};
+// Tier data from user_tier table
+interface TierData {
+  id: string;
+  region: string;
+  tier: string;
+  subscriptionCost: number | null;
+  currency: string | null;
+  subscriptionDurationMonths: number | null;
+  streakSavers: number;
+  holidaySavers: number;
+  holidayDurationDays: number;
+  description: string | null;
+  sortOrder: number;
+}
 
-const tiers: TierOption[] = [
-  {
-    id: 'monthly',
-    name: 'Monthly',
-    price: '£0.79',
-    period: '',
-    description: 'Auto-renews monthly',
-    icon: Star,
-    color: 'text-amber-700',
-    bgColor: 'bg-amber-100 dark:bg-amber-900/30',
-  },
-  {
-    id: 'annual',
-    name: 'Annual',
-    price: '£6.99',
-    period: '',
-    description: 'Auto-renews annualy',
-    icon: Sparkles,
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-100 dark:bg-gray-800',
-  },
-  {
-    id: 'lifetime',
-    name: 'Lifetime*',
-    price: '£11.99',
-    period: '',
-    description: 'One off - Best value',
-    icon: Crown,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
-  },
-];
+// Helper to format price from smallest currency unit
+function formatPrice(amount: number | null, currency: string | null): string {
+  if (amount === null) return 'Free';
+  const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency || '';
+  return `${symbol}${(amount / 100).toFixed(2)}`;
+}
+
+// Get icon and styling based on tier type
+function getTierStyle(tierName: string) {
+  switch (tierName) {
+    case 'pro_monthly':
+      return { 
+        icon: Star, 
+        color: 'text-amber-700', 
+        bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+        displayName: 'Monthly'
+      };
+    case 'pro_annual':
+      return { 
+        icon: Sparkles, 
+        color: 'text-gray-500', 
+        bgColor: 'bg-gray-100 dark:bg-gray-800',
+        displayName: 'Annual'
+      };
+    case 'pro_lifetime':
+      return { 
+        icon: Crown, 
+        color: 'text-yellow-600', 
+        bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+        displayName: 'Lifetime*'
+      };
+    default:
+      return { 
+        icon: Star, 
+        color: 'text-gray-500', 
+        bgColor: 'bg-gray-100 dark:bg-gray-800',
+        displayName: tierName
+      };
+  }
+}
 
 export function ProSubscriptionDialog({
   isOpen,
@@ -65,12 +77,35 @@ export function ProSubscriptionDialog({
   onSuccess,
   onLoginRequired,
 }: ProSubscriptionDialogProps) {
-  const [selectedTier, setSelectedTier] = useState<TierOption | null>(null);
+  const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
 
-  const handlePurchase = async (tier: TierOption) => {
+  // Fetch available tiers from API
+  const { data: tiers, isLoading: tiersLoading } = useQuery<TierData[]>({
+    queryKey: ['/api/tiers'],
+    queryFn: async () => {
+      const supabase = await getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return [];
+
+      const response = await fetch('/api/tiers', {
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch tiers');
+      return response.json();
+    },
+    enabled: isOpen && isAuthenticated,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const handlePurchase = async (tier: TierData) => {
     if (!isAuthenticated) {
       if (onLoginRequired) {
         onLoginRequired();
@@ -84,11 +119,10 @@ export function ProSubscriptionDialog({
       return;
     }
 
-    setSelectedTier(tier);
+    setSelectedTierId(tier.id);
     setIsProcessing(true);
 
     try {
-      // Get auth session for API call
       const supabase = await getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -103,30 +137,31 @@ export function ProSubscriptionDialog({
           'Authorization': `Bearer ${session.access_token}`,
         },
         credentials: 'include',
-        body: JSON.stringify({ tier: tier.id }),
+        body: JSON.stringify({ tierId: tier.id }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create checkout session');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create subscription');
       }
 
-      const { url } = await response.json();
+      const result = await response.json();
       
-      if (url) {
-        window.location.href = url;
-      } else {
-        onSuccess(tier.id);
+      if (result.success) {
+        // Invalidate subscription query to refresh UI
+        queryClient.invalidateQueries({ queryKey: ['/api/subscription'] });
+        onSuccess(tier.tier);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Checkout error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to start checkout. Please try again.',
+        description: error.message || 'Failed to start checkout. Please try again.',
         variant: 'destructive',
       });
     } finally {
       setIsProcessing(false);
-      setSelectedTier(null);
+      setSelectedTierId(null);
     }
   };
 
@@ -161,49 +196,56 @@ export function ProSubscriptionDialog({
               </div>
 
               <div style={{ gap: 'clamp(0.75rem, 1.5vh, 1rem)' }} className="flex flex-col">
-                <div className="grid grid-cols-3 gap-2">
-                  {tiers.map((tier) => {
-                    const Icon = tier.icon;
-                    const isSelected = selectedTier?.id === tier.id;
-                    
-                    return (
-                      <button
-                        key={tier.id}
-                        onClick={() => handlePurchase(tier)}
-                        disabled={isProcessing}
-                        className={`
-                          relative flex flex-col items-center p-4 rounded-2xl transition-all
-                          ${isSelected ? 'ring-2 ring-primary/20' : ''}
-                          ${tier.bgColor}
-                          disabled:opacity-50 disabled:cursor-not-allowed
-                        `}
-                        data-testid={`button-tier-${tier.id}`}
-                      >
-                        {tier.id === 'gold' && (
-                          <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-yellow-500 rounded-full">
-                            <span className="text-[10px] font-bold text-white uppercase">Best Value</span>
-                          </div>
-                        )}
-                        
-                        <Icon className={`h-8 w-8 mb-2 ${tier.color}`} />
-                        <span className="font-bold text-sm text-foreground">{tier.name}</span>
-                        <span className="text-lg font-bold text-foreground mt-1">
-                          {tier.price}
-                          <span className="text-xs font-normal text-muted-foreground">{tier.period}</span>
-                        </span>
-                        <span className="text-[10px] text-muted-foreground mt-1 text-center">
-                          {tier.description}
-                        </span>
-                        
-                        {isSelected && isProcessing && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-2xl">
-                            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                {tiersLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {(tiers || []).map((tier) => {
+                      const style = getTierStyle(tier.tier);
+                      const Icon = style.icon;
+                      const isSelected = selectedTierId === tier.id;
+                      const isLifetime = tier.tier === 'pro_lifetime';
+                      
+                      return (
+                        <button
+                          key={tier.id}
+                          onClick={() => handlePurchase(tier)}
+                          disabled={isProcessing}
+                          className={`
+                            relative flex flex-col items-center p-4 rounded-2xl transition-all
+                            ${isSelected ? 'ring-2 ring-primary/20' : ''}
+                            ${style.bgColor}
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                          `}
+                          data-testid={`button-tier-${tier.tier}`}
+                        >
+                          {isLifetime && (
+                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-yellow-500 rounded-full">
+                              <span className="text-[10px] font-bold text-white uppercase">Best Value</span>
+                            </div>
+                          )}
+                          
+                          <Icon className={`h-8 w-8 mb-2 ${style.color}`} />
+                          <span className="font-bold text-sm text-foreground">{style.displayName}</span>
+                          <span className="text-lg font-bold text-foreground mt-1">
+                            {formatPrice(tier.subscriptionCost, tier.currency)}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground mt-1 text-center">
+                            {tier.description || (isLifetime ? 'One off - Best value' : tier.subscriptionDurationMonths === 1 ? 'Auto-renews monthly' : 'Auto-renews annually')}
+                          </span>
+                          
+                          {isSelected && isProcessing && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-2xl">
+                              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div style={{ gap: 'clamp(0.75rem, 1vh, 1rem)' }} className="flex flex-col items-center">

@@ -1,0 +1,92 @@
+Context (already implemented)
+Tables created and populated:
+
+user_tier
+
+Columns: id, region, tier, subscription_cost, currency, subscription_duration_months, streak_savers, holiday_savers, holiday_duration_days, created_at, updated_at, active, description, sort_order.
+
+Seeded rows for UK and US regions:
+
+UK: standard, pro_monthly, pro_annual, pro_lifetime
+
+US: standard, pro_monthly, pro_annual, pro_lifetime
+
+user_subscriptions
+
+Columns: id, user_id, created_at, amount_paid, currency, expires_at, payment_reference, source, effective_start_at, validity, user_tier_id (FK → user_tier.id), auto_renew.
+
+Constraint: uq_active_subscription_per_user ensures only one active subscription per user.
+
+Trigger: user_subscriptions_tier_sync calls sync_user_profile_tier() to keep user_profiles in sync.
+
+user_profiles
+
+Columns include tier (display string, default 'standard') and user_tier_id (FK → user_tier.id).
+
+Constraint updated: (region, tier) must exist in user_tier.
+
+Trigger sync_user_profile_tier() now updates both tier (display) and user_tier_id (canonical FK).
+
+Views created:
+
+user_active_tier_view
+
+Resolves the active subscription tier for each user, falling back to the region’s standard tier if none exists.
+
+Exposes canonical tier name and all metadata (cost, currency, streak savers, holiday savers, etc.).
+
+user_profiles_with_tier
+
+Joins user_profiles → user_tier via user_tier_id.
+
+Exposes both display tier and canonical tier metadata for direct UI/analytics queries.
+
+🔧 Required Changes
+1. Tier Lookup Logic
+Replace all existing tier checks (previously using user_profiles.tier or user_subscriptions.tier) with queries against:
+
+user_active_tier_view for subscription‑driven logic (e.g. streak saver allowances, holiday entitlements).
+
+user_profiles_with_tier for profile‑driven UI rendering and analytics.
+
+2. Backend Functions
+Implement a helper getUserTier(user_id) that:
+
+Queries user_active_tier_view for the given user.
+
+Returns the canonical tier and all metadata fields (streak_savers, holiday_savers, holiday_duration_days, subscription_cost, etc.).
+
+Handles fallback to standard tier automatically (via the view).
+
+Update all backend logic (streak handling, subscription enforcement, entitlement checks) to call getUserTier() instead of reading tier strings directly.
+
+3. Subscription UI
+Populate available tiers from user_tier where active = true, ordered by sort_order.
+
+Display description, subscription_cost, currency, and subscription_duration_months.
+
+On selection:
+
+Insert into user_subscriptions with user_tier_id pointing to the chosen tier.
+
+Set auto_renew = true for monthly/annual tiers, false for lifetime tiers.
+
+Trigger will automatically sync user_profiles.tier and user_profiles.user_tier_id.
+
+4. Profile Sync
+Keep user_profiles.tier as a display string only.
+
+Ensure sync_user_profile_tier() continues to update both tier and user_tier_id correctly.
+
+All canonical logic should use user_tier_id and the views.
+
+✅ Deliverables
+Implement getUserTier(user_id) backend helper using user_active_tier_view.
+
+Update all tier checks in backend logic to use this helper.
+
+Update subscription UI to list tiers from user_tier and insert user_tier_id into user_subscriptions.
+
+Confirm user_profiles.tier remains display‑only, synced by trigger.
+
+Ensure game continues to function exactly as before, but now with tier metadata driven by user_tier.

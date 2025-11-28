@@ -33,9 +33,49 @@ export const insertPostcodeSchema = createInsertSchema(postcodes).omit({
 export type InsertPostcode = z.infer<typeof insertPostcodeSchema>;
 export type Postcode = typeof postcodes.$inferSelect;
 
-// Pro Subscription tiers
-export const ProTierEnum = z.enum(['free', 'bronze', 'silver', 'gold']);
+// Pro Subscription tiers (legacy enum kept for backward compatibility)
+export const ProTierEnum = z.enum(['free', 'bronze', 'silver', 'gold', 'standard', 'pro_monthly', 'pro_annual', 'pro_lifetime']);
 export type ProTier = z.infer<typeof ProTierEnum>;
+
+// User Tier table - defines available subscription tiers per region
+// This table is managed in Supabase and defines tier metadata
+export const userTier = pgTable("user_tier", {
+  id: uuid("id").primaryKey(),
+  region: text("region").notNull(), // e.g., 'UK', 'US'
+  tier: text("tier").notNull(), // e.g., 'standard', 'pro_monthly', 'pro_annual', 'pro_lifetime'
+  subscriptionCost: integer("subscription_cost"), // Cost in smallest currency unit (pence/cents)
+  currency: text("currency"), // e.g., 'GBP', 'USD'
+  subscriptionDurationMonths: integer("subscription_duration_months"), // null for lifetime
+  streakSavers: integer("streak_savers").default(0),
+  holidaySavers: integer("holiday_savers").default(0),
+  holidayDurationDays: integer("holiday_duration_days").default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  active: boolean("active").default(true),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+});
+
+export type UserTier = typeof userTier.$inferSelect;
+export type InsertUserTier = typeof userTier.$inferInsert;
+
+// Type for user_active_tier_view (Supabase view that resolves active subscription)
+export interface UserActiveTier {
+  userId: string;
+  tierId: string;
+  tier: string; // canonical tier name (e.g., 'standard', 'pro_monthly')
+  region: string;
+  subscriptionCost: number | null;
+  currency: string | null;
+  subscriptionDurationMonths: number | null;
+  streakSavers: number;
+  holidaySavers: number;
+  holidayDurationDays: number;
+  description: string | null;
+  expiresAt: string | null;
+  autoRenew: boolean;
+  isActive: boolean;
+}
 
 // User profiles table - extends Supabase Auth users
 // References auth.users(id) from Supabase Auth
@@ -88,35 +128,26 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles)
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
 
-// User Pro Subscriptions table - stores user subscription information
-// Note: This table needs to be created in Supabase SQL editor
-// CREATE TABLE user_subscriptions (
-//   id SERIAL PRIMARY KEY,
-//   user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL UNIQUE,
-//   tier VARCHAR(20) DEFAULT 'free' NOT NULL,
-//   is_active BOOLEAN DEFAULT false NOT NULL,
-//   expires_at TIMESTAMP WITH TIME ZONE,
-//   stripe_customer_id VARCHAR(255),
-//   stripe_subscription_id VARCHAR(255),
-//   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-//   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-// );
+// User Subscriptions table - stores active user subscriptions
+// References user_tier for tier metadata, managed by Supabase triggers
 export const userSubscriptions = pgTable("user_subscriptions", {
-  id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().unique().references(() => userProfiles.id, { onDelete: "cascade" }),
-  tier: varchar("tier", { length: 20 }).default("free").notNull(),
-  isActive: boolean("is_active").default(false).notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
-  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
-  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }),
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  userTierId: uuid("user_tier_id").notNull().references(() => userTier.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  amountPaid: integer("amount_paid"), // Amount in smallest currency unit
+  currency: text("currency"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  paymentReference: text("payment_reference"),
+  source: text("source"), // e.g., 'stripe', 'apple', 'google'
+  effectiveStartAt: timestamp("effective_start_at", { withTimezone: true }).defaultNow(),
+  validity: text("validity").default("active"), // 'active', 'expired', 'cancelled'
+  autoRenew: boolean("auto_renew").default(false),
 });
 
 export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({
   id: true,
   createdAt: true,
-  updatedAt: true,
 });
 
 export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
