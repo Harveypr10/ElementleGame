@@ -136,6 +136,15 @@ export function PlayPage({
   const [digitsCheckComplete, setDigitsCheckComplete] = useState(false);
   const [showIntroScreen, setShowIntroScreen] = useState(false);
   const [introScreenReady, setIntroScreenReady] = useState(false);
+  
+  // Ref to always have the latest puzzleId (prevents stale closure issues)
+  const puzzleIdRef = useRef<number | undefined>(puzzleId);
+  useEffect(() => {
+    puzzleIdRef.current = puzzleId;
+  }, [puzzleId]);
+  
+  // Queue for pending guesses that failed to save (for retry)
+  const pendingGuessesRef = useRef<Array<{ attemptId: number; guess: GuessRecord }>>([]);
 
   // Use locked digits if available, otherwise use user's current preference
   const activeNumDigits = lockedDigits ? parseInt(lockedDigits) : numDigits;
@@ -725,14 +734,27 @@ export function PlayPage({
     }
     
     // For authenticated users: progressive database saving
+    // Use ref to get latest puzzleId (handles race conditions where prop isn't set yet)
     let attemptId: number | null = null;
-    if (isAuthenticated && puzzleId) {
-      // Create or get game attempt on first guess
+    const currentPuzzleId = puzzleIdRef.current;
+    
+    if (isAuthenticated) {
+      if (!currentPuzzleId) {
+        console.warn('[handleSubmit] puzzleId is undefined for authenticated user - will retry in createOrGetGameAttempt');
+      }
+      
+      // Create or get game attempt on first guess (includes retry logic for missing puzzleId)
       attemptId = await createOrGetGameAttempt();
       
       // Save this guess to database (using canonical format)
       if (attemptId) {
         await saveGuessToDatabase(attemptId, dbGuess);
+      } else {
+        console.error('[handleSubmit] CRITICAL: Could not create/get game attempt. Guess NOT saved to database!', {
+          puzzleId: currentPuzzleId,
+          isLocalMode,
+          guessValue: dbGuess.guessValue
+        });
       }
     }
 
@@ -767,6 +789,14 @@ export function PlayPage({
             }
           }
         }
+      } else if (isAuthenticated && !attemptId) {
+        // CRITICAL: Authenticated user won but we couldn't save to database!
+        console.error('[handleSubmit] CRITICAL: Game WON but could not save to database!', {
+          puzzleId: puzzleIdRef.current,
+          numGuesses: newGuesses.length,
+          isLocalMode
+        });
+        // Still show celebration locally even though DB save failed
       } else if (!isAuthenticated) {
         // Guest user: use localStorage stats
         await updateStats(true, newGuesses.length, newGuessRecords);
@@ -804,6 +834,13 @@ export function PlayPage({
       if (isAuthenticated && attemptId) {
         // Complete game attempt and recalculate stats from database (use attemptId, not state)
         await completeGameAttempt(attemptId, false, newGuesses.length);
+      } else if (isAuthenticated && !attemptId) {
+        // CRITICAL: Authenticated user lost but we couldn't save to database!
+        console.error('[handleSubmit] CRITICAL: Game LOST but could not save to database!', {
+          puzzleId: puzzleIdRef.current,
+          numGuesses: newGuesses.length,
+          isLocalMode
+        });
       } else if (!isAuthenticated) {
         // Guest user: use localStorage stats
         await updateStats(false, newGuesses.length, newGuessRecords);
@@ -866,9 +903,33 @@ export function PlayPage({
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [handleKeyPress]);
 
-  const createOrGetGameAttempt = async (): Promise<number | null> => {
-    if (!isAuthenticated || !puzzleId) {
-      console.log('[createOrGetGameAttempt] Not authenticated or missing puzzleId', { isAuthenticated, puzzleId });
+  const createOrGetGameAttempt = async (retryCount = 0): Promise<number | null> => {
+    // Use ref to get the LATEST puzzleId (prevents stale closure issues)
+    const currentPuzzleId = puzzleIdRef.current;
+    
+    if (!isAuthenticated) {
+      console.log('[createOrGetGameAttempt] Not authenticated, skipping database save');
+      return null;
+    }
+    
+    if (!currentPuzzleId) {
+      console.warn('[createOrGetGameAttempt] CRITICAL: puzzleId is undefined for authenticated user!', {
+        puzzleIdFromRef: puzzleIdRef.current,
+        puzzleIdFromProps: puzzleId,
+        isLocalMode,
+        retryCount
+      });
+      
+      // Retry up to 3 times with exponential backoff if puzzleId is missing
+      // This handles race conditions where puzzle data hasn't loaded yet
+      if (retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 500; // 500ms, 1s, 2s
+        console.log(`[createOrGetGameAttempt] Retrying in ${delay}ms (attempt ${retryCount + 1}/3)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return createOrGetGameAttempt(retryCount + 1);
+      }
+      
+      console.error('[createOrGetGameAttempt] FAILED: puzzleId still undefined after 3 retries. Game data will NOT be saved!');
       return null;
     }
 
@@ -879,20 +940,15 @@ export function PlayPage({
     }
 
     try {
-      console.log('[createOrGetGameAttempt] POSTing to find or create attempt for puzzleId:', puzzleId);
+      console.log('[createOrGetGameAttempt] POSTing to find or create attempt for puzzleId:', currentPuzzleId);
       
       // POST to mode-aware endpoint - server will find existing open attempt or create new one
       const endpoint = isLocalMode ? "/api/user/game-attempts" : "/api/game-attempts";
       const res = await apiRequest("POST", endpoint, {
-        puzzleId,
+        puzzleId: currentPuzzleId,
         result: null,
         numGuesses: 0
       });
-      
-      if (!res.ok) {
-        console.error('[createOrGetGameAttempt] Failed to create/get attempt:', res.status, res.statusText);
-        return null;
-      }
       
       const gameAttempt = await res.json();
       console.log('[createOrGetGameAttempt] Got attemptId:', gameAttempt.id, 'numGuesses:', gameAttempt.numGuesses);
@@ -901,18 +957,29 @@ export function PlayPage({
       return gameAttempt.id;
     } catch (error) {
       console.error("[createOrGetGameAttempt] Error:", error);
+      
+      // Retry on network/server errors (up to 2 additional attempts)
+      if (retryCount < 2) {
+        const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s
+        console.log(`[createOrGetGameAttempt] Network error, retrying in ${delay}ms (attempt ${retryCount + 1}/2)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return createOrGetGameAttempt(retryCount + 1);
+      }
+      
+      console.error('[createOrGetGameAttempt] FAILED after retries. Game data may not be saved!');
       return null;
     }
   };
 
-  const saveGuessToDatabase = async (gameAttemptId: number, guess: GuessRecord) => {
-    if (!isAuthenticated) return;
+  const saveGuessToDatabase = async (gameAttemptId: number, guess: GuessRecord, retryCount = 0): Promise<boolean> => {
+    if (!isAuthenticated) return false;
 
     try {
       console.log('[saveGuessToDatabase] Saving guess:', {
         gameAttemptId,
         guessValue: guess.guessValue,
-        feedbackLength: guess.feedbackResult.length
+        feedbackLength: guess.feedbackResult.length,
+        retryCount
       });
       
       const endpoint = isLocalMode ? "/api/user/guesses" : "/api/guesses";
@@ -922,17 +989,24 @@ export function PlayPage({
         feedbackResult: guess.feedbackResult
       });
       
-      if (!res.ok) {
-        console.error('[saveGuessToDatabase] Failed to save guess:', res.status, res.statusText);
-        const errorText = await res.text();
-        console.error('[saveGuessToDatabase] Error response:', errorText);
-        return;
-      }
-      
       const savedGuess = await res.json();
       console.log('[saveGuessToDatabase] Guess saved successfully:', savedGuess.id);
+      return true;
     } catch (error) {
       console.error("[saveGuessToDatabase] Error:", error);
+      
+      // Retry on network/server errors (up to 2 additional attempts)
+      if (retryCount < 2) {
+        const delay = Math.pow(2, retryCount) * 500; // 500ms, 1s
+        console.log(`[saveGuessToDatabase] Retrying in ${delay}ms (attempt ${retryCount + 1}/2)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return saveGuessToDatabase(gameAttemptId, guess, retryCount + 1);
+      }
+      
+      // Queue for later retry if all attempts fail
+      console.error('[saveGuessToDatabase] FAILED after retries. Queuing for later retry.');
+      pendingGuessesRef.current.push({ attemptId: gameAttemptId, guess });
+      return false;
     }
   };
 
