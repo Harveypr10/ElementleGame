@@ -6,16 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import signupHamsterGrey from '@assets/Signup-Hamster-Grey.svg';
 
 interface ProSubscriptionDialogProps {
@@ -117,7 +107,10 @@ export function ProSubscriptionDialog({
   });
 
   const handleTierClick = (tier: TierData) => {
+    console.log('[ProSubscriptionDialog] Tier clicked:', tier.tier, tier.id);
+    
     if (!isAuthenticated) {
+      console.log('[ProSubscriptionDialog] User not authenticated');
       if (onLoginRequired) {
         onLoginRequired();
       } else {
@@ -130,6 +123,7 @@ export function ProSubscriptionDialog({
       return;
     }
 
+    console.log('[ProSubscriptionDialog] Setting selectedTier and showing confirm dialog');
     setSelectedTier(tier);
     setShowConfirmDialog(true);
   };
@@ -289,37 +283,40 @@ export function ProSubscriptionDialog({
       )}
     </AnimatePresence>
 
-    <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-      <AlertDialogContent data-testid="confirm-subscription-dialog">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Confirm Subscription</AlertDialogTitle>
-          <AlertDialogDescription>
-            {selectedTier && (
-              <>
-                You are about to subscribe to <strong>{getTierStyle(selectedTier.tier).displayName}</strong> for{' '}
-                <strong>{formatPrice(selectedTier.subscriptionCost, selectedTier.currency)}</strong>.
-                <br /><br />
-                Do you want to continue?
-              </>
-            )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel 
-            onClick={() => setSelectedTier(null)}
-            data-testid="button-cancel-subscription"
-          >
-            Cancel
-          </AlertDialogCancel>
-          <AlertDialogAction 
-            onClick={handleConfirmSubscription}
-            data-testid="button-confirm-subscription"
-          >
-            Yes
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    {showConfirmDialog && selectedTier && (
+      <div 
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80"
+        data-testid="confirm-subscription-dialog"
+      >
+        <div className="bg-background border rounded-lg p-6 max-w-sm mx-4 shadow-lg">
+          <h2 className="text-lg font-semibold mb-2">Confirm Subscription</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            You are about to subscribe to <strong>{getTierStyle(selectedTier.tier).displayName}</strong> for{' '}
+            <strong>{formatPrice(selectedTier.subscriptionCost, selectedTier.currency)}</strong>.
+            <br /><br />
+            Do you want to continue?
+          </p>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => {
+                setShowConfirmDialog(false);
+                setSelectedTier(null);
+              }}
+              data-testid="button-cancel-subscription"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmSubscription}
+              data-testid="button-confirm-subscription"
+            >
+              Yes
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
