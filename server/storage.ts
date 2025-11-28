@@ -774,9 +774,22 @@ export class DatabaseStorage implements IStorage {
             updated_by = ${config.updated_by || null}
         WHERE id = ${existing.id}
         RETURNING id, start_time, frequency_hours, updated_at, updated_by
-      `) as unknown as { rows: any[] };
+      `);
       
-      const row = result.rows[0];
+      // Handle different result formats from drizzle execute
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      console.log('[DemandScheduler] Update result rows:', JSON.stringify(rows));
+      
+      if (!rows || rows.length === 0) {
+        // Fallback: return the updated config by fetching it
+        const updated = await this.getDemandSchedulerConfig();
+        if (!updated) {
+          throw new Error('Failed to update demand scheduler config');
+        }
+        return updated;
+      }
+      
+      const row = rows[0];
       return {
         id: row.id,
         start_time: row.start_time,
@@ -790,9 +803,22 @@ export class DatabaseStorage implements IStorage {
         INSERT INTO demand_scheduler_config (start_time, frequency_hours, updated_by)
         VALUES (${config.start_time}, ${config.frequency_hours}, ${config.updated_by || null})
         RETURNING id, start_time, frequency_hours, updated_at, updated_by
-      `) as unknown as { rows: any[] };
+      `);
       
-      const row = result.rows[0];
+      // Handle different result formats from drizzle execute
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      console.log('[DemandScheduler] Insert result rows:', JSON.stringify(rows));
+      
+      if (!rows || rows.length === 0) {
+        // Fallback: return the inserted config by fetching it
+        const inserted = await this.getDemandSchedulerConfig();
+        if (!inserted) {
+          throw new Error('Failed to insert demand scheduler config');
+        }
+        return inserted;
+      }
+      
+      const row = rows[0];
       return {
         id: row.id,
         start_time: row.start_time,
