@@ -6,6 +6,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import signupHamsterGrey from '@assets/Signup-Hamster-Grey.svg';
 
 interface ProSubscriptionDialogProps {
@@ -77,7 +87,8 @@ export function ProSubscriptionDialog({
   onSuccess,
   onLoginRequired,
 }: ProSubscriptionDialogProps) {
-  const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
+  const [selectedTier, setSelectedTier] = useState<TierData | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
@@ -105,7 +116,7 @@ export function ProSubscriptionDialog({
     staleTime: 5 * 60 * 1000,
   });
 
-  const handlePurchase = async (tier: TierData) => {
+  const handleTierClick = (tier: TierData) => {
     if (!isAuthenticated) {
       if (onLoginRequired) {
         onLoginRequired();
@@ -119,8 +130,15 @@ export function ProSubscriptionDialog({
       return;
     }
 
-    setSelectedTierId(tier.id);
+    setSelectedTier(tier);
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmSubscription = async () => {
+    if (!selectedTier) return;
+    
     setIsProcessing(true);
+    setShowConfirmDialog(false);
 
     try {
       const supabase = await getSupabaseClient();
@@ -137,7 +155,7 @@ export function ProSubscriptionDialog({
           'Authorization': `Bearer ${session.access_token}`,
         },
         credentials: 'include',
-        body: JSON.stringify({ tierId: tier.id }),
+        body: JSON.stringify({ tierId: selectedTier.id }),
       });
 
       if (!response.ok) {
@@ -150,18 +168,22 @@ export function ProSubscriptionDialog({
       if (result.success) {
         // Invalidate subscription query to refresh UI
         queryClient.invalidateQueries({ queryKey: ['/api/subscription'] });
-        onSuccess(tier.tier);
+        toast({
+          title: 'Success!',
+          description: 'Your subscription has been activated.',
+        });
+        onSuccess(selectedTier.tier);
       }
     } catch (error: any) {
-      console.error('Checkout error:', error);
+      console.error('Subscription error:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to start checkout. Please try again.',
+        description: error.message || 'Failed to create subscription. Please try again.',
         variant: 'destructive',
       });
     } finally {
       setIsProcessing(false);
-      setSelectedTierId(null);
+      setSelectedTier(null);
     }
   };
 
@@ -205,13 +227,12 @@ export function ProSubscriptionDialog({
                     {(tiers || []).map((tier) => {
                       const style = getTierStyle(tier.tier);
                       const Icon = style.icon;
-                      const isSelected = selectedTierId === tier.id;
-                      const isLifetime = tier.tier === 'pro_lifetime';
+                      const isSelected = selectedTier?.id === tier.id;
                       
                       return (
                         <button
                           key={tier.id}
-                          onClick={() => handlePurchase(tier)}
+                          onClick={() => handleTierClick(tier)}
                           disabled={isProcessing}
                           className={`
                             relative flex flex-col items-center p-4 rounded-2xl transition-all
@@ -264,6 +285,38 @@ export function ProSubscriptionDialog({
           </div>
         </motion.div>
       )}
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent data-testid="confirm-subscription-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Subscription</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedTier && (
+                <>
+                  You are about to subscribe to <strong>{getTierStyle(selectedTier.tier).displayName}</strong> for{' '}
+                  <strong>{formatPrice(selectedTier.subscriptionCost, selectedTier.currency)}</strong>.
+                  <br /><br />
+                  Do you want to continue?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => setSelectedTier(null)}
+              data-testid="button-cancel-subscription"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmSubscription}
+              data-testid="button-confirm-subscription"
+            >
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AnimatePresence>
   );
 }
