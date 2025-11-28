@@ -502,3 +502,29 @@ export const insertAdminSettingSchema = createInsertSchema(adminSettings).omit({
 
 export type InsertAdminSetting = z.infer<typeof insertAdminSettingSchema>;
 export type AdminSetting = typeof adminSettings.$inferSelect;
+
+// Demand Scheduler Config - stored in Supabase (not via Drizzle)
+// This table must be created in Supabase SQL editor:
+// create table public.demand_scheduler_config (
+//   id uuid primary key default gen_random_uuid(),
+//   start_time text not null, -- format 'HH:mm'
+//   frequency_hours integer not null check (frequency_hours > 0),
+//   updated_at timestamp with time zone default now(),
+//   updated_by uuid references user_profiles(id)
+// );
+export const demandSchedulerConfigSchema = z.object({
+  id: z.string().uuid(),
+  start_time: z.string().regex(/^\d{2}:\d{2}$/, "Must be in HH:mm format"),
+  frequency_hours: z.number().int().positive(),
+  updated_at: z.string().optional(),
+  updated_by: z.string().uuid().optional().nullable(),
+});
+
+export type DemandSchedulerConfig = z.infer<typeof demandSchedulerConfigSchema>;
+
+export const insertDemandSchedulerConfigSchema = demandSchedulerConfigSchema.omit({
+  id: true,
+  updated_at: true,
+});
+
+export type InsertDemandSchedulerConfig = z.infer<typeof insertDemandSchedulerConfigSchema>;

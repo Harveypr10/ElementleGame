@@ -45,6 +45,8 @@ import {
   type InsertUserStatsUser,
   type AdminSetting,
   type InsertAdminSetting,
+  type DemandSchedulerConfig,
+  type InsertDemandSchedulerConfig,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, isNull, sql, notInArray } from "drizzle-orm";
@@ -123,6 +125,10 @@ export interface IStorage {
   getAdminSettings(): Promise<AdminSetting[]>;
   getAdminSetting(key: string): Promise<AdminSetting | undefined>;
   upsertAdminSetting(setting: InsertAdminSetting): Promise<AdminSetting>;
+
+  // Demand scheduler config operations
+  getDemandSchedulerConfig(): Promise<DemandSchedulerConfig | undefined>;
+  upsertDemandSchedulerConfig(config: InsertDemandSchedulerConfig & { updated_by?: string }): Promise<DemandSchedulerConfig>;
 
   // ========================================================================
   // REGION GAME MODE OPERATIONS
@@ -729,6 +735,71 @@ export class DatabaseStorage implements IStorage {
         })
         .returning();
       return created;
+    }
+  }
+
+  // Demand scheduler config operations (uses raw SQL as table is in Supabase)
+  async getDemandSchedulerConfig(): Promise<DemandSchedulerConfig | undefined> {
+    const result = await db.execute(sql`
+      SELECT id, start_time, frequency_hours, updated_at, updated_by
+      FROM demand_scheduler_config
+      LIMIT 1
+    `);
+    
+    if (result.rows.length === 0) {
+      return undefined;
+    }
+    
+    const row = result.rows[0] as any;
+    return {
+      id: row.id,
+      start_time: row.start_time,
+      frequency_hours: row.frequency_hours,
+      updated_at: row.updated_at?.toISOString?.() || row.updated_at,
+      updated_by: row.updated_by,
+    };
+  }
+
+  async upsertDemandSchedulerConfig(config: InsertDemandSchedulerConfig & { updated_by?: string }): Promise<DemandSchedulerConfig> {
+    // Check if a config already exists
+    const existing = await this.getDemandSchedulerConfig();
+    
+    if (existing) {
+      // Update existing config
+      const result = await db.execute(sql`
+        UPDATE demand_scheduler_config
+        SET start_time = ${config.start_time},
+            frequency_hours = ${config.frequency_hours},
+            updated_at = NOW(),
+            updated_by = ${config.updated_by || null}
+        WHERE id = ${existing.id}
+        RETURNING id, start_time, frequency_hours, updated_at, updated_by
+      `);
+      
+      const row = result.rows[0] as any;
+      return {
+        id: row.id,
+        start_time: row.start_time,
+        frequency_hours: row.frequency_hours,
+        updated_at: row.updated_at?.toISOString?.() || row.updated_at,
+        updated_by: row.updated_by,
+      };
+    } else {
+      // Insert new config
+      const result = await db.execute(sql`
+        INSERT INTO demand_scheduler_config (start_time, frequency_hours, updated_by)
+        VALUES (${config.start_time}, ${config.frequency_hours}, ${config.updated_by || null})
+        RETURNING id, start_time, frequency_hours, updated_at, updated_by
+      `);
+      
+      const row = result.rows[0] as any;
+      return {
+        id: row.id,
+        start_time: row.start_time,
+        frequency_hours: row.frequency_hours,
+        updated_at: row.updated_at?.toISOString?.() || row.updated_at,
+        updated_by: row.updated_by,
+      };
     }
   }
 
