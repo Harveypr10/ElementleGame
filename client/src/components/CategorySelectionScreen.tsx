@@ -154,8 +154,7 @@ export function CategorySelectionScreen({
       if (!supabaseUrl) {
         console.warn('[CategorySelectionScreen] Supabase URL not available; skipping reset-and-reallocate-user');
       } else {
-        // Correct Supabase edge function URL format: https://<project-ref>.supabase.co/functions/v1/<function-name>
-        const functionBaseUrl = `${supabaseUrl}/functions/v1`;
+        const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
         console.log('[CategorySelectionScreen] Function base URL:', functionBaseUrl);
         
         if (user?.id) {

@@ -201,8 +201,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           if (!supabaseUrl) {
             console.warn('[AccountInfoPage] Supabase URL not available; skipping reset-and-reallocate-user');
           } else {
-            // Correct Supabase edge function URL format: https://<project-ref>.supabase.co/functions/v1/<function-name>
-            const functionBaseUrl = `${supabaseUrl}/functions/v1`;
+            const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
             console.log('[AccountInfoPage] Function base URL:', functionBaseUrl);
             
             try {
