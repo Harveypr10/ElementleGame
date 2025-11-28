@@ -1387,6 +1387,52 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Update auto-renewal setting for subscription
+  app.post("/api/subscription/auto-renew", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { autoRenew } = req.body;
+
+      console.log('[subscription/auto-renew] Updating for userId:', userId, 'autoRenew:', autoRenew);
+
+      if (typeof autoRenew !== 'boolean') {
+        return res.status(400).json({ error: "autoRenew must be a boolean" });
+      }
+
+      // Update the user's active subscription auto_renew flag
+      try {
+        const result = await db.execute(sql`
+          UPDATE user_subscriptions 
+          SET auto_renew = ${autoRenew}
+          WHERE user_id = ${userId}
+            AND is_active = true
+            AND (expires_at IS NULL OR expires_at > NOW())
+          RETURNING id, auto_renew
+        `);
+
+        const rows = Array.isArray(result) ? result : (result as any).rows || [];
+        
+        if (!rows || rows.length === 0) {
+          // Try to update in user_active_tier_view directly (fallback)
+          console.log('[subscription/auto-renew] No active subscription found, checking for legacy');
+          return res.status(404).json({ error: "No active subscription found" });
+        }
+
+        console.log('[subscription/auto-renew] Updated successfully:', rows[0]);
+        res.json({ success: true, autoRenew: rows[0].auto_renew });
+      } catch (tableError: any) {
+        if (tableError?.code === '42P01' || tableError?.message?.includes('does not exist')) {
+          console.log('[subscription/auto-renew] user_subscriptions table not available');
+          return res.status(404).json({ error: "Subscription system not available" });
+        }
+        throw tableError;
+      }
+    } catch (error: any) {
+      console.error("Error updating auto-renew:", error);
+      res.status(500).json({ error: "Failed to update auto-renewal", details: error.message });
+    }
+  });
+
   // ============================================================================
   // STREAK SAVER & HOLIDAY ROUTES
   // ============================================================================

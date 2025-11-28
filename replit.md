@@ -38,6 +38,12 @@ Preferred communication style: Simple, everyday language.
 - **Admin Panel**: Admin-only page for configuring postcode change restrictions and demand scheduler cron jobs.
 - **Streak Saver System**: Allows users to protect their streaks when missing a day, with tier-based allowances, backend storage, and a `StreakSaverPopup` UI.
 - **Holiday Protection System**: Pro-only feature to pause Local mode puzzles without losing streaks, managed via API endpoints and displaying a blocking overlay on `PlayPage`.
+- **Subscription Management**: Dedicated screens for Pro and Standard users to view subscription details and allowances.
+  - **ManageSubscriptionPage**: Full-screen page showing subscription tier, renewal date (for non-lifetime), streak saver/holiday allowances with usage tracking, and auto-renewal toggle for Pro users.
+  - **Pro User Flow**: Settings menu "Pro - Manage your subscription" button navigates to ManageSubscriptionPage showing tier name (Pro - Monthly/Annual/Lifetime), renewal date, allowances remaining, and auto-renewal toggle.
+  - **Standard User Flow**: Settings menu shows "Go Pro" button plus "Streak Saver" menu item below it. Both navigate to ManageSubscriptionPage showing Standard tier view with current allowances (1 streak saver, 0 holidays) and "Go Pro to increase your allowances" upgrade button.
+  - **Auto-Renewal Toggle**: Pro users can toggle auto-renewal on/off. Turning off shows warning popup listing all Pro benefits that will be lost (ad-free, custom categories, streak savers, holidays, personal mode).
+  - **API Endpoint**: `POST /api/subscription/auto-renew` updates `auto_renew` flag in `user_subscriptions` table.
 
 ## External Dependencies
 

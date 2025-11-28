@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Bug, MessageSquare, Info, Lock, FileText, LogOut, Crown, Grid, Shield } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, Settings as SettingsIcon, Bug, MessageSquare, Info, Lock, FileText, LogOut, Crown, Grid, Shield, Flame } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useLocation } from "wouter";
@@ -15,6 +15,7 @@ import { CategorySelectionScreen } from "@/components/CategorySelectionScreen";
 import { GuestRestrictionPopup } from "@/components/GuestRestrictionPopup";
 import { useAdBannerActive } from "@/components/AdBanner";
 import { AdminPage } from "@/components/AdminPage";
+import { ManageSubscriptionPage } from "@/components/ManageSubscriptionPage";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -42,6 +43,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const [showGuestRestriction, setShowGuestRestriction] = useState(false);
   const [showGuestRestrictionPro, setShowGuestRestrictionPro] = useState(false);
   const [showAdminPage, setShowAdminPage] = useState(false);
+  const [showManageSubscription, setShowManageSubscription] = useState(false);
   
   const isAdmin = profile?.isAdmin === true;
   
@@ -54,7 +56,11 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       sublabel: !isPro ? "Remove ads & customize categories" : null,
       onClick: () => {
         if (isAuthenticated && user) {
-          setShowProDialog(true);
+          if (isPro) {
+            setShowManageSubscription(true);
+          } else {
+            setShowProDialog(true);
+          }
         } else {
           setShowGuestRestrictionPro(true);
         }
@@ -72,6 +78,16 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       testId: "button-select-categories",
       highlight: false,
       proItem: true,
+    }] : []),
+    ...(!isPro && isAuthenticated ? [{
+      icon: Flame,
+      label: "Streak Saver",
+      inlineLabel: null,
+      sublabel: null,
+      onClick: () => setShowManageSubscription(true),
+      testId: "button-streak-saver",
+      highlight: false,
+      proItem: false,
     }] : []),
   ];
   
@@ -164,6 +180,19 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   // Show AdminPage if selected
   if (showAdminPage) {
     return <AdminPage onBack={() => setShowAdminPage(false)} />;
+  }
+
+  // Show ManageSubscriptionPage if selected
+  if (showManageSubscription) {
+    return (
+      <ManageSubscriptionPage 
+        onBack={() => setShowManageSubscription(false)}
+        onGoProClick={() => {
+          setShowManageSubscription(false);
+          setShowProDialog(true);
+        }}
+      />
+    );
   }
 
   return (
