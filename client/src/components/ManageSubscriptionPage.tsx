@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -60,19 +60,9 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [autoRenew, setAutoRenew] = useState<boolean | null>(null);
+  const [autoRenew, setAutoRenew] = useState(subscription?.autoRenew ?? true);
   const [showCancelWarning, setShowCancelWarning] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-
-  // Sync local autoRenew state with subscription data when it loads/changes
-  useEffect(() => {
-    if (subscription?.autoRenew !== undefined) {
-      setAutoRenew(subscription.autoRenew);
-    }
-  }, [subscription?.autoRenew]);
-
-  // Display value - use subscription value if local state not yet set
-  const displayAutoRenew = autoRenew ?? subscription?.autoRenew ?? true;
 
   const handleAutoRenewToggle = async (newValue: boolean) => {
     if (!newValue) {
@@ -94,21 +84,21 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     try {
       const response = await apiRequest("POST", "/api/subscription/auto-renew", { autoRenew: value });
       if (!response.ok) {
-        throw new Error("Failed to update auto-renew");
+        throw new Error("Failed to update auto-renewal");
       }
       queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
       toast({
-        title: value ? "Auto-renew enabled" : "Auto-renew disabled",
+        title: value ? "Auto-renewal enabled" : "Auto-renewal disabled",
         description: value 
           ? "Your subscription will renew automatically." 
           : "Your subscription will not renew after the current period.",
       });
     } catch (error) {
-      console.error("Failed to update auto-renew:", error);
+      console.error("Failed to update auto-renewal:", error);
       setAutoRenew(previousValue);
       toast({
         title: "Error",
-        description: "Failed to update auto-renew setting. Please try again.",
+        description: "Failed to update auto-renewal setting. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -235,13 +225,13 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
               <Card className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold">Auto-renew</p>
+                    <p className="font-semibold">Auto-renewal</p>
                     <p className="text-sm text-muted-foreground">
-                      {displayAutoRenew ? "Your subscription will renew automatically" : "Your subscription will not renew"}
+                      {autoRenew ? "Your subscription will renew automatically" : "Your subscription will not renew"}
                     </p>
                   </div>
                   <Switch
-                    checked={displayAutoRenew}
+                    checked={autoRenew}
                     onCheckedChange={handleAutoRenewToggle}
                     disabled={isUpdating}
                     data-testid="switch-auto-renew"
@@ -318,7 +308,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Turn off auto-renew?
+              Turn off auto-renewal?
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-left space-y-3 text-sm text-muted-foreground">
@@ -340,14 +330,14 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-warning-dismiss">
-              Keep auto-renew on
+              Keep auto-renewal on
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmCancelAutoRenew}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-cancel-renewal"
             >
-              Turn off auto-renew
+              Turn off auto-renewal
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
