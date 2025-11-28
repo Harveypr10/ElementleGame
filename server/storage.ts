@@ -374,20 +374,23 @@ export class DatabaseStorage implements IStorage {
     source?: string 
   }): Promise<void> {
     // Insert new subscription - let database auto-generate the ID
+    // Note: Don't include 'validity' column - database uses tstzrange type with default
     // Supabase trigger will sync user_profiles.tier and user_tier_id
+    // Convert Date to ISO string for SQL compatibility
+    const expiresAtStr = subscription.expiresAt ? subscription.expiresAt.toISOString() : null;
+    
     await db.execute(sql`
       INSERT INTO user_subscriptions (
-        user_id, user_tier_id, amount_paid, currency, expires_at, auto_renew, source, validity, effective_start_at
+        user_id, user_tier_id, amount_paid, currency, expires_at, auto_renew, source, effective_start_at
       )
       VALUES (
         ${subscription.userId},
         ${subscription.userTierId},
         ${subscription.amountPaid || null},
         ${subscription.currency || null},
-        ${subscription.expiresAt || null},
+        ${expiresAtStr},
         ${subscription.autoRenew || false},
         ${subscription.source || 'web'},
-        'active',
         NOW()
       )
     `);
