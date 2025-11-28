@@ -1405,13 +1405,18 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       }
 
       // Update the user's active subscription auto_renew flag
+      // Find the most recent subscription that is still valid (not expired)
       try {
         const result = await db.execute(sql`
           UPDATE user_subscriptions 
           SET auto_renew = ${autoRenew}
-          WHERE user_id = ${userId}
-            AND is_active = true
-            AND (expires_at IS NULL OR expires_at > NOW())
+          WHERE id = (
+            SELECT id FROM user_subscriptions 
+            WHERE user_id = ${userId}
+              AND (expires_at IS NULL OR expires_at > NOW())
+            ORDER BY created_at DESC
+            LIMIT 1
+          )
           RETURNING id, auto_renew
         `);
 

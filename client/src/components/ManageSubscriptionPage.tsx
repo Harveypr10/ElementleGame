@@ -310,20 +310,22 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               Turn off auto-renewal?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-left space-y-3">
-              <p>
-                If you don't renew your subscription, you'll lose access to these Pro benefits:
-              </p>
-              <ul className="list-disc pl-5 space-y-1 text-foreground">
-                <li><strong>Ad-free experience</strong> - No more banner or interstitial ads</li>
-                <li><strong>Custom categories</strong> - Choose your preferred puzzle categories</li>
-                <li><strong>{effectiveStreakSavers} streak savers per month</strong> - Instead of just 1</li>
-                <li><strong>{effectiveHolidaySavers} holiday breaks per year</strong> - Pause your streak for up to {effectiveHolidayDurationDays} days each</li>
-                <li><strong>Personal mode puzzles</strong> - Puzzles tailored to your location</li>
-              </ul>
-              <p className="text-muted-foreground">
-                Your subscription will remain active until {formatRenewalDate(subscription?.endDate || null)}, but will not renew after that.
-              </p>
+            <AlertDialogDescription asChild>
+              <div className="text-left space-y-3 text-sm text-muted-foreground">
+                <p>
+                  If you don't renew your subscription, you'll lose access to these Pro benefits:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-foreground">
+                  <li><strong>Ad-free experience</strong> - No more banner or interstitial ads</li>
+                  <li><strong>Custom categories</strong> - Choose your preferred puzzle categories</li>
+                  <li><strong>{effectiveStreakSavers} streak savers per month</strong> - Instead of just 1</li>
+                  <li><strong>{effectiveHolidaySavers} holiday breaks per year</strong> - Pause your streak for up to {effectiveHolidayDurationDays} days each</li>
+                  <li><strong>Personal mode puzzles</strong> - Puzzles tailored to your location</li>
+                </ul>
+                <p className="text-muted-foreground">
+                  Your subscription will remain active until {formatRenewalDate(subscription?.endDate || null)}, but will not renew after that.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
