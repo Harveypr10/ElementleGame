@@ -56,6 +56,20 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
 
       // Prefetch data if authenticated - handle each independently
       if (isAuthenticated && user) {
+        // Get session once for all authenticated requests
+        const supabase = await getSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          console.log('[PreloadProvider] No session available for prefetch');
+          setIsPreloaded(true);
+          return;
+        }
+        
+        const authHeaders = {
+          'Authorization': `Bearer ${session.access_token}`,
+        };
+        
         const prefetchTasks = [
           // Prefetch settings
           queryClient.fetchQuery({
@@ -63,6 +77,7 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             queryFn: async () => {
               const response = await fetch('/api/settings', {
                 credentials: 'include',
+                headers: authHeaders,
               });
               if (!response.ok) throw new Error('Failed to fetch settings');
               return response.json();
@@ -76,6 +91,7 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             queryFn: async () => {
               const response = await fetch('/api/auth/profile', {
                 credentials: 'include',
+                headers: authHeaders,
               });
               if (!response.ok) throw new Error('Failed to fetch profile');
               return response.json();
@@ -89,6 +105,7 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             queryFn: async () => {
               const response = await fetch('/api/stats', {
                 credentials: 'include',
+                headers: authHeaders,
               });
               if (!response.ok) throw new Error('Failed to fetch stats');
               return response.json();
@@ -102,6 +119,7 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             queryFn: async () => {
               const response = await fetch('/api/game-attempts/user', {
                 credentials: 'include',
+                headers: authHeaders,
               });
               if (!response.ok) throw new Error('Failed to fetch attempts');
               return response.json();
@@ -115,6 +133,7 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             queryFn: async () => {
               const response = await fetch('/api/user/pro-categories', {
                 credentials: 'include',
+                headers: authHeaders,
               });
               if (!response.ok) throw new Error('Failed to fetch categories');
               return response.json();
@@ -122,38 +141,27 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             staleTime: 30 * 60 * 1000, // Cache for 30 mins since categories rarely change
           }).then(data => ({ key: 'categories', data })).catch(() => ({ key: 'categories', data: null })),
 
-          // Prefetch subscription data (includes autoRenew state) - requires auth token
-          (async () => {
-            try {
-              const supabase = await getSupabaseClient();
-              const { data: { session } } = await supabase.auth.getSession();
-              if (!session) return { key: 'subscription', data: null };
-              
-              return queryClient.fetchQuery({
-                queryKey: ['/api/subscription', user.id],
-                queryFn: async () => {
-                  const response = await fetch('/api/subscription', {
-                    credentials: 'include',
-                    headers: {
-                      'Authorization': `Bearer ${session.access_token}`,
-                    },
-                  });
-                  if (!response.ok) throw new Error('Failed to fetch subscription');
-                  return response.json();
-                },
-                staleTime: 5 * 60 * 1000,
-              }).then(data => ({ key: 'subscription', data })).catch(() => ({ key: 'subscription', data: null }));
-            } catch {
-              return { key: 'subscription', data: null };
-            }
-          })(),
+          // Prefetch subscription data (includes autoRenew state)
+          queryClient.fetchQuery({
+            queryKey: ['/api/subscription', user.id],
+            queryFn: async () => {
+              const response = await fetch('/api/subscription', {
+                credentials: 'include',
+                headers: authHeaders,
+              });
+              if (!response.ok) throw new Error('Failed to fetch subscription');
+              return response.json();
+            },
+            staleTime: 5 * 60 * 1000,
+          }).then(data => ({ key: 'subscription', data })).catch(() => ({ key: 'subscription', data: null })),
 
-          // Prefetch puzzles (public data)
+          // Prefetch puzzles (requires auth for user region)
           queryClient.fetchQuery({
             queryKey: ['/api/puzzles'],
             queryFn: async () => {
               const response = await fetch('/api/puzzles', {
                 credentials: 'include',
+                headers: authHeaders,
               });
               if (!response.ok) throw new Error('Failed to fetch puzzles');
               return response.json();
