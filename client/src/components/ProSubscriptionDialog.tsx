@@ -188,9 +188,11 @@ export function ProSubscriptionDialog({
   };
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="pro-subscription-dialog"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -285,38 +287,39 @@ export function ProSubscriptionDialog({
           </div>
         </motion.div>
       )}
-
-      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <AlertDialogContent data-testid="confirm-subscription-dialog">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Subscription</AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedTier && (
-                <>
-                  You are about to subscribe to <strong>{getTierStyle(selectedTier.tier).displayName}</strong> for{' '}
-                  <strong>{formatPrice(selectedTier.subscriptionCost, selectedTier.currency)}</strong>.
-                  <br /><br />
-                  Do you want to continue?
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel 
-              onClick={() => setSelectedTier(null)}
-              data-testid="button-cancel-subscription"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmSubscription}
-              data-testid="button-confirm-subscription"
-            >
-              Yes
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AnimatePresence>
+
+    <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+      <AlertDialogContent data-testid="confirm-subscription-dialog">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Confirm Subscription</AlertDialogTitle>
+          <AlertDialogDescription>
+            {selectedTier && (
+              <>
+                You are about to subscribe to <strong>{getTierStyle(selectedTier.tier).displayName}</strong> for{' '}
+                <strong>{formatPrice(selectedTier.subscriptionCost, selectedTier.currency)}</strong>.
+                <br /><br />
+                Do you want to continue?
+              </>
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel 
+            onClick={() => setSelectedTier(null)}
+            data-testid="button-cancel-subscription"
+          >
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={handleConfirmSubscription}
+            data-testid="button-confirm-subscription"
+          >
+            Yes
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
