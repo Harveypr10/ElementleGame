@@ -1363,8 +1363,12 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
           } 
         });
       } catch (tableError: any) {
+        // Log the actual error for debugging
+        console.error('[checkout] Error creating subscription:', tableError?.message || tableError);
+        console.error('[checkout] Error code:', tableError?.code);
+        
         // Table doesn't exist - fall back to legacy
-        console.log('[checkout] user_tier table not available, using legacy fallback');
+        console.log('[checkout] Falling back to legacy mode');
         
         await db.execute(
           sql`UPDATE user_profiles SET tier = 'pro' WHERE id = ${userId}`

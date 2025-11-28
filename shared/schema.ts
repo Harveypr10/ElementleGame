@@ -132,7 +132,7 @@ export type UserProfile = typeof userProfiles.$inferSelect;
 // User Subscriptions table - stores active user subscriptions
 // References user_tier for tier metadata, managed by Supabase triggers
 export const userSubscriptions = pgTable("user_subscriptions", {
-  id: uuid("id").primaryKey(),
+  id: serial("id").primaryKey(), // Database uses serial integer, not UUID
   userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
   userTierId: uuid("user_tier_id").notNull().references(() => userTier.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),

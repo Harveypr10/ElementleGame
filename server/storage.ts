@@ -373,13 +373,13 @@ export class DatabaseStorage implements IStorage {
     autoRenew?: boolean; 
     source?: string 
   }): Promise<void> {
-    // Insert new subscription - Supabase trigger will sync user_profiles.tier and user_tier_id
+    // Insert new subscription - let database auto-generate the ID
+    // Supabase trigger will sync user_profiles.tier and user_tier_id
     await db.execute(sql`
       INSERT INTO user_subscriptions (
-        id, user_id, user_tier_id, amount_paid, currency, expires_at, auto_renew, source, validity, effective_start_at
+        user_id, user_tier_id, amount_paid, currency, expires_at, auto_renew, source, validity, effective_start_at
       )
       VALUES (
-        gen_random_uuid(),
         ${subscription.userId},
         ${subscription.userTierId},
         ${subscription.amountPaid || null},
@@ -2665,11 +2665,12 @@ export class DatabaseStorage implements IStorage {
       const rows = Array.isArray(result) ? result : (result as any).rows || [];
       return parseInt(rows[0]?.count || '0', 10);
     } catch (error: any) {
-      console.error('[countHolidayEventsThisYear] Error:', error);
-      // Table might not exist yet
+      // Table might not exist yet - gracefully return 0
       if (error?.code === '42P01') {
+        // Note: user_holiday_events table needs to be created in Supabase
         return 0;
       }
+      console.error('[countHolidayEventsThisYear] Error:', error);
       throw error;
     }
   }
