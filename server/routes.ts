@@ -1415,19 +1415,27 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   // Trigger the update-demand-schedule Edge Function
   app.post("/api/admin/demand-scheduler/apply", verifySupabaseAuth, requireAdmin, async (req: any, res) => {
     try {
-      const accessToken = req.headers.authorization?.replace('Bearer ', '');
+      const userAccessToken = req.headers.authorization?.replace('Bearer ', '');
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
-      if (!accessToken) {
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.error("Missing SUPABASE_URL or SUPABASE_ANON_KEY environment variables");
+        return res.status(500).json({ error: "Server configuration error" });
+      }
+
+      if (!userAccessToken) {
         return res.status(401).json({ error: "No access token available" });
       }
 
-      // Call the Edge Function to apply the new schedule
-      const edgeFunctionUrl = `${process.env.SUPABASE_URL}/functions/v1/update-demand-schedule`;
+      // Call the Edge Function using the anon key for auth, and pass user token for admin verification
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/update-demand-schedule`;
       
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'x-user-access-token': userAccessToken,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({}),

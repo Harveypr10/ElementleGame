@@ -1,6 +1,13 @@
 # Demand Scheduler Setup
 
-This document contains the setup instructions for the Demand Scheduler feature.
+This document contains the setup instructions for the Demand Scheduler feature in the Admin Panel.
+
+## Prerequisites
+
+Ensure these environment variables are set in your Replit project (they should already exist if Supabase is configured):
+- `SUPABASE_URL` - Your Supabase project URL
+- `SUPABASE_ANON_KEY` - Your Supabase anonymous key
+- `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key (for Edge Function)
 
 ## 1. Database Table
 
@@ -8,38 +15,78 @@ Run this SQL in your Supabase SQL Editor to create the required table:
 
 ```sql
 -- Create demand_scheduler_config table
-create table if not exists public.demand_scheduler_config (
-  id uuid primary key default gen_random_uuid(),
-  start_time text not null, -- format 'HH:mm'
-  frequency_hours integer not null check (frequency_hours > 0),
-  updated_at timestamp with time zone default now(),
-  updated_by uuid references user_profiles(id)
+CREATE TABLE IF NOT EXISTS public.demand_scheduler_config (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  start_time text NOT NULL, -- format 'HH:mm'
+  frequency_hours integer NOT NULL CHECK (frequency_hours > 0),
+  updated_at timestamp with time zone DEFAULT now(),
+  updated_by uuid REFERENCES user_profiles(id)
 );
 
 -- Insert default config (01:00 daily)
-insert into public.demand_scheduler_config (start_time, frequency_hours)
-values ('01:00', 24)
-on conflict do nothing;
+INSERT INTO public.demand_scheduler_config (start_time, frequency_hours)
+VALUES ('01:00', 24)
+ON CONFLICT DO NOTHING;
 
 -- Grant access to authenticated users (admins will be checked in API)
-alter table public.demand_scheduler_config enable row level security;
+ALTER TABLE public.demand_scheduler_config ENABLE ROW LEVEL SECURITY;
 
-create policy "Allow admins to manage demand scheduler config"
-  on public.demand_scheduler_config
-  for all
-  using (auth.jwt() ->> 'is_admin' = 'true')
-  with check (auth.jwt() ->> 'is_admin' = 'true');
+-- Policy for admins to manage demand scheduler config
+CREATE POLICY "Allow admins to manage demand scheduler config"
+  ON public.demand_scheduler_config
+  FOR ALL
+  USING (auth.jwt() ->> 'is_admin' = 'true')
+  WITH CHECK (auth.jwt() ->> 'is_admin' = 'true');
 
--- Allow service role full access
-create policy "Allow service role full access"
-  on public.demand_scheduler_config
-  for all
-  using (auth.role() = 'service_role');
+-- Allow service role full access (needed for Edge Function)
+CREATE POLICY "Allow service role full access"
+  ON public.demand_scheduler_config
+  FOR ALL
+  USING (auth.role() = 'service_role');
 ```
 
-## 2. Edge Function: update-demand-schedule
+## 2. Database Function for Cron Update
 
-Create a new Edge Function in Supabase called `update-demand-schedule` with the following code:
+Create this PostgreSQL function to allow updating the cron schedule. This must be created before deploying the Edge Function:
+
+```sql
+-- Function to update the demand cron schedule
+-- This function uses SECURITY DEFINER to run with elevated privileges
+CREATE OR REPLACE FUNCTION update_demand_cron_schedule(new_schedule text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  job_id bigint;
+BEGIN
+  -- Find the job ID for elementle_demand
+  SELECT jobid INTO job_id
+  FROM cron.job
+  WHERE jobname = 'elementle_demand';
+  
+  IF job_id IS NULL THEN
+    RAISE EXCEPTION 'Cron job elementle_demand not found. Please ensure the cron job exists.';
+  END IF;
+  
+  -- Update the schedule
+  PERFORM cron.alter_job(job_id, schedule := new_schedule);
+END;
+$$;
+
+-- Grant execute permission to service role
+GRANT EXECUTE ON FUNCTION update_demand_cron_schedule(text) TO service_role;
+```
+
+## 3. Edge Function: update-demand-schedule
+
+Create a new Edge Function in Supabase called `update-demand-schedule`.
+
+### Deployment Steps:
+1. Go to Supabase Dashboard > Edge Functions
+2. Click "New Function"
+3. Name it `update-demand-schedule`
+4. Paste the code below and deploy
 
 ### File: supabase/functions/update-demand-schedule/index.ts
 
@@ -48,7 +95,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-user-access-token',
 }
 
 interface SchedulerConfig {
@@ -93,22 +140,23 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Verify the user is an admin
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
+    // Get the user access token from custom header (passed from backend)
+    // The backend authenticates with anon key, but passes user token for admin verification
+    const userAccessToken = req.headers.get('x-user-access-token')
+    
+    if (!userAccessToken) {
       return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
+        JSON.stringify({ error: 'Missing user access token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Verify JWT and check admin status
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    // Verify the user token and check admin status
+    const { data: { user }, error: authError } = await supabase.auth.getUser(userAccessToken)
     
     if (authError || !user) {
       return new Response(
-        JSON.stringify({ error: 'Invalid token' }),
+        JSON.stringify({ error: 'Invalid user token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -150,36 +198,22 @@ Deno.serve(async (req) => {
 
     console.log(`Updating cron job with expression: ${cronExpression}`)
 
-    // Update the existing cron job 'elementle_demand'
-    // This requires calling the cron.alter_job function
-    const { data: updateResult, error: updateError } = await supabase.rpc(
+    // Update the existing cron job 'elementle_demand' using the RPC function
+    const { error: updateError } = await supabase.rpc(
       'update_demand_cron_schedule',
       { new_schedule: cronExpression }
     )
 
     if (updateError) {
       console.error('Error updating cron job:', updateError)
-      
-      // Try alternative approach using direct SQL
-      const { error: sqlError } = await supabase.rpc('exec_sql', {
-        sql_query: `
-          SELECT cron.alter_job(
-            job_id := (SELECT jobid FROM cron.job WHERE jobname = 'elementle_demand'),
-            schedule := '${cronExpression}'
-          )
-        `
-      })
-
-      if (sqlError) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to update cron job',
-            details: sqlError.message,
-            cronExpression 
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to update cron job',
+          details: updateError.message,
+          cronExpression 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     return new Response(
@@ -203,44 +237,34 @@ Deno.serve(async (req) => {
 })
 ```
 
-## 3. Database Function for Cron Update
+## 4. Ensure Cron Job Exists
 
-Create this PostgreSQL function to allow updating the cron schedule:
+Before using the scheduler, ensure the `elementle_demand` cron job exists in Supabase. This should already be set up, but you can verify with:
 
 ```sql
--- Function to update the demand cron schedule
-create or replace function update_demand_cron_schedule(new_schedule text)
-returns void
-language plpgsql
-security definer
-as $$
-declare
-  job_id bigint;
-begin
-  -- Find the job ID for elementle_demand
-  select jobid into job_id
-  from cron.job
-  where jobname = 'elementle_demand';
-  
-  if job_id is null then
-    raise exception 'Cron job elementle_demand not found';
-  end if;
-  
-  -- Update the schedule
-  perform cron.alter_job(job_id, schedule := new_schedule);
-end;
-$$;
-
--- Grant execute permission to service role
-grant execute on function update_demand_cron_schedule(text) to service_role;
+SELECT * FROM cron.job WHERE jobname = 'elementle_demand';
 ```
 
-## 4. Usage
+If it doesn't exist, create it:
 
-1. Navigate to Admin page in the app
+```sql
+SELECT cron.schedule(
+  'elementle_demand',
+  '0 1 * * *', -- Default: daily at 01:00 UTC
+  $$SELECT net.http_post(
+    url := 'https://YOUR_PROJECT_REF.supabase.co/functions/v1/calculate-demand',
+    headers := '{"Authorization": "Bearer YOUR_SERVICE_ROLE_KEY"}'::jsonb,
+    body := '{}'::jsonb
+  )$$
+);
+```
+
+## 5. Usage
+
+1. Navigate to Admin page in the app (Settings > Admin, visible only to admins)
 2. In the "Demand Scheduler" section:
    - Set the **Start Time** (24-hour format, e.g., "01:00")
-   - Set the **Frequency** (6, 12, or 24 hours)
+   - Set the **Frequency** (6, 8, 12, or 24 hours)
 3. Click "Save & Apply Schedule"
 4. The preview will show the next 4 scheduled run times
 
@@ -252,3 +276,17 @@ grant execute on function update_demand_cron_schedule(text) to service_role;
 | 01:00 | 12 hours | `0 1,13 * * *` (at 01:00 and 13:00) |
 | 01:00 | 6 hours | `0 1,7,13,19 * * *` (at 01:00, 07:00, 13:00, 19:00) |
 | 00:30 | 8 hours | `30 0,8,16 * * *` (at 00:30, 08:30, 16:30) |
+
+## Troubleshooting
+
+### "Cron job elementle_demand not found" error
+This means the cron job hasn't been created yet. Follow step 4 above to create it.
+
+### "No scheduler config found" error
+Run the SQL in step 1 to create the config table and insert a default row.
+
+### Edge Function returns 401
+Ensure the backend is passing the user access token via the `x-user-access-token` header. Check that `SUPABASE_ANON_KEY` and `SUPABASE_URL` are set in your environment.
+
+### Edge Function returns 403
+The user making the request is not an admin. Verify `is_admin` is set to `true` in the `user_profiles` table for that user.
