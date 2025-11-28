@@ -55,9 +55,6 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const { 
     status,
     isLoading: statusLoading,
-    regionStreakSaversRemaining,
-    userStreakSaversRemaining,
-    holidaysRemaining,
   } = useStreakSaverStatus();
   const adBannerActive = useAdBannerActive();
   const { toast } = useToast();
