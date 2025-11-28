@@ -744,13 +744,13 @@ export class DatabaseStorage implements IStorage {
       SELECT id, start_time, frequency_hours, updated_at, updated_by
       FROM demand_scheduler_config
       LIMIT 1
-    `);
+    `) as unknown as { rows: any[] };
     
-    if (result.rows.length === 0) {
+    if (!result.rows || result.rows.length === 0) {
       return undefined;
     }
     
-    const row = result.rows[0] as any;
+    const row = result.rows[0];
     return {
       id: row.id,
       start_time: row.start_time,
@@ -774,9 +774,9 @@ export class DatabaseStorage implements IStorage {
             updated_by = ${config.updated_by || null}
         WHERE id = ${existing.id}
         RETURNING id, start_time, frequency_hours, updated_at, updated_by
-      `);
+      `) as unknown as { rows: any[] };
       
-      const row = result.rows[0] as any;
+      const row = result.rows[0];
       return {
         id: row.id,
         start_time: row.start_time,
@@ -790,9 +790,9 @@ export class DatabaseStorage implements IStorage {
         INSERT INTO demand_scheduler_config (start_time, frequency_hours, updated_by)
         VALUES (${config.start_time}, ${config.frequency_hours}, ${config.updated_by || null})
         RETURNING id, start_time, frequency_hours, updated_at, updated_by
-      `);
+      `) as unknown as { rows: any[] };
       
-      const row = result.rows[0] as any;
+      const row = result.rows[0];
       return {
         id: row.id,
         start_time: row.start_time,

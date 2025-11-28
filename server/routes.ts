@@ -1353,6 +1353,103 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Demand scheduler config routes (admin only)
+  app.get("/api/admin/demand-scheduler", verifySupabaseAuth, requireAdmin, async (req, res) => {
+    try {
+      const config = await storage.getDemandSchedulerConfig();
+      if (!config) {
+        // Return default values if no config exists
+        return res.json({ 
+          start_time: "01:00", 
+          frequency_hours: 24,
+          exists: false 
+        });
+      }
+      res.json({ ...config, exists: true });
+    } catch (error) {
+      console.error("Error fetching demand scheduler config:", error);
+      res.status(500).json({ error: "Failed to fetch demand scheduler config" });
+    }
+  });
+
+  app.put("/api/admin/demand-scheduler", verifySupabaseAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { start_time, frequency_hours } = req.body;
+
+      // Validate inputs
+      if (!start_time || !frequency_hours) {
+        return res.status(400).json({ error: "start_time and frequency_hours are required" });
+      }
+
+      // Validate start_time format (HH:mm)
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      if (!timeRegex.test(start_time)) {
+        return res.status(400).json({ error: "start_time must be in HH:mm format (24-hour)" });
+      }
+
+      // Validate frequency_hours (must be positive integer)
+      const freqHours = parseInt(frequency_hours, 10);
+      if (isNaN(freqHours) || freqHours <= 0 || freqHours > 24) {
+        return res.status(400).json({ error: "frequency_hours must be a positive integer between 1 and 24" });
+      }
+
+      // Validate that 24 is divisible by frequency_hours
+      if (24 % freqHours !== 0) {
+        return res.status(400).json({ error: "frequency_hours must divide evenly into 24 (1, 2, 3, 4, 6, 8, 12, or 24)" });
+      }
+
+      const config = await storage.upsertDemandSchedulerConfig({
+        start_time,
+        frequency_hours: freqHours,
+        updated_by: userId,
+      });
+
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating demand scheduler config:", error);
+      res.status(500).json({ error: "Failed to update demand scheduler config" });
+    }
+  });
+
+  // Trigger the update-demand-schedule Edge Function
+  app.post("/api/admin/demand-scheduler/apply", verifySupabaseAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const accessToken = req.headers.authorization?.replace('Bearer ', '');
+
+      if (!accessToken) {
+        return res.status(401).json({ error: "No access token available" });
+      }
+
+      // Call the Edge Function to apply the new schedule
+      const edgeFunctionUrl = `${process.env.SUPABASE_URL}/functions/v1/update-demand-schedule`;
+      
+      const response = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Edge Function error:", errorText);
+        return res.status(response.status).json({ 
+          error: "Failed to apply schedule", 
+          details: errorText 
+        });
+      }
+
+      const result = await response.json();
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error("Error calling update-demand-schedule:", error);
+      res.status(500).json({ error: "Failed to apply schedule", details: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
