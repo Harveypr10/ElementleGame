@@ -232,7 +232,7 @@ export function GameSelectionPage({
   });
 
   // Fetch Local puzzles (for authenticated users - uses user-specific data)
-  const { data: localPuzzles = [] } = useQuery<any[]>({
+  const { data: localPuzzles = [], isLoading: localPuzzlesLoading } = useQuery<any[]>({
     queryKey: ['/api/user/puzzles'],
     queryFn: () => fetchAuthenticated('/api/user/puzzles'),
     enabled: isAuthenticated,
@@ -611,12 +611,21 @@ export function GameSelectionPage({
     }
 
     // Compute Local play button content
-    // Check if puzzle is still loading/not available for authenticated users
-    const isPuzzleLoading = isAuthenticated && !todayLocalPuzzleId;
+    // Differentiate between: still loading, no puzzle available, puzzle available
+    const isStillLoading = isAuthenticated && localPuzzlesLoading;
+    const noPuzzleAvailable = isAuthenticated && !localPuzzlesLoading && !todayLocalPuzzleId;
     
     let playContentLocal;
-    if (isPuzzleLoading) {
-      // Special message when puzzle hasn't loaded yet
+    if (isStillLoading) {
+      // Data still loading - show default button text but disabled
+      playContentLocal = {
+        title: "Play today's puzzle",
+        subtitle: "",
+        image: historianHamsterLocal,
+        isLoading: true
+      };
+    } else if (noPuzzleAvailable) {
+      // Data loaded but no puzzle for today - show cooking message
       playContentLocal = {
         title: "Hammie is still cooking up today's personal puzzle for you - won't take long...",
         subtitle: "",
