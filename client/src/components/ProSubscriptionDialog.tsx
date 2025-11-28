@@ -34,7 +34,7 @@ interface TierData {
 function formatPrice(amount: number | null, currency: string | null): string {
   if (amount === null) return 'Free';
   const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency || '';
-  return `${symbol}${amount.toFixed(2)}`;
+  return `${symbol}${parseFloat(String(amount)).toFixed(2)}`;
 }
 
 // Get icon and styling based on tier type
