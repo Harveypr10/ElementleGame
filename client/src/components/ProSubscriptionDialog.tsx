@@ -247,6 +247,8 @@ export function ProSubscriptionDialog({
                     'No ads after completing puzzles',
                     'Unlimited personalised games',
                     'Choose your own categories',
+                    '3 Streak Savers per month for both games',
+                    '4 holiday periods per year to protect your streaks',
                   ].map((benefit, index) => (
                     <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
