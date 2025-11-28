@@ -30,11 +30,11 @@ interface TierData {
   sortOrder: number;
 }
 
-// Helper to format price from smallest currency unit
+// Helper to format price
 function formatPrice(amount: number | null, currency: string | null): string {
   if (amount === null) return 'Free';
   const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency || '';
-  return `${symbol}${(amount / 100).toFixed(2)}`;
+  return `${symbol}${amount.toFixed(2)}`;
 }
 
 // Get icon and styling based on tier type
@@ -239,16 +239,16 @@ export function ProSubscriptionDialog({
                 )}
               </div>
 
-              <div style={{ gap: 'clamp(0.75rem, 1vh, 1rem)' }} className="flex flex-col items-center">
+              <div style={{ gap: 'clamp(0.75rem, 1vh, 1rem)' }} className="flex flex-col items-center max-w-sm">
                 <h3 className="font-semibold text-foreground text-xl">Benefits of Pro:</h3>
-                <ul style={{ gap: 'clamp(0.5rem, 1vh, 0.75rem)' }} className="flex flex-col">
+                <ul style={{ gap: 'clamp(0.5rem, 1vh, 0.75rem)' }} className="flex flex-col w-full">
                   {[
                     'No banner ads anywhere',
                     'No ads after completing puzzles',
                     'Unlimited personalised games',
                     'Choose your own categories',
-                    '3 Streak Savers per month for both games',
-                    '4 holiday periods per year to protect your streaks',
+                    '3 monthly Streak Savers per game',
+                    '4 streak protecting holiday periods per year',
                   ].map((benefit, index) => (
                     <li key={index} className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
