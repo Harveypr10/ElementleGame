@@ -1140,65 +1140,27 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
 
   // Get user subscription - uses user_active_tier_view for tier resolution with fallback
   app.get("/api/subscription", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      console.log('[subscription] Checking subscription for userId:', userId);
-      
-      // Try the new tier view first, fall back to legacy profile check
-      try {
-        const activeTier = await storage.getUserActiveTier(userId);
-        
-        if (activeTier) {
-          console.log('[subscription] Active tier found:', activeTier.tier);
-          
-          // Map tier names for frontend compatibility
-          // 'standard' = free, 'pro_monthly'/'pro_annual'/'pro_lifetime' = pro
-          const isPro = activeTier.tier !== 'standard';
-          const displayTier = isPro ? 'pro' : 'free';
-          
-          return res.json({
-            tier: displayTier,
-            tierName: activeTier.tier,
-            tierId: activeTier.tierId,
-            startDate: null,
-            endDate: activeTier.expiresAt,
-            autoRenew: activeTier.autoRenew,
-            isActive: isPro,
-            metadata: {
-              streakSavers: activeTier.streakSavers,
-              holidaySavers: activeTier.holidaySavers,
-              holidayDurationDays: activeTier.holidayDurationDays,
-              subscriptionCost: activeTier.subscriptionCost,
-              currency: activeTier.currency,
-              subscriptionDurationMonths: activeTier.subscriptionDurationMonths,
-              description: activeTier.description,
-            }
-          });
-        }
-      } catch (viewError: any) {
-        // View doesn't exist yet - fall back to legacy profile check
-        console.log('[subscription] user_active_tier_view not available, using legacy fallback');
-        
-        const profile = await storage.getUserProfile(userId);
-        if (profile) {
-          const userTier = profile.tier;
-          const isPro = userTier === 'pro';
-          
-          return res.json({
-            tier: isPro ? 'pro' : 'free',
-            tierName: isPro ? 'pro_monthly' : 'standard', // Assume monthly for legacy
-            tierId: null,
-            startDate: null,
-            endDate: null,
-            autoRenew: false,
-            isActive: isPro,
-            metadata: null
-          });
-        }
+    const userId = req.user.id;
+    console.log('[subscription] Checking subscription for userId:', userId);
+    
+    // Helper to return legacy profile-based tier
+    const getLegacyTier = async () => {
+      const profile = await storage.getUserProfile(userId);
+      if (profile) {
+        const userTier = profile.tier;
+        const isPro = userTier === 'pro' || (userTier && userTier.startsWith('pro_'));
+        return {
+          tier: isPro ? 'pro' : 'free',
+          tierName: userTier || 'standard',
+          tierId: null,
+          startDate: null,
+          endDate: null,
+          autoRenew: false,
+          isActive: isPro,
+          metadata: null
+        };
       }
-      
-      console.log('[subscription] No active tier found, returning free');
-      res.json({ 
+      return { 
         tier: 'free',
         tierName: 'standard',
         tierId: null,
@@ -1207,48 +1169,103 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         autoRenew: false,
         isActive: false,
         metadata: null
-      });
-    } catch (error) {
-      console.error("Error fetching subscription:", error);
-      res.status(500).json({ error: "Failed to fetch subscription" });
+      };
+    };
+    
+    // Try the new tier view first
+    try {
+      const activeTier = await storage.getUserActiveTier(userId);
+      
+      if (activeTier) {
+        console.log('[subscription] Active tier found:', activeTier.tier);
+        
+        // Map tier names for frontend compatibility
+        const isPro = activeTier.tier !== 'standard';
+        const displayTier = isPro ? 'pro' : 'free';
+        
+        return res.json({
+          tier: displayTier,
+          tierName: activeTier.tier,
+          tierId: activeTier.tierId,
+          startDate: null,
+          endDate: activeTier.expiresAt,
+          autoRenew: activeTier.autoRenew,
+          isActive: isPro,
+          metadata: {
+            streakSavers: activeTier.streakSavers,
+            holidaySavers: activeTier.holidaySavers,
+            holidayDurationDays: activeTier.holidayDurationDays,
+            subscriptionCost: activeTier.subscriptionCost,
+            currency: activeTier.currency,
+            subscriptionDurationMonths: activeTier.subscriptionDurationMonths,
+            description: activeTier.description,
+          }
+        });
+      }
+      
+      // View query returned no rows - fall back to legacy
+      console.log('[subscription] No active tier in view, checking user_profiles.tier');
+      return res.json(await getLegacyTier());
+      
+    } catch (viewError: any) {
+      // Check if view doesn't exist (42P01) - fall back to legacy
+      if (viewError?.code === '42P01' || viewError?.message?.includes('does not exist')) {
+        console.log('[subscription] user_active_tier_view not available, using legacy fallback');
+        try {
+          return res.json(await getLegacyTier());
+        } catch (profileError) {
+          console.error("Error fetching profile for fallback:", profileError);
+          return res.status(500).json({ error: "Failed to fetch subscription" });
+        }
+      }
+      
+      // Other DB errors - propagate as 500
+      console.error("Error querying user_active_tier_view:", viewError);
+      return res.status(500).json({ error: "Failed to fetch subscription" });
     }
   });
 
   // Get available tiers for a region (for subscription UI)
   app.get("/api/tiers", verifySupabaseAuth, async (req: any, res) => {
+    const userId = req.user.id;
+    
+    // Get user's region from profile (fallback to UK)
+    let region = 'UK';
     try {
-      const userId = req.user.id;
-      
-      // Get user's region from profile
       const profile = await storage.getUserProfile(userId);
-      const region = profile?.region || 'UK'; // Default to UK
+      region = profile?.region || 'UK';
+    } catch (profileError) {
+      console.log('[tiers] Could not fetch profile, using default region UK');
+    }
+    
+    console.log('[tiers] Fetching available tiers for region:', region);
+    
+    // Legacy fallback tiers
+    const getLegacyTiers = () => [
+      { id: 'legacy-monthly', region, tier: 'pro_monthly', subscriptionCost: 79, currency: 'GBP', subscriptionDurationMonths: 1, streakSavers: 0, holidaySavers: 0, holidayDurationDays: 0, description: 'Auto-renews monthly', sortOrder: 1 },
+      { id: 'legacy-annual', region, tier: 'pro_annual', subscriptionCost: 699, currency: 'GBP', subscriptionDurationMonths: 12, streakSavers: 0, holidaySavers: 0, holidayDurationDays: 0, description: 'Auto-renews annually', sortOrder: 2 },
+      { id: 'legacy-lifetime', region, tier: 'pro_lifetime', subscriptionCost: 1199, currency: 'GBP', subscriptionDurationMonths: null, streakSavers: 0, holidaySavers: 0, holidayDurationDays: 0, description: 'One off - Best value', sortOrder: 3 },
+    ];
+    
+    try {
+      const tiers = await storage.getAvailableTiers(region);
       
-      console.log('[tiers] Fetching available tiers for region:', region);
+      // Filter out 'standard' tier (that's the free tier, not purchasable)
+      const purchasableTiers = tiers.filter(t => t.tier !== 'standard');
       
-      try {
-        const tiers = await storage.getAvailableTiers(region);
-        
-        // Filter out 'standard' tier (that's the free tier, not purchasable)
-        const purchasableTiers = tiers.filter(t => t.tier !== 'standard');
-        
-        console.log('[tiers] Found purchasable tiers:', purchasableTiers.length);
-        
-        res.json(purchasableTiers);
-      } catch (tableError: any) {
-        // Table doesn't exist yet - return legacy hardcoded tiers for UK
+      console.log('[tiers] Found purchasable tiers:', purchasableTiers.length);
+      
+      return res.json(purchasableTiers);
+    } catch (tableError: any) {
+      // Check if table doesn't exist (42P01) - fall back to legacy
+      if (tableError?.code === '42P01' || tableError?.message?.includes('does not exist')) {
         console.log('[tiers] user_tier table not available, using legacy tiers');
-        
-        const legacyTiers = [
-          { id: 'legacy-monthly', region, tier: 'pro_monthly', subscriptionCost: 79, currency: 'GBP', subscriptionDurationMonths: 1, streakSavers: 0, holidaySavers: 0, holidayDurationDays: 0, description: 'Auto-renews monthly', sortOrder: 1 },
-          { id: 'legacy-annual', region, tier: 'pro_annual', subscriptionCost: 699, currency: 'GBP', subscriptionDurationMonths: 12, streakSavers: 0, holidaySavers: 0, holidayDurationDays: 0, description: 'Auto-renews annually', sortOrder: 2 },
-          { id: 'legacy-lifetime', region, tier: 'pro_lifetime', subscriptionCost: 1199, currency: 'GBP', subscriptionDurationMonths: null, streakSavers: 0, holidaySavers: 0, holidayDurationDays: 0, description: 'One off - Best value', sortOrder: 3 },
-        ];
-        
-        res.json(legacyTiers);
+        return res.json(getLegacyTiers());
       }
-    } catch (error) {
-      console.error("Error fetching tiers:", error);
-      res.status(500).json({ error: "Failed to fetch tiers" });
+      
+      // Other DB errors - propagate as 500
+      console.error("Error fetching tiers:", tableError);
+      return res.status(500).json({ error: "Failed to fetch tiers" });
     }
   });
 
