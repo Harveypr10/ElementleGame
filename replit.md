@@ -12,7 +12,7 @@ Preferred communication style: Simple, everyday language.
 - **Framework & Build System**: React 18 with TypeScript, Vite, Wouter for routing.
 - **UI Component System**: Shadcn UI (New York style) based on Radix UI, Tailwind CSS, CSS Variables for theming.
 - **State Management**: TanStack Query for server state, local React state for UI, LocalStorage for persistence.
-- **Preload & Cache System**: `PreloadProvider` for critical assets and data (settings, profile, stats, attempts, puzzles, user categories), prioritizing cache-first rendering. Date format settings are instantly cached in LocalStorage.
+- **Preload & Cache System**: `PreloadProvider` for critical assets and data (settings, profile, stats, attempts, puzzles, user categories, subscription), prioritizing cache-first rendering. Subscription data includes autoRenew state and requires auth token for prefetching. Date format settings are instantly cached in LocalStorage.
 - **Design System**: Custom color palette for game feedback, responsive design, mobile-first approach, and game-specific visual feedback.
 - **Realtime Subscriptions**: `useRealtimeSubscriptions` hook for automatic UI refresh on database changes, refetching queries directly.
 - **Navigation-Based Data Refresh**: Automatic puzzle data refetching on navigation, especially for new signups and archive pages.
@@ -52,3 +52,32 @@ Preferred communication style: Simple, everyday language.
 - **Development Tools**: Replit-specific Vite plugins, tsx, PostCSS with Tailwind CSS and Autoprefixer.
 - **Form Handling & Validation**: React Hook Form with Zod, drizzle-zod.
 - **Asset Management**: Generated hamster character images, Vite's asset handling, PWA static assets.
+
+## Database Schema Alignment (Supabase <-> Drizzle)
+
+### user_subscriptions table
+- `id`: serial (auto-generated, do NOT include in INSERT)
+- `user_id`: uuid (FK to user_profiles)
+- `user_tier_id`: uuid (FK to user_tier, nullable)
+- `amount_paid`: numeric(10,2) - use `.toFixed(2)` when inserting
+- `currency`: text (default 'GBP')
+- `expires_at`: timestamp (no timezone)
+- `tier`: text ('school', 'trial', 'pro') - nullable
+- `validity`: tstzrange - GENERATED ALWAYS (do NOT include in INSERT)
+- `auto_renew`: boolean (default true)
+- `effective_start_at`: timestamptz (default now())
+- `created_at`: timestamp (default now())
+
+### user_tier table
+- `id`: uuid (default gen_random_uuid())
+- `region`: text, `tier`: text
+- `subscription_cost`: numeric(10,2), `currency`: text (default 'GBP')
+- `subscription_duration_months`: integer (default 1)
+- `streak_savers`: integer (default 1), `holiday_savers`: integer (default 0)
+- `holiday_duration_days`: integer (default 14)
+- `active`: boolean (default true), `sort_order`: integer
+
+### user_profiles table
+- Includes: `postcode_last_changed_at`, `archive_synced_count`, `user_tier_id`
+- `region` defaults to 'UK', `tier` defaults to 'standard'
+- Supabase triggers sync `tier` and `user_tier_id` on subscription changes

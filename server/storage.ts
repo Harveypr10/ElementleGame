@@ -94,7 +94,7 @@ export interface IStorage {
   // User tier operations (new subscription system)
   getUserActiveTier(userId: string): Promise<UserActiveTier | undefined>;
   getAvailableTiers(region: string): Promise<UserTier[]>;
-  createUserSubscription(subscription: { userId: string; userTierId: string; amountPaid?: number; currency?: string; expiresAt?: Date; autoRenew?: boolean; source?: string }): Promise<void>;
+  createUserSubscription(subscription: { userId: string; userTierId: string; amountPaid?: number; currency?: string; expiresAt?: Date; autoRenew?: boolean; source?: string; tier?: string }): Promise<void>;
 
   // Puzzle operations (LEGACY - will be deprecated)
   getPuzzle(id: number): Promise<Puzzle | undefined>;
@@ -371,26 +371,30 @@ export class DatabaseStorage implements IStorage {
     currency?: string; 
     expiresAt?: Date; 
     autoRenew?: boolean; 
-    source?: string 
+    source?: string;
+    tier?: string; // 'pro', 'trial', 'school'
   }): Promise<void> {
     // Insert new subscription - let database auto-generate the ID
-    // Note: Don't include 'validity' column - database uses tstzrange type with default
+    // Note: Don't include 'validity' column - database uses tstzrange type as GENERATED ALWAYS
     // Supabase trigger will sync user_profiles.tier and user_tier_id
     // Convert Date to ISO string for SQL compatibility
     const expiresAtStr = subscription.expiresAt ? subscription.expiresAt.toISOString() : null;
+    // Format amount_paid as decimal string for numeric(10,2) column
+    const amountPaidStr = subscription.amountPaid !== undefined ? subscription.amountPaid.toFixed(2) : null;
     
     await db.execute(sql`
       INSERT INTO user_subscriptions (
-        user_id, user_tier_id, amount_paid, currency, expires_at, auto_renew, source, effective_start_at
+        user_id, user_tier_id, amount_paid, currency, expires_at, auto_renew, source, tier, effective_start_at
       )
       VALUES (
         ${subscription.userId},
         ${subscription.userTierId},
-        ${subscription.amountPaid || null},
-        ${subscription.currency || null},
+        ${amountPaidStr},
+        ${subscription.currency || 'GBP'},
         ${expiresAtStr},
-        ${subscription.autoRenew || false},
+        ${subscription.autoRenew !== false},
         ${subscription.source || 'web'},
+        ${subscription.tier || 'pro'},
         NOW()
       )
     `);

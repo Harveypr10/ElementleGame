@@ -1347,6 +1347,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
           expiresAt,
           autoRenew,
           source: 'web',
+          tier: 'pro', // Tier value for user_subscriptions.tier column
         });
 
         console.log('[checkout] Subscription created successfully');
