@@ -98,6 +98,9 @@ export function PlayPage({
   // Use explicit puzzleSourceMode if provided, otherwise fall back to context mode
   // This ensures we use the correct mode that was active when the puzzle was selected
   const isLocalMode = puzzleSourceMode ? puzzleSourceMode === 'local' : contextIsLocalMode;
+  
+  // Cache mode for guess cache operations - must match the data source mode
+  const cacheMode: 'global' | 'local' = isLocalMode ? 'local' : 'global';
   const { showAd, triggerAd, handleClose: closeInterstitialAd, InterstitialAdComponent } = useInterstitialAd();
   
   // Get user's date format preferences
@@ -245,8 +248,8 @@ export function PlayPage({
             }
             setDigitsCheckComplete(true);
             
-            // Try to load guesses from cache first for faster loading
-            const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId) : null;
+            // Try to load guesses from cache first for faster loading (using mode-aware cache)
+            const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId, cacheMode) : null;
             let attemptGuesses = cachedGuesses;
             
             if (!cachedGuesses) {
@@ -254,9 +257,9 @@ export function PlayPage({
               const allGuesses = await getAllGuesses();
               attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
               
-              // Add to cache for next time
+              // Add to cache for next time (using mode-aware cache)
               if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
-                setGuessesForPuzzle(puzzleId, attemptGuesses);
+                setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses);
               }
             }
             
@@ -333,7 +336,7 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formattedAnswer, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat]);
+  }, [formattedAnswer, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat, cacheMode]);
 
   // Load completed puzzle guesses for view-only mode
   useEffect(() => {
@@ -360,8 +363,8 @@ export function PlayPage({
               setLockedDigits((completedAttempt as any).digits);
             }
             
-            // Try to load guesses from cache first for faster loading
-            const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId) : null;
+            // Try to load guesses from cache first for faster loading (using mode-aware cache)
+            const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId, cacheMode) : null;
             let attemptGuesses = cachedGuesses;
             
             if (!cachedGuesses) {
@@ -369,9 +372,9 @@ export function PlayPage({
               const allGuesses = await getAllGuesses();
               attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
               
-              // Add to cache for next time
+              // Add to cache for next time (using mode-aware cache)
               if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
-                setGuessesForPuzzle(puzzleId, attemptGuesses);
+                setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses);
               }
             }
             

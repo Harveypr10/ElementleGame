@@ -3,19 +3,24 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import type { Guess } from "@shared/schema";
 
+// Cache keys now include mode prefix to prevent cross-contamination
+// Format: "global:123" or "local:456"
 interface GuessCache {
-  [puzzleId: number]: Guess[];
+  [modeAndPuzzleId: string]: Guess[];
 }
 
 interface GuessCacheContextValue {
-  getGuessesForPuzzle: (puzzleId: number) => Guess[] | null;
-  setGuessesForPuzzle: (puzzleId: number, guesses: Guess[]) => void;
-  refreshRecentGuesses: () => Promise<void>;
+  getGuessesForPuzzle: (puzzleId: number, mode: 'global' | 'local') => Guess[] | null;
+  setGuessesForPuzzle: (puzzleId: number, mode: 'global' | 'local', guesses: Guess[]) => void;
+  refreshRecentGuesses: (mode: 'global' | 'local') => Promise<void>;
   isLoading: boolean;
-  addGuessToCache: (puzzleId: number, guess: Guess) => void;
+  addGuessToCache: (puzzleId: number, mode: 'global' | 'local', guess: Guess) => void;
 }
 
 const GuessCacheContext = createContext<GuessCacheContextValue | undefined>(undefined);
+
+// Helper to create mode-prefixed cache key
+const makeCacheKey = (mode: 'global' | 'local', puzzleId: number): string => `${mode}:${puzzleId}`;
 
 export function GuessCacheProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
@@ -23,8 +28,8 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
   const [cache, setCache] = useState<GuessCache>({});
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch recent guesses (last 30 days) from Supabase
-  const fetchRecentGuesses = useCallback(async () => {
+  // Fetch recent guesses (last 30 days) from Supabase - MODE AWARE
+  const fetchRecentGuesses = useCallback(async (mode: 'global' | 'local' = 'global') => {
     if (!isAuthenticated || !user?.id) return;
 
     setIsLoading(true);
@@ -42,7 +47,14 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      const response = await fetch(`/api/guesses/recent?since=${dateString}`, {
+      // Use mode-specific endpoint
+      const endpoint = mode === 'local' 
+        ? `/api/user/guesses/recent?since=${dateString}`
+        : `/api/guesses/recent?since=${dateString}`;
+        
+      console.log(`[GuessCacheContext] Fetching from ${endpoint} for mode: ${mode}`);
+
+      const response = await fetch(endpoint, {
         credentials: "include",
         headers: {
           "Authorization": `Bearer ${session.access_token}`,
@@ -57,25 +69,36 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
       }
 
       const guesses: Guess[] = await response.json();
+      console.log(`[GuessCacheContext] Fetched ${guesses.length} guesses for ${mode} mode`);
 
-      const newCache: GuessCache = {};
-      for (const guess of guesses) {
-        const puzzleId = (guess as any).puzzleId;
-        if (!puzzleId) {
-          console.warn("Guess missing puzzleId:", guess);
-          continue;
+      // Update cache with mode-prefixed keys (merge with existing, don't replace all)
+      setCache((prev) => {
+        const newCache = { ...prev };
+        for (const guess of guesses) {
+          const puzzleId = (guess as any).puzzleId;
+          if (!puzzleId) {
+            console.warn("Guess missing puzzleId:", guess);
+            continue;
+          }
+          const key = makeCacheKey(mode, puzzleId);
+          if (!newCache[key]) newCache[key] = [];
+          // Check if this guess is already in the cache (by id)
+          if (!newCache[key].some(g => g.id === guess.id)) {
+            newCache[key].push(guess);
+          }
         }
-        if (!newCache[puzzleId]) newCache[puzzleId] = [];
-        newCache[puzzleId].push(guess);
-      }
-
-      setCache(newCache);
-
-      try {
-        localStorage.setItem(`guess-cache-${user.id}`, JSON.stringify(newCache));
-      } catch (e) {
-        console.warn("Failed to persist cache to localStorage", e);
-      }
+        
+        // Persist to localStorage
+        if (user) {
+          try {
+            localStorage.setItem(`guess-cache-${user.id}`, JSON.stringify(newCache));
+          } catch (e) {
+            console.warn("Failed to persist cache to localStorage", e);
+          }
+        }
+        
+        return newCache;
+      });
     } catch (error) {
       console.error("Error fetching recent guesses:", error);
     } finally {
@@ -83,7 +106,7 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
     }
   }, [isAuthenticated, user, supabase]);
 
-  // On login: clear cache first, then load from localStorage, then fetch fresh
+  // On login: clear cache first, then load from localStorage, then fetch fresh for both modes
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       setCache({}); // clear stale data immediately
@@ -97,7 +120,9 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
         console.warn("Failed to load cache from localStorage", e);
       }
 
-      fetchRecentGuesses();
+      // Fetch for both modes on login
+      fetchRecentGuesses('global');
+      fetchRecentGuesses('local');
     }
   }, [isAuthenticated, user, fetchRecentGuesses]);
 
@@ -117,15 +142,21 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
     }
   }, [isAuthenticated]);
 
+  // Mode-aware getGuessesForPuzzle
   const getGuessesForPuzzle = useCallback(
-    (puzzleId: number): Guess[] | null => cache[puzzleId] || null,
+    (puzzleId: number, mode: 'global' | 'local'): Guess[] | null => {
+      const key = makeCacheKey(mode, puzzleId);
+      return cache[key] || null;
+    },
     [cache]
   );
 
+  // Mode-aware setGuessesForPuzzle
   const setGuessesForPuzzle = useCallback(
-    (puzzleId: number, guesses: Guess[]) => {
+    (puzzleId: number, mode: 'global' | 'local', guesses: Guess[]) => {
+      const key = makeCacheKey(mode, puzzleId);
       setCache((prev) => {
-        const newCache = { ...prev, [puzzleId]: guesses };
+        const newCache = { ...prev, [key]: guesses };
         if (user) {
           try {
             localStorage.setItem(`guess-cache-${user.id}`, JSON.stringify(newCache));
@@ -139,11 +170,13 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
     [user]
   );
 
+  // Mode-aware addGuessToCache
   const addGuessToCache = useCallback(
-    (puzzleId: number, guess: Guess) => {
+    (puzzleId: number, mode: 'global' | 'local', guess: Guess) => {
+      const key = makeCacheKey(mode, puzzleId);
       setCache((prev) => {
-        const existing = prev[puzzleId] || [];
-        const newCache = { ...prev, [puzzleId]: [...existing, guess] };
+        const existing = prev[key] || [];
+        const newCache = { ...prev, [key]: [...existing, guess] };
         if (user) {
           try {
             localStorage.setItem(`guess-cache-${user.id}`, JSON.stringify(newCache));
@@ -157,8 +190,9 @@ export function GuessCacheProvider({ children }: { children: React.ReactNode }) 
     [user]
   );
 
-  const refreshRecentGuesses = useCallback(async () => {
-    await fetchRecentGuesses();
+  // Mode-aware refreshRecentGuesses
+  const refreshRecentGuesses = useCallback(async (mode: 'global' | 'local') => {
+    await fetchRecentGuesses(mode);
   }, [fetchRecentGuesses]);
 
   return (
