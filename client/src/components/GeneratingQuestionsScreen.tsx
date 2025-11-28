@@ -433,7 +433,8 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supab
 if (!supabaseUrl) {
   console.warn("[GeneratingQuestions] Supabase URL not available; skipping function calls");
 } else {
-  const functionBaseUrl = supabaseUrl.replace(".supabase.co", ".functions.supabase.co");
+  // Correct Supabase edge function URL format: https://<project-ref>.supabase.co/functions/v1/<function-name>
+  const functionBaseUrl = `${supabaseUrl}/functions/v1`;
   console.log("[GeneratingQuestions] Function base URL:", functionBaseUrl);
 
   // Step 5: calculate-demand only (allocate-questions is triggered automatically server-side)

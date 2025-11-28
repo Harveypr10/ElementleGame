@@ -30,7 +30,7 @@ Preferred communication style: Simple, everyday language.
 - **Authentication & User Management**: Direct email/password signup via Supabase, OTP for email changes, first login tracking, and consent field persistence.
 - **Pro Subscription System**: Dynamic database-driven subscription tiers with regional pricing, including components for managing subscriptions and category selection.
 - **Pro UI Design**: Distinct UI elements for Pro users, including "Go Pro" buttons, orange gradients for premium features, and a dedicated "Select Categories" button.
-- **Question Regeneration Workflow**: Triggers an Edge Function to reset and reallocate questions based on postcode or category changes, displaying a `GeneratingQuestionsScreen`.
+- **Question Regeneration Workflow**: Triggers Supabase Edge Functions (`reset-and-reallocate-user`, `calculate-demand`) to reset and reallocate questions based on postcode or category changes, displaying a `GeneratingQuestionsScreen`. Edge function URLs use format: `${VITE_SUPABASE_URL}/functions/v1/<function-name>`.
 - **Advertising System**: `AdBanner` for banner ads (Google AdMob) and `InterstitialAd` for interstitial ads after archive puzzle completions, disabled for Pro subscribers.
 - **Guest Mode & Restrictions**: Guests can play Global puzzles but are restricted from Personal mode and Archive, prompted to register/login.
 - **Dual-Mode Architecture (Global vs Local)**: Independent data fetching and rendering for Global and Local game modes using separate TanStack Query calls.
