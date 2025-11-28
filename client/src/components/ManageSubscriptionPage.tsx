@@ -84,21 +84,21 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     try {
       const response = await apiRequest("POST", "/api/subscription/auto-renew", { autoRenew: value });
       if (!response.ok) {
-        throw new Error("Failed to update auto-renewal");
+        throw new Error("Failed to update auto-renew");
       }
       queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
       toast({
-        title: value ? "Auto-renewal enabled" : "Auto-renewal disabled",
+        title: value ? "Auto-renew enabled" : "Auto-renew disabled",
         description: value 
           ? "Your subscription will renew automatically." 
           : "Your subscription will not renew after the current period.",
       });
     } catch (error) {
-      console.error("Failed to update auto-renewal:", error);
+      console.error("Failed to update auto-renew:", error);
       setAutoRenew(previousValue);
       toast({
         title: "Error",
-        description: "Failed to update auto-renewal setting. Please try again.",
+        description: "Failed to update auto-renew setting. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -225,7 +225,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
               <Card className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold">Auto-renewal</p>
+                    <p className="font-semibold">Auto-renew</p>
                     <p className="text-sm text-muted-foreground">
                       {autoRenew ? "Your subscription will renew automatically" : "Your subscription will not renew"}
                     </p>
@@ -308,7 +308,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Turn off auto-renewal?
+              Turn off auto-renew?
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-left space-y-3 text-sm text-muted-foreground">
@@ -330,14 +330,14 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel-warning-dismiss">
-              Keep auto-renewal on
+              Keep auto-renew on
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmCancelAutoRenew}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-cancel-renewal"
             >
-              Turn off auto-renewal
+              Turn off auto-renew
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

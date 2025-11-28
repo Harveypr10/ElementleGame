@@ -44,17 +44,17 @@ export const userTier = pgTable("user_tier", {
   id: uuid("id").primaryKey(),
   region: text("region").notNull(), // e.g., 'UK', 'US'
   tier: text("tier").notNull(), // e.g., 'standard', 'pro_monthly', 'pro_annual', 'pro_lifetime'
-  subscriptionCost: numeric("subscription_cost"), // Cost in currency (e.g., 11.99)
-  currency: text("currency"), // e.g., 'GBP', 'USD'
-  subscriptionDurationMonths: integer("subscription_duration_months"), // null for lifetime
-  streakSavers: integer("streak_savers").default(0),
+  subscriptionCost: numeric("subscription_cost", { precision: 10, scale: 2 }), // Cost in currency (e.g., 11.99)
+  currency: text("currency").default("GBP"), // e.g., 'GBP', 'USD'
+  subscriptionDurationMonths: integer("subscription_duration_months").default(1), // null for lifetime
+  streakSavers: integer("streak_savers").default(1),
   holidaySavers: integer("holiday_savers").default(0),
-  holidayDurationDays: integer("holiday_duration_days").default(0),
+  holidayDurationDays: integer("holiday_duration_days").default(14),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   active: boolean("active").default(true),
   description: text("description"),
-  sortOrder: integer("sort_order").default(0),
+  sortOrder: integer("sort_order"),
 });
 
 export type UserTier = typeof userTier.$inferSelect;
@@ -99,20 +99,28 @@ export const userProfiles = pgTable("user_profiles", {
   emailVerified: boolean("email_verified").default(false),
 
   // Region and location fields
-  region: text("region"), // ISO country code (e.g., 'GB', 'US')
+  region: text("region").default("UK"), // ISO country code (e.g., 'UK', 'US')
   postcode: text("postcode"), // References postcodes.name1
-  location: text("location"), // Stored as text for now (will be geometry later if needed)
+  location: text("location"), // Geography type stored as text
 
   // Subscription tier - 'standard' or 'pro'
   tier: text("tier").default("standard"),
-
-  // Note: first_login_completed column planned but needs Supabase migration
-  // Will be added via Supabase dashboard SQL editor
-  // firstLoginCompleted: boolean("first_login_completed").default(false),
+  
+  // Postcode change tracking
+  postcodeLastChangedAt: timestamp("postcode_last_changed_at", { withTimezone: true }),
+  
+  // Archive puzzle sync count
+  archiveSyncedCount: integer("archive_synced_count").default(0),
+  
+  // Foreign key to user_tier table (managed by Supabase trigger)
+  userTierId: uuid("user_tier_id").references(() => userTier.id),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  regionIdx: index("idx_user_profiles_region").on(table.region),
+  tierIdx: index("idx_user_profiles_tier").on(table.tier),
+}));
 
 export const insertUserProfileSchema = createInsertSchema(userProfiles)
 .omit({
@@ -131,19 +139,20 @@ export type UserProfile = typeof userProfiles.$inferSelect;
 
 // User Subscriptions table - stores active user subscriptions
 // References user_tier for tier metadata, managed by Supabase triggers
+// Note: 'validity' column is GENERATED ALWAYS (tstzrange) - not in Drizzle schema
 export const userSubscriptions = pgTable("user_subscriptions", {
   id: serial("id").primaryKey(), // Database uses serial integer, not UUID
   userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
-  userTierId: uuid("user_tier_id").notNull().references(() => userTier.id),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  amountPaid: integer("amount_paid"), // Amount in smallest currency unit
-  currency: text("currency"),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  userTierId: uuid("user_tier_id").references(() => userTier.id), // Nullable in Supabase
+  createdAt: timestamp("created_at").defaultNow(), // No timezone in Supabase
+  amountPaid: numeric("amount_paid", { precision: 10, scale: 2 }), // numeric(10,2) in Supabase
+  currency: text("currency").default("GBP"),
+  expiresAt: timestamp("expires_at"), // No timezone in Supabase
   paymentReference: text("payment_reference"),
   source: text("source"), // e.g., 'stripe', 'apple', 'google'
   effectiveStartAt: timestamp("effective_start_at", { withTimezone: true }).defaultNow(),
-  validity: text("validity").default("active"), // 'active', 'expired', 'cancelled'
-  autoRenew: boolean("auto_renew").default(false),
+  tier: text("tier"), // 'school', 'trial', 'pro' - nullable
+  autoRenew: boolean("auto_renew").notNull().default(true), // Defaults true in Supabase
 });
 
 export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({
