@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { writeLocal, CACHE_KEYS } from '@/lib/localCache';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 
 // Import images to preload
 import historianHamsterBlue from '@assets/Historian-Hamster-Blue.svg';
@@ -121,6 +122,32 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             staleTime: 30 * 60 * 1000, // Cache for 30 mins since categories rarely change
           }).then(data => ({ key: 'categories', data })).catch(() => ({ key: 'categories', data: null })),
 
+          // Prefetch subscription data (includes autoRenew state) - requires auth token
+          (async () => {
+            try {
+              const supabase = await getSupabaseClient();
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) return { key: 'subscription', data: null };
+              
+              return queryClient.fetchQuery({
+                queryKey: ['/api/subscription', user.id],
+                queryFn: async () => {
+                  const response = await fetch('/api/subscription', {
+                    credentials: 'include',
+                    headers: {
+                      'Authorization': `Bearer ${session.access_token}`,
+                    },
+                  });
+                  if (!response.ok) throw new Error('Failed to fetch subscription');
+                  return response.json();
+                },
+                staleTime: 5 * 60 * 1000,
+              }).then(data => ({ key: 'subscription', data })).catch(() => ({ key: 'subscription', data: null }));
+            } catch {
+              return { key: 'subscription', data: null };
+            }
+          })(),
+
           // Prefetch puzzles (public data)
           queryClient.fetchQuery({
             queryKey: ['/api/puzzles'],
@@ -166,6 +193,11 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
         if (dataMap.categories?.categoryIds && Array.isArray(dataMap.categories.categoryIds)) {
           writeLocal(CACHE_KEYS.PRO_CATEGORIES, dataMap.categories.categoryIds);
           console.log('[PreloadProvider] Cached user categories:', dataMap.categories.categoryIds);
+        }
+
+        if (dataMap.subscription) {
+          writeLocal(CACHE_KEYS.SUBSCRIPTION, dataMap.subscription);
+          console.log('[PreloadProvider] Cached subscription with autoRenew:', dataMap.subscription.autoRenew);
         }
 
         // Cache current month's archive if we have puzzles

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -60,9 +60,19 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [autoRenew, setAutoRenew] = useState(subscription?.autoRenew ?? true);
+  const [autoRenew, setAutoRenew] = useState<boolean | null>(null);
   const [showCancelWarning, setShowCancelWarning] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Sync local autoRenew state with subscription data when it loads/changes
+  useEffect(() => {
+    if (subscription?.autoRenew !== undefined) {
+      setAutoRenew(subscription.autoRenew);
+    }
+  }, [subscription?.autoRenew]);
+
+  // Display value - use subscription value if local state not yet set
+  const displayAutoRenew = autoRenew ?? subscription?.autoRenew ?? true;
 
   const handleAutoRenewToggle = async (newValue: boolean) => {
     if (!newValue) {
@@ -227,11 +237,11 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                   <div>
                     <p className="font-semibold">Auto-renew</p>
                     <p className="text-sm text-muted-foreground">
-                      {autoRenew ? "Your subscription will renew automatically" : "Your subscription will not renew"}
+                      {displayAutoRenew ? "Your subscription will renew automatically" : "Your subscription will not renew"}
                     </p>
                   </div>
                   <Switch
-                    checked={autoRenew}
+                    checked={displayAutoRenew}
                     onCheckedChange={handleAutoRenewToggle}
                     disabled={isUpdating}
                     data-testid="switch-auto-renew"

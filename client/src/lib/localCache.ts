@@ -40,6 +40,7 @@ export function clearUserCache(): void {
     'cached-today-outcome',
     'cached-percentile',
     'cached-pro-categories',
+    'cached-subscription',
     'elementle-stats',
     'cluesEnabled',
   ];
@@ -82,4 +83,5 @@ export const CACHE_KEYS = {
   ARCHIVE_PREFIX: 'cached-archive-',
   PERCENTILE: 'cached-percentile',
   PRO_CATEGORIES: 'cached-pro-categories',
+  SUBSCRIPTION: 'cached-subscription',
 } as const;
