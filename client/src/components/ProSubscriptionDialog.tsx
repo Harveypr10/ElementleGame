@@ -30,11 +30,11 @@ interface TierData {
   sortOrder: number;
 }
 
-// Helper to format price from smallest currency unit
+// Helper to format price
 function formatPrice(amount: number | null, currency: string | null): string {
   if (amount === null) return 'Free';
   const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : currency || '';
-  return `${symbol}${(amount / 100).toFixed(2)}`;
+  return `${symbol}${amount.toFixed(2)}`;
 }
 
 // Get icon and styling based on tier type
