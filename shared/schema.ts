@@ -384,6 +384,10 @@ export const userStatsRegion = pgTable("user_stats_region", {
   currentStreak: integer("current_streak").default(0),
   maxStreak: integer("max_streak").default(0),
   guessDistribution: jsonb("guess_distribution").default({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }), // JSON object tracking wins by guess count
+  // Streak saver and holiday fields (managed by nightly cron and API endpoints)
+  streakSaversUsedMonth: integer("streak_savers_used_month").default(0),
+  missedYesterdayFlagRegion: boolean("missed_yesterday_flag_region").default(false),
+  missedYesterdayFlagUser: boolean("missed_yesterday_flag_user").default(false),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -505,6 +509,13 @@ export const userStatsUser = pgTable("user_stats_user", {
   currentStreak: integer("current_streak").default(0),
   maxStreak: integer("max_streak").default(0),
   guessDistribution: jsonb("guess_distribution").default({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }), // JSON object tracking wins by guess count
+  // Streak saver and holiday fields (managed by nightly cron and API endpoints)
+  streakSaversUsedMonth: integer("streak_savers_used_month").default(0),
+  holidayActive: boolean("holiday_active").default(false),
+  holidayStartDate: date("holiday_start_date"),
+  holidayEndDate: date("holiday_end_date"),
+  missedYesterdayFlagRegion: boolean("missed_yesterday_flag_region").default(false),
+  missedYesterdayFlagUser: boolean("missed_yesterday_flag_user").default(false),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -515,6 +526,24 @@ export const insertUserStatsUserSchema = createInsertSchema(userStatsUser).omit(
 
 export type InsertUserStatsUser = z.infer<typeof insertUserStatsUserSchema>;
 export type UserStatsUser = typeof userStatsUser.$inferSelect;
+
+// User Holiday Events - Tracks annual holiday usage for Pro users
+export const userHolidayEvents = pgTable("user_holiday_events", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  mode: varchar("mode", { length: 10 }).notNull(), // 'region' or 'user'
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertUserHolidayEventSchema = createInsertSchema(userHolidayEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserHolidayEvent = z.infer<typeof insertUserHolidayEventSchema>;
+export type UserHolidayEvent = typeof userHolidayEvents.$inferSelect;
 
 // Admin Settings table - stores configurable system settings
 export const adminSettings = pgTable("admin_settings", {

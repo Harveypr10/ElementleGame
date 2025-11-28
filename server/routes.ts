@@ -1387,6 +1387,230 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // ============================================================================
+  // STREAK SAVER & HOLIDAY ROUTES
+  // ============================================================================
+
+  // Get streak saver status (missed flags, holiday state, allowances)
+  app.get("/api/streak-saver/status", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log('[streak-saver/status] Checking status for userId:', userId);
+      
+      // Get streak saver status from database
+      const status = await storage.getStreakSaverStatus(userId);
+      
+      // Get tier to determine allowances - handle undefined/new users
+      let activeTier: any = null;
+      try {
+        activeTier = await storage.getUserActiveTier(userId);
+      } catch (tierError) {
+        console.log('[streak-saver/status] Could not fetch tier, using defaults');
+      }
+      
+      // Determine if user is Pro - handle various tier name variants
+      // The 'tier' field from user_active_tier_view contains values like 'standard', 'pro_monthly', 'pro_annual', 'pro_lifetime'
+      const tierName = activeTier?.tier?.toLowerCase() || 'standard';
+      const isPro = tierName.startsWith('pro') || tierName === 'pro';
+      
+      // Determine allowances - use tier metadata if available, else defaults
+      // For Pro: use metadata from tier, For Standard: 1 streak saver/month, no holidays
+      let streakSaverAllowance = 1;
+      let holidaySaverAllowance = 0;
+      let holidayDurationDays = 0;
+      
+      if (isPro && activeTier) {
+        // Pro user with valid tier - use metadata or sensible Pro defaults
+        streakSaverAllowance = activeTier.streakSavers ?? 3;
+        holidaySaverAllowance = activeTier.holidaySavers ?? 2;
+        holidayDurationDays = activeTier.holidayDurationDays ?? 7;
+      } else if (activeTier && !isPro) {
+        // Standard tier with metadata
+        streakSaverAllowance = activeTier.streakSavers ?? 1;
+        holidaySaverAllowance = 0;
+        holidayDurationDays = 0;
+      }
+      
+      // Get holiday usage this year
+      const holidaysUsedThisYear = await storage.countHolidayEventsThisYear(userId);
+      
+      console.log('[streak-saver/status] Status:', { status, isPro, streakSaverAllowance, holidaysUsedThisYear });
+      
+      // Return safe defaults if status is null (new user without stats)
+      const safeStatus = status || {
+        region: { currentStreak: 0, streakSaversUsedMonth: 0, missedYesterdayFlag: false },
+        user: { currentStreak: 0, streakSaversUsedMonth: 0, holidayActive: false, holidayStartDate: null, holidayEndDate: null, missedYesterdayFlag: false }
+      };
+      
+      res.json({
+        ...safeStatus,
+        allowances: {
+          streakSaversPerMonth: streakSaverAllowance,
+          holidaySaversPerYear: holidaySaverAllowance,
+          holidaysUsedThisYear,
+          holidayDurationDays,
+          isPro,
+        }
+      });
+    } catch (error: any) {
+      console.error("Error fetching streak saver status:", error);
+      res.status(500).json({ error: "Failed to fetch streak saver status" });
+    }
+  });
+
+  // Use a streak saver
+  app.post("/api/streak-saver/use", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { gameType } = req.body; // 'region' or 'user'
+      
+      if (!gameType || !['region', 'user'].includes(gameType)) {
+        return res.status(400).json({ error: "gameType must be 'region' or 'user'" });
+      }
+      
+      console.log('[streak-saver/use] User:', userId, 'gameType:', gameType);
+      
+      // Get tier to determine allowance - handle undefined/new users
+      let activeTier: any = null;
+      try {
+        activeTier = await storage.getUserActiveTier(userId);
+      } catch (tierError) {
+        console.log('[streak-saver/use] Could not fetch tier, using defaults');
+      }
+      
+      // Determine allowance based on tier
+      const tierName = activeTier?.tier?.toLowerCase() || 'standard';
+      const isPro = tierName.startsWith('pro') || tierName === 'pro';
+      
+      let allowance = 1; // Default for Standard tier
+      if (isPro && activeTier) {
+        allowance = activeTier.streakSavers ?? 3;
+      } else if (activeTier) {
+        allowance = activeTier.streakSavers ?? 1;
+      }
+      
+      // Use the streak saver
+      const result = await storage.useStreakSaver(userId, gameType, allowance);
+      
+      if (!result.success) {
+        console.log('[streak-saver/use] Failed:', result.error);
+        return res.status(400).json({ error: result.error, needsSubscription: result.error?.includes('remaining') });
+      }
+      
+      console.log('[streak-saver/use] Success!');
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error using streak saver:", error);
+      res.status(500).json({ error: "Failed to use streak saver" });
+    }
+  });
+
+  // Decline streak saver (reset streak to 0)
+  app.post("/api/streak-saver/decline", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { gameType } = req.body; // 'region' or 'user'
+      
+      if (!gameType || !['region', 'user'].includes(gameType)) {
+        return res.status(400).json({ error: "gameType must be 'region' or 'user'" });
+      }
+      
+      console.log('[streak-saver/decline] User:', userId, 'gameType:', gameType);
+      
+      // Reset streak to 0 and clear the missed flag
+      const table = gameType === 'region' ? 'user_stats_region' : 'user_stats_user';
+      const flagColumn = gameType === 'region' ? 'missed_yesterday_flag_region' : 'missed_yesterday_flag_user';
+      
+      await db.execute(sql.raw(`
+        UPDATE ${table}
+        SET 
+          current_streak = 0,
+          ${flagColumn} = false,
+          updated_at = NOW()
+        WHERE user_id = '${userId}'
+      `));
+      
+      console.log('[streak-saver/decline] Streak reset to 0');
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error declining streak saver:", error);
+      res.status(500).json({ error: "Failed to decline streak saver" });
+    }
+  });
+
+  // Start a holiday (Pro users only)
+  app.post("/api/holiday/start", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log('[holiday/start] User:', userId);
+      
+      // Check tier and holiday allowance - handle undefined/new users
+      let activeTier: any = null;
+      try {
+        activeTier = await storage.getUserActiveTier(userId);
+      } catch (tierError) {
+        console.log('[holiday/start] Could not fetch tier, denying access');
+        return res.status(403).json({ error: "Holiday feature is Pro-only", needsSubscription: true });
+      }
+      
+      // Determine if user is Pro
+      const tierName = activeTier?.tier?.toLowerCase() || 'standard';
+      const isPro = tierName.startsWith('pro') || tierName === 'pro';
+      
+      if (!isPro || !activeTier) {
+        return res.status(403).json({ error: "Holiday feature is Pro-only", needsSubscription: true });
+      }
+      
+      // Get holiday allowances from tier metadata
+      const holidayAllowance = activeTier.holidaySavers ?? 2;
+      const holidayDurationDays = activeTier.holidayDurationDays ?? 7;
+      
+      if (holidayAllowance === 0 || holidayDurationDays === 0) {
+        return res.status(403).json({ error: "Your tier does not include holidays" });
+      }
+      
+      // Check annual holiday usage
+      const holidaysUsedThisYear = await storage.countHolidayEventsThisYear(userId);
+      
+      if (holidaysUsedThisYear >= holidayAllowance) {
+        return res.status(400).json({ error: "No holidays remaining this year" });
+      }
+      
+      // Start the holiday
+      const result = await storage.startHoliday(userId, holidayDurationDays);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      
+      console.log('[holiday/start] Holiday started');
+      res.json({ success: true, holidayDurationDays });
+    } catch (error: any) {
+      console.error("Error starting holiday:", error);
+      res.status(500).json({ error: "Failed to start holiday" });
+    }
+  });
+
+  // End a holiday early
+  app.post("/api/holiday/end", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log('[holiday/end] User:', userId);
+      
+      const result = await storage.endHoliday(userId);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      
+      console.log('[holiday/end] Holiday ended');
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error ending holiday:", error);
+      res.status(500).json({ error: "Failed to end holiday" });
+    }
+  });
+
   // Get all categories (excluding Local History - id 999)
   app.get("/api/categories", async (req, res) => {
     try {

@@ -16,6 +16,7 @@ import {
   userStatsUser,
   adminSettings,
   userTier,
+  userHolidayEvents,
   type UserProfile,
   type InsertUserProfile,
   type Puzzle,
@@ -50,6 +51,8 @@ import {
   type InsertDemandSchedulerConfig,
   type UserTier,
   type UserActiveTier,
+  type UserHolidayEvent,
+  type InsertUserHolidayEvent,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, isNull, sql, notInArray } from "drizzle-orm";
@@ -226,6 +229,42 @@ export interface IStorage {
   
   // First login tracking
   markFirstLoginCompleted(userId: string): Promise<void>;
+
+  // ========================================================================
+  // STREAK SAVER & HOLIDAY OPERATIONS
+  // ========================================================================
+  
+  // Streak saver status - returns stats with flags for both game modes
+  getStreakSaverStatus(userId: string): Promise<{
+    region: {
+      currentStreak: number;
+      streakSaversUsedMonth: number;
+      missedYesterdayFlag: boolean;
+    };
+    user: {
+      currentStreak: number;
+      streakSaversUsedMonth: number;
+      holidayActive: boolean;
+      holidayStartDate: string | null;
+      holidayEndDate: string | null;
+      missedYesterdayFlag: boolean;
+    };
+  } | null>;
+  
+  // Use a streak saver for a game mode
+  useStreakSaver(userId: string, gameType: 'region' | 'user', allowance: number): Promise<{ success: boolean; error?: string }>;
+  
+  // Start a holiday (Pro users only)
+  startHoliday(userId: string, holidayDurationDays: number): Promise<{ success: boolean; error?: string }>;
+  
+  // End a holiday early
+  endHoliday(userId: string): Promise<{ success: boolean; error?: string }>;
+  
+  // Count holiday events used this year
+  countHolidayEventsThisYear(userId: string): Promise<number>;
+  
+  // Insert a holiday event record
+  insertHolidayEvent(userId: string, mode: 'region' | 'user', startedAt: Date, endedAt?: Date): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2389,6 +2428,268 @@ export class DatabaseStorage implements IStorage {
     // Note: first_login_completed column not yet in database
     // This is a no-op until Supabase migration is applied
     console.log(`First login completed flag would be set for user ${userId}`);
+  }
+
+  // ========================================================================
+  // STREAK SAVER & HOLIDAY OPERATIONS
+  // ========================================================================
+
+  async getStreakSaverStatus(userId: string): Promise<{
+    region: {
+      currentStreak: number;
+      streakSaversUsedMonth: number;
+      missedYesterdayFlag: boolean;
+    };
+    user: {
+      currentStreak: number;
+      streakSaversUsedMonth: number;
+      holidayActive: boolean;
+      holidayStartDate: string | null;
+      holidayEndDate: string | null;
+      missedYesterdayFlag: boolean;
+    };
+  } | null> {
+    try {
+      // Get region stats
+      const regionResult = await db.execute(sql`
+        SELECT 
+          current_streak,
+          streak_savers_used_month,
+          missed_yesterday_flag_region
+        FROM user_stats_region
+        WHERE user_id = ${userId}
+      `);
+      
+      // Get user stats
+      const userResult = await db.execute(sql`
+        SELECT 
+          current_streak,
+          streak_savers_used_month,
+          holiday_active,
+          holiday_start_date,
+          holiday_end_date,
+          missed_yesterday_flag_user
+        FROM user_stats_user
+        WHERE user_id = ${userId}
+      `);
+      
+      const regionRows = Array.isArray(regionResult) ? regionResult : (regionResult as any).rows || [];
+      const userRows = Array.isArray(userResult) ? userResult : (userResult as any).rows || [];
+      
+      // Return null if user doesn't have any stats yet
+      if (regionRows.length === 0 && userRows.length === 0) {
+        return null;
+      }
+      
+      const regionRow = regionRows[0] || {};
+      const userRow = userRows[0] || {};
+      
+      return {
+        region: {
+          currentStreak: regionRow.current_streak || 0,
+          streakSaversUsedMonth: regionRow.streak_savers_used_month || 0,
+          missedYesterdayFlag: regionRow.missed_yesterday_flag_region || false,
+        },
+        user: {
+          currentStreak: userRow.current_streak || 0,
+          streakSaversUsedMonth: userRow.streak_savers_used_month || 0,
+          holidayActive: userRow.holiday_active || false,
+          holidayStartDate: userRow.holiday_start_date || null,
+          holidayEndDate: userRow.holiday_end_date || null,
+          missedYesterdayFlag: userRow.missed_yesterday_flag_user || false,
+        }
+      };
+    } catch (error: any) {
+      console.error('[getStreakSaverStatus] Error:', error);
+      // Columns might not exist yet
+      if (error?.code === '42703' || error?.message?.includes('does not exist')) {
+        console.log('Note: Streak saver columns not available yet');
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async useStreakSaver(userId: string, gameType: 'region' | 'user', allowance: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      const table = gameType === 'region' ? 'user_stats_region' : 'user_stats_user';
+      const flagColumn = gameType === 'region' ? 'missed_yesterday_flag_region' : 'missed_yesterday_flag_user';
+      
+      // Check current usage
+      const result = await db.execute(sql.raw(`
+        SELECT streak_savers_used_month, ${flagColumn}
+        FROM ${table}
+        WHERE user_id = '${userId}'
+      `));
+      
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      if (rows.length === 0) {
+        return { success: false, error: 'Stats not found for user' };
+      }
+      
+      const currentUsage = rows[0].streak_savers_used_month || 0;
+      const hasMissedFlag = rows[0][flagColumn] || false;
+      
+      if (!hasMissedFlag) {
+        return { success: false, error: 'No missed day to save' };
+      }
+      
+      if (currentUsage >= allowance) {
+        return { success: false, error: 'No streak savers remaining this month' };
+      }
+      
+      // Use the streak saver: increment usage and clear flag
+      await db.execute(sql.raw(`
+        UPDATE ${table}
+        SET 
+          streak_savers_used_month = streak_savers_used_month + 1,
+          ${flagColumn} = false,
+          updated_at = NOW()
+        WHERE user_id = '${userId}'
+      `));
+      
+      console.log(`[useStreakSaver] User ${userId} used streak saver for ${gameType}`);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[useStreakSaver] Error:', error);
+      return { success: false, error: error?.message || 'Failed to use streak saver' };
+    }
+  }
+
+  async startHoliday(userId: string, holidayDurationDays: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Check if holiday is already active
+      const result = await db.execute(sql`
+        SELECT holiday_active, holiday_start_date, holiday_end_date
+        FROM user_stats_user
+        WHERE user_id = ${userId}
+      `);
+      
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      if (rows.length === 0) {
+        return { success: false, error: 'Stats not found for user' };
+      }
+      
+      if (rows[0].holiday_active) {
+        return { success: false, error: 'Holiday already active' };
+      }
+      
+      // Calculate holiday dates
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + holidayDurationDays);
+      
+      // Start the holiday
+      await db.execute(sql`
+        UPDATE user_stats_user
+        SET 
+          holiday_active = true,
+          holiday_start_date = ${startDate.toISOString().split('T')[0]},
+          holiday_end_date = ${endDate.toISOString().split('T')[0]},
+          updated_at = NOW()
+        WHERE user_id = ${userId}
+      `);
+      
+      // Record holiday event
+      await this.insertHolidayEvent(userId, 'user', startDate);
+      
+      console.log(`[startHoliday] User ${userId} started holiday until ${endDate.toISOString().split('T')[0]}`);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[startHoliday] Error:', error);
+      return { success: false, error: error?.message || 'Failed to start holiday' };
+    }
+  }
+
+  async endHoliday(userId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Check if holiday is active
+      const result = await db.execute(sql`
+        SELECT holiday_active, holiday_start_date
+        FROM user_stats_user
+        WHERE user_id = ${userId}
+      `);
+      
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      if (rows.length === 0) {
+        return { success: false, error: 'Stats not found for user' };
+      }
+      
+      if (!rows[0].holiday_active) {
+        return { success: false, error: 'No active holiday to end' };
+      }
+      
+      // End the holiday
+      await db.execute(sql`
+        UPDATE user_stats_user
+        SET 
+          holiday_active = false,
+          holiday_start_date = NULL,
+          holiday_end_date = NULL,
+          updated_at = NOW()
+        WHERE user_id = ${userId}
+      `);
+      
+      // Update the holiday event with end date
+      const endDate = new Date();
+      await db.execute(sql`
+        UPDATE user_holiday_events
+        SET ended_at = ${endDate}
+        WHERE user_id = ${userId}
+          AND ended_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
+      
+      console.log(`[endHoliday] User ${userId} ended holiday`);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[endHoliday] Error:', error);
+      return { success: false, error: error?.message || 'Failed to end holiday' };
+    }
+  }
+
+  async countHolidayEventsThisYear(userId: string): Promise<number> {
+    try {
+      const startOfYear = new Date();
+      startOfYear.setMonth(0, 1);
+      startOfYear.setHours(0, 0, 0, 0);
+      
+      const result = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM user_holiday_events
+        WHERE user_id = ${userId}
+          AND created_at >= ${startOfYear}
+      `);
+      
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      return parseInt(rows[0]?.count || '0', 10);
+    } catch (error: any) {
+      console.error('[countHolidayEventsThisYear] Error:', error);
+      // Table might not exist yet
+      if (error?.code === '42P01') {
+        return 0;
+      }
+      throw error;
+    }
+  }
+
+  async insertHolidayEvent(userId: string, mode: 'region' | 'user', startedAt: Date, endedAt?: Date): Promise<void> {
+    try {
+      await db.execute(sql`
+        INSERT INTO user_holiday_events (user_id, mode, started_at, ended_at)
+        VALUES (${userId}, ${mode}, ${startedAt}, ${endedAt || null})
+      `);
+      console.log(`[insertHolidayEvent] Recorded holiday event for user ${userId}`);
+    } catch (error: any) {
+      console.error('[insertHolidayEvent] Error:', error);
+      // Table might not exist yet - that's okay
+      if (error?.code === '42P01') {
+        console.log('Note: user_holiday_events table not available yet');
+        return;
+      }
+      throw error;
+    }
   }
 }
 

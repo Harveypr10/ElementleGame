@@ -1,7 +1,7 @@
 # Elementle - Daily Historical Date Puzzle Game
 
 ## Overview
-Elementle is a daily puzzle game inspired by NYT Games and Duolingo, where players guess historical dates in DDMMYY format. The game features a hamster mascot, color-coded feedback, and focuses on engaging players daily with historical events. It is a full-stack web application with a React frontend and an Express backend, designed for daily engagement and educational entertainment.
+Elementle is a daily puzzle game inspired by NYT Games and Duolingo, where players guess historical dates. It's a full-stack web application with a React frontend and an Express backend, designed for daily engagement and educational entertainment, featuring a hamster mascot and color-coded feedback. The project aims to engage players daily with historical events through a fun puzzle format.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -9,54 +9,40 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
-- **Framework & Build System**: React 18 with TypeScript, Vite for fast HMR and optimized builds, Wouter for lightweight routing.
-- **UI Component System**: Shadcn UI (New York style) based on Radix UI, Tailwind CSS for utility-first styling with custom design tokens, CSS Variables for theming (light/dark mode).
-- **State Management**: TanStack Query for server state, local React state for UI state, LocalStorage for persisting game statistics and theme preferences.
-- **Preload & Cache System**: A `PreloadProvider` preloads critical assets (hamster SVGs, icons) and prefetches data (settings, profile, stats, attempts, puzzles, **user categories**) on app mount. It uses `Promise.allSettled` for independent error handling, prioritizes cache-first rendering for instant loads, and performs background reconciliation to update data from Supabase. User categories are cached to `CACHE_KEYS.PRO_CATEGORIES` on initial load with 30-minute staleTime (categories rarely change). Cache keys are structured for various data types, and `clearUserCache()` handles logout.
-- **Format Cache System**: `client/src/lib/formatCache.ts` provides instant localStorage caching for date format settings (region, digitPreference) to prevent visual "flipping" on page load. The `useProfile`, `useUserSettings`, and `useUserDateFormat` hooks automatically sync with this cache via their `onSuccess` callbacks. PlayPage includes a loading gate that prevents rendering until format data is ready, showing "Loading... Preparing your game" to ensure no format inconsistencies are visible to users. AccountInfoPage uses the hook's `updateProfile` function to guarantee automatic cache synchronization when settings change.
-- **Design System**: Custom color palette for game feedback (correct/green, in-sequence/amber, not-in-sequence/grey), responsive design with a mobile-first approach, and game-specific visual feedback including directional arrows.
-- **Realtime Subscriptions**: `useRealtimeSubscriptions` hook (`client/src/hooks/useRealtimeSubscriptions.ts`) provides automatic UI refresh when database changes occur. Subscribes to `questions_allocated_user`, `questions_allocated_region`, `location_allocation`, `user_category_preferences`, and `user_profiles` tables. Uses `refetchQueries` (not `invalidateQueries`) to force immediate refetches regardless of staleTime:Infinity cache settings. Integrated into GameSelectionPage and ArchivePage. Hook accepts userId, region, and isAuthenticated as parameters to avoid React hook order issues.
-- **Navigation-Based Data Refresh**: GameSelectionPage automatically refetches puzzle data on every navigation if today's puzzle is missing (when "Hammie is still cooking..." is shown). Once today's puzzle is loaded for both Global and Local modes, the automatic refresh stops. This ensures new signups see their puzzles without relying on potentially unreliable realtime subscriptions. ArchivePage always forces a fresh data fetch on mount for authenticated users.
+- **Framework & Build System**: React 18 with TypeScript, Vite, Wouter for routing.
+- **UI Component System**: Shadcn UI (New York style) based on Radix UI, Tailwind CSS, CSS Variables for theming.
+- **State Management**: TanStack Query for server state, local React state for UI, LocalStorage for persistence.
+- **Preload & Cache System**: `PreloadProvider` for critical assets and data (settings, profile, stats, attempts, puzzles, user categories), prioritizing cache-first rendering. Date format settings are instantly cached in LocalStorage.
+- **Design System**: Custom color palette for game feedback, responsive design, mobile-first approach, and game-specific visual feedback.
+- **Realtime Subscriptions**: `useRealtimeSubscriptions` hook for automatic UI refresh on database changes, refetching queries directly.
+- **Navigation-Based Data Refresh**: Automatic puzzle data refetching on navigation, especially for new signups and archive pages.
+- **Intro Screen**: Displays game information (formatted date, clue, event title) and a Play button for new games or unattempted archive puzzles.
 
 ### Backend Architecture
 - **Server Framework**: Express.js with Node.js (ES modules) and TypeScript.
-- **Development & Production Setup**: Vite middleware for development, separate build processes for client and server (esbuild).
-- **Data Storage Strategy**: Currently uses in-memory storage (`MemStorage`) with an `IStorage` interface for future database integration.
-- **Session Management**: `connect-pg-simple` and Express session middleware are configured for future PostgreSQL-backed session storage and authentication.
+- **Data Storage Strategy**: Currently uses in-memory storage with an `IStorage` interface, designed for future database integration.
+- **Session Management**: Configured for future PostgreSQL-backed session storage and authentication.
 
 ### Application Structure
-- **Page Organization**: Includes `WelcomePage`, `GameSelectionPage`, `PlayPage` (core game mechanics), `StatsPage`, and `ArchivePage`.
-- **Shared Code**: Schema definitions in `shared/schema.ts` for type consistency, path aliases (`@shared`, `@/components`, etc.).
-- **Game Logic**: Client-side puzzle validation, feedback calculation, LocalStorage-based statistics tracking (games played, won, streak, guess distribution), and a 5-attempt limit with directional hints.
-- **Intro Screen (New Games)**: `IntroScreen` component displays when entering a new game with no guesses yet. Shows: Historian-Hamster-Blue.svg image, puzzle date formatted per user preference (DD/MM/YY → "25th November 2025", MM/DD/YY → "November 25, 2025"), clue prompt prefixed with category name when available ("History and World Events: On what date in history did this event occur?" when clues enabled, or "Take on the challenge of guessing a date in history!" when disabled) with event title below, and a centered Play button (50% width, reduced height) colored to match Global (#7DAAE8) or Local (#66becb) mode. Light grey background (bg-gray-100 dark:bg-gray-900). Clicking Play triggers fade transition to the game screen. Games with any guesses or completed games bypass intro and go directly to the game screen. Archive puzzles that haven't been attempted show intro; already-played archive puzzles go straight to game view.
-- **Authentication & User Management**: Direct email/password signup using `supabase.auth.signUp` (no 2FA for signup). OTP verification is preserved only for email changes in AccountInfoPage for security. First login tracking uses Supabase user_metadata (`first_login_completed` flag) to trigger GeneratingQuestionsScreen on first sign-in. Consent fields (terms, ads) persistence has been fixed during signup and profile updates.
-- **Pro Subscription System**: Dynamic database-driven subscription tiers with regional pricing. Tables: `user_tier` (tier definitions per region with pricing/features), `user_subscriptions` (subscription history), `user_active_tier_view` (resolves active tier). Components: `GoProButton`, `ProSubscriptionDialog` (fetches tiers dynamically from `/api/tiers`), `CategorySelectionScreen`, and `useSubscription` hook. Tier names: 'standard' (free), 'pro_monthly', 'pro_annual', 'pro_lifetime'. API endpoints: `/api/subscription` (reads from view with legacy fallback), `/api/tiers` (available tiers for user's region), `/api/subscription/create-checkout` (creates subscription with tierId). `useSubscription` returns `tier`, `tierName`, `isPro`, `metadata` (streakSavers, holidaySavers, etc.). Backward compatible with legacy `user_profiles.tier` column. See `SUBSCRIPTION_TIER_SETUP.md` for database setup.
-- **Pro UI Design**: 
-  - GoProButton shows just "Pro" (orange gradient background, white text) when user is Pro, or "Ads on / Go Pro" for non-Pro users
-  - Settings menu Pro items have orange gradient backgrounds with white text
-  - "Pro" button shows "Manage your subscription" inline (not below)
-  - "Select Categories" button (replaces "Regenerate Questions") navigates to CategorySelectionScreen
-  - Categories are fetched from `categories` table in Supabase (20 items, excludes id 999)
-  - User category preferences stored in `user_category_preferences` table (links user_id to category_id)
-- **Question Regeneration Workflow**: When users change their postcode (AccountInfoPage) or categories (CategorySelectionScreen), the system: (1) Saves the changes, (2) Calls `reset-and-reallocate-user` Edge Function to clear unattempted allocations and location data, (3) Shows GeneratingQuestionsScreen which repopulates locations and calls `calculate-demand` (which auto-triggers `allocate-questions` server-side), (4) Returns to GameSelectionPage on completion. The "Re-Generate" button in CategorySelectionScreen is only enabled when categories actually differ from saved preferences (disabled while loading or when unchanged). **Category Selection Caching**: CategorySelectionScreen pre-caches user categories at app load, displaying them instantly on screen open. Cache updates only after successful save and regeneration. If user exits without regenerating, original categories are preserved in cache for next visit.
-- **Advertising System**: Banner ads via `AdBanner` component with Google AdMob test ID (ca-app-pub-3940256099942544/2435281174), fixed bottom positioning with z-index 90. All pages include pb-16 padding to accommodate. Interstitial ads via `InterstitialAd` component shown after archive puzzle completions with 5-second countdown, z-index 200 overlay. Pro subscribers have ads disabled.
-- **Guest Mode & Restrictions**: 
-  - Guest users (unauthenticated) can play Global puzzles using the `/api/puzzles/guest` endpoint (defaults to UK region).
-  - Guests cannot swipe to Personal (Local) mode or access Archive - attempts trigger snap-back animation and `GuestRestrictionPopup` with hamster image and Register/Login buttons.
-  - Mode toggle (`ModeToggle` component) has dynamic width based on label lengths, supports names up to 11 characters before reverting to "Personal", and uses cached profile for instant name display.
-  - Options button visible for all users (guests and authenticated).
-  - `GoProButton` shows "Ads on" (non-bold) and "Go Pro" (bold, larger) styling.
-  - AuthPage styling uses light blue accent (#7DAAE8) for registration prompts.
-- **Dual-Mode Architecture (Global vs Local)**: `GameSelectionPage` implements completely independent data fetching and rendering for Global (region-based) and Local (user-specific) panes. Each pane uses separate TanStack Query calls with authenticated fetching (`fetchAuthenticated` helper injects Supabase bearer tokens). Global pane queries: `/api/game-attempts/user`, `/api/stats`, `/api/stats/percentile` (region tables). Local pane queries: `/api/user/game-attempts/user`, `/api/user/stats`, `/api/user/stats/percentile` (user tables). Both panes independently compute play button status, intro messages, streaks, and percentiles with zero shared state or cross-contamination.
-- **Archive Calendar**: The archive calendar dynamically calculates the earliest available month based on actual puzzle data (works for both Global and Local modes). The "Previous month" button becomes inactive when scrolled back to the earliest month containing playable puzzles. Date parsing is timezone-safe (manual string splitting to avoid UTC conversion issues). **Calendar Status Matching**: Status is now keyed by `puzzle.date` (scheduled date, e.g., "2025-11-25") instead of `answerDateCanonical` (historical date) to handle puzzle regeneration scenarios. Game attempts embed the original puzzle data including `date`, which is used for matching even when puzzle allocations have been regenerated with different question IDs.
-- **Admin Panel**: Admin-only page accessible from Settings menu (shield icon) for users with `is_admin: true` in their JWT claims. Features:
-  - **Postcode Settings**: Configures the number of days users must wait between postcode changes (0-60 days). Stored in `admin_settings` table with key `postcode_restriction_days`.
-  - **Demand Scheduler**: Configures the cron schedule for the `calculate-demand` Edge Function. Settings: start time (24-hour format, e.g., "01:00") and frequency (6, 8, 12, or 24 hours). Shows preview of next 4 scheduled run times. Configuration stored in `demand_scheduler_config` table (manual SQL setup required in Supabase). Saving calls the `update-demand-schedule` Edge Function to modify the `elementle_demand` cron job. See `DEMAND_SCHEDULER_SETUP.md` for deployment instructions.
+- **Page Organization**: Includes `WelcomePage`, `GameSelectionPage`, `PlayPage`, `StatsPage`, and `ArchivePage`.
+- **Shared Code**: Schema definitions for type consistency and path aliases.
+- **Game Logic**: Client-side puzzle validation, feedback calculation, LocalStorage-based statistics, 5-attempt limit with directional hints.
+- **Authentication & User Management**: Direct email/password signup via Supabase, OTP for email changes, first login tracking, and consent field persistence.
+- **Pro Subscription System**: Dynamic database-driven subscription tiers with regional pricing, including components for managing subscriptions and category selection.
+- **Pro UI Design**: Distinct UI elements for Pro users, including "Go Pro" buttons, orange gradients for premium features, and a dedicated "Select Categories" button.
+- **Question Regeneration Workflow**: Triggers an Edge Function to reset and reallocate questions based on postcode or category changes, displaying a `GeneratingQuestionsScreen`.
+- **Advertising System**: `AdBanner` for banner ads (Google AdMob) and `InterstitialAd` for interstitial ads after archive puzzle completions, disabled for Pro subscribers.
+- **Guest Mode & Restrictions**: Guests can play Global puzzles but are restricted from Personal mode and Archive, prompted to register/login.
+- **Dual-Mode Architecture (Global vs Local)**: Independent data fetching and rendering for Global and Local game modes using separate TanStack Query calls.
+- **Archive Calendar**: Dynamically calculates earliest available month based on puzzle data, with timezone-safe date parsing and status matching by puzzle date.
+- **Admin Panel**: Admin-only page for configuring postcode change restrictions and demand scheduler cron jobs.
+- **Streak Saver System**: Allows users to protect their streaks when missing a day, with tier-based allowances, backend storage, and a `StreakSaverPopup` UI.
+- **Holiday Protection System**: Pro-only feature to pause Local mode puzzles without losing streaks, managed via API endpoints and displaying a blocking overlay on `PlayPage`.
 
 ## External Dependencies
 
-- **Database**: Drizzle ORM configured for PostgreSQL, `@neondatabase/serverless` for serverless connections, schema defined in `shared/schema.ts`, and `drizzle-kit` for migrations.
-- **UI Component Libraries**: Radix UI primitives, Lucide React for iconography, cmdk for command palette, embla-carousel-react for carousels, date-fns for date manipulation.
-- **Development Tools**: Replit-specific Vite plugins for enhanced development, tsx for TypeScript execution, PostCSS with Tailwind CSS and Autoprefixer.
-- **Form Handling & Validation**: React Hook Form with `@hookform/resolvers`, Zod for runtime type validation, drizzle-zod for database schema validation.
-- **Asset Management**: Generated hamster character images in `attached_assets/generated_images/`, Vite's asset handling with `@assets` alias. PWA static assets (manifest, icons) are located in `client/public/` for root URL serving and iOS home screen support.
+- **Database**: Drizzle ORM configured for PostgreSQL (`@neondatabase/serverless`), `drizzle-kit` for migrations.
+- **UI Component Libraries**: Radix UI, Lucide React, cmdk, embla-carousel-react, date-fns.
+- **Development Tools**: Replit-specific Vite plugins, tsx, PostCSS with Tailwind CSS and Autoprefixer.
+- **Form Handling & Validation**: React Hook Form with Zod, drizzle-zod.
+- **Asset Management**: Generated hamster character images, Vite's asset handling, PWA static assets.

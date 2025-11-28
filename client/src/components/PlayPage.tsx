@@ -7,12 +7,13 @@ import { StreakCelebrationPopup } from "./StreakCelebrationPopup";
 import { IntroScreen } from "./IntroScreen";
 import { useInterstitialAd } from "./InterstitialAd";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Umbrella } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
@@ -92,6 +93,7 @@ export function PlayPage({
   );
   const { stats: supabaseStats } = useUserStats();
   const { settings } = useUserSettings();
+  const { holidayActive, holidayEndDate, endHoliday, isEndingHoliday, refetch: refetchStreakStatus } = useStreakSaverStatus();
   const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
   const { isLocalMode: contextIsLocalMode } = useGameMode();
   
@@ -1174,6 +1176,62 @@ export function PlayPage({
         <div className="text-center">
           <div className="text-2xl font-bold mb-2">Loading...</div>
           <div className="text-muted-foreground">Preparing your game</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show holiday blocking overlay for Local mode when holiday is active
+  if (isAuthenticated && isLocalMode && holidayActive && !viewOnly && !fromArchive) {
+    const formattedEndDate = holidayEndDate 
+      ? new Date(holidayEndDate).toLocaleDateString('en-GB', { 
+          weekday: 'long', 
+          day: 'numeric', 
+          month: 'long' 
+        })
+      : 'unknown date';
+    
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
+        <div className="text-center max-w-sm">
+          <div className="mb-6">
+            <Umbrella className="h-24 w-24 mx-auto text-primary" />
+          </div>
+          <h2 className="text-3xl font-bold mb-4 text-foreground">You're on Holiday!</h2>
+          <p className="text-lg text-muted-foreground mb-2">
+            Your streak is protected until
+          </p>
+          <p className="text-xl font-semibold text-foreground mb-6">
+            {formattedEndDate}
+          </p>
+          <p className="text-sm text-muted-foreground mb-8">
+            Personal puzzles are paused while you're on holiday. You can still play Global puzzles!
+          </p>
+          <div className="space-y-3">
+            <Button
+              onClick={onBack}
+              className="w-full"
+              data-testid="button-back-from-holiday"
+            >
+              Back to Home
+            </Button>
+            <Button
+              onClick={async () => {
+                try {
+                  await endHoliday();
+                  await refetchStreakStatus();
+                } catch (error) {
+                  console.error('Failed to end holiday:', error);
+                }
+              }}
+              disabled={isEndingHoliday}
+              variant="outline"
+              className="w-full"
+              data-testid="button-end-holiday"
+            >
+              {isEndingHoliday ? 'Ending...' : 'End Holiday Early'}
+            </Button>
+          </div>
         </div>
       </div>
     );

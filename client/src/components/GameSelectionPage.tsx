@@ -6,10 +6,12 @@ import { GoProButton } from "./GoProButton";
 import { ProSubscriptionDialog } from "./ProSubscriptionDialog";
 import { GuestRestrictionPopup } from "./GuestRestrictionPopup";
 import { CategorySelectionScreen } from "./CategorySelectionScreen";
+import { StreakSaverPopup } from "./StreakSaverPopup";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
 import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
 import { motion, useTransform } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
@@ -92,7 +94,36 @@ export function GameSelectionPage({
   const [showProDialog, setShowProDialog] = useState(false);
   const [showGuestRestriction, setShowGuestRestriction] = useState<'archive' | 'personal' | null>(null);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
+  const [showStreakSaverPopup, setShowStreakSaverPopup] = useState<'region' | 'user' | null>(null);
   const isLocalMode = gameMode === 'local';
+
+  const {
+    status: streakStatus,
+    isLoading: streakStatusLoading,
+    hasMissedRegion,
+    hasMissedUser,
+    holidayActive,
+    holidayEndDate,
+  } = useStreakSaverStatus();
+
+  const [hasShownRegionPopup, setHasShownRegionPopup] = useState(false);
+  const [hasShownUserPopup, setHasShownUserPopup] = useState(false);
+
+  useEffect(() => {
+    // Wait for authentication and status to load
+    if (!isAuthenticated || streakStatusLoading || !streakStatus) return;
+    
+    // Show region popup if missed and not yet shown
+    if (hasMissedRegion && !hasShownRegionPopup && !showStreakSaverPopup) {
+      setShowStreakSaverPopup('region');
+      setHasShownRegionPopup(true);
+    }
+    // Show user popup if missed, not yet shown, and region popup is not active
+    else if (hasMissedUser && !hasShownUserPopup && !showStreakSaverPopup && !hasMissedRegion) {
+      setShowStreakSaverPopup('user');
+      setHasShownUserPopup(true);
+    }
+  }, [isAuthenticated, streakStatusLoading, streakStatus, hasMissedRegion, hasMissedUser, hasShownRegionPopup, hasShownUserPopup, showStreakSaverPopup]);
 
   // Cache user name and region label locally to prevent flicker
   const [cachedUserName, setCachedUserName] = useState<string>(() => {
@@ -1131,6 +1162,28 @@ export function GameSelectionPage({
           if (onLogin) onLogin();
         }}
       />
+
+      {/* Streak Saver Popup */}
+      {showStreakSaverPopup && streakStatus && (
+        <StreakSaverPopup
+          open={true}
+          onClose={() => {
+            const currentType = showStreakSaverPopup;
+            setShowStreakSaverPopup(null);
+            // If we just closed region popup and user also needs attention, show user popup
+            if (currentType === 'region' && hasMissedUser && !hasShownUserPopup) {
+              setHasShownUserPopup(true);
+              setTimeout(() => setShowStreakSaverPopup('user'), 300);
+            }
+          }}
+          gameType={showStreakSaverPopup}
+          currentStreak={
+            showStreakSaverPopup === 'region' 
+              ? streakStatus.region?.currentStreak || 0
+              : streakStatus.user?.currentStreak || 0
+          }
+        />
+      )}
     </div>
   );
 }
