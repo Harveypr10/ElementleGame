@@ -12,6 +12,7 @@ import {
   serial,
   uuid,
   unique,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -43,7 +44,7 @@ export const userTier = pgTable("user_tier", {
   id: uuid("id").primaryKey(),
   region: text("region").notNull(), // e.g., 'UK', 'US'
   tier: text("tier").notNull(), // e.g., 'standard', 'pro_monthly', 'pro_annual', 'pro_lifetime'
-  subscriptionCost: integer("subscription_cost"), // Cost in smallest currency unit (pence/cents)
+  subscriptionCost: numeric("subscription_cost"), // Cost in currency (e.g., 11.99)
   currency: text("currency"), // e.g., 'GBP', 'USD'
   subscriptionDurationMonths: integer("subscription_duration_months"), // null for lifetime
   streakSavers: integer("streak_savers").default(0),
