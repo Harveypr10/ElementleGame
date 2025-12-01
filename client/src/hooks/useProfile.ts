@@ -4,7 +4,7 @@ import { useAuth } from "./useAuth";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { UserProfile } from "@shared/schema";
 import { setCachedRegion } from "@/lib/formatCache";
-import { writeLocal, CACHE_KEYS } from "@/lib/localCache";
+import { writeLocal, readLocal, CACHE_KEYS } from "@/lib/localCache";
 
 // Helper to PATCH profile
 async function patchProfile(updates: Partial<UserProfile>): Promise<UserProfile> {
@@ -52,9 +52,14 @@ export function useProfile() {
     }
   }, [isAuthenticated, queryClient]);
 
+  // Read cached profile for instant availability of isAdmin and region
+  const cachedProfile = readLocal<UserProfile>(CACHE_KEYS.PROFILE);
+
   const { data: profile, isLoading } = useQuery<UserProfile>({
     queryKey: ["/api/auth/profile"],
     enabled: isAuthenticated,
+    initialData: isAuthenticated ? cachedProfile ?? undefined : undefined,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   });
 
   // Sync profile to localStorage cache when it loads/changes

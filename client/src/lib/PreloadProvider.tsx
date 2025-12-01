@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest, queryClient } from '@/lib/queryClient';
-import { writeLocal, CACHE_KEYS } from '@/lib/localCache';
+import { writeLocal, readLocal, CACHE_KEYS } from '@/lib/localCache';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 
 // Import images to preload
@@ -29,6 +29,18 @@ interface PreloadProviderProps {
 export function PreloadProvider({ children }: PreloadProviderProps) {
   const [isPreloaded, setIsPreloaded] = useState(false);
   const { user, isAuthenticated } = useAuth();
+
+  // Hydrate query cache from localStorage immediately on mount (synchronous)
+  // This ensures isAdmin and region are available instantly before network requests
+  useEffect(() => {
+    if (isAuthenticated) {
+      const cachedProfile = readLocal<any>(CACHE_KEYS.PROFILE);
+      if (cachedProfile) {
+        queryClient.setQueryData(['/api/auth/profile'], cachedProfile);
+        console.log('[PreloadProvider] Hydrated profile from cache with isAdmin:', cachedProfile.isAdmin, 'region:', cachedProfile.region);
+      }
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const preloadAssets = async () => {
@@ -218,8 +230,9 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
           writeLocal(CACHE_KEYS.SETTINGS, dataMap.settings);
         }
 
-        if (dataMap.profile?.user) {
-          writeLocal(CACHE_KEYS.PROFILE, dataMap.profile.user);
+        if (dataMap.profile) {
+          writeLocal(CACHE_KEYS.PROFILE, dataMap.profile);
+          console.log('[PreloadProvider] Cached profile with isAdmin:', dataMap.profile.isAdmin, 'region:', dataMap.profile.region);
         }
 
         if (dataMap.stats) {
