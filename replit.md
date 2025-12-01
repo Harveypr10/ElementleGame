@@ -12,7 +12,7 @@ Preferred communication style: Simple, everyday language.
 - **Framework & Build System**: React 18 with TypeScript, Vite, Wouter for routing.
 - **UI Component System**: Shadcn UI (New York style) based on Radix UI, Tailwind CSS, CSS Variables for theming.
 - **State Management**: TanStack Query for server state, local React state for UI, LocalStorage for persistence.
-- **Preload & Cache System**: `PreloadProvider` for critical assets and data (settings, profile, stats, attempts, puzzles, user categories, subscription), prioritizing cache-first rendering. Subscription data includes autoRenew state and requires auth token for prefetching. Date format settings are instantly cached in LocalStorage.
+- **Preload & Cache System**: `PreloadProvider` for critical assets and data (settings, profile, stats, attempts, puzzles, user categories, subscription, regions), prioritizing cache-first rendering. Subscription data includes autoRenew state and requires auth token for prefetching. Date format settings are instantly cached in LocalStorage. Profile and regions are prefetched for instant Account Info page display.
 - **Design System**: Custom color palette for game feedback, responsive design, mobile-first approach, and game-specific visual feedback.
 - **Realtime Subscriptions**: `useRealtimeSubscriptions` hook for automatic UI refresh on database changes, refetching queries directly.
 - **Navigation-Based Data Refresh**: Automatic puzzle data refetching on navigation, especially for new signups and archive pages.

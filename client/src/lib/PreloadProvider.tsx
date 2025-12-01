@@ -56,6 +56,16 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
 
       // Prefetch data if authenticated - handle each independently
       if (isAuthenticated && user) {
+        // Get auth token once for authenticated requests
+        let authToken: string | null = null;
+        try {
+          const supabase = await getSupabaseClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          authToken = session?.access_token || null;
+        } catch {
+          console.warn('[PreloadProvider] Failed to get auth session');
+        }
+
         const prefetchTasks = [
           // Prefetch settings
           queryClient.fetchQuery({
@@ -70,18 +80,36 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             staleTime: 5 * 60 * 1000,
           }).then(data => ({ key: 'settings', data })).catch(() => ({ key: 'settings', data: null })),
 
-          // Prefetch profile
+          // Prefetch profile with auth token for faster Account Info page load
           queryClient.fetchQuery({
             queryKey: ['/api/auth/profile'],
             queryFn: async () => {
+              const headers: Record<string, string> = {};
+              if (authToken) {
+                headers['Authorization'] = `Bearer ${authToken}`;
+              }
               const response = await fetch('/api/auth/profile', {
                 credentials: 'include',
+                headers,
               });
               if (!response.ok) throw new Error('Failed to fetch profile');
               return response.json();
             },
             staleTime: 5 * 60 * 1000,
           }).then(data => ({ key: 'profile', data })).catch(() => ({ key: 'profile', data: null })),
+
+          // Prefetch regions for Account Info page (public data, no auth needed)
+          queryClient.fetchQuery({
+            queryKey: ['/api/regions'],
+            queryFn: async () => {
+              const response = await fetch('/api/regions', {
+                credentials: 'include',
+              });
+              if (!response.ok) throw new Error('Failed to fetch regions');
+              return response.json();
+            },
+            staleTime: 30 * 60 * 1000, // Cache for 30 mins since regions rarely change
+          }).then(data => ({ key: 'regions', data })).catch(() => ({ key: 'regions', data: null })),
 
           // Prefetch stats
           queryClient.fetchQuery({
@@ -122,31 +150,22 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             staleTime: 30 * 60 * 1000, // Cache for 30 mins since categories rarely change
           }).then(data => ({ key: 'categories', data })).catch(() => ({ key: 'categories', data: null })),
 
-          // Prefetch subscription data (includes autoRenew state) - requires auth token
-          (async () => {
-            try {
-              const supabase = await getSupabaseClient();
-              const { data: { session } } = await supabase.auth.getSession();
-              if (!session) return { key: 'subscription', data: null };
-              
-              return queryClient.fetchQuery({
-                queryKey: ['/api/subscription', user.id],
-                queryFn: async () => {
-                  const response = await fetch('/api/subscription', {
-                    credentials: 'include',
-                    headers: {
-                      'Authorization': `Bearer ${session.access_token}`,
-                    },
-                  });
-                  if (!response.ok) throw new Error('Failed to fetch subscription');
-                  return response.json();
+          // Prefetch subscription data (includes autoRenew state) - uses shared auth token
+          authToken ? queryClient.fetchQuery({
+            queryKey: ['/api/subscription', user.id],
+            queryFn: async () => {
+              const response = await fetch('/api/subscription', {
+                credentials: 'include',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
                 },
-                staleTime: 5 * 60 * 1000,
-              }).then(data => ({ key: 'subscription', data })).catch(() => ({ key: 'subscription', data: null }));
-            } catch {
-              return { key: 'subscription', data: null };
-            }
-          })(),
+              });
+              if (!response.ok) throw new Error('Failed to fetch subscription');
+              return response.json();
+            },
+            staleTime: 5 * 60 * 1000,
+          }).then(data => ({ key: 'subscription', data })).catch(() => ({ key: 'subscription', data: null }))
+          : Promise.resolve({ key: 'subscription', data: null }),
 
           // Prefetch puzzles (public data)
           queryClient.fetchQuery({
@@ -198,6 +217,11 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
         if (dataMap.subscription) {
           writeLocal(CACHE_KEYS.SUBSCRIPTION, dataMap.subscription);
           console.log('[PreloadProvider] Cached subscription with autoRenew:', dataMap.subscription.autoRenew);
+        }
+
+        if (dataMap.regions && Array.isArray(dataMap.regions)) {
+          writeLocal(CACHE_KEYS.REGIONS, dataMap.regions);
+          console.log('[PreloadProvider] Cached regions:', dataMap.regions.length);
         }
 
         // Cache current month's archive if we have puzzles
