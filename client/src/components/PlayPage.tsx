@@ -21,7 +21,7 @@ import { parseUserDateWithContext, formatCanonicalDate as formatCanonicalDateUti
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
-import { writeLocal, CACHE_KEYS } from "@/lib/localCache";
+import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";

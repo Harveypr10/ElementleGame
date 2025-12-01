@@ -52,7 +52,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
     queryKey: ['/api/regions'],
   });
-  
+
   const [profileData, setProfileData] = useState({
     firstName: "",
     lastName: "",

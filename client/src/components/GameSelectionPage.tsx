@@ -321,6 +321,7 @@ export function GameSelectionPage({
     }
   }, [isAuthenticated, globalPuzzles, localPuzzles, queryClient, gameMode]);
 
+
   // Helper to find today's puzzle from a list
   const findTodayPuzzle = (puzzles: any[]): any | undefined => {
     if (!puzzles || puzzles.length === 0) return undefined;

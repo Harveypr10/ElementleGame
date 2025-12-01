@@ -69,6 +69,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
       queryClient.refetchQueries({ queryKey: ['/api/game-attempts/user'] });
     }
   }, [isAuthenticated, queryClient]);
+
   
   const [currentMonth, setCurrentMonth] = useState(() => {
     if (initialMonth) {
