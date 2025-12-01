@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { WelcomePage } from "@/components/WelcomePage";
@@ -23,20 +23,12 @@ import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
-import { useSpinner } from "@/lib/SpinnerProvider";
-import { useQuery } from "@tanstack/react-query";
+import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
-
-function PuzzleLoadingSpinner({ showSpinner, hideSpinner }: { showSpinner: (delay?: number) => void; hideSpinner: () => void }) {
-  useEffect(() => {
-    showSpinner(150);
-    return () => hideSpinner();
-  }, [showSpinner, hideSpinner]);
-  
-  return null;
-}
 
 interface Puzzle {
   id: number;
@@ -55,7 +47,8 @@ export default function Home() {
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
   const { isLocalMode, setGameMode } = useGameMode();
-  const { showSpinner, hideSpinner } = useSpinner();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -359,15 +352,83 @@ export default function Home() {
     setNeedsFirstLoginSetup(false);
     setCurrentScreen("selection");
   };
-
+  
+  // Track spinner state for auth loading
+  const authSpinnerShownRef = useRef(false);
+  
+  // Auth loading spinner timeout callbacks
+  const handleAuthRetry = useCallback(() => {
+    console.log('[Home] Auth spinner timeout - page will reload for retry');
+  }, []);
+  
+  const handleAuthTimeout = useCallback(() => {
+    console.log('[Home] Auth spinner timeout - failed to load');
+    toast({
+      title: 'Failed to load',
+      description: 'Please try again in a bit.',
+      variant: 'destructive',
+    });
+    window.location.reload();
+  }, [toast]);
+  
+  // Spinner with timeout for auth loading
+  const authSpinner = useSpinnerWithTimeout({
+    retryDelayMs: 4000,
+    timeoutMs: 8000,
+    onRetry: handleAuthRetry,
+    onTimeout: handleAuthTimeout,
+  });
+  
+  // Puzzle loading spinner timeout callbacks
+  const handlePuzzleRetry = useCallback(() => {
+    console.log('[Home] Puzzle spinner timeout - triggering retry');
+    refetchPuzzles();
+  }, [refetchPuzzles]);
+  
+  const handlePuzzleTimeout = useCallback(() => {
+    console.log('[Home] Puzzle spinner timeout - failed to load');
+    toast({
+      title: 'Failed to load',
+      description: 'Please try again in a bit.',
+      variant: 'destructive',
+    });
+    setCurrentScreen("selection");
+  }, [toast]);
+  
+  // Spinner with timeout for puzzle loading
+  const puzzleSpinner = useSpinnerWithTimeout({
+    retryDelayMs: 4000,
+    timeoutMs: 8000,
+    onRetry: handlePuzzleRetry,
+    onTimeout: handlePuzzleTimeout,
+  });
+  
   // Show spinner during auth loading - with 150ms delay to avoid flash on fast loads
   useEffect(() => {
-    if (isLoading) {
-      showSpinner(150);
-    } else {
-      hideSpinner();
+    if (isLoading && !authSpinnerShownRef.current) {
+      authSpinner.start(150);
+      authSpinnerShownRef.current = true;
+    } else if (!isLoading && authSpinnerShownRef.current) {
+      authSpinner.complete();
+      authSpinnerShownRef.current = false;
     }
-  }, [isLoading, showSpinner, hideSpinner]);
+  }, [isLoading, authSpinner]);
+  
+  // Track puzzle spinner state
+  const puzzleSpinnerShownRef = useRef(false);
+  
+  // Manage puzzle loading spinner when on play screen without puzzle
+  useEffect(() => {
+    const isPuzzleLoading = currentScreen === "play" && !currentPuzzle;
+    
+    if (isPuzzleLoading && !puzzleSpinnerShownRef.current) {
+      puzzleSpinner.start(150);
+      puzzleSpinnerShownRef.current = true;
+    } else if (!isPuzzleLoading && puzzleSpinnerShownRef.current) {
+      puzzleSpinner.complete();
+      puzzleSpinnerShownRef.current = false;
+    }
+  }, [currentScreen, currentPuzzle, puzzleSpinner]);
 
   // While auth is loading, show minimal loading state (spinner overlay handles the visual)
   if (isLoading) {
@@ -512,7 +573,7 @@ export default function Home() {
         )}
 
         {currentScreen === "play" && !currentPuzzle && (
-          <PuzzleLoadingSpinner showSpinner={showSpinner} hideSpinner={hideSpinner} />
+          <div className="min-h-screen" data-testid="puzzle-loading" />
         )}
 
         {currentScreen === "stats" && (

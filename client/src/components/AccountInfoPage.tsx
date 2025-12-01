@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from "@/lib/SupabaseProvider";
-import { useSpinner } from "@/lib/SpinnerProvider";
+import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
 import { queryClient } from "@/lib/queryClient";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 import { OTPVerificationScreen } from "./OTPVerificationScreen";
@@ -41,7 +41,6 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const { user } = useAuth();
   const { profile, updateProfile, isLoading: profileLoading } = useProfile();
   const { toast } = useToast();
-  const { showSpinner, hideSpinner } = useSpinner();
   const qc = useQueryClient();
   const [loading, setLoading] = useState(false);
   const adBannerActive = useAdBannerActive();
@@ -69,8 +68,33 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const hasCachedData = !!(cachedProfile && cachedRegions);
   
   // Fetch available regions
-  const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
+  const { data: regions, isLoading: regionsLoading, refetch: refetchRegions } = useQuery<Region[]>({
     queryKey: ['/api/regions'],
+  });
+  
+  // Callbacks for spinner timeout handling
+  const handleRetry = useCallback(() => {
+    console.log('[AccountInfoPage] Spinner timeout - triggering retry');
+    qc.invalidateQueries({ queryKey: ['/api/auth/profile'] });
+    refetchRegions?.();
+  }, [qc, refetchRegions]);
+  
+  const handleTimeout = useCallback(() => {
+    console.log('[AccountInfoPage] Spinner timeout - failed to load');
+    toast({
+      title: 'Failed to load',
+      description: 'Please try again in a bit.',
+      variant: 'destructive',
+    });
+    onBack();
+  }, [toast, onBack]);
+  
+  // Use spinner with timeout for automatic retry and failure handling
+  const spinner = useSpinnerWithTimeout({
+    retryDelayMs: 4000,
+    timeoutMs: 8000,
+    onRetry: handleRetry,
+    onTimeout: handleTimeout,
   });
   
   // Manage spinner: only show if data is NOT already cached
@@ -84,25 +108,25 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     const isDataReady = !!profile && !!regions;
     
     if (isDataLoading && !spinnerShownRef.current) {
-      console.log('[AccountInfoPage] Showing spinner - no cached data, waiting for profile/regions');
-      showSpinner(0);
+      console.log('[AccountInfoPage] Showing spinner with timeout - no cached data, waiting for profile/regions');
+      spinner.start(0);
       spinnerShownRef.current = true;
     }
     
     if (isDataReady && spinnerShownRef.current) {
-      console.log('[AccountInfoPage] Hiding spinner - data loaded');
-      hideSpinner();
+      console.log('[AccountInfoPage] Data loaded - completing spinner');
+      spinner.complete();
       spinnerShownRef.current = false;
     }
     
-    // Cleanup on unmount - only hide if we actually showed the spinner
+    // Cleanup on unmount - only cancel if we actually showed the spinner
     return () => {
       if (spinnerShownRef.current) {
-        hideSpinner();
+        spinner.cancel();
         spinnerShownRef.current = false;
       }
     };
-  }, [profileLoading, regionsLoading, profile, regions, showSpinner, hideSpinner, hasCachedData]);
+  }, [profileLoading, regionsLoading, profile, regions, spinner, hasCachedData]);
 
   // Initialize profile data from cache immediately if available
   const initialProfile = cachedProfile || profile;

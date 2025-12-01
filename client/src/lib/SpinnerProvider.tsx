@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
 
 declare global {
   interface Window {
@@ -180,4 +180,103 @@ export function useSpinner() {
     throw new Error('useSpinner must be used within a SpinnerProvider');
   }
   return context;
+}
+
+interface SpinnerTimeoutOptions {
+  retryDelayMs?: number;
+  timeoutMs?: number;
+  onRetry?: () => void;
+  onTimeout?: () => void;
+}
+
+const DEFAULT_RETRY_DELAY_MS = 4000;
+const DEFAULT_TIMEOUT_MS = 8000;
+
+export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
+  const { showSpinner, hideSpinner } = useSpinner();
+  const {
+    retryDelayMs = DEFAULT_RETRY_DELAY_MS,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    onRetry,
+    onTimeout,
+  } = options;
+  
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const failTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasRetriedRef = useRef(false);
+  const isActiveRef = useRef(false);
+  
+  const clearTimeouts = useCallback(() => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+    if (failTimeoutRef.current) {
+      clearTimeout(failTimeoutRef.current);
+      failTimeoutRef.current = null;
+    }
+  }, []);
+  
+  const start = useCallback((delay?: number) => {
+    if (isActiveRef.current) return;
+    
+    isActiveRef.current = true;
+    hasRetriedRef.current = false;
+    clearTimeouts();
+    
+    showSpinner(delay ?? 0);
+    
+    if (onRetry) {
+      retryTimeoutRef.current = setTimeout(() => {
+        if (isActiveRef.current && !hasRetriedRef.current) {
+          hasRetriedRef.current = true;
+          console.log('[SpinnerWithTimeout] Triggering retry after', retryDelayMs, 'ms');
+          onRetry();
+        }
+      }, retryDelayMs);
+    }
+    
+    if (onTimeout) {
+      failTimeoutRef.current = setTimeout(() => {
+        if (isActiveRef.current) {
+          console.log('[SpinnerWithTimeout] Triggering timeout after', timeoutMs, 'ms');
+          isActiveRef.current = false;
+          clearTimeouts();
+          hideSpinner();
+          onTimeout();
+        }
+      }, timeoutMs);
+    }
+  }, [showSpinner, hideSpinner, clearTimeouts, onRetry, onTimeout, retryDelayMs, timeoutMs]);
+  
+  const complete = useCallback(() => {
+    if (!isActiveRef.current) return;
+    
+    isActiveRef.current = false;
+    clearTimeouts();
+    hideSpinner();
+    console.log('[SpinnerWithTimeout] Completed successfully');
+  }, [hideSpinner, clearTimeouts]);
+  
+  const cancel = useCallback(() => {
+    isActiveRef.current = false;
+    clearTimeouts();
+    hideSpinner();
+  }, [hideSpinner, clearTimeouts]);
+  
+  useEffect(() => {
+    return () => {
+      clearTimeouts();
+      if (isActiveRef.current) {
+        hideSpinner();
+      }
+    };
+  }, [clearTimeouts, hideSpinner]);
+  
+  return {
+    start,
+    complete,
+    cancel,
+    isActive: isActiveRef.current,
+  };
 }

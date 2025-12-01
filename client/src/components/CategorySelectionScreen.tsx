@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { useSupabase } from '@/lib/SupabaseProvider';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useAdBannerActive } from '@/components/AdBanner';
-import { useSpinner } from '@/lib/SpinnerProvider';
+import { useSpinnerWithTimeout } from '@/lib/SpinnerProvider';
 import { readLocal, writeLocal, CACHE_KEYS } from '@/lib/localCache';
 import { GeneratingQuestionsScreen } from './GeneratingQuestionsScreen';
 import hamsterImage from '@assets/Question-Hamster-Grey.svg';
@@ -40,11 +40,13 @@ export function CategorySelectionScreen({
   const { profile } = useProfile();
   const adBannerActive = useAdBannerActive();
   const supabase = useSupabase();
-  const { showSpinner, hideSpinner } = useSpinner();
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   
   // Track if spinner has been managed for this open cycle
   const spinnerManagedRef = useRef(false);
+  
+  // Ref for retry callback
+  const refetchRef = useRef<(() => void) | null>(null);
 
   // Track if we've synced from API to avoid re-initializing
   const [hasSyncedFromApi, setHasSyncedFromApi] = useState(false);
@@ -122,6 +124,36 @@ export function CategorySelectionScreen({
     retryDelay: 500, // Wait 500ms between retries
   });
   
+  // Update refetch ref when refetch function changes
+  useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+  
+  // Callbacks for spinner timeout handling
+  const handleRetry = useCallback(() => {
+    console.log('[CategorySelectionScreen] Spinner timeout - triggering retry');
+    refetchRef.current?.();
+    queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
+  }, [queryClient]);
+  
+  const handleTimeout = useCallback(() => {
+    console.log('[CategorySelectionScreen] Spinner timeout - failed to load');
+    toast({
+      title: 'Failed to load',
+      description: 'Please try again in a bit.',
+      variant: 'destructive',
+    });
+    onClose();
+  }, [toast, onClose]);
+  
+  // Use spinner with timeout for automatic retry and failure handling
+  const spinner = useSpinnerWithTimeout({
+    retryDelayMs: 4000,
+    timeoutMs: 8000,
+    onRetry: handleRetry,
+    onTimeout: handleTimeout,
+  });
+  
   // Force refetch when screen opens with authenticated user
   useEffect(() => {
     if (isOpen && isAuthenticated) {
@@ -137,7 +169,7 @@ export function CategorySelectionScreen({
     if (!isOpen) {
       // Screen closed - ensure spinner is hidden and reset ref
       if (spinnerManagedRef.current) {
-        hideSpinner();
+        spinner.cancel();
         spinnerManagedRef.current = false;
       }
       return;
@@ -145,19 +177,19 @@ export function CategorySelectionScreen({
     
     // Screen is open - show spinner until data is synced
     if (!hasSyncedFromApi && !spinnerManagedRef.current) {
-      // Data not yet synced - show spinner immediately
-      console.log('[CategorySelectionScreen] Showing spinner - waiting for data sync');
-      showSpinner(0); // Show immediately, no delay
+      // Data not yet synced - show spinner immediately with timeout
+      console.log('[CategorySelectionScreen] Showing spinner with timeout - waiting for data sync');
+      spinner.start(0); // Show immediately, no delay
       spinnerManagedRef.current = true;
     }
     
     // Hide spinner once data is synced
     if (hasSyncedFromApi && spinnerManagedRef.current) {
-      console.log('[CategorySelectionScreen] Hiding spinner - data synced');
-      hideSpinner();
+      console.log('[CategorySelectionScreen] Data synced - completing spinner');
+      spinner.complete();
       spinnerManagedRef.current = false;
     }
-  }, [isOpen, hasSyncedFromApi, showSpinner, hideSpinner]);
+  }, [isOpen, hasSyncedFromApi, spinner]);
 
   // Sync UI state from API/cache when data becomes available
   useEffect(() => {
