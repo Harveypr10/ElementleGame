@@ -228,7 +228,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             status?.inProgress && "bg-blue-100 dark:bg-blue-900/30",
             !status?.completed && !status?.inProgress && isPlayable && "bg-gray-100 dark:bg-gray-800",
             (!puzzle || isFuture) && "bg-background opacity-40",
-            isToday && "ring-2 ring-primary"
+            isToday && "ring-2 ring-gray-500 dark:ring-gray-400"
           )}
           onClick={() => isPlayable && onPlayPuzzle(puzzle.id.toString())}
           data-testid={`calendar-day-${day}`}
@@ -420,7 +420,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
         {/* Swipeable Calendar Container */}
         <div
           ref={containerRef}
-          className="flex-grow overflow-hidden"
+          className="flex-grow overflow-hidden p-1 -m-1"
           {...swipeProps}
         >
           <motion.div
