@@ -266,10 +266,12 @@ export function CategorySelectionScreen({
       return response.json();
     },
     onSuccess: (_, categoryIds) => {
+      console.log('[CategorySelectionScreen] Mutation success - categories saved:', categoryIds);
       // Update cache with newly saved categories
       writeLocal(CACHE_KEYS.PRO_CATEGORIES, categoryIds);
       queryClient.invalidateQueries({ queryKey: ['/api/user/pro-categories'] });
       // Show GeneratingQuestionsScreen instead of immediately calling onGenerate
+      console.log('[CategorySelectionScreen] Setting showGeneratingQuestions to true');
       setShowGeneratingQuestions(true);
     },
     onError: (error) => {
@@ -351,15 +353,31 @@ export function CategorySelectionScreen({
   const canGenerate = selectedCategories.size >= 3 && categoriesHaveChanged;
 
   // Show GeneratingQuestionsScreen after categories are saved
-  if (showGeneratingQuestions && user?.id && profile?.region && profile?.postcode) {
+  // Note: postcode can be empty for some users - use empty string as fallback
+  if (showGeneratingQuestions && user?.id && profile?.region) {
+    console.log('[CategorySelectionScreen] Showing GeneratingQuestionsScreen with:', {
+      userId: user.id,
+      region: profile.region,
+      postcode: profile.postcode || '',
+    });
     return (
       <GeneratingQuestionsScreen
         userId={user.id}
         region={profile.region}
-        postcode={profile.postcode}
+        postcode={profile.postcode || ''}
         onComplete={handleGeneratingQuestionsComplete}
       />
     );
+  }
+  
+  // Log if we're trying to show GeneratingQuestionsScreen but can't
+  if (showGeneratingQuestions) {
+    console.error('[CategorySelectionScreen] Cannot show GeneratingQuestionsScreen - missing data:', {
+      showGeneratingQuestions,
+      userId: user?.id,
+      profileRegion: profile?.region,
+      profilePostcode: profile?.postcode,
+    });
   }
 
   return (
