@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { useSupabase } from '@/lib/SupabaseProvider';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useAdBannerActive } from '@/components/AdBanner';
+import { useSpinner } from '@/lib/SpinnerProvider';
 import { readLocal, writeLocal, CACHE_KEYS } from '@/lib/localCache';
 import { GeneratingQuestionsScreen } from './GeneratingQuestionsScreen';
 import hamsterImage from '@assets/Question-Hamster-Grey.svg';
@@ -39,7 +40,11 @@ export function CategorySelectionScreen({
   const { profile } = useProfile();
   const adBannerActive = useAdBannerActive();
   const supabase = useSupabase();
+  const { showSpinner, hideSpinner } = useSpinner();
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
+  
+  // Track if spinner has been managed for this open cycle
+  const spinnerManagedRef = useRef(false);
 
   // Track if we've synced from API to avoid re-initializing
   const [hasSyncedFromApi, setHasSyncedFromApi] = useState(false);
@@ -122,13 +127,53 @@ export function CategorySelectionScreen({
     if (isOpen && isAuthenticated) {
       console.log('[CategorySelectionScreen] Screen opened - forcing refetch');
       setHasSyncedFromApi(false); // Reset sync flag when screen opens
+      spinnerManagedRef.current = false; // Reset spinner management for new open cycle
       refetch();
     }
   }, [isOpen, isAuthenticated, refetch]);
+  
+  // Manage spinner: show when opening until data is fully synced
+  useEffect(() => {
+    if (!isOpen) {
+      // Screen closed - ensure spinner is hidden and reset ref
+      if (spinnerManagedRef.current) {
+        hideSpinner();
+        spinnerManagedRef.current = false;
+      }
+      return;
+    }
+    
+    // Screen is open - show spinner until data is synced
+    if (!hasSyncedFromApi && !spinnerManagedRef.current) {
+      // Data not yet synced - show spinner immediately
+      console.log('[CategorySelectionScreen] Showing spinner - waiting for data sync');
+      showSpinner(0); // Show immediately, no delay
+      spinnerManagedRef.current = true;
+    }
+    
+    // Hide spinner once data is synced
+    if (hasSyncedFromApi && spinnerManagedRef.current) {
+      console.log('[CategorySelectionScreen] Hiding spinner - data synced');
+      hideSpinner();
+      spinnerManagedRef.current = false;
+    }
+  }, [isOpen, hasSyncedFromApi, showSpinner, hideSpinner]);
 
   // Sync UI state from API/cache when data becomes available
   useEffect(() => {
     if (!isOpen || hasSyncedFromApi) return;
+    
+    // If not authenticated, use cache immediately (query is disabled)
+    if (!isAuthenticated) {
+      if (cachedCategoryIds.length > 0) {
+        console.log('[CategorySelectionScreen] Using cached categories (not authenticated):', cachedCategoryIds);
+        setSelectedCategories(new Set(cachedCategoryIds));
+      } else {
+        console.log('[CategorySelectionScreen] No cached categories (not authenticated)');
+      }
+      setHasSyncedFromApi(true);
+      return;
+    }
     
     // Wait for the query to complete (not loading, either fetched or errored)
     if (loadingUserCategories) return;
@@ -156,7 +201,7 @@ export function CategorySelectionScreen({
       console.log('[CategorySelectionScreen] No existing categories (first-time user)');
       setHasSyncedFromApi(true);
     }
-  }, [userCategories, isOpen, isFetched, isError, loadingUserCategories, hasSyncedFromApi, cachedCategoryIds]);
+  }, [userCategories, isOpen, isFetched, isError, loadingUserCategories, hasSyncedFromApi, cachedCategoryIds, isAuthenticated]);
 
   const saveCategoriesMutation = useMutation({
     mutationFn: async (categoryIds: number[]) => {
