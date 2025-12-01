@@ -52,7 +52,12 @@ Preferred communication style: Simple, everyday language.
 - **Guest Mode & Restrictions**: Guests can play Global puzzles but are restricted from Personal mode and Archive, prompted to register/login.
 - **Dual-Mode Architecture (Global vs Local)**: Independent data fetching and rendering for Global and Local game modes using separate TanStack Query calls.
 - **Archive Calendar**: Dynamically calculates earliest available month based on puzzle data, with timezone-safe date parsing and status matching by puzzle date.
-- **Admin Panel**: Admin-only page for configuring postcode change restrictions and demand scheduler cron jobs.
+- **Admin Panel**: Admin-only page for configuring postcode/region change restrictions, category change restrictions, and demand scheduler cron jobs.
+- **Dual Restriction System**: Separate admin-configurable cooldown windows for location changes (postcode/region) and category changes:
+  - **Location Changes**: `postcodeLastChangedAt` tracks when user last changed their postcode or region. Admin setting `postcode_restriction_days` controls cooldown (0-60 days).
+  - **Category Changes**: `categoriesLastChangedAt` tracks when user last updated Pro categories. Admin setting `category_restriction_days` controls cooldown (0-60 days).
+  - **API Endpoints**: `GET /api/settings/postcode-restriction-days` and `GET /api/settings/category-restriction-days` for client-side validation.
+  - **UI Behavior**: AccountInfoPage shows "last updated" timestamp under region selector. CategorySelectionScreen checks restriction before entry. Both show blocking popup dialogs with dynamic admin-configured day values when cooldown is active.
 - **Streak Saver System**: Allows users to protect their streaks when missing a day, with tier-based allowances, backend storage, and a `StreakSaverPopup` UI.
 - **Holiday Protection System**: Pro-only feature to pause Local mode puzzles without losing streaks, managed via API endpoints and displaying a blocking overlay on `PlayPage`.
 - **Subscription Management**: Dedicated screens for Pro and Standard users to view subscription details and allowances.
@@ -97,7 +102,9 @@ Preferred communication style: Simple, everyday language.
 - Uniqueness: region + tier + tier_type
 
 ### user_profiles table
-- Includes: `postcode_last_changed_at`, `archive_synced_count`, `user_tier_id`, `subscription_end_date`
+- Includes: `postcode_last_changed_at`, `categories_last_changed_at`, `archive_synced_count`, `user_tier_id`, `subscription_end_date`
 - `region` defaults to 'UK', `tier` defaults to 'standard'
+- `postcode_last_changed_at`: timestamp - tracks when postcode OR region was last changed (for restriction cooldown)
+- `categories_last_changed_at`: timestamp - tracks when Pro categories were last updated (for restriction cooldown)
 - `subscription_end_date`: timestamp - fast lookup for subscription expiry (NULL for lifetime/standard)
 - Supabase triggers sync `user_tier_id` and `subscription_end_date` from user_subscriptions
