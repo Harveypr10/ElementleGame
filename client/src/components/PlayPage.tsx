@@ -154,6 +154,9 @@ export function PlayPage({
   const [showIntroScreen, setShowIntroScreen] = useState(false);
   const [introScreenReady, setIntroScreenReady] = useState(false);
   
+  // Delay showing grid data for games with existing progress (smoother transition)
+  const [gridDataReady, setGridDataReady] = useState(!hasExistingProgress);
+  
   // Track spinner state for game loading
   const gameLoadingSpinnerRef = useRef(false);
   
@@ -277,7 +280,20 @@ export function PlayPage({
     setDigitsCheckComplete(false);
     setShowIntroScreen(false);
     setIntroScreenReady(false);
-  }, [answerDateCanonical]);
+    // Reset grid data ready state - will be set after delay if hasExistingProgress
+    setGridDataReady(!hasExistingProgress);
+  }, [answerDateCanonical, hasExistingProgress]);
+  
+  // Delay showing grid data for games with existing progress (smoother page transition)
+  useEffect(() => {
+    if (hasExistingProgress && !gridDataReady) {
+      const timer = setTimeout(() => {
+        setGridDataReady(true);
+      }, 600); // 0.6 second delay
+      
+      return () => clearTimeout(timer);
+    }
+  }, [hasExistingProgress, gridDataReady]);
 
   // Check if puzzle is already completed and redirect if needed
   useEffect(() => {
@@ -1373,8 +1389,8 @@ export function PlayPage({
             )}
 
             <InputGrid
-              guesses={guesses}
-              currentInput={currentInput}
+              guesses={gridDataReady ? guesses : []}
+              currentInput={gridDataReady ? currentInput : ""}
               maxGuesses={maxGuesses}
               placeholders={activePlaceholders}
             />
