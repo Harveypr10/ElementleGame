@@ -407,6 +407,8 @@ export function PlayPage({
           } else if (mounted) {
             // No completed attempt found for authenticated users
             setDigitsCheckComplete(true);
+            // Mark guesses as loaded so grid can show for new games
+            setGuessesLoaded(true);
           }
         } else {
           // For guest users, check localStorage
@@ -428,9 +430,10 @@ export function PlayPage({
               setGuessesLoaded(true);
             }
           }
-          // For guest users, always mark digits check complete (no database to check)
+          // For guest users, always mark digits check complete and guesses loaded (no database to check)
           if (mounted) {
             setDigitsCheckComplete(true);
+            setGuessesLoaded(true);
           }
         }
       }
@@ -536,6 +539,8 @@ export function PlayPage({
           } else if (mounted) {
             // No completed attempt found
             setDigitsCheckComplete(true);
+            // Mark guesses as loaded so grid can show
+            setGuessesLoaded(true);
           }
         } else {
           // For guest users, check localStorage
@@ -556,9 +561,10 @@ export function PlayPage({
               setGuessesLoaded(true);
             }
           }
-          // For guest users, always mark digits check complete (no database to check)
+          // For guest users, always mark digits check complete and guesses loaded (no database to check)
           if (mounted) {
             setDigitsCheckComplete(true);
+            setGuessesLoaded(true);
           }
         }
       }
@@ -679,6 +685,8 @@ export function PlayPage({
           } else if (mounted) {
             // No in-progress attempt found for authenticated users
             setDigitsCheckComplete(true);
+            // Mark guesses as loaded so grid can show for new games
+            setGuessesLoaded(true);
           }
         } else if (!isAuthenticated) {
           // For guest users, load from localStorage
@@ -701,9 +709,10 @@ export function PlayPage({
               setGuessesLoaded(true);
             }
           }
-          // For guest users, always mark digits check complete (no database to check)
+          // For guest users, always mark digits check complete and guesses loaded (no database to check)
           if (mounted) {
             setDigitsCheckComplete(true);
+            setGuessesLoaded(true);
           }
         }
       }
