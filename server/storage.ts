@@ -228,7 +228,8 @@ export interface IStorage {
   
   // Subscription operations
   getUserSubscription(userId: string): Promise<any | undefined>;
-  upsertUserSubscription(subscription: { userId: string; tier: string; autoRenew?: boolean; endDate?: Date | null }): Promise<any>;
+  // Note: Use createUserSubscription() for new subscriptions (uses user_tier_id)
+  // The legacy upsertUserSubscription that used a 'tier' column has been removed
   
   // Category operations
   getAllCategories(): Promise<Category[]>;
@@ -2616,28 +2617,8 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async upsertUserSubscription(subscription: { userId: string; tier: string; autoRenew?: boolean; endDate?: Date | null }): Promise<any> {
-    const { userId, tier, autoRenew = true, endDate } = subscription;
-    const now = new Date();
-    
-    try {
-      const result = await db.execute(
-        sql`INSERT INTO user_subscriptions (user_id, tier, auto_renew, start_date, end_date, updated_at)
-            VALUES (${userId}, ${tier}, ${autoRenew}, ${now}, ${endDate}, ${now})
-            ON CONFLICT (user_id) 
-            DO UPDATE SET tier = ${tier}, auto_renew = ${autoRenew}, end_date = ${endDate}, updated_at = ${now}
-            RETURNING *`
-      );
-      return result.rows?.[0];
-    } catch (error: any) {
-      // Table might not exist yet
-      if (error?.code === '42P01') {
-        console.log('Note: user_subscriptions table not available yet');
-        return { userId, tier, autoRenew, startDate: now, endDate };
-      }
-      throw error;
-    }
-  }
+  // Note: Legacy upsertUserSubscription removed - use createUserSubscription() instead
+  // which properly uses user_tier_id FK to user_tier table
 
   async getAllCategories(): Promise<Category[]> {
     return await db.select().from(categories).orderBy(categories.name);
