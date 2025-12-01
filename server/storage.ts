@@ -302,6 +302,10 @@ export class DatabaseStorage implements IStorage {
       Object.entries(profileData).filter(([_, v]) => v !== undefined)
     ) as Partial<InsertUserProfile>;
 
+    console.log('[upsertUserProfile] Input userTierId:', profileData.userTierId);
+    console.log('[upsertUserProfile] Clean data keys:', Object.keys(cleanData));
+    console.log('[upsertUserProfile] Clean data userTierId:', cleanData.userTierId);
+
     const [profile] = await db
       .insert(userProfiles)
       .values(cleanData as InsertUserProfile)
@@ -314,6 +318,7 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
 
+    console.log('[upsertUserProfile] Returned profile userTierId:', profile.userTierId);
     return profile;
   }
 
@@ -512,10 +517,11 @@ export class DatabaseStorage implements IStorage {
 
   // Get the Standard tier ID for a region
   async getStandardTierId(region: string): Promise<string | null> {
+    // Use ILIKE for case-insensitive matching (database stores 'standard' lowercase)
     const result = await db.execute(sql`
       SELECT id 
       FROM user_tier 
-      WHERE tier = 'Standard' 
+      WHERE LOWER(tier) = 'standard' 
         AND region = ${region}
         AND active = true 
       LIMIT 1
@@ -523,8 +529,10 @@ export class DatabaseStorage implements IStorage {
     
     const rows = Array.isArray(result) ? result : (result as any).rows || [];
     if (!rows || rows.length === 0) {
+      console.log(`[getStandardTierId] No Standard tier found for region: ${region}`);
       return null;
     }
+    console.log(`[getStandardTierId] Found Standard tier ID: ${rows[0].id} for region: ${region}`);
     return rows[0].id;
   }
 
