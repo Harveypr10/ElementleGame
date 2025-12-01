@@ -634,7 +634,6 @@ export class DatabaseStorage implements IStorage {
   }): Promise<void> {
     // Insert new subscription - let database auto-generate the ID
     // Note: Don't include 'validity' column - database uses tstzrange type as GENERATED ALWAYS
-    // Supabase trigger will sync user_profiles.user_tier_id and subscription_end_date
     // Convert Date to ISO string for SQL compatibility
     const expiresAtStr = subscription.expiresAt ? subscription.expiresAt.toISOString() : null;
     // Format amount_paid as decimal string for numeric(10,2) column
@@ -656,7 +655,18 @@ export class DatabaseStorage implements IStorage {
       )
     `);
     
-    console.log(`[createUserSubscription] Created subscription for user ${subscription.userId} with tier ${subscription.userTierId}`);
+    // Also update user_profiles directly to ensure sync (backup for Supabase trigger)
+    // This matches the approach used in downgradeToStandard for consistency
+    await db.execute(sql`
+      UPDATE user_profiles
+      SET 
+        user_tier_id = ${subscription.userTierId},
+        subscription_end_date = ${expiresAtStr},
+        updated_at = NOW()
+      WHERE id = ${subscription.userId}
+    `);
+    
+    console.log(`[createUserSubscription] Created subscription for user ${subscription.userId} with tier ${subscription.userTierId}, expires: ${expiresAtStr}`);
   }
 
   // Puzzle operations
