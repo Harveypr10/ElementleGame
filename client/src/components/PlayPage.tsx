@@ -17,6 +17,8 @@ import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
+import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
+import { useToast } from "@/hooks/use-toast";
 import { parseUserDateWithContext, formatCanonicalDate as formatCanonicalDateUtil } from "@/lib/dateFormat";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
@@ -87,6 +89,7 @@ export function PlayPage({
   onViewArchive,
 }: PlayPageProps) {
   const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
   // Pass puzzleSourceMode to useGameData to ensure we fetch from the correct tables
   const { gameAttempts, getAllGuesses, loadingAttempts } = useGameData(
     puzzleSourceMode ? { modeOverride: puzzleSourceMode } : undefined
@@ -150,6 +153,58 @@ export function PlayPage({
   const [digitsCheckComplete, setDigitsCheckComplete] = useState(false);
   const [showIntroScreen, setShowIntroScreen] = useState(false);
   const [introScreenReady, setIntroScreenReady] = useState(false);
+  
+  // Track spinner state for game loading
+  const gameLoadingSpinnerRef = useRef(false);
+  
+  // Spinner timeout callbacks for game loading
+  const handleGameLoadRetry = useCallback(() => {
+    console.log('[PlayPage] Game loading spinner timeout - triggering retry');
+    // Force re-check by invalidating and refetching
+    window.location.reload();
+  }, []);
+  
+  const handleGameLoadTimeout = useCallback(() => {
+    console.log('[PlayPage] Game loading spinner timeout - failed to load');
+    toast({
+      title: 'Failed to load',
+      description: 'Please try again in a bit.',
+      variant: 'destructive',
+    });
+    onBack();
+  }, [toast, onBack]);
+  
+  // Spinner with timeout for game loading
+  const gameLoadingSpinner = useSpinnerWithTimeout({
+    retryDelayMs: 4000,
+    timeoutMs: 8000,
+    onRetry: handleGameLoadRetry,
+    onTimeout: handleGameLoadTimeout,
+  });
+  
+  // Check if game is loading (format or digits check not complete)
+  const isGameLoading = formatLoading || !digitsCheckComplete;
+  
+  // Manage game loading spinner with timeout
+  useEffect(() => {
+    if (isGameLoading && !gameLoadingSpinnerRef.current) {
+      console.log('[PlayPage] Showing spinner with timeout - waiting for game data');
+      gameLoadingSpinner.start(0);
+      gameLoadingSpinnerRef.current = true;
+    } else if (!isGameLoading && gameLoadingSpinnerRef.current) {
+      console.log('[PlayPage] Game data loaded - completing spinner');
+      gameLoadingSpinner.complete();
+      gameLoadingSpinnerRef.current = false;
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (gameLoadingSpinnerRef.current) {
+        gameLoadingSpinner.cancel();
+        gameLoadingSpinnerRef.current = false;
+      }
+    };
+  }, [isGameLoading, gameLoadingSpinner]);
   
   // Ref to always have the latest puzzleId (prevents stale closure issues)
   const puzzleIdRef = useRef<number | undefined>(puzzleId);
@@ -1170,14 +1225,10 @@ export function PlayPage({
 
   // Show loading state until date format and digit mode are ready
   // This prevents the grid from rendering in the wrong format and then flipping
+  // The spinner overlay is managed by the gameLoadingSpinner effect above
   if (formatLoading || !digitsCheckComplete) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="text-center">
-          <div className="text-2xl font-bold mb-2">Loading...</div>
-          <div className="text-muted-foreground">Preparing your game</div>
-        </div>
-      </div>
+      <div className="min-h-screen" data-testid="game-loading" />
     );
   }
 
