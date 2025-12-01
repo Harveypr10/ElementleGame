@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SupabaseProvider } from "@/lib/SupabaseProvider";
 import { PreloadProvider } from "@/lib/PreloadProvider";
 import { SettingsProvider } from "@/lib/SettingsProvider";
+import { SpinnerProvider } from "@/lib/SpinnerProvider";
 import { GuessCacheProvider } from "@/contexts/GuessCacheContext";
 import { GameModeProvider } from "@/contexts/GameModeContext";
 import Home from "@/pages/Home";
@@ -32,19 +33,21 @@ function App() {
   return (
     <SupabaseProvider>
       <QueryClientProvider client={queryClient}>
-        <PreloadProvider>
-          <SettingsProvider>
-            <GameModeProvider>
-              <GuessCacheProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <RoutePersistence />
-                  <Router />
-                </TooltipProvider>
-              </GuessCacheProvider>
-            </GameModeProvider>
-          </SettingsProvider>
-        </PreloadProvider>
+        <SpinnerProvider>
+          <PreloadProvider>
+            <SettingsProvider>
+              <GameModeProvider>
+                <GuessCacheProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <RoutePersistence />
+                    <Router />
+                  </TooltipProvider>
+                </GuessCacheProvider>
+              </GameModeProvider>
+            </SettingsProvider>
+          </PreloadProvider>
+        </SpinnerProvider>
       </QueryClientProvider>
     </SupabaseProvider>
   );

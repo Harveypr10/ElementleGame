@@ -15,14 +15,12 @@
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#000000" />
 
-    <!-- Cross-platform favicons -->
+    <!-- Favicons -->
     <link rel="icon" type="image/png" sizes="32x32" href="/Icon-192.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/Icon-192.png" />
-
-    <!-- iOS specific -->
     <link rel="apple-touch-icon" sizes="180x180" href="/Icon-180.png" />
 
-    <!-- Windows tiles (optional) -->
+    <!-- Windows tiles -->
     <meta name="msapplication-TileColor" content="#000000" />
     <meta name="msapplication-TileImage" content="/Icon-192.png" />
 
@@ -41,7 +39,7 @@
         width: 100vw;
         height: 100vh;
         background-color: white;
-        display: flex;
+        display: none;
         justify-content: center;
         align-items: center;
         z-index: 9999;
@@ -53,28 +51,13 @@
     </style>
   </head>
   <body>
-    <!-- Spinner container -->
-    <div id="spinner">
+    <!-- Spinner container - controlled by React SpinnerProvider -->
+    <div id="spinner" role="status" aria-label="Loading" aria-hidden="true">
       <div id="hamster"></div>
     </div>
 
-    <!-- App root -->
+    <!-- React root -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-
-    <!-- Spinner logic -->
-    <script>
-      lottie.loadAnimation({
-        container: document.getElementById('hamster'),
-        renderer: 'svg',
-        loop: true,
-        autoplay: true,
-        path: '/assets/hamster.json' // Replace with your actual asset path
-      });
-
-      window.addEventListener('load', () => {
-        document.getElementById('spinner').style.display = 'none';
-      });
-    </script>
   </body>
 </html>

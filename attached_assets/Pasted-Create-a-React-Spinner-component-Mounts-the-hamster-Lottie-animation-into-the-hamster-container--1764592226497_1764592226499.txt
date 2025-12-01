@@ -1,0 +1,84 @@
+Create a React Spinner component
+
+Mounts the hamster Lottie animation into the #hamster container.
+
+Plays the animation in a loop until hidden.
+
+Uses React lifecycle (useEffect) to initialise the animation.
+
+Example (for illustration only):
+
+tsx
+useEffect(() => {
+  lottie.loadAnimation({
+    container: document.getElementById('hamster'),
+    renderer: 'svg',
+    loop: true,
+    autoplay: true,
+    path: '/assets/hamster.json'
+  });
+}, []);
+Control spinner visibility via React state
+
+Introduce a showSpinner state.
+
+Default: true when a new page or route is loading.
+
+Set to false once the page’s data/component is ready.
+
+Apply a 150ms delay before showing the spinner, so it only appears if loading takes longer than that.
+
+This avoids the spinner flashing on instant loads.
+
+Example logic (illustration only):
+
+tsx
+const [showSpinner, setShowSpinner] = useState(false);
+
+useEffect(() => {
+  const timeout = setTimeout(() => setShowSpinner(true), 150);
+  return () => clearTimeout(timeout);
+}, []);
+Tie spinner lifecycle to React Router transitions
+
+Show spinner when navigating to a new route.
+
+Hide spinner once the new route’s component has mounted and data is ready.
+
+Ensure this does not interfere with existing fade/slide transitions — spinner should only cover the screen before the transition begins, and disappear once the new screen is ready to animate.
+
+Ensure smooth UX
+
+On fast loads (<150ms): spinner never appears, transitions run normally.
+
+On slower loads (>150ms): spinner appears over a white background, disappears once ready, then transitions run.
+
+No flicker of half‑rendered content should be visible.
+
+Remove inline JS from index.html
+
+The spinner should be fully controlled by React, not by window.onload.
+
+Keep the container and styles in index.html as the base scaffold.
+
+Subtleties to respect:
+
+Spinner must not block or delay fast transitions.
+
+Spinner must not overlap fade/slide animations — it should disappear before those begin.
+
+Spinner should be full‑screen white background with hamster animation centered.
+
+Accessibility: add aria-label="Loading" to the spinner container.
+
+Ensure the hamster JSON path is correct (/assets/hamster.json).
+
+Deliverables:
+
+A React Spinner component.
+
+Integration into the app’s router/data‑loading flow.
+
+Removal of inline JS from index.html.
+
+Confirmation that fade/slide transitions still work as intended.

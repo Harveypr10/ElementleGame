@@ -23,10 +23,20 @@ import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
+import { useSpinner } from "@/lib/SpinnerProvider";
 import { useQuery } from "@tanstack/react-query";
 import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
+
+function PuzzleLoadingSpinner({ showSpinner, hideSpinner }: { showSpinner: (delay?: number) => void; hideSpinner: () => void }) {
+  useEffect(() => {
+    showSpinner(150);
+    return () => hideSpinner();
+  }, [showSpinner, hideSpinner]);
+  
+  return null;
+}
 
 interface Puzzle {
   id: number;
@@ -45,6 +55,7 @@ export default function Home() {
   const { gameAttempts, loadingAttempts } = useGameData();
   const { formatCanonicalDate } = useUserDateFormat();
   const { isLocalMode, setGameMode } = useGameMode();
+  const { showSpinner, hideSpinner } = useSpinner();
   const [currentScreen, setCurrentScreen] = useState<Screen>("splash");
   const [selectedPuzzleId, setSelectedPuzzleId] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -349,12 +360,18 @@ export default function Home() {
     setCurrentScreen("selection");
   };
 
+  // Show spinner during auth loading - with 150ms delay to avoid flash on fast loads
+  useEffect(() => {
+    if (isLoading) {
+      showSpinner(150);
+    } else {
+      hideSpinner();
+    }
+  }, [isLoading, showSpinner, hideSpinner]);
+
+  // While auth is loading, render nothing (spinner is controlled externally)
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
+    return null;
   }
 
   if (showSplash) {
@@ -493,11 +510,7 @@ export default function Home() {
         )}
 
         {currentScreen === "play" && !currentPuzzle && (
-          <motion.div key="play-loading" className="absolute w-full top-0 left-0" {...pageVariants.fadeIn} transition={pageTransition}>
-            <div className="min-h-screen flex items-center justify-center">
-              <div className="text-lg">Loading puzzle...</div>
-            </div>
-          </motion.div>
+          <PuzzleLoadingSpinner showSpinner={showSpinner} hideSpinner={hideSpinner} />
         )}
 
         {currentScreen === "stats" && (
