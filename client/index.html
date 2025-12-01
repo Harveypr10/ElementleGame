@@ -2,62 +2,79 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>Elementle - Daily Historical Date Puzzle</title>
-    <meta
-      name="description"
-      content="Guess the historical date! A daily puzzle game where you discover famous events through date guessing."
-    />
+    <meta name="description" content="Guess the historical date! A daily puzzle game where you discover famous events through date guessing." />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#000000" />
 
     <!-- Cross-platform favicons -->
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="32x32"
-      href="/Icon-192.png"
-    />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="16x16"
-      href="/Icon-192.png"
-    />
+    <link rel="icon" type="image/png" sizes="32x32" href="/Icon-192.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/Icon-192.png" />
 
     <!-- iOS specific -->
-    <link
-      rel="apple-touch-icon"
-      sizes="180x180"
-      href="/Icon-180.png"
-    />
+    <link rel="apple-touch-icon" sizes="180x180" href="/Icon-180.png" />
 
     <!-- Windows tiles (optional) -->
     <meta name="msapplication-TileColor" content="#000000" />
-    <meta
-      name="msapplication-TileImage"
-      content="/Icon-192.png"
-    />
+    <meta name="msapplication-TileImage" content="/Icon-192.png" />
 
     <!-- Enable standalone mode on iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Lottie Player -->
+    <script src="https://unpkg.com/lottie-web@latest/build/player/lottie.min.js"></script>
+
+    <style>
+      #spinner {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+      #hamster {
+        width: 200px;
+        height: 200px;
+      }
+    </style>
   </head>
   <body>
+    <!-- Spinner container -->
+    <div id="spinner">
+      <div id="hamster"></div>
+    </div>
+
+    <!-- App root -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Spinner logic -->
+    <script>
+      lottie.loadAnimation({
+        container: document.getElementById('hamster'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/assets/hamster.json' // Replace with your actual asset path
+      });
+
+      window.addEventListener('load', () => {
+        document.getElementById('spinner').style.display = 'none';
+      });
+    </script>
   </body>
 </html>
