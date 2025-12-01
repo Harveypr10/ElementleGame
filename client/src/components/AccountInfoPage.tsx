@@ -65,7 +65,19 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   // Use either React Query cache or localStorage cache
   const cachedProfile = rqCachedProfile || localCachedProfile;
   const cachedRegions = rqCachedRegions || localCachedRegions;
-  const hasCachedData = !!(cachedProfile && cachedRegions);
+  
+  // Helper functions to validate cached data - defined inline to avoid hook dependency issues
+  const isValidProfile = (p: UserProfile | null | undefined): boolean => {
+    if (!p) return false;
+    return !!(p.id || p.email);
+  };
+  const isValidRegions = (r: Region[] | null | undefined): boolean => {
+    if (!r) return false;
+    return Array.isArray(r) && r.length > 0;
+  };
+  
+  // hasCachedData only true if data is actually valid/usable
+  const hasCachedData = isValidProfile(cachedProfile) && isValidRegions(cachedRegions);
   
   // Fetch available regions
   const { data: regions, isLoading: regionsLoading, refetch: refetchRegions } = useQuery<Region[]>({
@@ -97,24 +109,48 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     onTimeout: handleTimeout,
   });
   
-  // Manage spinner: only show if data is NOT already cached
+  // Helper to check if profile has meaningful data (not just truthy)
+  const hasValidProfileData = useCallback((p: UserProfile | null | undefined): boolean => {
+    if (!p) return false;
+    // Profile must have at least an ID or email to be considered valid
+    return !!(p.id || p.email);
+  }, []);
+  
+  // Helper to check if regions has meaningful data
+  const hasValidRegionsData = useCallback((r: Region[] | null | undefined): boolean => {
+    if (!r) return false;
+    return Array.isArray(r) && r.length > 0;
+  }, []);
+  
+  // Manage spinner: only show if data is NOT already cached with valid content
   useEffect(() => {
-    // If we already have cached data, never show spinner
-    if (hasCachedData) {
+    // Check if cached data is actually valid/usable
+    const cachedProfileValid = hasValidProfileData(cachedProfile);
+    const cachedRegionsValid = hasValidRegionsData(cachedRegions);
+    const hasValidCachedData = cachedProfileValid && cachedRegionsValid;
+    
+    // If we already have valid cached data, never show spinner
+    if (hasValidCachedData) {
+      console.log('[AccountInfoPage] Valid cached data found, skipping spinner');
       return;
     }
     
+    // Check if fresh data is valid
+    const profileValid = hasValidProfileData(profile);
+    const regionsValid = hasValidRegionsData(regions);
+    const isDataReady = profileValid && regionsValid;
     const isDataLoading = profileLoading || regionsLoading;
-    const isDataReady = !!profile && !!regions;
     
-    if (isDataLoading && !spinnerShownRef.current) {
-      console.log('[AccountInfoPage] Showing spinner with timeout - no cached data, waiting for profile/regions');
+    // Start spinner if loading and no valid data yet
+    if (!isDataReady && !spinnerShownRef.current) {
+      console.log('[AccountInfoPage] Showing spinner with timeout - waiting for valid profile/regions data');
       spinner.start(0);
       spinnerShownRef.current = true;
     }
     
+    // Complete spinner when valid data is ready
     if (isDataReady && spinnerShownRef.current) {
-      console.log('[AccountInfoPage] Data loaded - completing spinner');
+      console.log('[AccountInfoPage] Valid data loaded - completing spinner');
       spinner.complete();
       spinnerShownRef.current = false;
     }
@@ -126,7 +162,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         spinnerShownRef.current = false;
       }
     };
-  }, [profileLoading, regionsLoading, profile, regions, spinner, hasCachedData]);
+  }, [profileLoading, regionsLoading, profile, regions, spinner, cachedProfile, cachedRegions, hasValidProfileData, hasValidRegionsData]);
 
   // Initialize profile data from cache immediately if available
   const initialProfile = cachedProfile || profile;
