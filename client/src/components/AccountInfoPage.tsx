@@ -27,9 +27,10 @@ import { queryClient } from "@/lib/queryClient";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 import { OTPVerificationScreen } from "./OTPVerificationScreen";
 import { GeneratingQuestionsScreen } from "./GeneratingQuestionsScreen";
-import { useQuery } from "@tanstack/react-query";
-import type { Region } from "@shared/schema";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Region, UserProfile } from "@shared/schema";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 
 interface AccountInfoPageProps {
   onBack: () => void;
@@ -41,6 +42,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const { profile, updateProfile, isLoading: profileLoading } = useProfile();
   const { toast } = useToast();
   const { showSpinner, hideSpinner } = useSpinner();
+  const qc = useQueryClient();
   const [loading, setLoading] = useState(false);
   const adBannerActive = useAdBannerActive();
   const [showOTPVerification, setShowOTPVerification] = useState(false);
@@ -50,51 +52,76 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [pendingRegion, setPendingRegion] = useState<string | null>(null);
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   
-  // Track if spinner has been managed
-  const spinnerManagedRef = useRef(false);
+  // Track if spinner was actually shown (not just managed)
+  const spinnerShownRef = useRef(false);
+  
+  // Check if data is already in cache on mount - check React Query cache first, then localStorage
+  const rqCachedProfile = qc.getQueryData<UserProfile>(['/api/auth/profile']);
+  const rqCachedRegions = qc.getQueryData<Region[]>(['/api/regions']);
+  
+  // Fallback to localStorage cache if React Query cache is empty
+  const localCachedProfile = !rqCachedProfile ? readLocal<UserProfile>(CACHE_KEYS.PROFILE) : null;
+  const localCachedRegions = !rqCachedRegions ? readLocal<Region[]>(CACHE_KEYS.REGIONS) : null;
+  
+  // Use either React Query cache or localStorage cache
+  const cachedProfile = rqCachedProfile || localCachedProfile;
+  const cachedRegions = rqCachedRegions || localCachedRegions;
+  const hasCachedData = !!(cachedProfile && cachedRegions);
   
   // Fetch available regions
   const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
     queryKey: ['/api/regions'],
   });
   
-  // Manage spinner: show while profile is loading
+  // Manage spinner: only show if data is NOT already cached
   useEffect(() => {
+    // If we already have cached data, never show spinner
+    if (hasCachedData) {
+      return;
+    }
+    
     const isDataLoading = profileLoading || regionsLoading;
     const isDataReady = !!profile && !!regions;
     
-    if (isDataLoading && !spinnerManagedRef.current) {
-      console.log('[AccountInfoPage] Showing spinner - waiting for profile/regions data');
+    if (isDataLoading && !spinnerShownRef.current) {
+      console.log('[AccountInfoPage] Showing spinner - no cached data, waiting for profile/regions');
       showSpinner(0);
-      spinnerManagedRef.current = true;
+      spinnerShownRef.current = true;
     }
     
-    if (isDataReady && spinnerManagedRef.current) {
+    if (isDataReady && spinnerShownRef.current) {
       console.log('[AccountInfoPage] Hiding spinner - data loaded');
       hideSpinner();
-      spinnerManagedRef.current = false;
+      spinnerShownRef.current = false;
     }
     
-    // Cleanup on unmount
+    // Cleanup on unmount - only hide if we actually showed the spinner
     return () => {
-      if (spinnerManagedRef.current) {
+      if (spinnerShownRef.current) {
         hideSpinner();
-        spinnerManagedRef.current = false;
+        spinnerShownRef.current = false;
       }
     };
-  }, [profileLoading, regionsLoading, profile, regions, showSpinner, hideSpinner]);
+  }, [profileLoading, regionsLoading, profile, regions, showSpinner, hideSpinner, hasCachedData]);
 
-  const [profileData, setProfileData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    region: "",
-    postcode: "",
-  });
+  // Initialize profile data from cache immediately if available
+  const initialProfile = cachedProfile || profile;
+  const initialRegions = cachedRegions || regions;
+  
+  const [profileData, setProfileData] = useState(() => ({
+    firstName: initialProfile?.firstName || "",
+    lastName: initialProfile?.lastName || "",
+    email: initialProfile?.email || "",
+    region: initialProfile?.region || (initialRegions && initialRegions.length > 0 ? initialRegions[0].code : ""),
+    postcode: initialProfile?.postcode || "",
+  }));
+  
+  // Track if we've already initialized from profile
+  const initializedRef = useRef(!!initialProfile);
 
-  // Load profile data when available
+  // Update profile data when fresh data loads (but only if not already initialized from cache)
   useEffect(() => {
-    if (profile) {
+    if (profile && !initializedRef.current) {
       setProfileData({
         firstName: profile.firstName || "",
         lastName: profile.lastName || "",
@@ -104,8 +131,19 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
       });
       setOriginalEmail(profile.email || "");
       setOriginalPostcode(profile.postcode || "");
+      initializedRef.current = true;
     }
   }, [profile, regions]);
+  
+  // Set original values from initial data
+  useEffect(() => {
+    if (initialProfile && !originalEmail) {
+      setOriginalEmail(initialProfile.email || "");
+    }
+    if (initialProfile && !originalPostcode) {
+      setOriginalPostcode(initialProfile.postcode || "");
+    }
+  }, [initialProfile, originalEmail, originalPostcode]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -216,7 +254,14 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           throw new Error(errorData.error || 'Failed to update profile in database');
         }
 
-        await queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
+        // Get the updated profile from response and update caches immediately
+        const updatedProfile = await response.json();
+        
+        // Update React Query cache immediately with new data
+        qc.setQueryData(["/api/auth/profile"], updatedProfile);
+        
+        // Update localStorage cache immediately
+        writeLocal(CACHE_KEYS.PROFILE, updatedProfile);
 
         // If postcode changed, call reset-and-reallocate-user then show GeneratingQuestionsScreen
         if (postcodeChanged && user?.id && profileData.postcode) {
@@ -307,7 +352,14 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         throw new Error(errorData.error || 'Failed to update profile in database');
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/profile"] });
+      // Get the updated profile from response and update caches immediately
+      const updatedProfile = await response.json();
+      
+      // Update React Query cache immediately with new data
+      qc.setQueryData(["/api/auth/profile"], updatedProfile);
+      
+      // Update localStorage cache immediately
+      writeLocal(CACHE_KEYS.PROFILE, updatedProfile);
 
       setShowOTPVerification(false);
       setOriginalEmail(profileData.email); // Update the original email reference

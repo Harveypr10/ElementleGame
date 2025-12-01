@@ -127,9 +127,6 @@ export const userProfiles = pgTable("user_profiles", {
   region: text("region").default("UK"), // ISO country code (e.g., 'UK', 'US')
   postcode: text("postcode"), // References postcodes.name1
   location: text("location"), // Geography type stored as text
-
-  // LEGACY: Subscription tier - kept for backward compatibility during migration
-  tier: text("tier").default("standard"),
   
   // Postcode change tracking
   postcodeLastChangedAt: timestamp("postcode_last_changed_at", { withTimezone: true }),
@@ -148,7 +145,6 @@ export const userProfiles = pgTable("user_profiles", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   regionIdx: index("idx_user_profiles_region").on(table.region),
-  tierIdx: index("idx_user_profiles_tier").on(table.tier),
 }));
 
 export const insertUserProfileSchema = createInsertSchema(userProfiles)
