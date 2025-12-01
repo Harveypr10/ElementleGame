@@ -288,6 +288,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // If user_tier_id is missing (e.g., profile created by Supabase trigger), set it now
+      let userTierId = existing.userTierId;
+      if (!userTierId) {
+        const finalRegion = region ?? existing.region ?? 'UK';
+        const standardTierId = await storage.getStandardTierId(finalRegion);
+        if (standardTierId) {
+          console.log(`[PATCH /api/auth/profile] Setting missing user_tier_id to Standard tier: ${standardTierId} for region: ${finalRegion}`);
+          userTierId = standardTierId;
+        } else {
+          console.error(`[PATCH /api/auth/profile] No Standard tier found for region: ${finalRegion}`);
+        }
+      }
+
       // Build profile update with location change timestamp if needed
       const profileUpdate: any = {
         id: userId,
@@ -307,6 +320,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? now
             : existing.adsConsentUpdatedAt ? new Date(existing.adsConsentUpdatedAt) : null,
         emailVerified: existing.emailVerified ?? false,
+        userTierId: userTierId, // Ensure user_tier_id is set
       };
       
       // Note: postcodeLastChangedAt is updated by GeneratingQuestionsScreen after question regeneration completes
