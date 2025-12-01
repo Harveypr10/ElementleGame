@@ -204,6 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           acceptedTermsAt: acceptedTerms ? now : null,
           adsConsentUpdatedAt: adsConsent ? now : null,
           emailVerified: false,
+          postcodeLastChangedAt: now, // Set initial timestamp for new profiles
         });
         
         // Also create default user settings
@@ -222,44 +223,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const now = new Date();
+      
+      // Check if postcode or region is being changed
+      const postcodeChanging = postcode !== undefined && postcode !== existing.postcode;
+      const regionChanging = region !== undefined && region !== existing.region;
+      const locationChanging = postcodeChanging || regionChanging;
+      
+      // If location is changing, check the restriction
+      if (locationChanging) {
+        // Fetch the restriction setting
+        const restrictionSetting = await storage.getAdminSetting('postcode_restriction_days');
+        const restrictionDays = restrictionSetting ? parseInt(restrictionSetting.value, 10) : 14;
+        
+        // Check if user can change (only if restriction > 0)
+        if (restrictionDays > 0 && existing.postcodeLastChangedAt) {
+          const lastChanged = new Date(existing.postcodeLastChangedAt);
+          const allowedAfter = new Date(lastChanged);
+          allowedAfter.setDate(allowedAfter.getDate() + restrictionDays);
+          
+          if (now < allowedAfter) {
+            console.log(`[PATCH /api/auth/profile] Location change blocked - last changed: ${lastChanged}, allowed after: ${allowedAfter}`);
+            
+            // Still save name/email changes if provided
+            if (firstName !== undefined || lastName !== undefined || email !== undefined) {
+              const partialUpdate = await storage.upsertUserProfile({
+                id: userId,
+                email: email ?? existing.email,
+                firstName: firstName ?? existing.firstName,
+                lastName: lastName ?? existing.lastName,
+                region: existing.region, // Keep existing
+                postcode: existing.postcode, // Keep existing
+                acceptedTerms: acceptedTerms ?? existing.acceptedTerms ?? false,
+                adsConsent: adsConsent ?? existing.adsConsent ?? false,
+                acceptedTermsAt: existing.acceptedTermsAt ? new Date(existing.acceptedTermsAt) : null,
+                adsConsentUpdatedAt: existing.adsConsentUpdatedAt ? new Date(existing.adsConsentUpdatedAt) : null,
+                emailVerified: existing.emailVerified ?? false,
+              });
+              
+              // Return success with restriction notice
+              return res.status(200).json({
+                ...partialUpdate,
+                _restrictionBlocked: true,
+                _restrictionMessage: `You can update your postcode or region once every ${restrictionDays} days and Hammie will regenerate your questions`,
+                _restrictionDays: restrictionDays,
+              });
+            }
+            
+            // If only location changes were requested and blocked
+            return res.status(400).json({
+              error: `You can update your postcode or region once every ${restrictionDays} days and Hammie will regenerate your questions`,
+              code: "LOCATION_COOLDOWN",
+              restrictionDays,
+            });
+          }
+        }
+      }
 
-      const updatedProfile = await storage.upsertUserProfile({
+      // Build profile update with location change timestamp if needed
+      const profileUpdate: any = {
         id: userId,
         email: email ?? existing.email,
         firstName: firstName ?? existing.firstName,
         lastName: lastName ?? existing.lastName,
         region: region ?? existing.region ?? null,
         postcode: postcode !== undefined ? postcode : existing.postcode,
-        acceptedTerms:
-          acceptedTerms ?? existing.acceptedTerms ?? false,
-        adsConsent:
-          adsConsent ?? existing.adsConsent ?? false,
+        acceptedTerms: acceptedTerms ?? existing.acceptedTerms ?? false,
+        adsConsent: adsConsent ?? existing.adsConsent ?? false,
         acceptedTermsAt:
-          acceptedTerms !== undefined &&
-          acceptedTerms !== existing.acceptedTerms
+          acceptedTerms !== undefined && acceptedTerms !== existing.acceptedTerms
             ? now
-            : existing.acceptedTermsAt
-            ? new Date(existing.acceptedTermsAt)
-            : null,
+            : existing.acceptedTermsAt ? new Date(existing.acceptedTermsAt) : null,
         adsConsentUpdatedAt:
-          adsConsent !== undefined &&
-          adsConsent !== existing.adsConsent
+          adsConsent !== undefined && adsConsent !== existing.adsConsent
             ? now
-            : existing.adsConsentUpdatedAt
-            ? new Date(existing.adsConsentUpdatedAt)
-            : null,
+            : existing.adsConsentUpdatedAt ? new Date(existing.adsConsentUpdatedAt) : null,
         emailVerified: existing.emailVerified ?? false,
-      });
+      };
+      
+      // Update postcodeLastChangedAt if location is changing
+      if (locationChanging) {
+        profileUpdate.postcodeLastChangedAt = now;
+        console.log(`[PATCH /api/auth/profile] Updating postcodeLastChangedAt to ${now}`);
+      }
+
+      const updatedProfile = await storage.upsertUserProfile(profileUpdate);
 
       res.json(updatedProfile);
     } catch (error: any) {
       console.error("Error updating profile:", error);
       
-      // Check for postcode guard trigger error (14-day restriction)
-      if (error?.message?.includes('postcode once every 14 days')) {
+      // Check for postcode guard trigger error (legacy 14-day restriction from Supabase)
+      if (error?.message?.includes('postcode once every')) {
+        const match = error.message.match(/postcode once every (\d+) days/);
+        const days = match ? match[1] : '14';
         return res.status(400).json({ 
-          error: "You can only change your postcode once every 14 days. Please try again later.",
-          code: "POSTCODE_COOLDOWN"
+          error: `You can update your postcode or region once every ${days} days and Hammie will regenerate your questions`,
+          code: "LOCATION_COOLDOWN"
         });
       }
       
@@ -1619,7 +1678,21 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         return res.status(400).json({ error: "Must select at least 3 categories" });
       }
 
+      // Save categories
       await storage.saveUserProCategories(userId, categoryIds);
+      
+      // Update categories_last_changed_at timestamp in user profile
+      const now = new Date();
+      const existing = await storage.getUserProfile(userId);
+      if (existing) {
+        await storage.upsertUserProfile({
+          id: userId,
+          email: existing.email,
+          categoriesLastChangedAt: now,
+        });
+        console.log(`[POST /api/user/pro-categories] Updated categoriesLastChangedAt to ${now} for user ${userId}`);
+      }
+      
       res.json({ success: true, categoryIds });
     } catch (error) {
       console.error("Error saving pro categories:", error);
@@ -1714,6 +1787,18 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       res.json({ days });
     } catch (error) {
       console.error("Error fetching postcode restriction:", error);
+      res.json({ days: 14 }); // Default to 14 on error
+    }
+  });
+
+  // Get category restriction days (public endpoint for validation - Pro users)
+  app.get("/api/settings/category-restriction-days", async (req, res) => {
+    try {
+      const setting = await storage.getAdminSetting('category_restriction_days');
+      const days = setting ? parseInt(setting.value, 10) : 14; // Default to 14 days
+      res.json({ days });
+    } catch (error) {
+      console.error("Error fetching category restriction:", error);
       res.json({ days: 14 }); // Default to 14 on error
     }
   });

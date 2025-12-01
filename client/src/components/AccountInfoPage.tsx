@@ -47,9 +47,12 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [originalEmail, setOriginalEmail] = useState("");
   const [originalPostcode, setOriginalPostcode] = useState("");
+  const [originalRegion, setOriginalRegion] = useState("");
   const [showRegionConfirm, setShowRegionConfirm] = useState(false);
   const [pendingRegion, setPendingRegion] = useState<string | null>(null);
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
+  const [showRestrictionPopup, setShowRestrictionPopup] = useState(false);
+  const [restrictionMessage, setRestrictionMessage] = useState("");
   
   // Track if spinner was actually shown (not just managed)
   const spinnerShownRef = useRef(false);
@@ -191,6 +194,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
       });
       setOriginalEmail(profile.email || "");
       setOriginalPostcode(profile.postcode || "");
+      setOriginalRegion(profile.region || "");
       initializedRef.current = true;
     }
   }, [profile, regions]);
@@ -229,13 +233,49 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     setShowRegionConfirm(false);
 
     try {
-      // Use the updateProfile mutation from useProfile hook
-      // This automatically updates localStorage cache via the hook's onSuccess
-      await updateProfile({
-        region: pendingRegion,
+      // Call API directly to check for restriction response
+      const session = (await supabase.auth.getSession()).data.session;
+      const accessToken = session?.access_token;
+      
+      const response = await fetch('/api/auth/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          region: pendingRegion,
+        }),
       });
+      
+      const data = await response.json();
+      
+      // Check for restriction response
+      if (data._restrictionBlocked) {
+        // Restriction triggered - region change was blocked
+        setRestrictionMessage(data._restrictionMessage || "You can only update your region once every few days.");
+        setShowRestrictionPopup(true);
+        setPendingRegion(null);
+        return;
+      }
+      
+      if (!response.ok) {
+        // Check for cooldown error
+        if (data.code === 'LOCATION_COOLDOWN') {
+          setRestrictionMessage(data.error || "You can only update your region once every few days.");
+          setShowRestrictionPopup(true);
+          setPendingRegion(null);
+          return;
+        }
+        throw new Error(data.error || 'Failed to update region');
+      }
+      
+      // Update caches
+      qc.setQueryData(["/api/auth/profile"], data);
+      writeLocal(CACHE_KEYS.PROFILE, data);
 
       setProfileData({ ...profileData, region: pendingRegion });
+      setOriginalRegion(pendingRegion);
       setPendingRegion(null);
 
       toast({
@@ -309,13 +349,45 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           }),
         });
 
+        const responseData = await response.json().catch(() => ({}));
+
+        // Check for restriction response (postcode change was blocked but name/email saved)
+        if (responseData._restrictionBlocked) {
+          // Name/email changes were saved, but postcode change was blocked
+          // Reset postcode to original since it wasn't changed
+          setProfileData({ ...profileData, postcode: originalPostcode });
+          
+          // Update caches with the partial update (excluding blocked postcode change)
+          qc.setQueryData(["/api/auth/profile"], responseData);
+          writeLocal(CACHE_KEYS.PROFILE, responseData);
+          
+          // Show restriction popup
+          setRestrictionMessage(responseData._restrictionMessage || "You can only update your postcode once every few days.");
+          setShowRestrictionPopup(true);
+          
+          // Still show success for name/email if they were changed
+          if (profileData.firstName !== originalEmail || profileData.lastName !== originalEmail) {
+            toast({
+              title: "Profile partially updated",
+              description: "Name changes saved, but postcode change was blocked.",
+            });
+          }
+          return;
+        }
+
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Failed to update profile in database');
+          // Check for cooldown error when only postcode was submitted
+          if (responseData.code === 'LOCATION_COOLDOWN') {
+            setRestrictionMessage(responseData.error || "You can only update your postcode once every few days.");
+            setShowRestrictionPopup(true);
+            setProfileData({ ...profileData, postcode: originalPostcode });
+            return;
+          }
+          throw new Error(responseData.error || 'Failed to update profile in database');
         }
 
         // Get the updated profile from response and update caches immediately
-        const updatedProfile = await response.json();
+        const updatedProfile = responseData;
         
         // Update React Query cache immediately with new data
         qc.setQueryData(["/api/auth/profile"], updatedProfile);
@@ -678,9 +750,11 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                       })}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground" data-testid="text-region-help-account">
-                    This determines how dates are displayed in the game
-                  </p>
+                  {profile?.postcodeLastChangedAt && (
+                    <p className="text-xs text-muted-foreground" data-testid="text-region-last-updated-account">
+                      Last updated: {new Date(profile.postcodeLastChangedAt).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
 
                 <Button
@@ -778,6 +852,26 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmRegionChange} data-testid="button-confirm-region-change">
               Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Location Restriction Popup */}
+      <AlertDialog open={showRestrictionPopup} onOpenChange={setShowRestrictionPopup}>
+        <AlertDialogContent data-testid="alert-location-restriction">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change Not Allowed</AlertDialogTitle>
+            <AlertDialogDescription>
+              {restrictionMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction 
+              onClick={() => setShowRestrictionPopup(false)} 
+              data-testid="button-dismiss-restriction"
+            >
+              OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

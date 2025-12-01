@@ -131,6 +131,9 @@ export const userProfiles = pgTable("user_profiles", {
   // Postcode change tracking
   postcodeLastChangedAt: timestamp("postcode_last_changed_at", { withTimezone: true }),
   
+  // Category change tracking (Pro users)
+  categoriesLastChangedAt: timestamp("categories_last_changed_at", { withTimezone: true }),
+  
   // Archive puzzle sync count
   archiveSyncedCount: integer("archive_synced_count").default(0),
   

@@ -74,8 +74,11 @@ export function AdminPage({ onBack }: AdminPageProps) {
   const supabase = useSupabase();
   const adBannerActive = useAdBannerActive();
   
-  // Postcode restriction state
+  // Postcode/Region restriction state
   const [postcodeRestrictionDays, setPostcodeRestrictionDays] = useState<string>("14");
+  
+  // Category restriction state (Pro users)
+  const [categoryRestrictionDays, setCategoryRestrictionDays] = useState<string>("14");
   
   // Demand scheduler state
   const [schedulerStartTime, setSchedulerStartTime] = useState<string>("01:00");
@@ -109,6 +112,10 @@ export function AdminPage({ onBack }: AdminPageProps) {
           if (postcodeSetting) {
             setPostcodeRestrictionDays(postcodeSetting.value);
           }
+          const categorySetting = settings.find((s: any) => s.key === 'category_restriction_days');
+          if (categorySetting) {
+            setCategoryRestrictionDays(categorySetting.value);
+          }
         }
         
         if (schedulerResponse.ok) {
@@ -133,27 +140,42 @@ export function AdminPage({ onBack }: AdminPageProps) {
       const session = (await supabase.auth.getSession()).data.session;
       const accessToken = session?.access_token;
       
-      const response = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          key: 'postcode_restriction_days',
-          value: postcodeRestrictionDays,
-          description: 'Number of days between allowed postcode changes',
+      // Save both settings in parallel
+      const [postcodeResponse, categoryResponse] = await Promise.all([
+        fetch('/api/admin/settings', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            key: 'postcode_restriction_days',
+            value: postcodeRestrictionDays,
+            description: 'Number of days between allowed postcode/region changes',
+          }),
         }),
-      });
+        fetch('/api/admin/settings', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            key: 'category_restriction_days',
+            value: categoryRestrictionDays,
+            description: 'Number of days between allowed category changes (Pro users)',
+          }),
+        }),
+      ]);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      if (!postcodeResponse.ok || !categoryResponse.ok) {
+        const errorData = await (postcodeResponse.ok ? categoryResponse : postcodeResponse).json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to save settings');
       }
 
       toast({
         title: "Settings saved",
-        description: "Postcode restriction settings have been updated.",
+        description: "Restriction settings have been updated.",
       });
     } catch (error: any) {
       toast({
@@ -266,19 +288,20 @@ export function AdminPage({ onBack }: AdminPageProps) {
           </div>
         ) : (
           <>
-            {/* Postcode Restriction Card */}
+            {/* Restriction Settings Card */}
             <Card className="p-6 space-y-6">
               <div className="flex items-center gap-2 pb-4 border-b">
                 <Shield className="h-5 w-5 text-red-500" />
-                <span className="font-semibold text-red-600 dark:text-red-400">Postcode Settings</span>
+                <span className="font-semibold text-red-600 dark:text-red-400">Change Restrictions</span>
               </div>
 
+              {/* Postcode/Region Restriction */}
               <div className="space-y-3">
                 <Label htmlFor="postcode-restriction" className="text-base font-semibold">
-                  Postcode Change Restriction
+                  Postcode/Region Change Restriction
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Number of days users must wait before changing their postcode again.
+                  Number of days users must wait before changing their postcode or region again.
                 </p>
                 <Select
                   value={postcodeRestrictionDays}
@@ -297,8 +320,38 @@ export function AdminPage({ onBack }: AdminPageProps) {
                 </Select>
                 <p className="text-xs text-muted-foreground">
                   Current setting: {postcodeRestrictionDays === "0" 
-                    ? "Users can change postcode anytime" 
+                    ? "Users can change postcode/region anytime" 
                     : `Users must wait ${postcodeRestrictionDays} days between changes`}
+                </p>
+              </div>
+
+              {/* Category Restriction (Pro users) */}
+              <div className="space-y-3 pt-4 border-t">
+                <Label htmlFor="category-restriction" className="text-base font-semibold">
+                  Category Change Restriction (Pro)
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Number of days Pro users must wait before changing their category preferences again.
+                </p>
+                <Select
+                  value={categoryRestrictionDays}
+                  onValueChange={setCategoryRestrictionDays}
+                >
+                  <SelectTrigger id="category-restriction" data-testid="select-category-days">
+                    <SelectValue placeholder="Select days" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dayOptions.map((days) => (
+                      <SelectItem key={days} value={days.toString()}>
+                        {days === 0 ? "No restriction" : `${days} day${days === 1 ? '' : 's'}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Current setting: {categoryRestrictionDays === "0" 
+                    ? "Pro users can change categories anytime" 
+                    : `Pro users must wait ${categoryRestrictionDays} days between changes`}
                 </p>
               </div>
 
@@ -308,7 +361,7 @@ export function AdminPage({ onBack }: AdminPageProps) {
                 disabled={saving}
                 data-testid="button-save-admin-settings"
               >
-                {saving ? "Saving..." : "Save Postcode Settings"}
+                {saving ? "Saving..." : "Save Restriction Settings"}
               </Button>
             </Card>
 
