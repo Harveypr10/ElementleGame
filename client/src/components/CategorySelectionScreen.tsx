@@ -50,8 +50,6 @@ export function CategorySelectionScreen({
   const adBannerActive = useAdBannerActive();
   const supabase = useSupabase();
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
-  const [showRestrictionPopup, setShowRestrictionPopup] = useState(false);
-  const [restrictionMessage, setRestrictionMessage] = useState("");
   
   // Track if spinner has been managed for this open cycle
   const spinnerManagedRef = useRef(false);
@@ -165,51 +163,6 @@ export function CategorySelectionScreen({
     onTimeout: handleTimeout,
   });
   
-  // Check category restriction when screen opens
-  useEffect(() => {
-    if (!isOpen || !isAuthenticated || !profile) return;
-    
-    const checkRestriction = async () => {
-      try {
-        // Get auth token for the request
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          console.log('[CategorySelectionScreen] No session for restriction check');
-          return;
-        }
-        
-        // Fetch the category restriction setting
-        const response = await fetch('/api/settings/category-restriction-days', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        });
-        if (!response.ok) return;
-        
-        const { days } = await response.json();
-        if (days === 0) return; // No restriction
-        
-        // Check if user has a categoriesLastChangedAt timestamp
-        const lastChanged = profile.categoriesLastChangedAt;
-        if (!lastChanged) return; // No previous change, allow
-        
-        const lastChangedDate = new Date(lastChanged);
-        const allowedAfter = new Date(lastChangedDate);
-        allowedAfter.setDate(allowedAfter.getDate() + days);
-        
-        if (new Date() < allowedAfter) {
-          // User is within restriction window
-          setRestrictionMessage(`You can update your categories once every ${days} days and Hammie will regenerate your questions.`);
-          setShowRestrictionPopup(true);
-        }
-      } catch (error) {
-        console.error('[CategorySelectionScreen] Error checking restriction:', error);
-      }
-    };
-    
-    checkRestriction();
-  }, [isOpen, isAuthenticated, profile, supabase]);
-
   // Force refetch when screen opens with authenticated user
   useEffect(() => {
     if (isOpen && isAuthenticated) {
@@ -605,28 +558,6 @@ export function CategorySelectionScreen({
         </motion.div>
       )}
 
-      {/* Category Restriction Popup */}
-      <AlertDialog open={showRestrictionPopup} onOpenChange={setShowRestrictionPopup}>
-        <AlertDialogContent data-testid="alert-category-restriction">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Change Not Allowed</AlertDialogTitle>
-            <AlertDialogDescription>
-              {restrictionMessage}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction 
-              onClick={() => {
-                setShowRestrictionPopup(false);
-                onClose();
-              }} 
-              data-testid="button-dismiss-category-restriction"
-            >
-              OK
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AnimatePresence>
   );
 }

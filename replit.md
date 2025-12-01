@@ -55,9 +55,14 @@ Preferred communication style: Simple, everyday language.
 - **Admin Panel**: Admin-only page for configuring postcode/region change restrictions, category change restrictions, and demand scheduler cron jobs.
 - **Dual Restriction System**: Separate admin-configurable cooldown windows for location changes (postcode/region) and category changes:
   - **Location Changes**: `postcodeLastChangedAt` tracks when user last changed their postcode or region. Admin setting `postcode_restriction_days` controls cooldown (0-60 days).
-  - **Category Changes**: `categoriesLastChangedAt` tracks when user last updated Pro categories. Admin setting `category_restriction_days` controls cooldown (0-60 days).
+  - **Category Changes**: `categoriesLastChangedAt` tracks when user last updated Pro categories (via Re-Generate button). Admin setting `category_restriction_days` controls cooldown (0-60 days).
   - **API Endpoints**: `GET /api/settings/postcode-restriction-days` and `GET /api/settings/category-restriction-days` for client-side validation.
-  - **UI Behavior**: AccountInfoPage shows "last updated" timestamp under region selector. CategorySelectionScreen checks restriction before entry. Both show blocking popup dialogs with dynamic admin-configured day values when cooldown is active.
+  - **UI Behavior**: 
+    - AccountInfoPage shows "last updated" timestamp under region selector and displays blocking popup when location change is restricted.
+    - Category restriction is checked on app login via `useCategoryRestriction` hook.
+    - "Select Categories" button in SettingsPage is disabled while restriction check is in progress.
+    - When user is within category restriction window, clicking "Select Categories" shows popup without navigating to CategorySelectionScreen.
+    - Only users outside the restriction window can enter CategorySelectionScreen.
 - **Streak Saver System**: Allows users to protect their streaks when missing a day, with tier-based allowances, backend storage, and a `StreakSaverPopup` UI.
 - **Holiday Protection System**: Pro-only feature to pause Local mode puzzles without losing streaks, managed via API endpoints and displaying a blocking overlay on `PlayPage`.
 - **Subscription Management**: Dedicated screens for Pro and Standard users to view subscription details and allowances.

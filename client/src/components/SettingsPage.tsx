@@ -10,12 +10,14 @@ import { clearUserCache } from "@/lib/localCache";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useCategoryRestriction } from "@/hooks/useCategoryRestriction";
 import { ProSubscriptionDialog } from "@/components/ProSubscriptionDialog";
 import { CategorySelectionScreen } from "@/components/CategorySelectionScreen";
 import { GuestRestrictionPopup } from "@/components/GuestRestrictionPopup";
 import { useAdBannerActive } from "@/components/AdBanner";
 import { AdminPage } from "@/components/AdminPage";
 import { ManageSubscriptionPage } from "@/components/ManageSubscriptionPage";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogAction } from "@/components/ui/alert-dialog";
 
 interface SettingsPageProps {
   onBack: () => void;
@@ -37,6 +39,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { subscription, isPro, isLoading: subscriptionLoading } = useSubscription();
+  const { isChecking: categoryRestrictionChecking, isRestricted: categoryRestricted, restrictionMessage: categoryRestrictionMessage } = useCategoryRestriction();
   const adBannerActive = useAdBannerActive();
   const [showProDialog, setShowProDialog] = useState(false);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
@@ -44,8 +47,17 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const [showGuestRestrictionPro, setShowGuestRestrictionPro] = useState(false);
   const [showAdminPage, setShowAdminPage] = useState(false);
   const [showManageSubscription, setShowManageSubscription] = useState(false);
+  const [showCategoryRestrictionPopup, setShowCategoryRestrictionPopup] = useState(false);
   
   const isAdmin = profile?.isAdmin === true;
+  
+  const handleCategorySelectionClick = () => {
+    if (categoryRestricted) {
+      setShowCategoryRestrictionPopup(true);
+    } else {
+      setShowCategorySelection(true);
+    }
+  };
   
   // Subscription-related items - show Go Pro for all users (including guests)
   const subscriptionItems = [
@@ -68,16 +80,18 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       testId: "button-subscription",
       highlight: !isPro,
       proItem: isPro,
+      disabled: false,
     },
     ...(isPro ? [{
       icon: Grid,
       label: "Select Categories",
       inlineLabel: null,
       sublabel: null,
-      onClick: () => setShowCategorySelection(true),
+      onClick: handleCategorySelectionClick,
       testId: "button-select-categories",
       highlight: false,
       proItem: true,
+      disabled: categoryRestrictionChecking,
     }] : []),
     ...(!isPro && isAuthenticated ? [{
       icon: Flame,
@@ -88,6 +102,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       testId: "button-streak-saver",
       highlight: false,
       proItem: false,
+      disabled: false,
     }] : []),
   ];
   
@@ -224,12 +239,18 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
             const inlineLabel = (item as any).inlineLabel;
             const sublabel = (item as any).sublabel;
             const highlight = (item as any).highlight;
+            const isDisabled = (item as any).disabled;
             
             return (
               <button
                 key={item.label}
                 onClick={item.onClick}
+                disabled={isDisabled}
                 className={`w-full flex items-center justify-between p-3 rounded-md transition-colors ${
+                  isDisabled 
+                    ? "opacity-50 cursor-not-allowed" 
+                    : ""
+                } ${
                   isAdminItem
                     ? "bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700"
                     : isProItem 
@@ -317,6 +338,23 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
           if (onLogin) onLogin();
         }}
       />
+      
+      {/* Category Restriction Popup */}
+      <AlertDialog open={showCategoryRestrictionPopup} onOpenChange={setShowCategoryRestrictionPopup}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Categories Recently Updated</AlertDialogTitle>
+            <AlertDialogDescription>
+              {categoryRestrictionMessage || "You cannot update your categories at this time."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowCategoryRestrictionPopup(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

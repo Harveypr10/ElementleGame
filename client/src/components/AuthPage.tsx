@@ -353,7 +353,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground" data-testid="text-region-help">
-                  This determines how dates are displayed in the game
+                  This determines which region version of the the game you play
                 </p>
               </div>
             )}
