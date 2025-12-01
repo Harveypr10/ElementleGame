@@ -20,6 +20,7 @@ interface TierData {
   id: string;
   region: string;
   tier: string;
+  tierType: string; // 'monthly', 'annual', 'lifetime', 'default'
   subscriptionCost: number | null;
   currency: string | null;
   subscriptionDurationMonths: number | null;
@@ -38,23 +39,23 @@ function formatPrice(amount: number | null, currency: string | null): string {
 }
 
 // Get icon and styling based on tier type
-function getTierStyle(tierName: string) {
-  switch (tierName) {
-    case 'pro_monthly':
+function getTierStyle(tierType: string) {
+  switch (tierType) {
+    case 'monthly':
       return { 
         icon: Star, 
         color: 'text-amber-700', 
         bgColor: 'bg-amber-100 dark:bg-amber-900/30',
         displayName: 'Monthly'
       };
-    case 'pro_annual':
+    case 'annual':
       return { 
         icon: Sparkles, 
         color: 'text-gray-500', 
         bgColor: 'bg-gray-100 dark:bg-gray-800',
         displayName: 'Annual'
       };
-    case 'pro_lifetime':
+    case 'lifetime':
       return { 
         icon: Crown, 
         color: 'text-yellow-600', 
@@ -66,7 +67,7 @@ function getTierStyle(tierName: string) {
         icon: Star, 
         color: 'text-gray-500', 
         bgColor: 'bg-gray-100 dark:bg-gray-800',
-        displayName: tierName
+        displayName: tierType
       };
   }
 }
@@ -221,7 +222,7 @@ export function ProSubscriptionDialog({
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
                     {(tiers || []).map((tier) => {
-                      const style = getTierStyle(tier.tier);
+                      const style = getTierStyle(tier.tierType);
                       const Icon = style.icon;
                       const isSelected = selectedTier?.id === tier.id;
                       
@@ -236,7 +237,7 @@ export function ProSubscriptionDialog({
                             ${style.bgColor}
                             disabled:opacity-50 disabled:cursor-not-allowed
                           `}
-                          data-testid={`button-tier-${tier.tier}`}
+                          data-testid={`button-tier-${tier.tierType}`}
                         >
                           <Icon className={`h-8 w-8 mb-2 ${style.color}`} />
                           <span className="font-bold text-sm text-foreground">{style.displayName}</span>
