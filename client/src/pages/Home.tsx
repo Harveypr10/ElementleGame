@@ -369,9 +369,11 @@ export default function Home() {
     }
   }, [isLoading, showSpinner, hideSpinner]);
 
-  // While auth is loading, render nothing (spinner is controlled externally)
+  // While auth is loading, show minimal loading state (spinner overlay handles the visual)
   if (isLoading) {
-    return null;
+    return (
+      <div className="min-h-screen" data-testid="auth-loading" />
+    );
   }
 
   if (showSplash) {
