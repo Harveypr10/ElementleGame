@@ -1803,6 +1803,83 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Get category restriction status for authenticated user (computed server-side)
+  // Returns: { status: 'allowed' | 'restricted', restrictionDays, lastChangedAt, message }
+  app.get("/api/category-restriction-status", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get the restriction days setting
+      const setting = await storage.getAdminSetting('category_restriction_days');
+      const restrictionDays = setting ? parseInt(setting.value, 10) : 14;
+      
+      // Get user profile to check categoriesLastChangedAt
+      const profile = await storage.getUserProfile(userId);
+      
+      if (!profile) {
+        // No profile found - allow access (new user)
+        return res.json({
+          status: 'allowed',
+          restrictionDays,
+          lastChangedAt: null,
+          message: null
+        });
+      }
+      
+      // If restriction is disabled (0 days), always allow
+      if (restrictionDays === 0) {
+        return res.json({
+          status: 'allowed',
+          restrictionDays: 0,
+          lastChangedAt: profile.categoriesLastChangedAt || null,
+          message: null
+        });
+      }
+      
+      // If no previous change, allow
+      const lastChangedAt = profile.categoriesLastChangedAt;
+      if (!lastChangedAt) {
+        return res.json({
+          status: 'allowed',
+          restrictionDays,
+          lastChangedAt: null,
+          message: null
+        });
+      }
+      
+      // Calculate if within restriction window
+      const lastChangedDate = new Date(lastChangedAt);
+      const allowedAfter = new Date(lastChangedDate);
+      allowedAfter.setDate(allowedAfter.getDate() + restrictionDays);
+      
+      const now = new Date();
+      const isRestricted = now < allowedAfter;
+      
+      if (isRestricted) {
+        return res.json({
+          status: 'restricted',
+          restrictionDays,
+          lastChangedAt: lastChangedAt,
+          message: `You can update your categories once every ${restrictionDays} days and Hammie will regenerate your questions.`
+        });
+      }
+      
+      return res.json({
+        status: 'allowed',
+        restrictionDays,
+        lastChangedAt: lastChangedAt,
+        message: null
+      });
+    } catch (error) {
+      console.error("Error checking category restriction status:", error);
+      // On error, return restricted to be safe
+      res.status(500).json({ 
+        status: 'error',
+        error: "Failed to check restriction status" 
+      });
+    }
+  });
+
   // Demand scheduler config routes (admin only)
   app.get("/api/admin/demand-scheduler", verifySupabaseAuth, requireAdmin, async (req, res) => {
     try {

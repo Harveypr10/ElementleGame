@@ -63,6 +63,13 @@ Preferred communication style: Simple, everyday language.
     - "Select Categories" button in SettingsPage is disabled while restriction check is in progress.
     - When user is within category restriction window, clicking "Select Categories" shows popup without navigating to CategorySelectionScreen.
     - Only users outside the restriction window can enter CategorySelectionScreen.
+  - **Robust Category Restriction (React Query-backed)**:
+    - Server-side API endpoint `GET /api/category-restriction-status` computes restriction status and returns `{status: 'allowed' | 'restricted', restrictionDays, lastChangedAt, message}`.
+    - `useCategoryRestriction` hook uses React Query for caching and persistence across navigation.
+    - Default state is "restricted" (blocked) until positive "allowed" response is received.
+    - Both "Pro" button (for Pro users) and "Select Categories" button use the same restriction check.
+    - Buttons are disabled while loading; clicking when not explicitly allowed shows restriction popup.
+    - Cache survives navigation and is invalidated after category changes via `useCategoryRestrictionActions` helper.
 - **Streak Saver System**: Allows users to protect their streaks when missing a day, with tier-based allowances, backend storage, and a `StreakSaverPopup` UI.
 - **Holiday Protection System**: Pro-only feature to pause Local mode puzzles without losing streaks, managed via API endpoints and displaying a blocking overlay on `PlayPage`.
 - **Subscription Management**: Dedicated screens for Pro and Standard users to view subscription details and allowances.

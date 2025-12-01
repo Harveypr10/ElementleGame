@@ -1,120 +1,97 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 
-interface CategoryRestrictionState {
-  isChecking: boolean;
-  isRestricted: boolean;
-  restrictionDays: number | null;
+interface CategoryRestrictionResponse {
+  status: 'allowed' | 'restricted' | 'error';
+  restrictionDays: number;
   lastChangedAt: string | null;
-  restrictionMessage: string | null;
+  message: string | null;
+  error?: string;
 }
 
+const DEFAULT_RESPONSE: CategoryRestrictionResponse = {
+  status: 'restricted',
+  restrictionDays: 14,
+  lastChangedAt: null,
+  message: 'Checking restriction status...',
+};
+
 export function useCategoryRestriction() {
-  const { isAuthenticated } = useAuth();
-  const { profile } = useProfile();
-  const [state, setState] = useState<CategoryRestrictionState>({
-    isChecking: true,
-    isRestricted: false,
-    restrictionDays: null,
-    lastChangedAt: null,
-    restrictionMessage: null,
+  const { isAuthenticated, user } = useAuth();
+
+  const { data, isLoading, isError, refetch } = useQuery<CategoryRestrictionResponse>({
+    queryKey: ['/api/category-restriction-status', user?.id],
+    queryFn: async () => {
+      if (!isAuthenticated || !user) {
+        return { ...DEFAULT_RESPONSE, status: 'allowed' as const, message: null };
+      }
+      
+      try {
+        const supabase = await getSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          return DEFAULT_RESPONSE;
+        }
+
+        const response = await fetch('/api/category-restriction-status', {
+          credentials: 'include',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error('[useCategoryRestriction] API error:', response.status);
+          return DEFAULT_RESPONSE;
+        }
+
+        const result = await response.json();
+        console.log('[useCategoryRestriction] Got status:', result.status);
+        return result;
+      } catch (error) {
+        console.error('[useCategoryRestriction] Error:', error);
+        return DEFAULT_RESPONSE;
+      }
+    },
+    enabled: isAuthenticated && !!user,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
-  const checkRestriction = useCallback(async () => {
-    if (!isAuthenticated || !profile) {
-      setState({
-        isChecking: false,
-        isRestricted: false,
-        restrictionDays: null,
-        lastChangedAt: null,
-        restrictionMessage: null,
-      });
-      return;
-    }
-
-    setState(prev => ({ ...prev, isChecking: true }));
-
-    try {
-      const supabase = await getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.access_token) {
-        console.log('[useCategoryRestriction] No session for restriction check');
-        setState(prev => ({ ...prev, isChecking: false }));
-        return;
-      }
-
-      const response = await fetch('/api/settings/category-restriction-days', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (!response.ok) {
-        console.warn('[useCategoryRestriction] Failed to fetch restriction settings');
-        setState(prev => ({ ...prev, isChecking: false }));
-        return;
-      }
-
-      const { days } = await response.json();
-      
-      if (days === 0) {
-        const lca = profile.categoriesLastChangedAt;
-        setState({
-          isChecking: false,
-          isRestricted: false,
-          restrictionDays: 0,
-          lastChangedAt: lca ? (typeof lca === 'string' ? lca : String(lca)) : null,
-          restrictionMessage: null,
-        });
-        return;
-      }
-
-      const lastChanged = profile.categoriesLastChangedAt;
-      if (!lastChanged) {
-        setState({
-          isChecking: false,
-          isRestricted: false,
-          restrictionDays: days,
-          lastChangedAt: null,
-          restrictionMessage: null,
-        });
-        return;
-      }
-
-      const lastChangedStr = typeof lastChanged === 'string' ? lastChanged : String(lastChanged);
-      const lastChangedDate = new Date(lastChangedStr);
-      const allowedAfter = new Date(lastChangedDate);
-      allowedAfter.setDate(allowedAfter.getDate() + days);
-
-      const isRestricted = new Date() < allowedAfter;
-      const message = isRestricted 
-        ? `You can update your categories once every ${days} days and Hammie will regenerate your questions.`
-        : null;
-
-      setState({
-        isChecking: false,
-        isRestricted,
-        restrictionDays: days,
-        lastChangedAt: lastChangedStr,
-        restrictionMessage: message,
-      });
-
-      console.log('[useCategoryRestriction] Restriction check complete:', { isRestricted, days, lastChanged });
-    } catch (error) {
-      console.error('[useCategoryRestriction] Error checking restriction:', error);
-      setState(prev => ({ ...prev, isChecking: false }));
-    }
-  }, [isAuthenticated, profile]);
-
-  useEffect(() => {
-    checkRestriction();
-  }, [checkRestriction]);
+  const effectiveData = data || DEFAULT_RESPONSE;
+  const isAllowed = !isLoading && !isError && effectiveData.status === 'allowed';
+  const isRestricted = !isLoading && !isError && effectiveData.status === 'restricted';
 
   return {
-    ...state,
-    recheckRestriction: checkRestriction,
+    isLoading: isLoading || (!data && isAuthenticated && !!user),
+    isAllowed,
+    isRestricted,
+    restrictionDays: effectiveData.restrictionDays,
+    lastChangedAt: effectiveData.lastChangedAt,
+    message: effectiveData.message,
+    refetch: () => refetch(),
   };
+}
+
+export function useCategoryRestrictionActions() {
+  const queryClient = useQueryClient();
+  
+  const markAsRestricted = (restrictionDays: number) => {
+    queryClient.setQueryData(['/api/category-restriction-status'], {
+      status: 'restricted',
+      restrictionDays,
+      lastChangedAt: new Date().toISOString(),
+      message: `You can update your categories once every ${restrictionDays} days and Hammie will regenerate your questions.`
+    });
+  };
+  
+  const invalidateRestriction = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/category-restriction-status'] });
+  };
+  
+  return { markAsRestricted, invalidateRestriction };
 }

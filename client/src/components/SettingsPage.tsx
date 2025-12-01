@@ -39,7 +39,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { subscription, isPro, isLoading: subscriptionLoading } = useSubscription();
-  const { isChecking: categoryRestrictionChecking, isRestricted: categoryRestricted, restrictionMessage: categoryRestrictionMessage } = useCategoryRestriction();
+  const { isLoading: categoryRestrictionLoading, isAllowed: categoryAllowed, isRestricted: categoryRestricted, message: categoryRestrictionMessage } = useCategoryRestriction();
   const adBannerActive = useAdBannerActive();
   const [showProDialog, setShowProDialog] = useState(false);
   const [showCategorySelection, setShowCategorySelection] = useState(false);
@@ -52,10 +52,33 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
   const isAdmin = profile?.isAdmin === true;
   
   const handleCategorySelectionClick = () => {
-    if (categoryRestricted) {
+    if (categoryRestrictionLoading) {
+      return;
+    }
+    if (!categoryAllowed) {
       setShowCategoryRestrictionPopup(true);
     } else {
       setShowCategorySelection(true);
+    }
+  };
+  
+  const handleProButtonClick = () => {
+    if (!isAuthenticated || !user) {
+      setShowGuestRestrictionPro(true);
+      return;
+    }
+    
+    if (isPro) {
+      if (categoryRestrictionLoading) {
+        return;
+      }
+      if (!categoryAllowed) {
+        setShowCategoryRestrictionPopup(true);
+      } else {
+        setShowManageSubscription(true);
+      }
+    } else {
+      setShowProDialog(true);
     }
   };
   
@@ -66,21 +89,11 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       label: isPro ? "Pro" : "Go Pro",
       inlineLabel: isPro ? "Manage your subscription" : null,
       sublabel: !isPro ? "Remove ads & customize categories" : null,
-      onClick: () => {
-        if (isAuthenticated && user) {
-          if (isPro) {
-            setShowManageSubscription(true);
-          } else {
-            setShowProDialog(true);
-          }
-        } else {
-          setShowGuestRestrictionPro(true);
-        }
-      },
+      onClick: handleProButtonClick,
       testId: "button-subscription",
       highlight: !isPro,
       proItem: isPro,
-      disabled: false,
+      disabled: isPro && categoryRestrictionLoading,
     },
     ...(isPro ? [{
       icon: Grid,
@@ -91,7 +104,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       testId: "button-select-categories",
       highlight: false,
       proItem: true,
-      disabled: categoryRestrictionChecking,
+      disabled: categoryRestrictionLoading,
     }] : []),
     ...(!isPro && isAuthenticated ? [{
       icon: Flame,
