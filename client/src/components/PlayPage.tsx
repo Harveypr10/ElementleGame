@@ -183,7 +183,8 @@ export function PlayPage({
   });
   
   // Check if game is loading (format or digits check not complete)
-  const isGameLoading = formatLoading || !digitsCheckComplete;
+  // Skip spinner entirely if hasExistingProgress - data is cached and will load instantly
+  const isGameLoading = !hasExistingProgress && (formatLoading || !digitsCheckComplete);
   
   // Manage game loading spinner with timeout
   useEffect(() => {
