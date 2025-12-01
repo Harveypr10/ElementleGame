@@ -70,6 +70,14 @@ Preferred communication style: Simple, everyday language.
     - Both "Pro" button (for Pro users) and "Select Categories" button use the same restriction check.
     - Buttons are disabled while loading; clicking when not explicitly allowed shows restriction popup.
     - Cache survives navigation and is invalidated after category changes via `useCategoryRestrictionActions` helper.
+  - **Timestamp Initialization After Generation**:
+    - `postcode_last_changed_at` and `categories_last_changed_at` remain NULL at signup.
+    - `POST /api/generation-complete` endpoint updates timestamps after GeneratingQuestionsScreen finishes.
+    - `regenerationType` prop passed to GeneratingQuestionsScreen: `first_login`, `postcode_change`, or `category_change`.
+    - For `first_login`: Sets `postcode_last_changed_at` only if NULL (one-time initialization).
+    - For `postcode_change`: Always updates `postcode_last_changed_at` after generation.
+    - For `category_change`: Sets/updates `categories_last_changed_at` after generation.
+    - Timestamps are set AFTER question generation completes, not when profile/categories are saved.
 - **Streak Saver System**: Allows users to protect their streaks when missing a day, with tier-based allowances, backend storage, and a `StreakSaverPopup` UI.
 - **Holiday Protection System**: Pro-only feature to pause Local mode puzzles without losing streaks, managed via API endpoints and displaying a blocking overlay on `PlayPage`.
 - **Subscription Management**: Dedicated screens for Pro and Standard users to view subscription details and allowances.

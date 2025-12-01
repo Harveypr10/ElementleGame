@@ -204,7 +204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           acceptedTermsAt: acceptedTerms ? now : null,
           adsConsentUpdatedAt: adsConsent ? now : null,
           emailVerified: false,
-          postcodeLastChangedAt: now, // Set initial timestamp for new profiles
+          // postcodeLastChangedAt remains NULL - will be set by GeneratingQuestionsScreen after first question generation
         });
         
         // Also create default user settings
@@ -300,11 +300,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailVerified: existing.emailVerified ?? false,
       };
       
-      // Update postcodeLastChangedAt if location is changing
-      if (locationChanging) {
-        profileUpdate.postcodeLastChangedAt = now;
-        console.log(`[PATCH /api/auth/profile] Updating postcodeLastChangedAt to ${now}`);
-      }
+      // Note: postcodeLastChangedAt is updated by GeneratingQuestionsScreen after question regeneration completes
+      // This ensures the timestamp reflects when questions were actually regenerated, not just when profile was saved
 
       const updatedProfile = await storage.upsertUserProfile(profileUpdate);
 
@@ -1681,17 +1678,8 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       // Save categories
       await storage.saveUserProCategories(userId, categoryIds);
       
-      // Update categories_last_changed_at timestamp in user profile
-      const now = new Date();
-      const existing = await storage.getUserProfile(userId);
-      if (existing) {
-        await storage.upsertUserProfile({
-          id: userId,
-          email: existing.email,
-          categoriesLastChangedAt: now,
-        });
-        console.log(`[POST /api/user/pro-categories] Updated categoriesLastChangedAt to ${now} for user ${userId}`);
-      }
+      // Note: categoriesLastChangedAt is updated by GeneratingQuestionsScreen after question regeneration completes
+      // This ensures the timestamp reflects when questions were actually regenerated, not just when categories were saved
       
       res.json({ success: true, categoryIds });
     } catch (error) {
