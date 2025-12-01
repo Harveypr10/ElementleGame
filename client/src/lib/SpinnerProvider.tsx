@@ -206,9 +206,11 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const failTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const fadeOutCompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const spinnerVisibleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasRetriedRef = useRef(false);
   const isActiveRef = useRef(false);
-  const spinnerStartTimeRef = useRef<number>(0);
+  const spinnerVisibleTimeRef = useRef<number>(0);
+  const wasSpinnerShownRef = useRef(false);
   
   const clearTimeouts = useCallback(() => {
     if (retryTimeoutRef.current) {
@@ -223,6 +225,10 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
       clearTimeout(fadeOutCompleteTimeoutRef.current);
       fadeOutCompleteTimeoutRef.current = null;
     }
+    if (spinnerVisibleTimeoutRef.current) {
+      clearTimeout(spinnerVisibleTimeoutRef.current);
+      spinnerVisibleTimeoutRef.current = null;
+    }
   }, []);
   
   const start = useCallback((delay?: number) => {
@@ -230,10 +236,17 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
     
     isActiveRef.current = true;
     hasRetriedRef.current = false;
-    spinnerStartTimeRef.current = Date.now();
+    wasSpinnerShownRef.current = false;
+    spinnerVisibleTimeRef.current = 0;
     clearTimeouts();
     
     showSpinner(delay ?? 0);
+    
+    const showDelay = delay ?? DEFAULT_DELAY_MS;
+    spinnerVisibleTimeoutRef.current = setTimeout(() => {
+      wasSpinnerShownRef.current = true;
+      spinnerVisibleTimeRef.current = Date.now();
+    }, showDelay);
     
     if (onRetry) {
       retryTimeoutRef.current = setTimeout(() => {
@@ -267,14 +280,19 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
     console.log('[SpinnerWithTimeout] Completed successfully');
     
     if (onFadeOutComplete) {
-      const elapsedTime = Date.now() - spinnerStartTimeRef.current;
-      const remainingMinDisplayTime = Math.max(0, MIN_DISPLAY_TIME_MS - elapsedTime);
-      const totalWaitTime = remainingMinDisplayTime + FADE_DURATION_MS;
-      
-      fadeOutCompleteTimeoutRef.current = setTimeout(() => {
-        console.log('[SpinnerWithTimeout] Fade out complete - triggering callback');
+      if (!wasSpinnerShownRef.current) {
+        console.log('[SpinnerWithTimeout] Spinner never became visible - triggering callback immediately');
         onFadeOutComplete();
-      }, totalWaitTime);
+      } else {
+        const elapsedTime = Date.now() - spinnerVisibleTimeRef.current;
+        const remainingMinDisplayTime = Math.max(0, MIN_DISPLAY_TIME_MS - elapsedTime);
+        const totalWaitTime = remainingMinDisplayTime + FADE_DURATION_MS;
+        
+        fadeOutCompleteTimeoutRef.current = setTimeout(() => {
+          console.log('[SpinnerWithTimeout] Fade out complete - triggering callback');
+          onFadeOutComplete();
+        }, totalWaitTime);
+      }
     }
   }, [hideSpinner, clearTimeouts, onFadeOutComplete]);
   
