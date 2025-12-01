@@ -279,6 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Puzzle routes - REGION MODE (requires authentication for region context)
   app.get("/api/puzzles", verifySupabaseAuth, async (req: any, res) => {
     try {
+      const startTime = Date.now();
       const userId = req.user.id;
       const profile = await storage.getUserProfile(userId);
       
@@ -291,14 +292,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('[GET /api/puzzles] Found allocated questions:', allocatedQuestions.length);
       
-      // Transform to frontend-compatible format (keeping backward compatibility)
-      const puzzles = await Promise.all(allocatedQuestions.map(async (aq) => {
-        // Extract first category ID from categories jsonb array and look up the name
+      // Batch load all categories upfront to avoid N+1 queries
+      // Collect all unique category IDs first
+      const categoryIds = new Set<number>();
+      for (const aq of allocatedQuestions) {
+        const categoriesArray = aq.masterQuestion.categories as number[] | null;
+        if (categoriesArray && categoriesArray.length > 0) {
+          categoryIds.add(categoriesArray[0]);
+        }
+      }
+      
+      // Fetch all categories in one batch
+      const allCategories = await storage.getAllCategories();
+      const categoryMap = new Map<number, string>();
+      for (const cat of allCategories) {
+        categoryMap.set(cat.id, cat.name);
+      }
+      
+      // Transform to frontend-compatible format using the category map
+      const puzzles = allocatedQuestions.map((aq) => {
         const categoriesArray = aq.masterQuestion.categories as number[] | null;
         let categoryName: string | null = null;
         if (categoriesArray && categoriesArray.length > 0) {
-          const category = await storage.getCategoryById(categoriesArray[0]);
-          categoryName = category?.name || null;
+          categoryName = categoryMap.get(categoriesArray[0]) || null;
         }
         
         return {
@@ -315,8 +331,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           allocatedRegionId: aq.id,
           masterQuestionId: aq.questionId,
         };
-      }));
+      });
       
+      console.log('[GET /api/puzzles] Completed in', Date.now() - startTime, 'ms');
       res.json(puzzles);
     } catch (error) {
       console.error("Error fetching puzzles:", error);

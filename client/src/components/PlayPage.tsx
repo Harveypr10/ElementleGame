@@ -184,9 +184,10 @@ export function PlayPage({
   }, [toast, onBack]);
   
   // Spinner with timeout for game loading
+  // Note: /api/puzzles can take 5-7 seconds, so we use a generous 15s timeout
   const gameLoadingSpinner = useSpinnerWithTimeout({
-    retryDelayMs: 4000,
-    timeoutMs: 8000,
+    retryDelayMs: 6000,
+    timeoutMs: 15000,
     onRetry: handleGameLoadRetry,
     onTimeout: handleGameLoadTimeout,
   });
@@ -350,9 +351,9 @@ export function PlayPage({
                 const allGuesses = await getAllGuesses();
                 attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
                 
-                // Add to cache for next time (using mode-aware cache)
-                if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
-                  setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses);
+                // Always cache results (including empty arrays) to avoid refetching
+                if (puzzleId) {
+                  setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses || []);
                 }
               } finally {
                 if (mounted) {
@@ -482,9 +483,9 @@ export function PlayPage({
                 const allGuesses = await getAllGuesses();
                 attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
                 
-                // Add to cache for next time (using mode-aware cache)
-                if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
-                  setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses);
+                // Always cache results (including empty arrays) to avoid refetching
+                if (puzzleId) {
+                  setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses || []);
                 }
               } finally {
                 if (mounted) {
@@ -621,66 +622,72 @@ export function PlayPage({
             }
             setDigitsCheckComplete(true);
             
-            // Load guesses from mode-aware endpoint (Global or Local)
-            console.log('[loadInProgressGame] Loading guesses for attemptId:', inProgressAttempt.id);
-            setGuessesLoading(true);
-            try {
-              const allGuesses = await getAllGuesses();
-              console.log('[loadInProgressGame] Fetched all guesses:', allGuesses.length);
-              if (allGuesses.length > 0) {
-                console.log('[loadInProgressGame] First guess structure:', Object.keys(allGuesses[0]));
-                console.log('[loadInProgressGame] First guess:', allGuesses[0]);
-              }
-              const attemptGuesses = allGuesses.filter((g: any) => g.gameAttemptId === inProgressAttempt.id);
-              console.log('[loadInProgressGame] Filtered guesses for attempt:', attemptGuesses);
-              
-              if (mounted && attemptGuesses && attemptGuesses.length > 0) {
-                console.log('[loadInProgressGame] Recalculating feedback for', attemptGuesses.length, 'guesses');
-                // Recalculate feedback for each guess (don't use stored feedbackResult)
-                const freshGuessRecords: GuessRecord[] = [];
-                const freshFeedbackArrays: CellFeedback[][] = [];
-                let newKeyStates = {};
+            // Try to load guesses from cache first for faster loading (using mode-aware cache)
+            console.log('[loadInProgressGame] Checking cache for puzzleId:', puzzleId, 'mode:', cacheMode);
+            const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId, cacheMode) : null;
+            let attemptGuesses = cachedGuesses;
+            
+            if (!cachedGuesses) {
+              // Cache miss - need to fetch from Supabase
+              console.log('[loadInProgressGame] Cache miss - fetching from API for attemptId:', inProgressAttempt.id);
+              setGuessesLoading(true);
+              try {
+                const allGuesses = await getAllGuesses();
+                console.log('[loadInProgressGame] Fetched all guesses:', allGuesses.length);
+                attemptGuesses = allGuesses.filter((g: any) => g.gameAttemptId === inProgressAttempt.id);
                 
-                // Create format based on locked digit mode from attempt, not current user preference
-                const lockedDigits = (inProgressAttempt as any).digits || '6';
-                const baseFormat = dateFormat.startsWith('dd') ? 'dd' : 'mm';
-                const lockedFormat = lockedDigits === '8' 
-                  ? (baseFormat === 'dd' ? 'ddmmyyyy' : 'mmddyyyy')
-                  : (baseFormat === 'dd' ? 'ddmmyy' : 'mmddyy');
-                
-                attemptGuesses.forEach((guess: any) => {
-                  // Convert canonical format (YYYY-MM-DD) to display format using LOCKED digit mode
-                  const displayFormat = formatCanonicalDateUtil(guess.guessValue, lockedFormat as any);
-                  const feedback = calculateFeedbackForGuess(displayFormat, newKeyStates);
-                  freshFeedbackArrays.push(feedback);
-                  freshGuessRecords.push({
-                    guessValue: displayFormat,
-                    feedbackResult: feedback
-                  });
-                  newKeyStates = updateKeyStates(displayFormat, feedback, newKeyStates);
-                });
-                
-                console.log('[loadInProgressGame] Setting state with', freshFeedbackArrays.length, 'guesses');
-                setGuesses(freshFeedbackArrays);
-                setGuessRecords(freshGuessRecords);
-                setKeyStates(newKeyStates);
-                setWrongGuessCount(freshFeedbackArrays.length - freshFeedbackArrays.filter(fb => fb.every(cell => cell.state === 'correct')).length);
-                console.log('[loadInProgressGame] State updated successfully');
-                // Mark guesses as loaded to trigger the 0.6s delay
-                setGuessesLoaded(true);
-              } else {
-                console.log('[loadInProgressGame] No guesses to load or component unmounted');
-                // No guesses found but attempt exists - mark as loaded
+                // Always cache results (including empty arrays) to avoid refetching
+                if (puzzleId) {
+                  console.log('[loadInProgressGame] Caching', attemptGuesses?.length || 0, 'guesses for puzzle', puzzleId);
+                  setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses || []);
+                }
+              } finally {
                 if (mounted) {
-                  setGuessesLoaded(true);
+                  setGuessesLoading(false);
                 }
               }
-            } catch (error) {
-              console.error('[loadInProgressGame] Error loading guesses:', error);
-            } finally {
-              if (mounted) {
-                setGuessesLoading(false);
-              }
+            } else {
+              console.log('[loadInProgressGame] Cache hit - using', cachedGuesses.length, 'cached guesses');
+            }
+            
+            if (mounted && attemptGuesses && attemptGuesses.length > 0) {
+              console.log('[loadInProgressGame] Recalculating feedback for', attemptGuesses.length, 'guesses');
+              // Recalculate feedback for each guess (don't use stored feedbackResult)
+              const freshGuessRecords: GuessRecord[] = [];
+              const freshFeedbackArrays: CellFeedback[][] = [];
+              let newKeyStates = {};
+              
+              // Create format based on locked digit mode from attempt, not current user preference
+              const lockedDigits = (inProgressAttempt as any).digits || '6';
+              const baseFormat = dateFormat.startsWith('dd') ? 'dd' : 'mm';
+              const lockedFormat = lockedDigits === '8' 
+                ? (baseFormat === 'dd' ? 'ddmmyyyy' : 'mmddyyyy')
+                : (baseFormat === 'dd' ? 'ddmmyy' : 'mmddyy');
+              
+              attemptGuesses.forEach((guess: any) => {
+                // Convert canonical format (YYYY-MM-DD) to display format using LOCKED digit mode
+                const displayFormat = formatCanonicalDateUtil(guess.guessValue, lockedFormat as any);
+                const feedback = calculateFeedbackForGuess(displayFormat, newKeyStates);
+                freshFeedbackArrays.push(feedback);
+                freshGuessRecords.push({
+                  guessValue: displayFormat,
+                  feedbackResult: feedback
+                });
+                newKeyStates = updateKeyStates(displayFormat, feedback, newKeyStates);
+              });
+              
+              console.log('[loadInProgressGame] Setting state with', freshFeedbackArrays.length, 'guesses');
+              setGuesses(freshFeedbackArrays);
+              setGuessRecords(freshGuessRecords);
+              setKeyStates(newKeyStates);
+              setWrongGuessCount(freshFeedbackArrays.length - freshFeedbackArrays.filter(fb => fb.every(cell => cell.state === 'correct')).length);
+              console.log('[loadInProgressGame] State updated successfully');
+              // Mark guesses as loaded to trigger the 0.6s delay
+              setGuessesLoaded(true);
+            } else if (mounted) {
+              console.log('[loadInProgressGame] No guesses to load or component unmounted');
+              // No guesses found but attempt exists - mark as loaded
+              setGuessesLoaded(true);
             }
           } else if (mounted) {
             // No in-progress attempt found for authenticated users
@@ -722,7 +729,7 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat]);
+  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat, cacheMode]);
 
   // Check if we should show the intro screen (new game with no guesses)
   // Only show intro once when component mounts and conditions are met
