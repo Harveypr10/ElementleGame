@@ -192,6 +192,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const selectedRegion = regions.find(r => r.code === finalRegion);
         const defaultDateFormat = selectedRegion?.defaultDateFormat ?? 'ddmmyy';
         
+        // Look up the Standard tier ID for the user's region
+        const standardTierId = await storage.getStandardTierId(finalRegion || 'UK');
+        if (!standardTierId) {
+          console.error(`[PATCH /api/auth/profile] No Standard tier found for region: ${finalRegion}`);
+        } else {
+          console.log(`[PATCH /api/auth/profile] Using Standard tier ID: ${standardTierId} for region: ${finalRegion}`);
+        }
+        
         const newProfile = await storage.upsertUserProfile({
           id: userId,
           email: email || req.user.email,
@@ -204,6 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           acceptedTermsAt: acceptedTerms ? now : null,
           adsConsentUpdatedAt: adsConsent ? now : null,
           emailVerified: false,
+          userTierId: standardTierId, // Set the Standard tier for the user's region
           // postcodeLastChangedAt remains NULL - will be set by GeneratingQuestionsScreen after first question generation
         });
         
