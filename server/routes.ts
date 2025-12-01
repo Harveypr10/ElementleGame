@@ -1138,94 +1138,58 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   // SUBSCRIPTION & PRO ROUTES
   // ============================================================================
 
-  // Get user subscription - uses user_active_tier_view for tier resolution with fallback
+  // Get user subscription - reads from user_profiles + user_tier (new workflow)
   app.get("/api/subscription", verifySupabaseAuth, async (req: any, res) => {
     const userId = req.user.id;
     console.log('[subscription] Checking subscription for userId:', userId);
     
-    // Helper to return legacy profile-based tier
-    const getLegacyTier = async () => {
-      const profile = await storage.getUserProfile(userId);
-      if (profile) {
-        const userTier = profile.tier;
-        const isPro = userTier === 'pro' || (userTier && userTier.startsWith('pro_'));
-        return {
-          tier: isPro ? 'pro' : 'free',
-          tierName: userTier || 'standard',
-          tierId: null,
-          startDate: null,
-          endDate: null,
-          autoRenew: false,
-          isActive: isPro,
-          metadata: null
-        };
+    try {
+      const subscriptionData = await storage.getSubscriptionData(userId);
+      
+      if (subscriptionData) {
+        console.log('[subscription] Subscription data found:', {
+          tier: subscriptionData.tier,
+          tierName: subscriptionData.tierName,
+          tierType: subscriptionData.tierType,
+          isActive: subscriptionData.isActive,
+          isExpired: subscriptionData.isExpired,
+        });
+        
+        return res.json(subscriptionData);
       }
-      return { 
+      
+      // No subscription data found - return default Standard tier response
+      console.log('[subscription] No subscription data found, returning Standard tier');
+      return res.json({
         tier: 'free',
-        tierName: 'standard',
+        tierName: 'Standard',
+        tierType: 'default',
         tierId: null,
-        startDate: null,
+        userId: userId,
         endDate: null,
         autoRenew: false,
         isActive: false,
-        metadata: null
-      };
-    };
-    
-    // Try the new tier view first
-    try {
-      const activeTier = await storage.getUserActiveTier(userId);
-      
-      if (activeTier) {
-        console.log('[subscription] Active tier found:', activeTier.tier);
-        
-        // Map tier names for frontend compatibility
-        const isPro = activeTier.tier !== 'standard';
-        const displayTier = isPro ? 'pro' : 'free';
-        
-        return res.json({
-          tier: displayTier,
-          tierName: activeTier.tier,
-          tierId: activeTier.tierId,
-          startDate: null,
-          endDate: activeTier.expiresAt,
-          autoRenew: activeTier.autoRenew,
-          isActive: isPro,
-          metadata: {
-            streakSavers: activeTier.streakSavers,
-            holidaySavers: activeTier.holidaySavers,
-            holidayDurationDays: activeTier.holidayDurationDays,
-            subscriptionCost: activeTier.subscriptionCost,
-            currency: activeTier.currency,
-            subscriptionDurationMonths: activeTier.subscriptionDurationMonths,
-            description: activeTier.description,
-          }
-        });
-      }
-      
-      // View query returned no rows - fall back to legacy
-      console.log('[subscription] No active tier in view, checking user_profiles.tier');
-      return res.json(await getLegacyTier());
-      
-    } catch (viewError: any) {
-      // Check if view doesn't exist (42P01) - fall back to legacy
-      if (viewError?.code === '42P01' || viewError?.message?.includes('does not exist')) {
-        console.log('[subscription] user_active_tier_view not available, using legacy fallback');
-        try {
-          return res.json(await getLegacyTier());
-        } catch (profileError) {
-          console.error("Error fetching profile for fallback:", profileError);
-          return res.status(500).json({ error: "Failed to fetch subscription" });
+        isExpired: false,
+        metadata: {
+          streakSavers: 1,
+          holidaySavers: 0,
+          holidayDurationDays: 14,
+          subscriptionCost: 0,
+          currency: 'GBP',
+          subscriptionDurationMonths: null,
+          description: 'Free tier',
+          sortOrder: 0,
         }
-      }
+      });
       
-      // Other DB errors - propagate as 500
-      console.error("Error querying user_active_tier_view:", viewError);
+    } catch (error: any) {
+      console.error("[subscription] Error fetching subscription:", error);
       return res.status(500).json({ error: "Failed to fetch subscription" });
     }
   });
 
-  // Get available tiers for a region (for subscription UI)
+  // Get purchasable tiers for a region (for subscription/renewal UI)
+  // Uses tier + tier_type from user_tier, excludes Standard tier
   app.get("/api/tiers", verifySupabaseAuth, async (req: any, res) => {
     const userId = req.user.id;
     
@@ -1238,157 +1202,91 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       console.log('[tiers] Could not fetch profile, using default region UK');
     }
     
-    console.log('[tiers] Fetching available tiers for region:', region);
-    
-    // Legacy fallback tiers
-    const getLegacyTiers = () => [
-      { id: 'legacy-monthly', region, tier: 'pro_monthly', subscriptionCost: 79, currency: 'GBP', subscriptionDurationMonths: 1, streakSavers: 0, holidaySavers: 0, holidayDurationDays: 0, description: 'Auto-renews monthly', sortOrder: 1 },
-      { id: 'legacy-annual', region, tier: 'pro_annual', subscriptionCost: 699, currency: 'GBP', subscriptionDurationMonths: 12, streakSavers: 0, holidaySavers: 0, holidayDurationDays: 0, description: 'Auto-renews annually', sortOrder: 2 },
-      { id: 'legacy-lifetime', region, tier: 'pro_lifetime', subscriptionCost: 1199, currency: 'GBP', subscriptionDurationMonths: null, streakSavers: 0, holidaySavers: 0, holidayDurationDays: 0, description: 'One off - Best value', sortOrder: 3 },
-    ];
+    console.log('[tiers] Fetching purchasable tiers for region:', region);
     
     try {
-      const tiers = await storage.getAvailableTiers(region);
+      const tiers = await storage.getPurchasableTiers(region);
       
-      // Filter out 'standard' tier (that's the free tier, not purchasable)
-      const purchasableTiers = tiers.filter(t => t.tier !== 'standard');
+      console.log('[tiers] Found purchasable tiers:', tiers.length);
+      console.log('[tiers] Tier data:', tiers.map(t => ({ 
+        tier: t.tier, 
+        tierType: t.tierType,
+        subscriptionCost: t.subscriptionCost, 
+        currency: t.currency 
+      })));
       
-      console.log('[tiers] Found purchasable tiers:', purchasableTiers.length);
-      console.log('[tiers] Tier data:', purchasableTiers.map(t => ({ tier: t.tier, subscriptionCost: t.subscriptionCost, currency: t.currency })));
-      
-      return res.json(purchasableTiers);
-    } catch (tableError: any) {
-      // Check if table doesn't exist (42P01) - fall back to legacy
-      if (tableError?.code === '42P01' || tableError?.message?.includes('does not exist')) {
-        console.log('[tiers] user_tier table not available, using legacy tiers');
-        return res.json(getLegacyTiers());
-      }
-      
-      // Other DB errors - propagate as 500
-      console.error("Error fetching tiers:", tableError);
+      return res.json(tiers);
+    } catch (error: any) {
+      console.error("[tiers] Error fetching tiers:", error);
       return res.status(500).json({ error: "Failed to fetch tiers" });
     }
   });
 
-  // Create subscription - inserts into user_subscriptions with user_tier_id (or legacy fallback)
+  // Create subscription - inserts into user_subscriptions with user_tier_id
+  // Supabase trigger syncs user_profiles.user_tier_id and subscription_end_date
   app.post("/api/subscription/create-checkout", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { tierId, tier: legacyTier } = req.body; // Support both new tierId and legacy tier name
+      const { tierId } = req.body;
 
-      console.log('[checkout] Creating subscription for userId:', userId, 'tierId:', tierId, 'legacyTier:', legacyTier);
+      console.log('[checkout] Creating subscription for userId:', userId, 'tierId:', tierId);
 
-      // Handle legacy tier IDs (e.g., 'legacy-monthly') or tier names
-      if (!tierId && !legacyTier) {
-        return res.status(400).json({ error: "tierId or tier is required" });
+      if (!tierId) {
+        return res.status(400).json({ error: "tierId is required" });
       }
 
-      // Check if this is a legacy tier ID or the table doesn't exist
-      const isLegacyTier = tierId?.startsWith('legacy-') || (!tierId && legacyTier);
+      // Get tier details from user_tier table
+      const result = await db.execute(sql`
+        SELECT id, tier, tier_type, subscription_cost, currency, subscription_duration_months
+        FROM user_tier
+        WHERE id = ${tierId} AND active = true
+      `);
       
-      if (isLegacyTier) {
-        // Legacy fallback - update user_profiles.tier directly
-        console.log('[checkout] Using legacy fallback for tier:', tierId || legacyTier);
-        
-        try {
-          await db.execute(
-            sql`UPDATE user_profiles SET tier = 'pro' WHERE id = ${userId}`
-          );
-        } catch (tableError: any) {
-          console.log('[checkout] user_profiles.tier update error:', tableError?.code || tableError);
-        }
-
-        const tierName = tierId?.replace('legacy-', 'pro_') || (legacyTier ? `pro_${legacyTier}` : 'pro_monthly');
-        
-        res.json({ 
-          success: true, 
-          subscription: { 
-            userId, 
-            tier: tierName, 
-            tierId: null,
-            isActive: true,
-            expiresAt: null,
-            autoRenew: tierName !== 'pro_lifetime',
-          } 
-        });
-        return;
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      if (!rows || rows.length === 0) {
+        return res.status(400).json({ error: "Invalid tier" });
       }
+      
+      const tierData = rows[0];
+      
+      // Calculate expiration date based on subscription duration
+      // null duration means lifetime (no expiry)
+      let expiresAt: Date | undefined;
+      const autoRenew = tierData.tier_type !== 'lifetime';
+      
+      if (tierData.subscription_duration_months) {
+        expiresAt = new Date();
+        expiresAt.setMonth(expiresAt.getMonth() + tierData.subscription_duration_months);
+      }
+      
+      // Create the subscription - Supabase trigger will sync user_profiles
+      await storage.createUserSubscription({
+        userId,
+        userTierId: tierId,
+        amountPaid: tierData.subscription_cost ? parseFloat(tierData.subscription_cost) : 0,
+        currency: tierData.currency || 'GBP',
+        expiresAt,
+        autoRenew,
+        source: 'web',
+      });
 
-      // New tier system - get tier details and create subscription
-      try {
-        const result = await db.execute(sql`
-          SELECT id, tier, subscription_cost, currency, subscription_duration_months
-          FROM user_tier
-          WHERE id = ${tierId} AND active = true
-        `);
-        
-        const rows = Array.isArray(result) ? result : (result as any).rows || [];
-        if (!rows || rows.length === 0) {
-          return res.status(400).json({ error: "Invalid tier" });
-        }
-        
-        const tierData = rows[0];
-        
-        // Calculate expiration date based on subscription duration
-        let expiresAt: Date | undefined;
-        const autoRenew = tierData.tier !== 'pro_lifetime';
-        
-        if (tierData.subscription_duration_months) {
-          expiresAt = new Date();
-          expiresAt.setMonth(expiresAt.getMonth() + tierData.subscription_duration_months);
-        }
-        
-        // Create the subscription - Supabase trigger will sync user_profiles
-        await storage.createUserSubscription({
-          userId,
-          userTierId: tierId,
-          amountPaid: tierData.subscription_cost,
-          currency: tierData.currency,
-          expiresAt,
+      console.log('[checkout] Subscription created successfully for tier:', tierData.tier, tierData.tier_type);
+
+      res.json({ 
+        success: true, 
+        subscription: { 
+          userId, 
+          tier: tierData.tier !== 'Standard' ? 'pro' : 'free',
+          tierName: tierData.tier,
+          tierType: tierData.tier_type,
+          tierId,
+          isActive: true,
+          endDate: expiresAt?.toISOString() || null,
           autoRenew,
-          source: 'web',
-          tier: 'pro', // Tier value for user_subscriptions.tier column
-        });
-
-        console.log('[checkout] Subscription created successfully');
-
-        res.json({ 
-          success: true, 
-          subscription: { 
-            userId, 
-            tier: tierData.tier, 
-            tierId,
-            isActive: true,
-            expiresAt: expiresAt?.toISOString(),
-            autoRenew,
-          } 
-        });
-      } catch (tableError: any) {
-        // Log the actual error for debugging
-        console.error('[checkout] Error creating subscription:', tableError?.message || tableError);
-        console.error('[checkout] Error code:', tableError?.code);
-        
-        // Table doesn't exist - fall back to legacy
-        console.log('[checkout] Falling back to legacy mode');
-        
-        await db.execute(
-          sql`UPDATE user_profiles SET tier = 'pro' WHERE id = ${userId}`
-        );
-
-        res.json({ 
-          success: true, 
-          subscription: { 
-            userId, 
-            tier: 'pro_monthly',
-            tierId: null,
-            isActive: true,
-            expiresAt: null,
-            autoRenew: true,
-          } 
-        });
-      }
+        } 
+      });
     } catch (error: any) {
-      console.error("Error creating checkout:", error);
+      console.error("[checkout] Error creating subscription:", error);
       res.status(500).json({ error: "Failed to create subscription", details: error.message });
     }
   });
@@ -1405,42 +1303,41 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         return res.status(400).json({ error: "autoRenew must be a boolean" });
       }
 
-      // Update the user's active subscription auto_renew flag
-      // Find the most recent subscription that is still valid (not expired)
-      try {
-        const result = await db.execute(sql`
-          UPDATE user_subscriptions 
-          SET auto_renew = ${autoRenew}
-          WHERE id = (
-            SELECT id FROM user_subscriptions 
-            WHERE user_id = ${userId}
-              AND (expires_at IS NULL OR expires_at > NOW())
-            ORDER BY created_at DESC
-            LIMIT 1
-          )
-          RETURNING id, auto_renew
-        `);
+      // Use storage method to update auto_renew on most recent subscription
+      await storage.updateAutoRenew(userId, autoRenew);
 
-        const rows = Array.isArray(result) ? result : (result as any).rows || [];
-        
-        if (!rows || rows.length === 0) {
-          // Try to update in user_active_tier_view directly (fallback)
-          console.log('[subscription/auto-renew] No active subscription found, checking for legacy');
-          return res.status(404).json({ error: "No active subscription found" });
-        }
-
-        console.log('[subscription/auto-renew] Updated successfully:', rows[0]);
-        res.json({ success: true, autoRenew: rows[0].auto_renew });
-      } catch (tableError: any) {
-        if (tableError?.code === '42P01' || tableError?.message?.includes('does not exist')) {
-          console.log('[subscription/auto-renew] user_subscriptions table not available');
-          return res.status(404).json({ error: "Subscription system not available" });
-        }
-        throw tableError;
-      }
+      console.log('[subscription/auto-renew] Updated successfully');
+      res.json({ success: true, autoRenew });
     } catch (error: any) {
-      console.error("Error updating auto-renew:", error);
+      console.error("[subscription/auto-renew] Error updating auto-renew:", error);
       res.status(500).json({ error: "Failed to update auto-renewal", details: error.message });
+    }
+  });
+
+  // Downgrade subscription to Standard tier
+  app.post("/api/subscription/downgrade", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log('[subscription/downgrade] Downgrading user:', userId);
+
+      // Get user's region from profile
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || 'UK';
+
+      // Downgrade user to Standard tier
+      await storage.downgradeToStandard(userId, region);
+
+      console.log('[subscription/downgrade] Successfully downgraded to Standard');
+      res.json({ 
+        success: true, 
+        message: 'Successfully downgraded to Standard tier',
+        tier: 'free',
+        tierName: 'Standard',
+        tierType: 'default',
+      });
+    } catch (error: any) {
+      console.error("[subscription/downgrade] Error downgrading subscription:", error);
+      res.status(500).json({ error: "Failed to downgrade subscription", details: error.message });
     }
   });
 
@@ -1457,33 +1354,30 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       // Get streak saver status from database
       const status = await storage.getStreakSaverStatus(userId);
       
-      // Get tier to determine allowances - handle undefined/new users
-      let activeTier: any = null;
+      // Get subscription data to determine allowances
+      let subscriptionData = null;
       try {
-        activeTier = await storage.getUserActiveTier(userId);
-      } catch (tierError) {
-        console.log('[streak-saver/status] Could not fetch tier, using defaults');
+        subscriptionData = await storage.getSubscriptionData(userId);
+      } catch (subError) {
+        console.log('[streak-saver/status] Could not fetch subscription, using defaults');
       }
       
-      // Determine if user is Pro - handle various tier name variants
-      // The 'tier' field from user_active_tier_view contains values like 'standard', 'pro_monthly', 'pro_annual', 'pro_lifetime'
-      const tierName = activeTier?.tier?.toLowerCase() || 'standard';
-      const isPro = tierName.startsWith('pro') || tierName === 'pro';
+      // Determine if user is Pro
+      const isPro = subscriptionData?.tier === 'pro' && subscriptionData?.isActive;
       
-      // Determine allowances - use tier metadata if available, else defaults
-      // For Pro: use metadata from tier, For Standard: 1 streak saver/month, no holidays
+      // Determine allowances from tier metadata
       let streakSaverAllowance = 1;
       let holidaySaverAllowance = 0;
       let holidayDurationDays = 0;
       
-      if (isPro && activeTier) {
+      if (isPro && subscriptionData?.metadata) {
         // Pro user with valid tier - use metadata or sensible Pro defaults
-        streakSaverAllowance = activeTier.streakSavers ?? 3;
-        holidaySaverAllowance = activeTier.holidaySavers ?? 2;
-        holidayDurationDays = activeTier.holidayDurationDays ?? 7;
-      } else if (activeTier && !isPro) {
+        streakSaverAllowance = subscriptionData.metadata.streakSavers ?? 3;
+        holidaySaverAllowance = subscriptionData.metadata.holidaySavers ?? 2;
+        holidayDurationDays = subscriptionData.metadata.holidayDurationDays ?? 7;
+      } else if (subscriptionData?.metadata) {
         // Standard tier with metadata
-        streakSaverAllowance = activeTier.streakSavers ?? 1;
+        streakSaverAllowance = subscriptionData.metadata.streakSavers ?? 1;
         holidaySaverAllowance = 0;
         holidayDurationDays = 0;
       }
@@ -1527,23 +1421,22 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       
       console.log('[streak-saver/use] User:', userId, 'gameType:', gameType);
       
-      // Get tier to determine allowance - handle undefined/new users
-      let activeTier: any = null;
+      // Get subscription data to determine allowance
+      let subscriptionData = null;
       try {
-        activeTier = await storage.getUserActiveTier(userId);
-      } catch (tierError) {
-        console.log('[streak-saver/use] Could not fetch tier, using defaults');
+        subscriptionData = await storage.getSubscriptionData(userId);
+      } catch (subError) {
+        console.log('[streak-saver/use] Could not fetch subscription, using defaults');
       }
       
-      // Determine allowance based on tier
-      const tierName = activeTier?.tier?.toLowerCase() || 'standard';
-      const isPro = tierName.startsWith('pro') || tierName === 'pro';
+      // Determine allowance based on subscription
+      const isPro = subscriptionData?.tier === 'pro' && subscriptionData?.isActive;
       
       let allowance = 1; // Default for Standard tier
-      if (isPro && activeTier) {
-        allowance = activeTier.streakSavers ?? 3;
-      } else if (activeTier) {
-        allowance = activeTier.streakSavers ?? 1;
+      if (isPro && subscriptionData?.metadata) {
+        allowance = subscriptionData.metadata.streakSavers ?? 3;
+      } else if (subscriptionData?.metadata) {
+        allowance = subscriptionData.metadata.streakSavers ?? 1;
       }
       
       // Use the streak saver
@@ -1601,26 +1494,25 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const userId = req.user.id;
       console.log('[holiday/start] User:', userId);
       
-      // Check tier and holiday allowance - handle undefined/new users
-      let activeTier: any = null;
+      // Get subscription data to check tier and holiday allowance
+      let subscriptionData = null;
       try {
-        activeTier = await storage.getUserActiveTier(userId);
-      } catch (tierError) {
-        console.log('[holiday/start] Could not fetch tier, denying access');
+        subscriptionData = await storage.getSubscriptionData(userId);
+      } catch (subError) {
+        console.log('[holiday/start] Could not fetch subscription, denying access');
         return res.status(403).json({ error: "Holiday feature is Pro-only", needsSubscription: true });
       }
       
       // Determine if user is Pro
-      const tierName = activeTier?.tier?.toLowerCase() || 'standard';
-      const isPro = tierName.startsWith('pro') || tierName === 'pro';
+      const isPro = subscriptionData?.tier === 'pro' && subscriptionData?.isActive;
       
-      if (!isPro || !activeTier) {
+      if (!isPro || !subscriptionData?.metadata) {
         return res.status(403).json({ error: "Holiday feature is Pro-only", needsSubscription: true });
       }
       
       // Get holiday allowances from tier metadata
-      const holidayAllowance = activeTier.holidaySavers ?? 2;
-      const holidayDurationDays = activeTier.holidayDurationDays ?? 7;
+      const holidayAllowance = subscriptionData.metadata.holidaySavers ?? 2;
+      const holidayDurationDays = subscriptionData.metadata.holidayDurationDays ?? 7;
       
       if (holidayAllowance === 0 || holidayDurationDays === 0) {
         return res.status(403).json({ error: "Your tier does not include holidays" });

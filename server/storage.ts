@@ -51,6 +51,7 @@ import {
   type InsertDemandSchedulerConfig,
   type UserTier,
   type UserActiveTier,
+  type SubscriptionResponse,
   type UserHolidayEvent,
   type InsertUserHolidayEvent,
 } from "@shared/schema";
@@ -92,9 +93,18 @@ export interface IStorage {
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
 
   // User tier operations (new subscription system)
+  // LEGACY - kept for backward compatibility, use getSubscriptionData instead
   getUserActiveTier(userId: string): Promise<UserActiveTier | undefined>;
+  
+  // New subscription system - reads from user_profiles + user_tier
+  getSubscriptionData(userId: string): Promise<SubscriptionResponse | null>;
   getAvailableTiers(region: string): Promise<UserTier[]>;
-  createUserSubscription(subscription: { userId: string; userTierId: string; amountPaid?: number; currency?: string; expiresAt?: Date; autoRenew?: boolean; source?: string; tier?: string }): Promise<void>;
+  getPurchasableTiers(region: string): Promise<UserTier[]>; // Excludes Standard
+  getStandardTierId(region: string): Promise<string | null>;
+  createUserSubscription(subscription: { userId: string; userTierId: string; amountPaid?: number; currency?: string; expiresAt?: Date; autoRenew?: boolean; source?: string }): Promise<void>;
+  createDefaultSubscription(userId: string, region: string): Promise<void>; // For signup
+  downgradeToStandard(userId: string, region: string): Promise<void>;
+  updateAutoRenew(userId: string, autoRenew: boolean): Promise<void>;
 
   // Puzzle operations (LEGACY - will be deprecated)
   getPuzzle(id: number): Promise<Puzzle | undefined>;
@@ -307,6 +317,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User tier operations (new subscription system)
+  // LEGACY: Uses user_active_tier_view - kept for backward compatibility
   async getUserActiveTier(userId: string): Promise<UserActiveTier | undefined> {
     // Query the user_active_tier_view which resolves active subscription or falls back to standard tier
     const result = await db.execute(sql`
@@ -353,6 +364,110 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // NEW: Get subscription data from user_profiles + user_tier (replaces getUserActiveTier)
+  async getSubscriptionData(userId: string): Promise<SubscriptionResponse | null> {
+    // Query user_profiles joined with user_tier to get current tier and expiry
+    const result = await db.execute(sql`
+      SELECT 
+        up.id as "userId",
+        ut.id as "tierId",
+        ut.tier as "tierName",
+        ut.tier_type as "tierType",
+        ut.subscription_cost as "subscriptionCost",
+        ut.currency,
+        ut.subscription_duration_months as "subscriptionDurationMonths",
+        ut.streak_savers as "streakSavers",
+        ut.holiday_savers as "holidaySavers",
+        ut.holiday_duration_days as "holidayDurationDays",
+        ut.description,
+        ut.sort_order as "sortOrder",
+        up.subscription_end_date as "endDate",
+        up.user_tier_id as "userTierId",
+        (
+          SELECT us.auto_renew 
+          FROM user_subscriptions us 
+          WHERE us.user_id = up.id 
+          ORDER BY us.created_at DESC 
+          LIMIT 1
+        ) as "autoRenew"
+      FROM user_profiles up
+      LEFT JOIN user_tier ut ON ut.id = up.user_tier_id
+      WHERE up.id = ${userId}
+    `);
+    
+    const rows = Array.isArray(result) ? result : (result as any).rows || [];
+    if (!rows || rows.length === 0) {
+      return null;
+    }
+    
+    const row = rows[0];
+    const tierName = row.tierName || 'Standard';
+    const rawTierType = row.tierType || 'default';
+    
+    // Normalize tierType to valid union type - always clamp to 'default' for unknown values
+    const validTierTypes = new Set(['monthly', 'annual', 'lifetime', 'default']);
+    let tierType: 'monthly' | 'annual' | 'lifetime' | 'default' = 'default';
+    if (validTierTypes.has(rawTierType)) {
+      tierType = rawTierType as 'monthly' | 'annual' | 'lifetime' | 'default';
+    } else if (rawTierType) {
+      // Log unexpected tier_type for diagnostics
+      console.warn(`[getSubscriptionData] Unknown tier_type "${rawTierType}" for user ${userId}, defaulting to 'default'`);
+    }
+    
+    // Display tier: 'pro' if tier != 'Standard', else 'free'
+    const isPro = tierName.toLowerCase() !== 'standard';
+    const displayTier = isPro ? 'pro' : 'free';
+    
+    // Calculate isActive and isExpired based on tier type and end date
+    // For Standard tier: always active, never expired
+    // For lifetime Pro: always active, never expired
+    // For monthly/annual Pro: check end date
+    let isActive = false;
+    let isExpired = false;
+    
+    if (!isPro) {
+      // Standard tier is always active
+      isActive = true;
+      isExpired = false;
+    } else if (tierType === 'lifetime') {
+      // Lifetime Pro is always active
+      isActive = true;
+      isExpired = false;
+    } else if (row.endDate) {
+      // Monthly/annual Pro: check end date
+      const endDate = new Date(row.endDate);
+      const now = new Date();
+      isActive = endDate > now;
+      isExpired = endDate < now;
+    } else {
+      // Pro without end date (shouldn't happen for monthly/annual, but handle gracefully)
+      isActive = false;
+      isExpired = false;
+    }
+    
+    return {
+      tier: displayTier as 'free' | 'pro',
+      tierName: tierName,
+      tierType: tierType as 'monthly' | 'annual' | 'lifetime' | 'default',
+      tierId: row.tierId || null,
+      userId: row.userId || null,
+      endDate: row.endDate ? new Date(row.endDate).toISOString() : null,
+      autoRenew: row.autoRenew ?? false,
+      isActive,
+      isExpired,
+      metadata: row.tierId ? {
+        streakSavers: row.streakSavers ?? 1,
+        holidaySavers: row.holidaySavers ?? 0,
+        holidayDurationDays: row.holidayDurationDays ?? 14,
+        subscriptionCost: row.subscriptionCost ? parseFloat(row.subscriptionCost) : null,
+        currency: row.currency || 'GBP',
+        subscriptionDurationMonths: row.subscriptionDurationMonths,
+        description: row.description,
+        sortOrder: row.sortOrder,
+      } : null,
+    };
+  }
+
   async getAvailableTiers(region: string): Promise<UserTier[]> {
     // Query available tiers for the given region, ordered by sort_order
     const tiers = await db
@@ -364,6 +479,149 @@ export class DatabaseStorage implements IStorage {
     return tiers;
   }
 
+  // Get purchasable tiers (excludes Standard tier)
+  async getPurchasableTiers(region: string): Promise<UserTier[]> {
+    const result = await db.execute(sql`
+      SELECT 
+        id,
+        region,
+        tier,
+        tier_type as "tierType",
+        subscription_cost as "subscriptionCost",
+        currency,
+        subscription_duration_months as "subscriptionDurationMonths",
+        streak_savers as "streakSavers",
+        holiday_savers as "holidaySavers",
+        holiday_duration_days as "holidayDurationDays",
+        created_at as "createdAt",
+        updated_at as "updatedAt",
+        active,
+        description,
+        sort_order as "sortOrder"
+      FROM user_tier
+      WHERE region = ${region}
+        AND active = true
+        AND tier != 'Standard'
+      ORDER BY sort_order ASC
+    `);
+    
+    const rows = Array.isArray(result) ? result : (result as any).rows || [];
+    return rows as UserTier[];
+  }
+
+  // Get the Standard tier ID for a region
+  async getStandardTierId(region: string): Promise<string | null> {
+    const result = await db.execute(sql`
+      SELECT id 
+      FROM user_tier 
+      WHERE tier = 'Standard' 
+        AND region = ${region}
+        AND active = true 
+      LIMIT 1
+    `);
+    
+    const rows = Array.isArray(result) ? result : (result as any).rows || [];
+    if (!rows || rows.length === 0) {
+      return null;
+    }
+    return rows[0].id;
+  }
+
+  // Create default Standard subscription on signup
+  async createDefaultSubscription(userId: string, region: string): Promise<void> {
+    const standardTierId = await this.getStandardTierId(region);
+    if (!standardTierId) {
+      console.error(`[createDefaultSubscription] No Standard tier found for region: ${region}`);
+      return;
+    }
+    
+    await db.execute(sql`
+      INSERT INTO user_subscriptions (
+        user_id,
+        amount_paid,
+        currency,
+        expires_at,
+        source,
+        user_tier_id,
+        auto_renew,
+        effective_start_at
+      )
+      VALUES (
+        ${userId},
+        0.00,
+        'GBP',
+        NULL,
+        'signup',
+        ${standardTierId},
+        false,
+        NOW()
+      )
+    `);
+    
+    console.log(`[createDefaultSubscription] Created default subscription for user ${userId} with tier ${standardTierId}`);
+  }
+
+  // Downgrade user to Standard tier
+  async downgradeToStandard(userId: string, region: string): Promise<void> {
+    const standardTierId = await this.getStandardTierId(region);
+    if (!standardTierId) {
+      throw new Error(`No Standard tier found for region: ${region}`);
+    }
+    
+    // Update user_profiles to point to Standard tier with null end date
+    await db.execute(sql`
+      UPDATE user_profiles
+      SET 
+        user_tier_id = ${standardTierId},
+        subscription_end_date = NULL,
+        updated_at = NOW()
+      WHERE id = ${userId}
+    `);
+    
+    // Insert audit record into user_subscriptions
+    await db.execute(sql`
+      INSERT INTO user_subscriptions (
+        user_id,
+        amount_paid,
+        currency,
+        expires_at,
+        source,
+        user_tier_id,
+        auto_renew,
+        effective_start_at
+      )
+      VALUES (
+        ${userId},
+        0.00,
+        'GBP',
+        NULL,
+        'downgrade',
+        ${standardTierId},
+        false,
+        NOW()
+      )
+    `);
+    
+    console.log(`[downgradeToStandard] Downgraded user ${userId} to Standard tier`);
+  }
+
+  // Update auto-renew setting on most recent subscription
+  async updateAutoRenew(userId: string, autoRenew: boolean): Promise<void> {
+    // Update the most recent subscription record for this user
+    await db.execute(sql`
+      UPDATE user_subscriptions
+      SET auto_renew = ${autoRenew}
+      WHERE id = (
+        SELECT id FROM user_subscriptions
+        WHERE user_id = ${userId}
+        ORDER BY created_at DESC
+        LIMIT 1
+      )
+    `);
+    
+    console.log(`[updateAutoRenew] Updated auto_renew to ${autoRenew} for user ${userId}`);
+  }
+
   async createUserSubscription(subscription: { 
     userId: string; 
     userTierId: string; 
@@ -372,11 +630,10 @@ export class DatabaseStorage implements IStorage {
     expiresAt?: Date; 
     autoRenew?: boolean; 
     source?: string;
-    tier?: string; // 'pro', 'trial', 'school'
   }): Promise<void> {
     // Insert new subscription - let database auto-generate the ID
     // Note: Don't include 'validity' column - database uses tstzrange type as GENERATED ALWAYS
-    // Supabase trigger will sync user_profiles.tier and user_tier_id
+    // Supabase trigger will sync user_profiles.user_tier_id and subscription_end_date
     // Convert Date to ISO string for SQL compatibility
     const expiresAtStr = subscription.expiresAt ? subscription.expiresAt.toISOString() : null;
     // Format amount_paid as decimal string for numeric(10,2) column
@@ -384,7 +641,7 @@ export class DatabaseStorage implements IStorage {
     
     await db.execute(sql`
       INSERT INTO user_subscriptions (
-        user_id, user_tier_id, amount_paid, currency, expires_at, auto_renew, source, tier, effective_start_at
+        user_id, user_tier_id, amount_paid, currency, expires_at, auto_renew, source, effective_start_at
       )
       VALUES (
         ${subscription.userId},
@@ -394,10 +651,11 @@ export class DatabaseStorage implements IStorage {
         ${expiresAtStr},
         ${subscription.autoRenew !== false},
         ${subscription.source || 'web'},
-        ${subscription.tier || 'pro'},
         NOW()
       )
     `);
+    
+    console.log(`[createUserSubscription] Created subscription for user ${subscription.userId} with tier ${subscription.userTierId}`);
   }
 
   // Puzzle operations

@@ -177,8 +177,9 @@ export function StreakSaverPopup({ open, onClose, gameType, currentStreak }: Str
       </Dialog>
 
       <ProSubscriptionDialog
-        open={showProDialog}
+        isOpen={showProDialog}
         onClose={() => setShowProDialog(false)}
+        onSuccess={() => setShowProDialog(false)}
       />
     </>
   );

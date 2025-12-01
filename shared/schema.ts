@@ -40,10 +40,12 @@ export type ProTier = z.infer<typeof ProTierEnum>;
 
 // User Tier table - defines available subscription tiers per region
 // This table is managed in Supabase and defines tier metadata
+// Unique constraint: (region, tier, tier_type)
 export const userTier = pgTable("user_tier", {
   id: uuid("id").primaryKey(),
   region: text("region").notNull(), // e.g., 'UK', 'US'
-  tier: text("tier").notNull(), // e.g., 'standard', 'pro_monthly', 'pro_annual', 'pro_lifetime'
+  tier: text("tier").notNull(), // e.g., 'Standard', 'Pro', 'Education'
+  tierType: text("tier_type").notNull().default("default"), // e.g., 'default', 'monthly', 'annual', 'lifetime'
   subscriptionCost: numeric("subscription_cost", { precision: 10, scale: 2 }), // Cost in currency (e.g., 11.99)
   currency: text("currency").default("GBP"), // e.g., 'GBP', 'USD'
   subscriptionDurationMonths: integer("subscription_duration_months").default(1), // null for lifetime
@@ -60,11 +62,11 @@ export const userTier = pgTable("user_tier", {
 export type UserTier = typeof userTier.$inferSelect;
 export type InsertUserTier = typeof userTier.$inferInsert;
 
-// Type for user_active_tier_view (Supabase view that resolves active subscription)
+// LEGACY: Type for user_active_tier_view - deprecated, use SubscriptionResponse instead
 export interface UserActiveTier {
   userId: string;
   tierId: string;
-  tier: string; // canonical tier name (e.g., 'standard', 'pro_monthly')
+  tier: string;
   region: string;
   subscriptionCost: number | null;
   currency: string | null;
@@ -76,6 +78,29 @@ export interface UserActiveTier {
   expiresAt: string | null;
   autoRenew: boolean;
   isActive: boolean;
+}
+
+// New subscription response interface - reads from user_profiles + user_tier
+export interface SubscriptionResponse {
+  tier: 'free' | 'pro'; // Display tier: 'pro' if tier != 'Standard', else 'free'
+  tierName: string; // Canonical tier name from user_tier.tier (e.g., 'Standard', 'Pro')
+  tierType: 'monthly' | 'annual' | 'lifetime' | 'default'; // Variant from user_tier.tier_type
+  tierId: string | null; // FK from user_profiles.user_tier_id
+  userId: string | null; // From user_profiles.id (null if no user profile found)
+  endDate: string | null; // From user_profiles.subscription_end_date
+  autoRenew: boolean; // From latest user_subscriptions.auto_renew
+  isActive: boolean; // Derived: endDate > now() or (endDate is null and tierType is lifetime)
+  isExpired: boolean; // Derived: endDate is not null and < now()
+  metadata: {
+    streakSavers: number;
+    holidaySavers: number;
+    holidayDurationDays: number;
+    subscriptionCost: number | null;
+    currency: string;
+    subscriptionDurationMonths: number | null;
+    description: string | null;
+    sortOrder: number | null;
+  } | null;
 }
 
 // User profiles table - extends Supabase Auth users
@@ -103,7 +128,7 @@ export const userProfiles = pgTable("user_profiles", {
   postcode: text("postcode"), // References postcodes.name1
   location: text("location"), // Geography type stored as text
 
-  // Subscription tier - 'standard' or 'pro'
+  // LEGACY: Subscription tier - kept for backward compatibility during migration
   tier: text("tier").default("standard"),
   
   // Postcode change tracking
@@ -114,6 +139,10 @@ export const userProfiles = pgTable("user_profiles", {
   
   // Foreign key to user_tier table (managed by Supabase trigger)
   userTierId: uuid("user_tier_id").references(() => userTier.id),
+  
+  // Subscription end date - null means Standard tier or lifetime subscription
+  // Managed by Supabase trigger (sync_user_profile_user_tier_id_and_end_date)
+  subscriptionEndDate: timestamp("subscription_end_date", { withTimezone: true }),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

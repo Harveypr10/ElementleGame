@@ -2,45 +2,56 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 
-// Tier metadata returned from the API
 interface TierMetadata {
   streakSavers: number;
   holidaySavers: number;
   holidayDurationDays: number;
   subscriptionCost: number | null;
-  currency: string | null;
+  currency: string;
   subscriptionDurationMonths: number | null;
   description: string | null;
+  sortOrder: number | null;
 }
 
-interface SubscriptionData {
-  tier: 'free' | 'pro'; // Display tier
-  tierName: string; // Canonical tier name (e.g., 'standard', 'pro_monthly', 'pro_annual', 'pro_lifetime')
+export interface SubscriptionData {
+  tier: 'free' | 'pro';
+  tierName: string;
+  tierType: 'monthly' | 'annual' | 'lifetime' | 'default';
   tierId: string | null;
-  startDate: string | null;
+  userId: string | null;
   endDate: string | null;
   autoRenew: boolean;
   isActive: boolean;
-  expired?: boolean;
+  isExpired: boolean;
   metadata: TierMetadata | null;
 }
 
-// Default free subscription - consistent shape for all consumers
 const FREE_SUBSCRIPTION: SubscriptionData = {
   tier: 'free',
-  tierName: 'standard',
+  tierName: 'Standard',
+  tierType: 'default',
   tierId: null,
-  startDate: null,
+  userId: null,
   endDate: null,
   autoRenew: false,
-  isActive: false,
-  metadata: null,
+  isActive: true, // Standard tier is always active
+  isExpired: false,
+  metadata: {
+    streakSavers: 1,
+    holidaySavers: 0,
+    holidayDurationDays: 14,
+    subscriptionCost: 0,
+    currency: 'GBP',
+    subscriptionDurationMonths: null,
+    description: 'Free tier',
+    sortOrder: 0,
+  },
 };
 
 export function useSubscription() {
   const { isAuthenticated, user } = useAuth();
 
-  const { data: subscription, isLoading } = useQuery<SubscriptionData>({
+  const { data: subscription, isLoading, refetch } = useQuery<SubscriptionData>({
     queryKey: ['/api/subscription', user?.id],
     queryFn: async () => {
       if (!isAuthenticated || !user) return FREE_SUBSCRIPTION;
@@ -66,17 +77,17 @@ export function useSubscription() {
         
         const data = await response.json();
         
-        // Ensure all fields are present with defaults
         return {
           tier: data.tier || 'free',
-          tierName: data.tierName || 'standard',
+          tierName: data.tierName || 'Standard',
+          tierType: data.tierType || 'default',
           tierId: data.tierId ?? null,
-          startDate: data.startDate ?? null,
+          userId: data.userId ?? null,
           endDate: data.endDate ?? null,
           autoRenew: data.autoRenew ?? false,
           isActive: data.isActive ?? false,
-          expired: data.expired ?? false,
-          metadata: data.metadata ?? null,
+          isExpired: data.isExpired ?? false,
+          metadata: data.metadata ?? FREE_SUBSCRIPTION.metadata,
         };
       } catch (error) {
         console.error('Error fetching subscription:', error);
@@ -87,27 +98,33 @@ export function useSubscription() {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Use FREE_SUBSCRIPTION as default when data is not yet loaded
   const effectiveSubscription = subscription || FREE_SUBSCRIPTION;
   const tier = effectiveSubscription.tier;
   const tierName = effectiveSubscription.tierName;
-  const isPro = tier !== 'free';
+  const tierType = effectiveSubscription.tierType;
+  const isPro = tier === 'pro' && effectiveSubscription.isActive;
+  const isExpired = effectiveSubscription.isExpired;
   
-  // Specific tier checks based on canonical tier name
-  const isProMonthly = tierName === 'pro_monthly';
-  const isProAnnual = tierName === 'pro_annual';
-  const isProLifetime = tierName === 'pro_lifetime';
+  const isProMonthly = isPro && tierType === 'monthly';
+  const isProAnnual = isPro && tierType === 'annual';
+  const isProLifetime = isPro && tierType === 'lifetime';
   
-  // Legacy tier checks (for backward compatibility)
   const isGold = isProLifetime;
   const isSilver = isProAnnual;
   const isBronze = isProMonthly;
+
+  const needsRenewal = tier === 'pro' && isExpired && !effectiveSubscription.isActive;
+  const canRenew = isExpired && tierType !== 'lifetime';
 
   return {
     subscription: effectiveSubscription,
     tier,
     tierName,
+    tierType,
     isPro,
+    isExpired,
+    needsRenewal,
+    canRenew,
     isProMonthly,
     isProAnnual,
     isProLifetime,
@@ -115,9 +132,11 @@ export function useSubscription() {
     isSilver,
     isBronze,
     isLoading,
-    // Expose tier metadata for UI
-    streakSavers: effectiveSubscription.metadata?.streakSavers ?? 0,
+    refetch,
+    streakSavers: effectiveSubscription.metadata?.streakSavers ?? 1,
     holidaySavers: effectiveSubscription.metadata?.holidaySavers ?? 0,
-    holidayDurationDays: effectiveSubscription.metadata?.holidayDurationDays ?? 0,
+    holidayDurationDays: effectiveSubscription.metadata?.holidayDurationDays ?? 14,
+    endDate: effectiveSubscription.endDate,
+    autoRenew: effectiveSubscription.autoRenew,
   };
 }

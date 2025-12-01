@@ -25,16 +25,18 @@ interface ManageSubscriptionPageProps {
   onGoProClick?: () => void;
 }
 
-function formatTierDisplayName(tierName: string): string {
-  switch (tierName) {
-    case 'pro_monthly':
+function formatTierDisplayName(tierName: string, tierType: string): string {
+  if (tierName.toLowerCase() === 'standard') {
+    return 'Standard';
+  }
+  
+  switch (tierType) {
+    case 'monthly':
       return 'Pro - Monthly';
-    case 'pro_annual':
+    case 'annual':
       return 'Pro - Annual';
-    case 'pro_lifetime':
+    case 'lifetime':
       return 'Pro - Lifetime';
-    case 'standard':
-      return 'Standard';
     default:
       return tierName.charAt(0).toUpperCase() + tierName.slice(1);
   }
@@ -51,7 +53,7 @@ function formatRenewalDate(dateString: string | null): string {
 }
 
 export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscriptionPageProps) {
-  const { subscription, isPro, tierName, streakSavers, holidaySavers, holidayDurationDays } = useSubscription();
+  const { subscription, isPro, tierName, tierType, streakSavers, holidaySavers, holidayDurationDays, isExpired } = useSubscription();
   const { 
     status,
     isLoading: statusLoading,
@@ -132,7 +134,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const effectiveHolidayDurationDays = holidayDurationDays ?? (isPro ? 14 : 0);
   const holidaysRemainingValue = effectiveHolidaySavers - holidaysUsedThisYear;
 
-  const isLifetime = tierName === 'pro_lifetime';
+  const isLifetime = tierType === 'lifetime';
 
   return (
     <div className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[50px]' : ''}`}>
@@ -163,7 +165,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                 <div>
                   <p className="text-sm text-muted-foreground">Subscription</p>
                   <p className="font-semibold text-lg" data-testid="text-subscription-tier">
-                    {formatTierDisplayName(tierName)}
+                    {formatTierDisplayName(tierName, tierType)}
                   </p>
                 </div>
               </div>

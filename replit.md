@@ -29,6 +29,17 @@ Preferred communication style: Simple, everyday language.
 - **Game Logic**: Client-side puzzle validation, feedback calculation, LocalStorage-based statistics, 5-attempt limit with directional hints.
 - **Authentication & User Management**: Direct email/password signup via Supabase, OTP for email changes, first login tracking, and consent field persistence.
 - **Pro Subscription System**: Dynamic database-driven subscription tiers with regional pricing, including components for managing subscriptions and category selection.
+  - **New Subscription Workflow (v2)**: Uses `user_profiles.user_tier_id` and `subscription_end_date` as fast lookup instead of legacy views.
+  - **Tier Structure**: user_tier table has `tier` (Standard, Pro) + `tier_type` (monthly, annual, lifetime, default) for uniqueness per region.
+  - **Storage Methods**: `getSubscriptionData()` returns SubscriptionResponse with tier, tierName, tierType, isActive, isExpired, endDate, autoRenew, and metadata.
+  - **API Endpoints**: 
+    - `GET /api/subscription` - Returns current subscription status with isExpired flag
+    - `GET /api/tiers` - Returns purchasable tiers (excludes Standard) with tierType
+    - `POST /api/subscription/create-checkout` - Creates new subscription record
+    - `POST /api/subscription/auto-renew` - Updates auto-renew setting
+    - `POST /api/subscription/downgrade` - Downgrades user to Standard tier with audit trail
+  - **Frontend Hook**: `useSubscription()` returns tier, tierType, isPro, isExpired, needsRenewal, canRenew, and metadata.
+  - **RenewalPopup**: Modal shown when subscription expires, offers Renew or Don't Go Pro options.
 - **Pro UI Design**: Distinct UI elements for Pro users, including "Go Pro" buttons, orange gradients for premium features, and a dedicated "Select Categories" button.
 - **Question Regeneration Workflow**: Triggers an Edge Function to reset and reallocate questions based on postcode or category changes, displaying a `GeneratingQuestionsScreen`.
 - **Advertising System**: `AdBanner` for banner ads (Google AdMob) and `InterstitialAd` for interstitial ads after archive puzzle completions, disabled for Pro subscribers.
@@ -70,14 +81,17 @@ Preferred communication style: Simple, everyday language.
 
 ### user_tier table
 - `id`: uuid (default gen_random_uuid())
-- `region`: text, `tier`: text
+- `region`: text, `tier`: text (Standard, Pro)
+- `tier_type`: text (monthly, annual, lifetime, default) - differentiates subscription types
 - `subscription_cost`: numeric(10,2), `currency`: text (default 'GBP')
 - `subscription_duration_months`: integer (default 1)
 - `streak_savers`: integer (default 1), `holiday_savers`: integer (default 0)
 - `holiday_duration_days`: integer (default 14)
 - `active`: boolean (default true), `sort_order`: integer
+- Uniqueness: region + tier + tier_type
 
 ### user_profiles table
-- Includes: `postcode_last_changed_at`, `archive_synced_count`, `user_tier_id`
+- Includes: `postcode_last_changed_at`, `archive_synced_count`, `user_tier_id`, `subscription_end_date`
 - `region` defaults to 'UK', `tier` defaults to 'standard'
-- Supabase triggers sync `tier` and `user_tier_id` on subscription changes
+- `subscription_end_date`: timestamp - fast lookup for subscription expiry (NULL for lifetime/standard)
+- Supabase triggers sync `user_tier_id` and `subscription_end_date` from user_subscriptions
