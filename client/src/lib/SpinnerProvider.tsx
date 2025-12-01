@@ -26,7 +26,7 @@ const SpinnerContext = createContext<SpinnerContextValue | undefined>(undefined)
 
 const DEFAULT_DELAY_MS = 150;
 const FADE_DURATION_MS = 300;
-const MIN_DISPLAY_TIME_MS = 1000;
+const MIN_DISPLAY_TIME_MS = 1500;
 
 export function SpinnerProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
