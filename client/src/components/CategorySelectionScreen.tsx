@@ -44,9 +44,14 @@ export function CategorySelectionScreen({
   // Track if we've synced from API to avoid re-initializing
   const [hasSyncedFromApi, setHasSyncedFromApi] = useState(false);
   
-  // Read cached categories immediately for instant display
+  // Read cached data immediately for instant display
   const cachedCategoryIds = useMemo(() => {
     const cached = readLocal<number[]>(CACHE_KEYS.PRO_CATEGORIES);
+    return cached || [];
+  }, []);
+  
+  const cachedCategoriesList = useMemo(() => {
+    const cached = readLocal<Category[]>(CACHE_KEYS.CATEGORIES_LIST);
     return cached || [];
   }, []);
 
@@ -55,26 +60,36 @@ export function CategorySelectionScreen({
     () => new Set(cachedCategoryIds.length > 0 ? cachedCategoryIds : initialSelectedIds)
   );
 
-  const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
+  // Fetch categories list - use cache as initial data for instant display
+  const { data: categories = cachedCategoriesList, isLoading: loadingCategories } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
     queryFn: async () => {
+      console.log('[CategorySelectionScreen] Fetching categories list from API...');
       const response = await fetch('/api/categories');
       if (!response.ok) {
         throw new Error('Failed to fetch categories');
       }
-      return await response.json() || [];
+      const data = await response.json() || [];
+      // Cache the list for future instant display
+      writeLocal(CACHE_KEYS.CATEGORIES_LIST, data);
+      console.log('[CategorySelectionScreen] Categories list fetched:', data.length);
+      return data;
     },
     enabled: isOpen,
+    initialData: cachedCategoriesList.length > 0 ? cachedCategoriesList : undefined,
+    staleTime: 60 * 60 * 1000, // Consider data fresh for 1 hour
   });
 
-  const { data: userCategories, isLoading: loadingUserCategories, refetch, isFetched } = useQuery<number[]>({
+  // Fetch user's selected categories - requires auth
+  const { data: userCategories, isLoading: loadingUserCategories, refetch, isFetched, isError } = useQuery<number[]>({
     queryKey: ['/api/user/pro-categories'],
     queryFn: async () => {
-      if (!isAuthenticated) return [];
-      
       console.log('[CategorySelectionScreen] Fetching user categories from API...');
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return [];
+      if (!session) {
+        console.log('[CategorySelectionScreen] No session available');
+        throw new Error('No session');
+      }
 
       const response = await fetch('/api/user/pro-categories', {
         credentials: 'include',
@@ -83,13 +98,23 @@ export function CategorySelectionScreen({
         },
       });
       
-      if (!response.ok) return [];
+      if (!response.ok) {
+        console.log('[CategorySelectionScreen] Failed to fetch user categories:', response.status);
+        throw new Error('Failed to fetch');
+      }
       const data = await response.json();
       console.log('[CategorySelectionScreen] API returned categories:', data.categoryIds);
+      // Cache the user's selection
+      if (data.categoryIds && Array.isArray(data.categoryIds)) {
+        writeLocal(CACHE_KEYS.PRO_CATEGORIES, data.categoryIds);
+      }
       return data.categoryIds || [];
     },
     enabled: isOpen && isAuthenticated,
-    staleTime: 0,
+    initialData: cachedCategoryIds.length > 0 ? cachedCategoryIds : undefined,
+    staleTime: 0, // Always refetch to get latest from server
+    retry: 2, // Retry twice on failure
+    retryDelay: 500, // Wait 500ms between retries
   });
   
   // Force refetch when screen opens with authenticated user
@@ -101,26 +126,37 @@ export function CategorySelectionScreen({
     }
   }, [isOpen, isAuthenticated, refetch]);
 
-  // Sync from API once data is fetched - prefer cache on first load
+  // Sync UI state from API/cache when data becomes available
   useEffect(() => {
-    if (isOpen && isFetched && !loadingUserCategories && !hasSyncedFromApi) {
-      const apiCategories = userCategories || [];
-      
-      // On first load: if we have cached categories and API is empty, trust the cache
-      // This happens when user leaves without regenerating, then comes back
-      if (cachedCategoryIds.length > 0 && apiCategories.length === 0) {
-        console.log('[CategorySelectionScreen] Using cached categories (API empty)', cachedCategoryIds);
-        setSelectedCategories(new Set(cachedCategoryIds));
-      } else if (apiCategories.length > 0) {
-        // If API has data, use it (this means fresh data from server)
-        console.log('[CategorySelectionScreen] Syncing from API:', apiCategories);
-        setSelectedCategories(new Set(apiCategories));
-        writeLocal(CACHE_KEYS.PRO_CATEGORIES, apiCategories);
-      }
-      
+    if (!isOpen || hasSyncedFromApi) return;
+    
+    // Wait for the query to complete (not loading, either fetched or errored)
+    if (loadingUserCategories) return;
+    
+    const apiCategories = userCategories || [];
+    
+    // If API fetch succeeded with data, use it
+    if (isFetched && !isError && apiCategories.length > 0) {
+      console.log('[CategorySelectionScreen] Syncing from API:', apiCategories);
+      setSelectedCategories(new Set(apiCategories));
+      setHasSyncedFromApi(true);
+      return;
+    }
+    
+    // If API failed or returned empty, fall back to cache
+    if ((isError || (isFetched && apiCategories.length === 0)) && cachedCategoryIds.length > 0) {
+      console.log('[CategorySelectionScreen] Using cached categories (API empty/failed):', cachedCategoryIds);
+      setSelectedCategories(new Set(cachedCategoryIds));
+      setHasSyncedFromApi(true);
+      return;
+    }
+    
+    // If both API and cache are empty, mark as synced so button can enable for first-time users
+    if (isFetched && apiCategories.length === 0 && cachedCategoryIds.length === 0) {
+      console.log('[CategorySelectionScreen] No existing categories (first-time user)');
       setHasSyncedFromApi(true);
     }
-  }, [userCategories, isOpen, isFetched, loadingUserCategories, hasSyncedFromApi, cachedCategoryIds]);
+  }, [userCategories, isOpen, isFetched, isError, loadingUserCategories, hasSyncedFromApi, cachedCategoryIds]);
 
   const saveCategoriesMutation = useMutation({
     mutationFn: async (categoryIds: number[]) => {
@@ -214,14 +250,16 @@ export function CategorySelectionScreen({
 
   // Check if selected categories differ from saved categories
   const categoriesHaveChanged = useMemo(() => {
+    // Don't enable button until we've synced from API/cache
+    // This prevents false positives during initial load
+    if (!hasSyncedFromApi) return false;
+    
     // If we're still loading saved categories, don't allow regeneration yet
-    // Wait until we know what the saved state is before enabling
     if (loadingUserCategories) return false;
     
     const savedCategories = userCategories || [];
     
     // For first-time category selection (no saved categories yet), allow generation
-    // But only after loading is complete to avoid false positives
     if (savedCategories.length === 0) return true;
     
     // Check if the sets are different
@@ -233,7 +271,7 @@ export function CategorySelectionScreen({
     }
     
     return false;
-  }, [selectedCategories, userCategories, loadingUserCategories]);
+  }, [selectedCategories, userCategories, loadingUserCategories, hasSyncedFromApi]);
 
   const handleGenerate = () => {
     if (selectedCategories.size < 3) {

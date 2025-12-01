@@ -83,6 +83,7 @@ export const CACHE_KEYS = {
   ARCHIVE_PREFIX: 'cached-archive-',
   PERCENTILE: 'cached-percentile',
   PRO_CATEGORIES: 'cached-pro-categories',
+  CATEGORIES_LIST: 'cached-categories-list',
   SUBSCRIPTION: 'cached-subscription',
   REGIONS: 'cached-regions',
 } as const;

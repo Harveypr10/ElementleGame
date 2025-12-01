@@ -137,18 +137,35 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             staleTime: 5 * 60 * 1000,
           }).then(data => ({ key: 'attempts', data })).catch(() => ({ key: 'attempts', data: null })),
 
-          // Prefetch user categories
-          queryClient.fetchQuery({
+          // Prefetch user pro-categories (requires auth)
+          authToken ? queryClient.fetchQuery({
             queryKey: ['/api/user/pro-categories'],
             queryFn: async () => {
               const response = await fetch('/api/user/pro-categories', {
                 credentials: 'include',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                },
               });
-              if (!response.ok) throw new Error('Failed to fetch categories');
+              if (!response.ok) throw new Error('Failed to fetch user categories');
               return response.json();
             },
             staleTime: 30 * 60 * 1000, // Cache for 30 mins since categories rarely change
-          }).then(data => ({ key: 'categories', data })).catch(() => ({ key: 'categories', data: null })),
+          }).then(data => ({ key: 'userCategories', data })).catch(() => ({ key: 'userCategories', data: null }))
+          : Promise.resolve({ key: 'userCategories', data: null }),
+          
+          // Prefetch categories list (public, no auth needed)
+          queryClient.fetchQuery({
+            queryKey: ['/api/categories'],
+            queryFn: async () => {
+              const response = await fetch('/api/categories', {
+                credentials: 'include',
+              });
+              if (!response.ok) throw new Error('Failed to fetch categories list');
+              return response.json();
+            },
+            staleTime: 60 * 60 * 1000, // Cache for 60 mins since categories list rarely changes
+          }).then(data => ({ key: 'categoriesList', data })).catch(() => ({ key: 'categoriesList', data: null })),
 
           // Prefetch subscription data (includes autoRenew state) - uses shared auth token
           authToken ? queryClient.fetchQuery({
@@ -209,9 +226,14 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
           writeLocal(CACHE_KEYS.ATTEMPTS, dataMap.attempts);
         }
 
-        if (dataMap.categories?.categoryIds && Array.isArray(dataMap.categories.categoryIds)) {
-          writeLocal(CACHE_KEYS.PRO_CATEGORIES, dataMap.categories.categoryIds);
-          console.log('[PreloadProvider] Cached user categories:', dataMap.categories.categoryIds);
+        if (dataMap.userCategories?.categoryIds && Array.isArray(dataMap.userCategories.categoryIds)) {
+          writeLocal(CACHE_KEYS.PRO_CATEGORIES, dataMap.userCategories.categoryIds);
+          console.log('[PreloadProvider] Cached user pro-categories:', dataMap.userCategories.categoryIds);
+        }
+        
+        if (dataMap.categoriesList && Array.isArray(dataMap.categoriesList)) {
+          writeLocal(CACHE_KEYS.CATEGORIES_LIST, dataMap.categoriesList);
+          console.log('[PreloadProvider] Cached categories list:', dataMap.categoriesList.length);
         }
 
         if (dataMap.subscription) {
