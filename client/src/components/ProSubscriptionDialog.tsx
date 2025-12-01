@@ -108,10 +108,10 @@ export function ProSubscriptionDialog({
   });
 
   const handleTierClick = (tier: TierData) => {
-    console.log('[ProSubscriptionDialog] Tier clicked:', tier.tier, tier.id);
+    console.log('[ProSubscriptionDialog] Tier clicked:', tier.tier, tier.tierType, 'id:', tier.id);
     
     if (!isAuthenticated) {
-      console.log('[ProSubscriptionDialog] User not authenticated');
+      console.log('[ProSubscriptionDialog] User not authenticated, redirecting to login');
       if (onLoginRequired) {
         onLoginRequired();
       } else {
@@ -124,14 +124,18 @@ export function ProSubscriptionDialog({
       return;
     }
 
-    console.log('[ProSubscriptionDialog] Setting selectedTier and showing confirm dialog');
+    console.log('[ProSubscriptionDialog] User authenticated, showing confirm dialog for tier:', tier.id);
     setSelectedTier(tier);
     setShowConfirmDialog(true);
   };
 
   const handleConfirmSubscription = async () => {
-    if (!selectedTier) return;
+    if (!selectedTier) {
+      console.log('[ProSubscriptionDialog] No selected tier, aborting');
+      return;
+    }
     
+    console.log('[ProSubscriptionDialog] Confirming subscription for tier:', selectedTier.id, selectedTier.tier, selectedTier.tierType);
     setIsProcessing(true);
     setShowConfirmDialog(false);
 
@@ -140,9 +144,11 @@ export function ProSubscriptionDialog({
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
+        console.log('[ProSubscriptionDialog] No session found');
         throw new Error('No active session');
       }
 
+      console.log('[ProSubscriptionDialog] Calling create-checkout API with tierId:', selectedTier.id);
       const response = await fetch('/api/subscription/create-checkout', {
         method: 'POST',
         headers: {
@@ -153,14 +159,19 @@ export function ProSubscriptionDialog({
         body: JSON.stringify({ tierId: selectedTier.id }),
       });
 
+      console.log('[ProSubscriptionDialog] API response status:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
+        console.log('[ProSubscriptionDialog] API error:', errorData);
         throw new Error(errorData.error || 'Failed to create subscription');
       }
 
       const result = await response.json();
+      console.log('[ProSubscriptionDialog] API result:', result);
       
       if (result.success) {
+        console.log('[ProSubscriptionDialog] Subscription created successfully');
         // Invalidate subscription query to refresh UI
         queryClient.invalidateQueries({ queryKey: ['/api/subscription'] });
         toast({
@@ -170,7 +181,7 @@ export function ProSubscriptionDialog({
         onSuccess(selectedTier.tier);
       }
     } catch (error: any) {
-      console.error('Subscription error:', error);
+      console.error('[ProSubscriptionDialog] Subscription error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to create subscription. Please try again.',
@@ -292,7 +303,7 @@ export function ProSubscriptionDialog({
         <div className="bg-background border rounded-lg p-6 max-w-sm mx-4 shadow-lg">
           <h2 className="text-lg font-semibold mb-2">Confirm Subscription</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            You are about to subscribe to <strong>{getTierStyle(selectedTier.tier).displayName}</strong> for{' '}
+            You are about to subscribe to <strong>{getTierStyle(selectedTier.tierType).displayName}</strong> for{' '}
             <strong>{formatPrice(selectedTier.subscriptionCost, selectedTier.currency)}</strong>.
             <br /><br />
             Do you want to continue?
