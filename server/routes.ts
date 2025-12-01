@@ -1346,13 +1346,21 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const tierData = rows[0];
       
       // Calculate expiration date based on subscription duration
-      // null duration means lifetime (no expiry)
-      let expiresAt: Date | undefined;
+      let expiresAt: Date;
       const autoRenew = tierData.tier_type !== 'lifetime';
+      const isLifetime = tierData.tier_type === 'lifetime';
       
-      if (tierData.subscription_duration_months) {
+      if (isLifetime) {
+        // For lifetime subscriptions, set expiry to 100 years in the future
+        expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 100);
+      } else if (tierData.subscription_duration_months) {
         expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + tierData.subscription_duration_months);
+      } else {
+        // Default to 1 month if no duration specified
+        expiresAt = new Date();
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
       }
       
       // Create the subscription - Supabase trigger will sync user_profiles
