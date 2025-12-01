@@ -516,6 +516,7 @@ export default function Home() {
               region={profile?.region || "GB"}
               postcode={profile?.postcode || ""}
               onComplete={handleGeneratingQuestionsComplete}
+              regenerationType="first_login"
             />
           </motion.div>
         )}

@@ -488,7 +488,7 @@ if (!supabaseUrl) {
  // ---------- end insert ----------
 
             // Ensure the screen transitions after SCREEN_DURATION exactly once
-            finishTimeout = window.setTimeout(() => {
+            finishTimeout = window.setTimeout(async () => {
               if (!mountedRef.current) return;
               if (finishedRef.current) return;
               finishedRef.current = true;
@@ -504,6 +504,25 @@ if (!supabaseUrl) {
               }
 
               spawnTimeouts.forEach((id) => window.clearTimeout(id));
+
+              // Update restriction timestamps after generation completes
+              try {
+                console.log("[GeneratingQuestions] Calling /api/generation-complete with regenerationType:", regenerationType);
+                const response = await fetch('/api/generation-complete', {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                  },
+                  body: JSON.stringify({ regenerationType }),
+                });
+                const result = await response.json();
+                console.log("[GeneratingQuestions] /api/generation-complete result:", result);
+              } catch (err) {
+                console.error("[GeneratingQuestions] Failed to update restriction timestamps:", err);
+                // Don't block completion - this is best-effort
+              }
 
               // small delay to allow last fade-out to complete visually before transition
               setTimeout(() => {
@@ -551,7 +570,7 @@ if (!supabaseUrl) {
         spawnTimeouts.forEach((id) => window.clearTimeout(id));
       };
       // Intentionally minimal dependency list: do not include sequenceStarted state here
-    }, [userId, region, postcode, supabase, toast, onComplete]);
+    }, [userId, region, postcode, supabase, toast, onComplete, regenerationType]);
 
 
 

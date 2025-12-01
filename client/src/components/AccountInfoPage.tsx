@@ -614,6 +614,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         region={profile.region}
         postcode={profileData.postcode}
         onComplete={handleGeneratingQuestionsComplete}
+        regenerationType="postcode_change"
       />
     );
   }

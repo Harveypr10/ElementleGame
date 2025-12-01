@@ -431,6 +431,7 @@ export function CategorySelectionScreen({
         region={profile.region}
         postcode={profile.postcode || ''}
         onComplete={handleGeneratingQuestionsComplete}
+        regenerationType="category_change"
       />
     );
   }
