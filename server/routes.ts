@@ -1563,9 +1563,11 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   // Get all categories (excluding Local History - id 999)
   app.get("/api/categories", async (req, res) => {
     try {
+      const startTime = Date.now();
       console.log("[GET /api/categories] Fetching categories...");
       const categories = await storage.getAllCategories();
-      console.log("[GET /api/categories] Found categories:", categories?.length);
+      const dbTime = Date.now() - startTime;
+      console.log("[GET /api/categories] Found categories:", categories?.length, "in", dbTime, "ms");
       const filtered = categories.filter(c => c.id !== 999);
       console.log("[GET /api/categories] After filtering id 999:", filtered?.length);
       res.json(filtered);
@@ -1578,8 +1580,11 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   // Get user's Pro category selections
   app.get("/api/user/pro-categories", verifySupabaseAuth, async (req: any, res) => {
     try {
+      const startTime = Date.now();
       const userId = req.user.id;
       const categoryIds = await storage.getUserProCategories(userId);
+      const dbTime = Date.now() - startTime;
+      console.log("[getUserProCategories] Completed in", dbTime, "ms for user:", userId);
       res.json({ categoryIds });
     } catch (error) {
       console.error("Error fetching pro categories:", error);

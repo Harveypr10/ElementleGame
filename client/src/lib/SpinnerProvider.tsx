@@ -36,10 +36,42 @@ export function SpinnerProvider({ children }: { children: ReactNode }) {
   const fadeOutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const animationRef = useRef<{ destroy: () => void } | null>(null);
   const showTimeRef = useRef<number>(0);
-  const pendingHideRef = useRef<boolean>(false);
+  const hideRequestedRef = useRef<boolean>(false);
+  const isVisibleRef = useRef<boolean>(false);
+
+  const performHide = useCallback(() => {
+    const spinnerElement = document.getElementById('spinner');
+    if (spinnerElement) {
+      spinnerElement.classList.remove('fade-in');
+      spinnerElement.classList.add('fade-out');
+    }
+    
+    fadeOutTimeoutRef.current = setTimeout(() => {
+      setIsLoading(false);
+      setIsVisible(false);
+      isVisibleRef.current = false;
+      hideRequestedRef.current = false;
+    }, FADE_DURATION_MS);
+  }, []);
+
+  const checkAndHide = useCallback(() => {
+    if (!hideRequestedRef.current || !isVisibleRef.current) return;
+    
+    const elapsedTime = Date.now() - showTimeRef.current;
+    if (elapsedTime >= MIN_DISPLAY_TIME_MS) {
+      performHide();
+    } else {
+      const remainingTime = MIN_DISPLAY_TIME_MS - elapsedTime;
+      minDisplayTimeoutRef.current = setTimeout(() => {
+        if (hideRequestedRef.current && isVisibleRef.current) {
+          performHide();
+        }
+      }, remainingTime);
+    }
+  }, [performHide]);
 
   const showSpinner = useCallback((delay: number = DEFAULT_DELAY_MS) => {
-    pendingHideRef.current = false;
+    hideRequestedRef.current = false;
     setIsLoading(true);
     
     if (delayTimeoutRef.current) {
@@ -55,6 +87,7 @@ export function SpinnerProvider({ children }: { children: ReactNode }) {
     delayTimeoutRef.current = setTimeout(() => {
       showTimeRef.current = Date.now();
       setIsVisible(true);
+      isVisibleRef.current = true;
     }, delay);
   }, []);
 
@@ -64,39 +97,14 @@ export function SpinnerProvider({ children }: { children: ReactNode }) {
       delayTimeoutRef.current = null;
     }
     
-    if (!isVisible) {
+    if (!isVisibleRef.current) {
       setIsLoading(false);
       return;
     }
     
-    const elapsedTime = Date.now() - showTimeRef.current;
-    const remainingMinTime = Math.max(0, MIN_DISPLAY_TIME_MS - elapsedTime);
-    
-    if (remainingMinTime > 0) {
-      pendingHideRef.current = true;
-      minDisplayTimeoutRef.current = setTimeout(() => {
-        if (pendingHideRef.current) {
-          performHide();
-        }
-      }, remainingMinTime);
-    } else {
-      performHide();
-    }
-  }, [isVisible]);
-
-  const performHide = useCallback(() => {
-    const spinnerElement = document.getElementById('spinner');
-    if (spinnerElement) {
-      spinnerElement.classList.remove('fade-in');
-      spinnerElement.classList.add('fade-out');
-    }
-    
-    fadeOutTimeoutRef.current = setTimeout(() => {
-      setIsLoading(false);
-      setIsVisible(false);
-      pendingHideRef.current = false;
-    }, FADE_DURATION_MS);
-  }, []);
+    hideRequestedRef.current = true;
+    checkAndHide();
+  }, [checkAndHide]);
 
   useEffect(() => {
     const spinnerElement = document.getElementById('spinner');
