@@ -154,8 +154,14 @@ export function PlayPage({
   const [showIntroScreen, setShowIntroScreen] = useState(false);
   const [introScreenReady, setIntroScreenReady] = useState(false);
   
+  // Track when guesses are being fetched asynchronously
+  const [guessesLoading, setGuessesLoading] = useState(false);
+  // Track when guesses have fully loaded (for triggering the 0.6s delay)
+  const [guessesLoaded, setGuessesLoaded] = useState(false);
+  
   // Delay showing grid data for games with existing progress (smoother transition)
-  const [gridDataReady, setGridDataReady] = useState(!hasExistingProgress);
+  // Starts false and only becomes true 0.6s AFTER guesses have loaded
+  const [gridDataReady, setGridDataReady] = useState(false);
   
   // Track spinner state for game loading
   const gameLoadingSpinnerRef = useRef(false);
@@ -185,9 +191,9 @@ export function PlayPage({
     onTimeout: handleGameLoadTimeout,
   });
   
-  // Check if game is loading (format or digits check not complete)
-  // Skip spinner entirely if hasExistingProgress - data is cached and will load instantly
-  const isGameLoading = !hasExistingProgress && (formatLoading || !digitsCheckComplete);
+  // Check if game is loading based on actual data loading states
+  // Show spinner when: format loading, attempts loading, or guesses being fetched
+  const isGameLoading = formatLoading || loadingAttempts || guessesLoading;
   
   // Manage game loading spinner with timeout
   useEffect(() => {
@@ -280,20 +286,31 @@ export function PlayPage({
     setDigitsCheckComplete(false);
     setShowIntroScreen(false);
     setIntroScreenReady(false);
-    // Reset grid data ready state - will be set after delay if hasExistingProgress
-    setGridDataReady(!hasExistingProgress);
-  }, [answerDateCanonical, hasExistingProgress]);
+    // Reset loading and ready states
+    setGuessesLoading(false);
+    setGuessesLoaded(false);
+    setGridDataReady(false);
+  }, [answerDateCanonical]);
   
-  // Delay showing grid data for games with existing progress (smoother page transition)
+  // Delay showing grid data after guesses have loaded (smoother page transition)
+  // Only applies to games with existing progress - triggers 0.6s after guesses load
   useEffect(() => {
-    if (hasExistingProgress && !gridDataReady) {
+    if (guessesLoaded && !gridDataReady) {
       const timer = setTimeout(() => {
         setGridDataReady(true);
-      }, 600); // 0.6 second delay
+      }, 600); // 0.6 second delay after guesses load
       
       return () => clearTimeout(timer);
     }
-  }, [hasExistingProgress, gridDataReady]);
+  }, [guessesLoaded, gridDataReady]);
+  
+  // For new games (no existing progress), show grid immediately
+  // This runs after attempts are checked and no prior attempt is found
+  useEffect(() => {
+    if (!hasExistingProgress && digitsCheckComplete && !gridDataReady) {
+      setGridDataReady(true);
+    }
+  }, [hasExistingProgress, digitsCheckComplete, gridDataReady]);
 
   // Check if puzzle is already completed and redirect if needed
   useEffect(() => {
@@ -327,13 +344,20 @@ export function PlayPage({
             let attemptGuesses = cachedGuesses;
             
             if (!cachedGuesses) {
-              // Cache miss - load from Supabase
-              const allGuesses = await getAllGuesses();
-              attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
-              
-              // Add to cache for next time (using mode-aware cache)
-              if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
-                setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses);
+              // Cache miss - need to fetch from Supabase
+              setGuessesLoading(true);
+              try {
+                const allGuesses = await getAllGuesses();
+                attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
+                
+                // Add to cache for next time (using mode-aware cache)
+                if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
+                  setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses);
+                }
+              } finally {
+                if (mounted) {
+                  setGuessesLoading(false);
+                }
               }
             }
             
@@ -372,9 +396,13 @@ export function PlayPage({
                   feedbackResult: feedback,
                   categoryName: (guess as any).categoryName ?? null
                 });
-
               }
               setGuessRecords(records);
+              // Mark guesses as loaded to trigger the 0.6s delay
+              setGuessesLoaded(true);
+            } else if (mounted) {
+              // No guesses found but attempt exists - mark as loaded
+              setGuessesLoaded(true);
             }
           } else if (mounted) {
             // No completed attempt found for authenticated users
@@ -396,6 +424,8 @@ export function PlayPage({
                 setGuesses(feedbackArrays);
                 setGuessRecords(completion.guesses);
               }
+              // Guest data is sync from localStorage - mark as loaded immediately
+              setGuessesLoaded(true);
             }
           }
           // For guest users, always mark digits check complete (no database to check)
@@ -436,19 +466,27 @@ export function PlayPage({
               console.log('[loadViewOnlyPuzzle] Locking digit mode to:', (completedAttempt as any).digits);
               setLockedDigits((completedAttempt as any).digits);
             }
+            setDigitsCheckComplete(true);
             
             // Try to load guesses from cache first for faster loading (using mode-aware cache)
             const cachedGuesses = puzzleId ? getGuessesForPuzzle(puzzleId, cacheMode) : null;
             let attemptGuesses = cachedGuesses;
             
             if (!cachedGuesses) {
-              // Cache miss - load from Supabase
-              const allGuesses = await getAllGuesses();
-              attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
-              
-              // Add to cache for next time (using mode-aware cache)
-              if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
-                setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses);
+              // Cache miss - need to fetch from Supabase
+              setGuessesLoading(true);
+              try {
+                const allGuesses = await getAllGuesses();
+                attemptGuesses = allGuesses.filter(g => g.gameAttemptId === completedAttempt.id);
+                
+                // Add to cache for next time (using mode-aware cache)
+                if (attemptGuesses && attemptGuesses.length > 0 && puzzleId) {
+                  setGuessesForPuzzle(puzzleId, cacheMode, attemptGuesses);
+                }
+              } finally {
+                if (mounted) {
+                  setGuessesLoading(false);
+                }
               }
             }
             
@@ -487,10 +525,17 @@ export function PlayPage({
                   feedbackResult: feedback,
                   categoryName: (guess as any).categoryName ?? null
                 });
-
               }
               setGuessRecords(records);
+              // Mark guesses as loaded to trigger the 0.6s delay
+              setGuessesLoaded(true);
+            } else if (mounted) {
+              // No guesses found but attempt exists - mark as loaded
+              setGuessesLoaded(true);
             }
+          } else if (mounted) {
+            // No completed attempt found
+            setDigitsCheckComplete(true);
           }
         } else {
           // For guest users, check localStorage
@@ -507,7 +552,13 @@ export function PlayPage({
                 setGuesses(feedbackArrays);
                 setGuessRecords(completion.guesses);
               }
+              // Guest data is sync from localStorage - mark as loaded immediately
+              setGuessesLoaded(true);
             }
+          }
+          // For guest users, always mark digits check complete (no database to check)
+          if (mounted) {
+            setDigitsCheckComplete(true);
           }
         }
       }
@@ -517,7 +568,7 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat]);
+  }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat, cacheMode]);
 
   // Auto-open celebration modal when returning from stats for completed archive puzzles
   useEffect(() => {
@@ -566,6 +617,7 @@ export function PlayPage({
             
             // Load guesses from mode-aware endpoint (Global or Local)
             console.log('[loadInProgressGame] Loading guesses for attemptId:', inProgressAttempt.id);
+            setGuessesLoading(true);
             try {
               const allGuesses = await getAllGuesses();
               console.log('[loadInProgressGame] Fetched all guesses:', allGuesses.length);
@@ -608,11 +660,21 @@ export function PlayPage({
                 setKeyStates(newKeyStates);
                 setWrongGuessCount(freshFeedbackArrays.length - freshFeedbackArrays.filter(fb => fb.every(cell => cell.state === 'correct')).length);
                 console.log('[loadInProgressGame] State updated successfully');
+                // Mark guesses as loaded to trigger the 0.6s delay
+                setGuessesLoaded(true);
               } else {
                 console.log('[loadInProgressGame] No guesses to load or component unmounted');
+                // No guesses found but attempt exists - mark as loaded
+                if (mounted) {
+                  setGuessesLoaded(true);
+                }
               }
             } catch (error) {
               console.error('[loadInProgressGame] Error loading guesses:', error);
+            } finally {
+              if (mounted) {
+                setGuessesLoading(false);
+              }
             }
           } else if (mounted) {
             // No in-progress attempt found for authenticated users
@@ -635,6 +697,8 @@ export function PlayPage({
               if (progress.keyStates) {
                 setKeyStates(progress.keyStates);
               }
+              // Guest data is sync from localStorage - mark as loaded immediately
+              setGuessesLoaded(true);
             }
           }
           // For guest users, always mark digits check complete (no database to check)
