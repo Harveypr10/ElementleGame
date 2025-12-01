@@ -184,18 +184,22 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
           }).then(data => ({ key: 'subscription', data })).catch(() => ({ key: 'subscription', data: null }))
           : Promise.resolve({ key: 'subscription', data: null }),
 
-          // Prefetch puzzles (public data)
-          queryClient.fetchQuery({
+          // Prefetch puzzles (requires auth for user's region)
+          authToken ? queryClient.fetchQuery({
             queryKey: ['/api/puzzles'],
             queryFn: async () => {
               const response = await fetch('/api/puzzles', {
                 credentials: 'include',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                },
               });
               if (!response.ok) throw new Error('Failed to fetch puzzles');
               return response.json();
             },
             staleTime: 10 * 60 * 1000,
-          }).then(data => ({ key: 'puzzles', data })).catch(() => ({ key: 'puzzles', data: null })),
+          }).then(data => ({ key: 'puzzles', data })).catch(() => ({ key: 'puzzles', data: null }))
+          : Promise.resolve({ key: 'puzzles', data: null }),
         ];
 
         // Execute all prefetch tasks in parallel

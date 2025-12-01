@@ -201,7 +201,11 @@ export function GameSelectionPage({
     if (!isAuthenticated) return null;
     const supabase = await getSupabaseClient();
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return null;
+    if (!session) {
+      // Throw error instead of returning null so TanStack Query retries
+      // This handles race conditions where auth state is established before session
+      throw new Error('Session not available yet');
+    }
 
     const response = await fetch(endpoint, {
       credentials: 'include',
@@ -260,6 +264,8 @@ export function GameSelectionPage({
     queryKey: ['/api/puzzles'],
     queryFn: () => fetchAuthenticated('/api/puzzles'),
     enabled: isAuthenticated,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   // Fetch Local puzzles (for authenticated users - uses user-specific data)
@@ -267,6 +273,8 @@ export function GameSelectionPage({
     queryKey: ['/api/user/puzzles'],
     queryFn: () => fetchAuthenticated('/api/user/puzzles'),
     enabled: isAuthenticated,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
   });
 
   // Fetch guest puzzles (for unauthenticated users - Global mode only)
