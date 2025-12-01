@@ -187,6 +187,7 @@ interface SpinnerTimeoutOptions {
   timeoutMs?: number;
   onRetry?: () => void;
   onTimeout?: () => void;
+  onFadeOutComplete?: () => void;
 }
 
 const DEFAULT_RETRY_DELAY_MS = 4000;
@@ -199,12 +200,15 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     onRetry,
     onTimeout,
+    onFadeOutComplete,
   } = options;
   
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const failTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fadeOutCompleteTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasRetriedRef = useRef(false);
   const isActiveRef = useRef(false);
+  const spinnerStartTimeRef = useRef<number>(0);
   
   const clearTimeouts = useCallback(() => {
     if (retryTimeoutRef.current) {
@@ -215,6 +219,10 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
       clearTimeout(failTimeoutRef.current);
       failTimeoutRef.current = null;
     }
+    if (fadeOutCompleteTimeoutRef.current) {
+      clearTimeout(fadeOutCompleteTimeoutRef.current);
+      fadeOutCompleteTimeoutRef.current = null;
+    }
   }, []);
   
   const start = useCallback((delay?: number) => {
@@ -222,6 +230,7 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
     
     isActiveRef.current = true;
     hasRetriedRef.current = false;
+    spinnerStartTimeRef.current = Date.now();
     clearTimeouts();
     
     showSpinner(delay ?? 0);
@@ -256,7 +265,18 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
     clearTimeouts();
     hideSpinner();
     console.log('[SpinnerWithTimeout] Completed successfully');
-  }, [hideSpinner, clearTimeouts]);
+    
+    if (onFadeOutComplete) {
+      const elapsedTime = Date.now() - spinnerStartTimeRef.current;
+      const remainingMinDisplayTime = Math.max(0, MIN_DISPLAY_TIME_MS - elapsedTime);
+      const totalWaitTime = remainingMinDisplayTime + FADE_DURATION_MS;
+      
+      fadeOutCompleteTimeoutRef.current = setTimeout(() => {
+        console.log('[SpinnerWithTimeout] Fade out complete - triggering callback');
+        onFadeOutComplete();
+      }, totalWaitTime);
+    }
+  }, [hideSpinner, clearTimeouts, onFadeOutComplete]);
   
   const cancel = useCallback(() => {
     isActiveRef.current = false;
