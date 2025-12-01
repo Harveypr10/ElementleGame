@@ -17,7 +17,7 @@ Preferred communication style: Simple, everyday language.
 - **Realtime Subscriptions**: `useRealtimeSubscriptions` hook for automatic UI refresh on database changes, refetching queries directly.
 - **Navigation-Based Data Refresh**: Automatic puzzle data refetching on navigation, especially for new signups and archive pages.
 - **Intro Screen**: Displays game information (formatted date, clue, event title) and a Play button for new games or unattempted archive puzzles.
-- **Loading Spinner System**: React-controlled spinner via `SpinnerProvider` with hamster wheel Lottie animation. Features 150ms delay before showing to avoid flash on fast loads. Controls visibility per-page/per-route without interfering with framer-motion transitions. Animation at `/assets/hamster.json`. CategorySelectionScreen uses spinner to block UI until user categories are synced from API. AccountInfoPage uses spinner to block UI until profile and regions data are loaded.
+- **Loading Spinner System**: React-controlled spinner via `SpinnerProvider` with hamster wheel Lottie animation. Features 150ms delay before showing to avoid flash on fast loads, 300ms fade in/out animation, minimum 1 second display time, and "Loading" text in medium grey below the animation. Controls visibility per-page/per-route without interfering with framer-motion transitions. Animation at `/assets/hamster.json`. CategorySelectionScreen uses spinner to block UI until user categories are synced from API. AccountInfoPage uses spinner to block UI until profile and regions data are loaded.
 
 ### Backend Architecture
 - **Server Framework**: Express.js with Node.js (ES modules) and TypeScript.

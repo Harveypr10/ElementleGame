@@ -25,21 +25,35 @@ interface SpinnerContextValue {
 const SpinnerContext = createContext<SpinnerContextValue | undefined>(undefined);
 
 const DEFAULT_DELAY_MS = 150;
+const FADE_DURATION_MS = 300;
+const MIN_DISPLAY_TIME_MS = 1000;
 
 export function SpinnerProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const delayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const minDisplayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fadeOutTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const animationRef = useRef<{ destroy: () => void } | null>(null);
+  const showTimeRef = useRef<number>(0);
+  const pendingHideRef = useRef<boolean>(false);
 
   const showSpinner = useCallback((delay: number = DEFAULT_DELAY_MS) => {
+    pendingHideRef.current = false;
     setIsLoading(true);
     
     if (delayTimeoutRef.current) {
       clearTimeout(delayTimeoutRef.current);
     }
+    if (minDisplayTimeoutRef.current) {
+      clearTimeout(minDisplayTimeoutRef.current);
+    }
+    if (fadeOutTimeoutRef.current) {
+      clearTimeout(fadeOutTimeoutRef.current);
+    }
     
     delayTimeoutRef.current = setTimeout(() => {
+      showTimeRef.current = Date.now();
       setIsVisible(true);
     }, delay);
   }, []);
@@ -50,8 +64,38 @@ export function SpinnerProvider({ children }: { children: ReactNode }) {
       delayTimeoutRef.current = null;
     }
     
-    setIsLoading(false);
-    setIsVisible(false);
+    if (!isVisible) {
+      setIsLoading(false);
+      return;
+    }
+    
+    const elapsedTime = Date.now() - showTimeRef.current;
+    const remainingMinTime = Math.max(0, MIN_DISPLAY_TIME_MS - elapsedTime);
+    
+    if (remainingMinTime > 0) {
+      pendingHideRef.current = true;
+      minDisplayTimeoutRef.current = setTimeout(() => {
+        if (pendingHideRef.current) {
+          performHide();
+        }
+      }, remainingMinTime);
+    } else {
+      performHide();
+    }
+  }, [isVisible]);
+
+  const performHide = useCallback(() => {
+    const spinnerElement = document.getElementById('spinner');
+    if (spinnerElement) {
+      spinnerElement.classList.remove('fade-in');
+      spinnerElement.classList.add('fade-out');
+    }
+    
+    fadeOutTimeoutRef.current = setTimeout(() => {
+      setIsLoading(false);
+      setIsVisible(false);
+      pendingHideRef.current = false;
+    }, FADE_DURATION_MS);
   }, []);
 
   useEffect(() => {
@@ -63,6 +107,11 @@ export function SpinnerProvider({ children }: { children: ReactNode }) {
     if (isVisible) {
       spinnerElement.style.display = 'flex';
       spinnerElement.setAttribute('aria-hidden', 'false');
+      spinnerElement.classList.remove('fade-out');
+      
+      requestAnimationFrame(() => {
+        spinnerElement.classList.add('fade-in');
+      });
       
       if (!animationRef.current && window.lottie) {
         try {
@@ -80,6 +129,7 @@ export function SpinnerProvider({ children }: { children: ReactNode }) {
     } else {
       spinnerElement.style.display = 'none';
       spinnerElement.setAttribute('aria-hidden', 'true');
+      spinnerElement.classList.remove('fade-in', 'fade-out');
       
       if (animationRef.current) {
         animationRef.current.destroy();
@@ -96,6 +146,12 @@ export function SpinnerProvider({ children }: { children: ReactNode }) {
     return () => {
       if (delayTimeoutRef.current) {
         clearTimeout(delayTimeoutRef.current);
+      }
+      if (minDisplayTimeoutRef.current) {
+        clearTimeout(minDisplayTimeoutRef.current);
+      }
+      if (fadeOutTimeoutRef.current) {
+        clearTimeout(fadeOutTimeoutRef.current);
       }
       if (animationRef.current) {
         animationRef.current.destroy();

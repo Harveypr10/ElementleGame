@@ -205,9 +205,15 @@ export function CategorySelectionScreen({
 
   const saveCategoriesMutation = useMutation({
     mutationFn: async (categoryIds: number[]) => {
+      console.log('[CategorySelectionScreen] Mutation started with categoryIds:', categoryIds);
+      
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+      if (!session) {
+        console.error('[CategorySelectionScreen] Mutation failed: No session');
+        throw new Error('Not authenticated');
+      }
       const accessToken = session.access_token;
+      console.log('[CategorySelectionScreen] Got session, proceeding to save categories');
 
       // Step 1: Save categories
       const response = await fetch('/api/user/pro-categories', {
@@ -221,11 +227,14 @@ export function CategorySelectionScreen({
       });
 
       if (!response.ok) {
+        console.error('[CategorySelectionScreen] Failed to save categories:', response.status);
         throw new Error('Failed to save categories');
       }
+      
+      console.log('[CategorySelectionScreen] Categories saved successfully to API');
 
       // Step 2: Call reset-and-reallocate-user Edge Function
-      console.log('[CategorySelectionScreen] Categories saved - calling reset-and-reallocate-user');
+      console.log('[CategorySelectionScreen] Calling reset-and-reallocate-user Edge Function');
       
       if (!accessToken) {
         throw new Error('No access token found');
@@ -254,8 +263,11 @@ export function CategorySelectionScreen({
             console.log('[CategorySelectionScreen] reset-and-reallocate-user status:', resetResponse.status, resetBody);
             
             if (!resetResponse.ok) {
+              console.error('[CategorySelectionScreen] reset-and-reallocate-user error:', resetResponse.status, resetBody);
               throw new Error(`reset-and-reallocate-user returned error: ${resetResponse.status}`);
             }
+            
+            console.log('[CategorySelectionScreen] reset-and-reallocate-user completed successfully');
           } catch (err) {
             console.error('[CategorySelectionScreen] reset-and-reallocate-user failed:', err);
             throw err;
@@ -263,10 +275,11 @@ export function CategorySelectionScreen({
         }
       }
 
+      console.log('[CategorySelectionScreen] Mutation mutationFn completed, returning response');
       return response.json();
     },
     onSuccess: (_, categoryIds) => {
-      console.log('[CategorySelectionScreen] Mutation success - categories saved:', categoryIds);
+      console.log('[CategorySelectionScreen] onSuccess handler called with categoryIds:', categoryIds);
       // Update cache with newly saved categories
       writeLocal(CACHE_KEYS.PRO_CATEGORIES, categoryIds);
       queryClient.invalidateQueries({ queryKey: ['/api/user/pro-categories'] });
@@ -321,6 +334,16 @@ export function CategorySelectionScreen({
   }, [selectedCategories, userCategories, loadingUserCategories, hasSyncedFromApi]);
 
   const handleGenerate = () => {
+    console.log('[CategorySelectionScreen] handleGenerate called', {
+      selectedCount: selectedCategories.size,
+      canGenerate,
+      categoriesHaveChanged,
+      hasSyncedFromApi,
+      userId: user?.id,
+      profileRegion: profile?.region,
+      profilePostcode: profile?.postcode,
+    });
+    
     if (selectedCategories.size < 3) {
       toast({
         title: 'Select More Categories',
@@ -330,6 +353,7 @@ export function CategorySelectionScreen({
       return;
     }
 
+    console.log('[CategorySelectionScreen] Starting mutation with categories:', Array.from(selectedCategories));
     saveCategoriesMutation.mutate(Array.from(selectedCategories));
   };
 
