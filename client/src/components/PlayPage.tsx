@@ -153,7 +153,6 @@ export function PlayPage({
   const [digitsCheckComplete, setDigitsCheckComplete] = useState(false);
   const [showIntroScreen, setShowIntroScreen] = useState(false);
   const [introScreenReady, setIntroScreenReady] = useState(false);
-  const [spinnerFadeComplete, setSpinnerFadeComplete] = useState(!hasExistingProgress);
   
   // Track spinner state for game loading
   const gameLoadingSpinnerRef = useRef(false);
@@ -175,18 +174,12 @@ export function PlayPage({
     onBack();
   }, [toast, onBack]);
   
-  const handleSpinnerFadeComplete = useCallback(() => {
-    console.log('[PlayPage] Spinner fade out complete - enabling grid animation');
-    setSpinnerFadeComplete(true);
-  }, []);
-  
   // Spinner with timeout for game loading
   const gameLoadingSpinner = useSpinnerWithTimeout({
     retryDelayMs: 4000,
     timeoutMs: 8000,
     onRetry: handleGameLoadRetry,
     onTimeout: handleGameLoadTimeout,
-    onFadeOutComplete: hasExistingProgress ? handleSpinnerFadeComplete : undefined,
   });
   
   // Check if game is loading (format or digits check not complete)
@@ -283,8 +276,7 @@ export function PlayPage({
     setDigitsCheckComplete(false);
     setShowIntroScreen(false);
     setIntroScreenReady(false);
-    setSpinnerFadeComplete(!hasExistingProgress);
-  }, [answerDateCanonical, hasExistingProgress]);
+  }, [answerDateCanonical]);
 
   // Check if puzzle is already completed and redirect if needed
   useEffect(() => {
@@ -1380,8 +1372,8 @@ export function PlayPage({
             )}
 
             <InputGrid
-              guesses={spinnerFadeComplete ? guesses : []}
-              currentInput={spinnerFadeComplete ? currentInput : ""}
+              guesses={guesses}
+              currentInput={currentInput}
               maxGuesses={maxGuesses}
               placeholders={activePlaceholders}
             />
