@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from "@/lib/SupabaseProvider";
+import { useSpinner } from "@/lib/SpinnerProvider";
 import { queryClient } from "@/lib/queryClient";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 import { OTPVerificationScreen } from "./OTPVerificationScreen";
@@ -37,8 +38,9 @@ interface AccountInfoPageProps {
 export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const supabase = useSupabase();
   const { user } = useAuth();
-  const { profile, updateProfile } = useProfile();
+  const { profile, updateProfile, isLoading: profileLoading } = useProfile();
   const { toast } = useToast();
+  const { showSpinner, hideSpinner } = useSpinner();
   const [loading, setLoading] = useState(false);
   const adBannerActive = useAdBannerActive();
   const [showOTPVerification, setShowOTPVerification] = useState(false);
@@ -48,10 +50,39 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [pendingRegion, setPendingRegion] = useState<string | null>(null);
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   
+  // Track if spinner has been managed
+  const spinnerManagedRef = useRef(false);
+  
   // Fetch available regions
   const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
     queryKey: ['/api/regions'],
   });
+  
+  // Manage spinner: show while profile is loading
+  useEffect(() => {
+    const isDataLoading = profileLoading || regionsLoading;
+    const isDataReady = !!profile && !!regions;
+    
+    if (isDataLoading && !spinnerManagedRef.current) {
+      console.log('[AccountInfoPage] Showing spinner - waiting for profile/regions data');
+      showSpinner(0);
+      spinnerManagedRef.current = true;
+    }
+    
+    if (isDataReady && spinnerManagedRef.current) {
+      console.log('[AccountInfoPage] Hiding spinner - data loaded');
+      hideSpinner();
+      spinnerManagedRef.current = false;
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (spinnerManagedRef.current) {
+        hideSpinner();
+        spinnerManagedRef.current = false;
+      }
+    };
+  }, [profileLoading, regionsLoading, profile, regions, showSpinner, hideSpinner]);
 
   const [profileData, setProfileData] = useState({
     firstName: "",
