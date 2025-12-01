@@ -3,11 +3,14 @@
     import { useToast } from "@/hooks/use-toast";
     import HamsterImageUrl from "@assets/Question-Hamster-Blue.svg";
 
+    type RegenerationType = 'first_login' | 'postcode_change' | 'category_change';
+
     interface GeneratingQuestionsScreenProps {
       userId: string;
       region: string;
       postcode: string;
       onComplete: () => void;
+      regenerationType?: RegenerationType;
     }
 
     interface TextBlock {
@@ -24,6 +27,7 @@
       region,
       postcode,
       onComplete,
+      regenerationType = 'first_login',
     }: GeneratingQuestionsScreenProps) {
       const supabase = useSupabase();
       const { toast } = useToast();

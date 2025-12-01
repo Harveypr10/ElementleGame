@@ -1880,6 +1880,80 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Update restriction timestamps after question generation completes
+  // Called by GeneratingQuestionsScreen after generation finishes
+  app.post("/api/generation-complete", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { regenerationType } = req.body;
+      
+      console.log(`[POST /api/generation-complete] userId=${userId}, regenerationType=${regenerationType}`);
+      
+      if (!regenerationType || !['first_login', 'postcode_change', 'category_change'].includes(regenerationType)) {
+        return res.status(400).json({ error: "Invalid regenerationType" });
+      }
+      
+      const profile = await storage.getUserProfile(userId);
+      if (!profile) {
+        console.log(`[POST /api/generation-complete] No profile found for user ${userId}`);
+        return res.status(404).json({ error: "User profile not found" });
+      }
+      
+      const now = new Date();
+      let updated = false;
+      
+      if (regenerationType === 'first_login') {
+        // Initial signup flow: set postcode_last_changed_at only if NULL (one-time)
+        if (!profile.postcodeLastChangedAt) {
+          await storage.upsertUserProfile({
+            id: userId,
+            email: profile.email,
+            postcodeLastChangedAt: now,
+          });
+          console.log(`[POST /api/generation-complete] Set postcodeLastChangedAt to ${now} for first_login (was NULL)`);
+          updated = true;
+        } else {
+          console.log(`[POST /api/generation-complete] postcodeLastChangedAt already set, skipping for first_login`);
+        }
+      } else if (regenerationType === 'postcode_change') {
+        // Postcode/region change: always update postcodeLastChangedAt
+        await storage.upsertUserProfile({
+          id: userId,
+          email: profile.email,
+          postcodeLastChangedAt: now,
+        });
+        console.log(`[POST /api/generation-complete] Updated postcodeLastChangedAt to ${now} for postcode_change`);
+        updated = true;
+      } else if (regenerationType === 'category_change') {
+        // Category change: set categories_last_changed_at
+        // On first run (NULL), initialize it; on subsequent runs, update it
+        if (!profile.categoriesLastChangedAt) {
+          await storage.upsertUserProfile({
+            id: userId,
+            email: profile.email,
+            categoriesLastChangedAt: now,
+          });
+          console.log(`[POST /api/generation-complete] Set categoriesLastChangedAt to ${now} for category_change (was NULL)`);
+          updated = true;
+        } else {
+          // Subsequent category changes - also update the timestamp
+          await storage.upsertUserProfile({
+            id: userId,
+            email: profile.email,
+            categoriesLastChangedAt: now,
+          });
+          console.log(`[POST /api/generation-complete] Updated categoriesLastChangedAt to ${now} for category_change`);
+          updated = true;
+        }
+      }
+      
+      res.json({ success: true, updated, regenerationType });
+    } catch (error) {
+      console.error("Error in generation-complete:", error);
+      res.status(500).json({ error: "Failed to update timestamps" });
+    }
+  });
+
   // Demand scheduler config routes (admin only)
   app.get("/api/admin/demand-scheduler", verifySupabaseAuth, requireAdmin, async (req, res) => {
     try {
