@@ -24,6 +24,29 @@
       spawnTime: number; // ms timestamp
     }
 
+    // Idempotency guard: prevents duplicate calculate-demand calls within a short time window
+    // Uses sessionStorage to persist across React StrictMode double-mounts
+    const DEMAND_CALL_COOLDOWN_MS = 30000; // 30 second window
+    const DEMAND_CALL_KEY_PREFIX = 'elementle_demand_call_';
+
+    function getDemandCallKey(userId: string, regenerationType: string): string {
+      return `${DEMAND_CALL_KEY_PREFIX}${userId}_${regenerationType}`;
+    }
+
+    function canCallDemand(userId: string, regenerationType: string): boolean {
+      const key = getDemandCallKey(userId, regenerationType);
+      const lastCallTime = sessionStorage.getItem(key);
+      if (!lastCallTime) return true;
+      
+      const elapsed = Date.now() - parseInt(lastCallTime, 10);
+      return elapsed >= DEMAND_CALL_COOLDOWN_MS;
+    }
+
+    function markDemandCalled(userId: string, regenerationType: string): void {
+      const key = getDemandCallKey(userId, regenerationType);
+      sessionStorage.setItem(key, Date.now().toString());
+    }
+
     export function GeneratingQuestionsScreen({
       userId,
       region,
@@ -525,19 +548,25 @@ if (!supabaseUrl) {
   console.log("[GeneratingQuestions] Function base URL:", functionBaseUrl);
 
   // Step 5: calculate-demand only (allocate-questions is triggered automatically server-side)
-  try {
-    console.log("[GeneratingQuestions] Step 5: Calling calculate-demand");
-    const demandPayload = { user_id: userId, region, today: new Date().toISOString().slice(0, 10) };
-    const demandResponse = await fetch(`${functionBaseUrl}/calculate-demand`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify(demandPayload),
-    });
-    const demandBody = await demandResponse.text();
-    console.log("[GeneratingQuestions] calculate-demand status:", demandResponse.status, demandBody);
-    if (!demandResponse.ok) throw new Error(`calculate-demand returned error: ${demandResponse.status}`);
-  } catch (err) {
-    console.error("[GeneratingQuestions] Step 5 failed:", err);
+  // Use idempotency guard to prevent duplicate calls in React StrictMode
+  if (!canCallDemand(userId, regenerationType)) {
+    console.log("[GeneratingQuestions] Step 5: SKIPPED calculate-demand - idempotency guard active (already called within cooldown window)");
+  } else {
+    try {
+      console.log("[GeneratingQuestions] Step 5: Calling calculate-demand");
+      markDemandCalled(userId, regenerationType); // Mark before call to prevent race conditions
+      const demandPayload = { user_id: userId, region, today: new Date().toISOString().slice(0, 10) };
+      const demandResponse = await fetch(`${functionBaseUrl}/calculate-demand`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(demandPayload),
+      });
+      const demandBody = await demandResponse.text();
+      console.log("[GeneratingQuestions] calculate-demand status:", demandResponse.status, demandBody);
+      if (!demandResponse.ok) throw new Error(`calculate-demand returned error: ${demandResponse.status}`);
+    } catch (err) {
+      console.error("[GeneratingQuestions] Step 5 failed:", err);
+    }
   }
 }
   // Step 6 removed and is now called within calculate-demand
@@ -636,7 +665,9 @@ if (!supabaseUrl) {
       // Cleanup on unmount
       return () => {
         mountedRef.current = false;
-        // Reset sequenceStartedRef so sequence can restart on remount (handles React StrictMode double-mount)
+        // Reset sequenceStartedRef to allow animations to restart on remount (for React StrictMode).
+        // The sessionStorage-based idempotency guard (canCallDemand/markDemandCalled) prevents
+        // duplicate calculate-demand calls even if the sequence runs twice.
         sequenceStartedRef.current = false;
         console.log("[GeneratingQuestions] cleanup: clearing timers and resetting sequence flag");
         if (spawnInterval !== null) {
