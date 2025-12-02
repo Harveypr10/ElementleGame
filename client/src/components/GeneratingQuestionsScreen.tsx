@@ -127,26 +127,53 @@
           });
           let eventTitles: string[] = [];
           try {
-            let query = supabase
-              .from("questions_master_region")
-              .select("event_title, categories");
-            
             // If this is a category change with selected categories, filter by those categories
-            // The categories column is a JSONB array of category IDs
+            // The categories column is a JSONB array of category IDs like [1, 2, 3]
+            // Fetch all and filter client-side for reliability
             if (regenerationType === 'category_change' && selectedCategoryIds && selectedCategoryIds.length > 0) {
-              // Build an OR filter for any category overlap using Supabase's overlaps operator
-              // The overlaps operator checks if the JSONB array has any overlap with the provided array
-              query = query.overlaps('categories', selectedCategoryIds);
               console.log("[GeneratingQuestions] Filtering by categories:", selectedCategoryIds);
-            }
-            
-            const { data: eventData, error: eventErr } = await query.limit(30);
-            
-            if (eventErr) console.error("[GeneratingQuestions] fetch titles error", eventErr);
-            if (eventData && eventData.length) {
-              eventTitles = eventData.map((e: any) => e.event_title + "...");
-              console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, 
-                regenerationType === 'category_change' ? "(filtered by selected categories)" : "(all categories)");
+              
+              // Fetch more questions and filter client-side to ensure we get matching results
+              const { data: eventData, error: eventErr } = await supabase
+                .from("questions_master_region")
+                .select("event_title, categories")
+                .limit(100);
+              
+              if (eventErr) console.error("[GeneratingQuestions] fetch titles error", eventErr);
+              
+              if (eventData && eventData.length) {
+                // Filter questions that have at least one matching category
+                const categorySet = new Set(selectedCategoryIds);
+                const filteredEvents = eventData.filter((e: any) => {
+                  const questionCategories = e.categories as number[] | null;
+                  if (!questionCategories || !Array.isArray(questionCategories)) return false;
+                  return questionCategories.some(cat => categorySet.has(cat));
+                });
+                
+                console.log("[GeneratingQuestions] Filtered from", eventData.length, "to", filteredEvents.length, "questions");
+                
+                if (filteredEvents.length > 0) {
+                  // Shuffle and take first 30
+                  const shuffled = filteredEvents.sort(() => Math.random() - 0.5);
+                  eventTitles = shuffled.slice(0, 30).map((e: any) => e.event_title + "...");
+                  console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, "(filtered by selected categories)");
+                } else {
+                  console.log("[GeneratingQuestions] No titles found for selected categories, using unfiltered");
+                  eventTitles = eventData.slice(0, 30).map((e: any) => e.event_title + "...");
+                }
+              }
+            } else {
+              // For first_login or postcode_change, fetch all questions
+              const { data: eventData, error: eventErr } = await supabase
+                .from("questions_master_region")
+                .select("event_title")
+                .limit(30);
+              
+              if (eventErr) console.error("[GeneratingQuestions] fetch titles error", eventErr);
+              if (eventData && eventData.length) {
+                eventTitles = eventData.map((e: any) => e.event_title + "...");
+                console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, "(all categories)");
+              }
             }
           } catch (err) {
             console.error("[GeneratingQuestions] fetch titles failed", err);
