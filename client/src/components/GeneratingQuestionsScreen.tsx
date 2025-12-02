@@ -207,8 +207,10 @@
               if (eventData && eventData.length) {
                 // Deduplicate event titles to avoid showing same title twice
                 const uniqueTitles = Array.from(new Set(eventData.map((e: any) => e.event_title)));
-                eventTitles = uniqueTitles.slice(0, 30).map((title: string) => title + "...");
-                console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, "(all categories, deduped)");
+                // Shuffle to ensure random order (prevents same first title showing twice at start)
+                const shuffled = uniqueTitles.sort(() => Math.random() - 0.5);
+                eventTitles = shuffled.slice(0, 30).map((title: string) => title + "...");
+                console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, "(all categories, deduped, shuffled)");
               }
             }
           } catch (err) {
