@@ -20,6 +20,7 @@ import {
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
@@ -40,6 +41,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const supabase = useSupabase();
   const { user } = useAuth();
   const { profile, updateProfile, isLoading: profileLoading } = useProfile();
+  const { isPro } = useSubscription();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [loading, setLoading] = useState(false);
@@ -615,6 +617,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
         postcode={profileData.postcode}
         onComplete={handleGeneratingQuestionsComplete}
         regenerationType="postcode_change"
+        isPro={isPro}
       />
     );
   }

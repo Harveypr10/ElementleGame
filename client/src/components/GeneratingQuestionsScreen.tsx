@@ -12,6 +12,7 @@
       onComplete: () => void;
       regenerationType?: RegenerationType;
       selectedCategoryIds?: number[]; // For category_change: filter event_titles to match selected categories
+      isPro?: boolean; // For postcode_change: if Pro, fetch and filter by user's saved categories
     }
 
     interface TextBlock {
@@ -30,6 +31,7 @@
       onComplete,
       regenerationType = 'first_login',
       selectedCategoryIds,
+      isPro = false,
     }: GeneratingQuestionsScreenProps) {
       const supabase = useSupabase();
       const { toast } = useToast();
@@ -120,18 +122,47 @@
 
           // Step 1: fetch titles
           // For category_change with selectedCategoryIds, filter to matching categories only
-          // For first_login or postcode_change, show all questions
+          // For postcode_change with isPro, fetch user's saved categories and filter by them
+          // For first_login or non-Pro postcode_change, show all questions
           console.log("[GeneratingQuestions] Step 1: fetching titles...", {
             regenerationType,
             selectedCategoryIds: selectedCategoryIds?.length ?? 0,
+            isPro,
           });
           let eventTitles: string[] = [];
           try {
-            // If this is a category change with selected categories, filter by those categories
-            // The categories column is a JSONB array of category IDs like [1, 2, 3]
-            // Fetch all and filter client-side for reliability
-            if (regenerationType === 'category_change' && selectedCategoryIds && selectedCategoryIds.length > 0) {
-              console.log("[GeneratingQuestions] Filtering by categories:", selectedCategoryIds);
+            // Determine which category IDs to use for filtering
+            let categoryIdsToFilter: number[] | undefined = selectedCategoryIds;
+            
+            // For Pro users doing postcode_change, fetch their saved categories
+            if (regenerationType === 'postcode_change' && isPro && !selectedCategoryIds) {
+              console.log("[GeneratingQuestions] Pro user postcode change - fetching saved categories");
+              try {
+                const categoriesResponse = await fetch('/api/user/pro-categories', {
+                  credentials: 'include',
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                  },
+                });
+                if (categoriesResponse.ok) {
+                  const categoriesData = await categoriesResponse.json();
+                  if (categoriesData.categoryIds && Array.isArray(categoriesData.categoryIds) && categoriesData.categoryIds.length > 0) {
+                    categoryIdsToFilter = categoriesData.categoryIds;
+                    console.log("[GeneratingQuestions] Pro user's saved categories:", categoryIdsToFilter);
+                  }
+                }
+              } catch (catErr) {
+                console.error("[GeneratingQuestions] Failed to fetch user's saved categories:", catErr);
+              }
+            }
+            
+            // Filter by categories if we have any (category_change OR Pro postcode_change)
+            const shouldFilterByCategories = 
+              (regenerationType === 'category_change' && selectedCategoryIds && selectedCategoryIds.length > 0) ||
+              (regenerationType === 'postcode_change' && isPro && categoryIdsToFilter && categoryIdsToFilter.length > 0);
+            
+            if (shouldFilterByCategories && categoryIdsToFilter && categoryIdsToFilter.length > 0) {
+              console.log("[GeneratingQuestions] Filtering by categories:", categoryIdsToFilter);
               
               // Fetch more questions and filter client-side to ensure we get matching results
               const { data: eventData, error: eventErr } = await supabase
@@ -143,7 +174,7 @@
               
               if (eventData && eventData.length) {
                 // Filter questions that have at least one matching category
-                const categorySet = new Set(selectedCategoryIds);
+                const categorySet = new Set(categoryIdsToFilter);
                 const filteredEvents = eventData.filter((e: any) => {
                   const questionCategories = e.categories as number[] | null;
                   if (!questionCategories || !Array.isArray(questionCategories)) return false;
@@ -163,7 +194,7 @@
                 }
               }
             } else {
-              // For first_login or postcode_change, fetch all questions
+              // For first_login or non-Pro postcode_change, fetch all questions
               const { data: eventData, error: eventErr } = await supabase
                 .from("questions_master_region")
                 .select("event_title")
