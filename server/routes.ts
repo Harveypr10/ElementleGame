@@ -2184,6 +2184,59 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Debug endpoint to check user data (admin only)
+  app.get("/api/admin/debug-user/:userId", verifySupabaseAuth, requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log("[GET /api/admin/debug-user] Checking user:", userId);
+      
+      // Get user profile from Supabase
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from("user_profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      
+      if (profileError) {
+        console.error("[GET /api/admin/debug-user] Profile error:", profileError);
+      }
+      
+      // Get location_allocation entries
+      const { data: locations, error: locError } = await supabaseAdmin
+        .from("location_allocation")
+        .select("*")
+        .eq("user_id", userId);
+      
+      if (locError) {
+        console.error("[GET /api/admin/debug-user] Location allocation error:", locError);
+      }
+      
+      // Get user_question_allocation entries (count only)
+      const { data: questions, error: questionsError, count } = await supabaseAdmin
+        .from("user_question_allocation")
+        .select("id", { count: 'exact' })
+        .eq("user_id", userId);
+      
+      if (questionsError) {
+        console.error("[GET /api/admin/debug-user] Questions error:", questionsError);
+      }
+      
+      res.json({
+        userId,
+        profile: profile || null,
+        profileError: profileError?.message || null,
+        locationAllocation: locations || [],
+        locationAllocationCount: locations?.length || 0,
+        locationError: locError?.message || null,
+        questionAllocationCount: count || 0,
+        questionsError: questionsError?.message || null,
+      });
+    } catch (error: any) {
+      console.error("[GET /api/admin/debug-user] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
