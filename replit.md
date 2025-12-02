@@ -48,6 +48,9 @@ Preferred communication style: Simple, everyday language.
   - **RenewalPopup**: Modal shown when subscription expires, offers Renew or Don't Go Pro options.
 - **Pro UI Design**: Distinct UI elements for Pro users, including "Go Pro" buttons, orange gradients for premium features, and a dedicated "Select Categories" button.
 - **Question Regeneration Workflow**: Triggers an Edge Function to reset and reallocate questions based on postcode or category changes, displaying a `GeneratingQuestionsScreen`.
+  - **Idempotency Guard**: Client-side sessionStorage-based guard prevents duplicate `calculate-demand` calls within 30-second window.
+  - **Signup Flow**: Explicitly sets `first_login_completed: false` in user_metadata during signup to ensure GeneratingQuestionsScreen runs.
+  - **Server-side Trigger**: `allocate-questions` is triggered automatically when demand rows are inserted into `demand_summary` table.
 - **Advertising System**: `AdBanner` for banner ads (Google AdMob) and `InterstitialAd` for interstitial ads after archive puzzle completions, disabled for Pro subscribers.
 - **Guest Mode & Restrictions**: Guests can play Global puzzles but are restricted from Personal mode and Archive, prompted to register/login.
 - **Dual-Mode Architecture (Global vs Local)**: Independent data fetching and rendering for Global and Local game modes using separate TanStack Query calls.

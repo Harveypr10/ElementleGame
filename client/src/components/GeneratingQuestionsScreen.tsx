@@ -47,6 +47,11 @@
       sessionStorage.setItem(key, Date.now().toString());
     }
 
+    function clearDemandMark(userId: string, regenerationType: string): void {
+      const key = getDemandCallKey(userId, regenerationType);
+      sessionStorage.removeItem(key);
+    }
+
     export function GeneratingQuestionsScreen({
       userId,
       region,
@@ -563,8 +568,14 @@ if (!supabaseUrl) {
       });
       const demandBody = await demandResponse.text();
       console.log("[GeneratingQuestions] calculate-demand status:", demandResponse.status, demandBody);
-      if (!demandResponse.ok) throw new Error(`calculate-demand returned error: ${demandResponse.status}`);
+      if (!demandResponse.ok) {
+        // Clear the mark on failure so retries are allowed
+        clearDemandMark(userId, regenerationType);
+        throw new Error(`calculate-demand returned error: ${demandResponse.status}`);
+      }
     } catch (err) {
+      // Clear the mark on any error so retries are allowed
+      clearDemandMark(userId, regenerationType);
       console.error("[GeneratingQuestions] Step 5 failed:", err);
     }
   }
