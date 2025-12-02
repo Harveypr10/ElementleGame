@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -413,7 +414,8 @@ export function CategorySelectionScreen({
   };
 
   // Handler for when GeneratingQuestionsScreen completes
-  const handleGeneratingQuestionsComplete = () => {
+  // Wrapped in useCallback to ensure stable reference for portal rendering
+  const handleGeneratingQuestionsComplete = useCallback(() => {
     console.log('[CategorySelectionScreen] GeneratingQuestionsScreen complete');
     setShowGeneratingQuestions(false);
     generatingDataRef.current = null; // Clear cached data
@@ -427,39 +429,51 @@ export function CategorySelectionScreen({
       description: 'Your puzzles are being refreshed with your new preferences.',
     });
     onGenerate(); // Close and return to GameSelectionPage
-  };
+  }, [queryClient, toast, onGenerate]);
 
   // Button only enabled when 3+ categories selected AND they differ from saved categories
   const canGenerate = selectedCategories.size >= 3 && categoriesHaveChanged;
 
   // Show GeneratingQuestionsScreen after categories are saved
-  // Use cached ref data to prevent remounting on re-renders when user/profile objects change
-  if (showGeneratingQuestions && generatingDataRef.current) {
+  // Render as a portal at the document body level to prevent unmounting when parent unmounts
+  // This fixes the issue where navigation changes cause CategorySelectionScreen to unmount
+  const generatingScreenPortal = useMemo(() => {
+    if (!showGeneratingQuestions || !generatingDataRef.current) return null;
+    
     const { userId, region, postcode } = generatingDataRef.current;
-    console.log('[CategorySelectionScreen] Showing GeneratingQuestionsScreen with cached data:', {
+    console.log('[CategorySelectionScreen] Rendering GeneratingQuestionsScreen portal with cached data:', {
       userId,
       region,
       postcode,
     });
-    return (
-      <GeneratingQuestionsScreen
-        userId={userId}
-        region={region}
-        postcode={postcode}
-        onComplete={handleGeneratingQuestionsComplete}
-        regenerationType="category_change"
-      />
+    
+    return createPortal(
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }}>
+        <GeneratingQuestionsScreen
+          userId={userId}
+          region={region}
+          postcode={postcode}
+          onComplete={handleGeneratingQuestionsComplete}
+          regenerationType="category_change"
+        />
+      </div>,
+      document.body
     );
-  }
+  }, [showGeneratingQuestions, handleGeneratingQuestionsComplete]);
   
   // Log if we're trying to show GeneratingQuestionsScreen but can't
-  if (showGeneratingQuestions) {
+  if (showGeneratingQuestions && !generatingDataRef.current) {
     console.error('[CategorySelectionScreen] Cannot show GeneratingQuestionsScreen - missing cached data:', {
       showGeneratingQuestions,
       generatingDataRef: generatingDataRef.current,
       userId: user?.id,
       profileRegion: profile?.region,
     });
+  }
+  
+  // Render the portal if showing generating screen
+  if (generatingScreenPortal) {
+    return generatingScreenPortal;
   }
 
   return (
