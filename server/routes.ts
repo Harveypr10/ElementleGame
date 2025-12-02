@@ -38,6 +38,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validate postcode exists in the location-based postcode table
+  // This checks against the same dataset used by populate_user_locations RPC
+  app.get("/api/postcodes/validate", async (req, res) => {
+    try {
+      const postcode = req.query.postcode as string;
+      
+      if (!postcode) {
+        return res.json({ valid: true }); // Empty postcode is valid (optional field)
+      }
+      
+      // Sanitize: remove all non-alphanumeric characters and uppercase
+      const sanitizedPostcode = postcode.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+      
+      // Validate UK postcode pattern (basic format: 2-4 chars, then 1 digit, then 2 alphanumerics)
+      // UK postcodes are 5-7 characters without spaces
+      const ukPostcodePattern = /^[A-Z]{1,2}[0-9][0-9A-Z]?[0-9][A-Z]{2}$/;
+      if (!ukPostcodePattern.test(sanitizedPostcode)) {
+        console.log("[GET /api/postcodes/validate] Invalid UK postcode format:", sanitizedPostcode);
+        return res.json({ valid: false, reason: "Invalid postcode format" });
+      }
+      
+      console.log("[GET /api/postcodes/validate] Checking postcode:", sanitizedPostcode);
+      
+      // Format postcode with space for database lookup (outward + inward code)
+      // UK postcodes have 3-character inward code at the end
+      const outward = sanitizedPostcode.slice(0, -3);
+      const inward = sanitizedPostcode.slice(-3);
+      const formattedPostcode = `${outward} ${inward}`;
+      
+      // Query the Supabase postcodes table using parameterized queries (safe from injection)
+      // Check both with space and without space formatting
+      const { data, error } = await supabaseAdmin
+        .from("postcodes")
+        .select("name1")
+        .or(`name1.eq.${sanitizedPostcode},name1.eq.${formattedPostcode}`)
+        .limit(1);
+      
+      if (error) {
+        console.error("[GET /api/postcodes/validate] Database error:", error);
+        // FAIL CLOSED: On database errors, reject the postcode for safety
+        return res.json({ valid: false, reason: "Could not validate postcode" });
+      }
+      
+      const isValid = data && data.length > 0;
+      console.log("[GET /api/postcodes/validate] Postcode valid:", isValid, "Result:", data);
+      
+      res.json({ valid: isValid });
+    } catch (error: any) {
+      console.error("[GET /api/postcodes/validate] Error:", error);
+      // FAIL CLOSED: On any error, reject the postcode
+      res.json({ valid: false, reason: "Validation error" });
+    }
+  });
+
   // PUBLIC puzzle endpoint for guests (defaults to UK region)
   app.get("/api/puzzles/guest", async (req, res) => {
     try {

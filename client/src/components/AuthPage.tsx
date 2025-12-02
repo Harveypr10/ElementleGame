@@ -43,6 +43,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   const [loading, setLoading] = useState(false);
   const adBannerActive = useAdBannerActive();
   const [showPostcodeWarning, setShowPostcodeWarning] = useState(false);
+  const [showPostcodeInvalidDialog, setShowPostcodeInvalidDialog] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
 
   // Fetch available regions
@@ -145,6 +146,22 @@ const handleSubmit = async (e: React.FormEvent) => {
     // Check if postcode is blank and show warning
     if (!formData.postcode.trim()) {
       setShowPostcodeWarning(true);
+      return;
+    }
+
+    // Validate postcode exists in the location-based postcode database
+    try {
+      const validateResponse = await fetch(`/api/postcodes/validate?postcode=${encodeURIComponent(formData.postcode.trim())}`);
+      const validateResult = await validateResponse.json();
+      
+      if (!validateResult.valid) {
+        setShowPostcodeInvalidDialog(true);
+        return;
+      }
+    } catch (error) {
+      console.error("[AUTH] Postcode validation error:", error);
+      // On validation error, still show the dialog to be safe
+      setShowPostcodeInvalidDialog(true);
       return;
     }
   }
@@ -656,6 +673,33 @@ const handleSubmit = async (e: React.FormEvent) => {
               data-testid="button-confirm-postcode-warning"
             >
               Continue Without Postcode
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Postcode not supported dialog */}
+      <AlertDialog open={showPostcodeInvalidDialog} onOpenChange={setShowPostcodeInvalidDialog}>
+        <AlertDialogContent data-testid="alert-postcode-invalid">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Postcode Not Supported</AlertDialogTitle>
+            <AlertDialogDescription>
+              Unfortunately this postcode is not currently supported for location based questions. Please try another postcode or leave the postcode blank to have Hammie generate your personalised questions for you.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction 
+              onClick={() => {
+                setShowPostcodeInvalidDialog(false);
+                setFormData(prev => ({ ...prev, postcode: "" }));
+                // Focus the postcode field after a short delay
+                setTimeout(() => {
+                  postcodeRef.current?.focus();
+                }, 100);
+              }}
+              data-testid="button-ok-postcode-invalid"
+            >
+              OK
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

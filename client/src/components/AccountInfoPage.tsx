@@ -55,6 +55,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   const [showRestrictionPopup, setShowRestrictionPopup] = useState(false);
   const [restrictionMessage, setRestrictionMessage] = useState("");
+  const [showPostcodeInvalidDialog, setShowPostcodeInvalidDialog] = useState(false);
   
   // Track if spinner was actually shown (not just managed)
   const spinnerShownRef = useRef(false);
@@ -302,11 +303,34 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const emailChanged = profileData.email !== originalEmail;
+    const postcodeChanged = profileData.postcode !== originalPostcode;
+    
+    // If postcode is changing to a non-empty value, validate it first
+    if (postcodeChanged && profileData.postcode && profileData.postcode.trim()) {
+      try {
+        const validateResponse = await fetch(`/api/postcodes/validate?postcode=${encodeURIComponent(profileData.postcode.trim())}`);
+        const validateResult = await validateResponse.json();
+        
+        if (!validateResult.valid) {
+          // Postcode not supported - show dialog and revert to original
+          setShowPostcodeInvalidDialog(true);
+          setProfileData(prev => ({ ...prev, postcode: originalPostcode }));
+          return;
+        }
+      } catch (error) {
+        console.error("[AccountInfo] Postcode validation error:", error);
+        // On validation error, show the dialog to be safe
+        setShowPostcodeInvalidDialog(true);
+        setProfileData(prev => ({ ...prev, postcode: originalPostcode }));
+        return;
+      }
+    }
+    
     setLoading(true);
 
     try {
-      const emailChanged = profileData.email !== originalEmail;
-      const postcodeChanged = profileData.postcode !== originalPostcode;
 
       if (emailChanged) {
         // Initiate email change - Supabase will send OTP to new email
@@ -874,6 +898,26 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
             <AlertDialogAction 
               onClick={() => setShowRestrictionPopup(false)} 
               data-testid="button-dismiss-restriction"
+            >
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Postcode not supported dialog */}
+      <AlertDialog open={showPostcodeInvalidDialog} onOpenChange={setShowPostcodeInvalidDialog}>
+        <AlertDialogContent data-testid="alert-postcode-invalid">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Postcode Not Supported</AlertDialogTitle>
+            <AlertDialogDescription>
+              Unfortunately this postcode is not currently supported for location based questions. Please try another postcode or leave the postcode blank to have Hammie generate your personalised questions for you.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction 
+              onClick={() => setShowPostcodeInvalidDialog(false)}
+              data-testid="button-ok-postcode-invalid"
             >
               OK
             </AlertDialogAction>
