@@ -2088,13 +2088,22 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const setting = await storage.getAdminSetting('postcode_restriction_days');
       const restrictionDays = setting ? parseInt(setting.value, 10) : 14;
       
-      // Drop the existing trigger if it exists
+      // Drop ALL triggers that might be using the postcode guard function
+      // There may be multiple trigger names pointing to the same function
       await db.execute(sql`DROP TRIGGER IF EXISTS trg_postcode_guard ON public.user_profiles`);
       console.log("[POST /api/admin/fix-postcode-trigger] Dropped trigger trg_postcode_guard (if existed)");
       
-      // Drop the function if it exists
-      await db.execute(sql`DROP FUNCTION IF EXISTS trg_postcode_guard()`);
-      console.log("[POST /api/admin/fix-postcode-trigger] Dropped function trg_postcode_guard() (if existed)");
+      await db.execute(sql`DROP TRIGGER IF EXISTS user_profiles_postcode_guard ON public.user_profiles`);
+      console.log("[POST /api/admin/fix-postcode-trigger] Dropped trigger user_profiles_postcode_guard (if existed)");
+      
+      // Also try other possible trigger names
+      await db.execute(sql`DROP TRIGGER IF EXISTS postcode_guard ON public.user_profiles`);
+      await db.execute(sql`DROP TRIGGER IF EXISTS postcode_change_guard ON public.user_profiles`);
+      console.log("[POST /api/admin/fix-postcode-trigger] Dropped all known postcode guard triggers");
+      
+      // Now drop the function with CASCADE to remove any remaining dependencies
+      await db.execute(sql`DROP FUNCTION IF EXISTS trg_postcode_guard() CASCADE`);
+      console.log("[POST /api/admin/fix-postcode-trigger] Dropped function trg_postcode_guard() with CASCADE");
       
       // If restriction is > 0, create a new trigger that reads from admin_settings
       if (restrictionDays > 0) {
@@ -2167,7 +2176,10 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       res.status(500).json({ 
         error: "Failed to fix trigger", 
         details: error.message,
-        hint: "You may need to run this SQL directly in Supabase SQL Editor: DROP TRIGGER IF EXISTS trg_postcode_guard ON public.user_profiles; DROP FUNCTION IF EXISTS trg_postcode_guard();"
+        hint: "You may need to run this SQL directly in Supabase SQL Editor:\n" +
+              "DROP TRIGGER IF EXISTS trg_postcode_guard ON public.user_profiles;\n" +
+              "DROP TRIGGER IF EXISTS user_profiles_postcode_guard ON public.user_profiles;\n" +
+              "DROP FUNCTION IF EXISTS trg_postcode_guard() CASCADE;"
       });
     }
   });
