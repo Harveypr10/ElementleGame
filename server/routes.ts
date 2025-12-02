@@ -145,6 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email, password, firstName, lastName, region, acceptedTerms, adsConsent } = req.body;
 
       // Create auth user - email verification will be required
+      // Explicitly set first_login_completed to false to ensure GeneratingQuestionsScreen runs
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
@@ -152,6 +153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user_metadata: {
           first_name: firstName,
           last_name: lastName,
+          first_login_completed: false, // Ensure onboarding screen runs for new users
         },
       });
 

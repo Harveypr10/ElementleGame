@@ -182,6 +182,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             last_name: formData.lastName,
             acceptedTerms: formData.acceptedTerms,
             adsConsent: formData.adsConsent,
+            first_login_completed: false, // Ensure onboarding screen runs for new users
           },
         },
       });
