@@ -51,6 +51,9 @@ export function CategorySelectionScreen({
   const supabase = useSupabase();
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   
+  // Cache user data for GeneratingQuestionsScreen to prevent remounting on re-renders
+  const generatingDataRef = useRef<{ userId: string; region: string; postcode: string } | null>(null);
+  
   // Track if spinner has been managed for this open cycle
   const spinnerManagedRef = useRef(false);
   
@@ -324,6 +327,17 @@ export function CategorySelectionScreen({
       // Update cache with newly saved categories
       writeLocal(CACHE_KEYS.PRO_CATEGORIES, categoryIds);
       queryClient.invalidateQueries({ queryKey: ['/api/user/pro-categories'] });
+      
+      // Cache user data before showing GeneratingQuestionsScreen to prevent remounting on re-renders
+      if (user?.id && profile?.region) {
+        generatingDataRef.current = {
+          userId: user.id,
+          region: profile.region,
+          postcode: profile.postcode || '',
+        };
+        console.log('[CategorySelectionScreen] Cached generating data:', generatingDataRef.current);
+      }
+      
       // Show GeneratingQuestionsScreen instead of immediately calling onGenerate
       console.log('[CategorySelectionScreen] Setting showGeneratingQuestions to true');
       setShowGeneratingQuestions(true);
@@ -402,6 +416,7 @@ export function CategorySelectionScreen({
   const handleGeneratingQuestionsComplete = () => {
     console.log('[CategorySelectionScreen] GeneratingQuestionsScreen complete');
     setShowGeneratingQuestions(false);
+    generatingDataRef.current = null; // Clear cached data
     // Invalidate queries to refresh data
     queryClient.invalidateQueries({ queryKey: ['/api/user/puzzles'] });
     queryClient.invalidateQueries({ queryKey: ['/api/puzzles'] });
@@ -418,18 +433,19 @@ export function CategorySelectionScreen({
   const canGenerate = selectedCategories.size >= 3 && categoriesHaveChanged;
 
   // Show GeneratingQuestionsScreen after categories are saved
-  // Note: postcode can be empty for some users - use empty string as fallback
-  if (showGeneratingQuestions && user?.id && profile?.region) {
-    console.log('[CategorySelectionScreen] Showing GeneratingQuestionsScreen with:', {
-      userId: user.id,
-      region: profile.region,
-      postcode: profile.postcode || '',
+  // Use cached ref data to prevent remounting on re-renders when user/profile objects change
+  if (showGeneratingQuestions && generatingDataRef.current) {
+    const { userId, region, postcode } = generatingDataRef.current;
+    console.log('[CategorySelectionScreen] Showing GeneratingQuestionsScreen with cached data:', {
+      userId,
+      region,
+      postcode,
     });
     return (
       <GeneratingQuestionsScreen
-        userId={user.id}
-        region={profile.region}
-        postcode={profile.postcode || ''}
+        userId={userId}
+        region={region}
+        postcode={postcode}
         onComplete={handleGeneratingQuestionsComplete}
         regenerationType="category_change"
       />
@@ -438,11 +454,11 @@ export function CategorySelectionScreen({
   
   // Log if we're trying to show GeneratingQuestionsScreen but can't
   if (showGeneratingQuestions) {
-    console.error('[CategorySelectionScreen] Cannot show GeneratingQuestionsScreen - missing data:', {
+    console.error('[CategorySelectionScreen] Cannot show GeneratingQuestionsScreen - missing cached data:', {
       showGeneratingQuestions,
+      generatingDataRef: generatingDataRef.current,
       userId: user?.id,
       profileRegion: profile?.region,
-      profilePostcode: profile?.postcode,
     });
   }
 
