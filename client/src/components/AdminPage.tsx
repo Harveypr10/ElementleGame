@@ -89,6 +89,7 @@ export function AdminPage({ onBack }: AdminPageProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingScheduler, setSavingScheduler] = useState(false);
+  const [fixingTrigger, setFixingTrigger] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -177,6 +178,9 @@ export function AdminPage({ onBack }: AdminPageProps) {
         title: "Settings saved",
         description: "Restriction settings have been updated.",
       });
+      
+      // Also fix the database trigger to respect the new settings
+      await handleFixTrigger(false); // Silent update - no separate toast
     } catch (error: any) {
       toast({
         title: "Error",
@@ -185,6 +189,46 @@ export function AdminPage({ onBack }: AdminPageProps) {
       });
     } finally {
       setSaving(false);
+    }
+  };
+  
+  const handleFixTrigger = async (showToast: boolean = true) => {
+    setFixingTrigger(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const accessToken = session?.access_token;
+      
+      const response = await fetch('/api/admin/fix-postcode-trigger', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fix trigger');
+      }
+      
+      if (showToast) {
+        toast({
+          title: "Trigger updated",
+          description: data.message || "Database trigger has been fixed.",
+        });
+      }
+    } catch (error: any) {
+      if (showToast) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to fix trigger. You may need to run the SQL manually in Supabase.",
+          variant: "destructive",
+        });
+      }
+      console.error('Error fixing trigger:', error);
+    } finally {
+      setFixingTrigger(false);
     }
   };
 
@@ -358,11 +402,27 @@ export function AdminPage({ onBack }: AdminPageProps) {
               <Button
                 className="w-full"
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || fixingTrigger}
                 data-testid="button-save-admin-settings"
               >
                 {saving ? "Saving..." : "Save Restriction Settings"}
               </Button>
+              
+              <div className="pt-4 border-t">
+                <p className="text-xs text-muted-foreground mb-2">
+                  If postcode changes are being blocked by the database, click below to sync the database trigger with the current settings.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleFixTrigger(true)}
+                  disabled={fixingTrigger || saving}
+                  data-testid="button-fix-trigger"
+                >
+                  {fixingTrigger ? "Fixing Trigger..." : "Fix Database Trigger"}
+                </Button>
+              </div>
             </Card>
 
             {/* Demand Scheduler Card */}

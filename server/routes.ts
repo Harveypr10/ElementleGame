@@ -2078,6 +2078,100 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Admin endpoint to fix/drop the postcode guard trigger (if it exists)
+  // This trigger may be blocking postcode changes with hardcoded 14-day restriction
+  app.post("/api/admin/fix-postcode-trigger", verifySupabaseAuth, requireAdmin, async (req, res) => {
+    try {
+      console.log("[POST /api/admin/fix-postcode-trigger] Attempting to drop postcode guard trigger...");
+      
+      // First, get the current restriction setting
+      const setting = await storage.getAdminSetting('postcode_restriction_days');
+      const restrictionDays = setting ? parseInt(setting.value, 10) : 14;
+      
+      // Drop the existing trigger if it exists
+      await db.execute(sql`DROP TRIGGER IF EXISTS trg_postcode_guard ON public.user_profiles`);
+      console.log("[POST /api/admin/fix-postcode-trigger] Dropped trigger trg_postcode_guard (if existed)");
+      
+      // Drop the function if it exists
+      await db.execute(sql`DROP FUNCTION IF EXISTS trg_postcode_guard()`);
+      console.log("[POST /api/admin/fix-postcode-trigger] Dropped function trg_postcode_guard() (if existed)");
+      
+      // If restriction is > 0, create a new trigger that reads from admin_settings
+      if (restrictionDays > 0) {
+        // Create a function that reads the restriction from admin_settings table
+        await db.execute(sql`
+          CREATE OR REPLACE FUNCTION trg_postcode_guard()
+          RETURNS TRIGGER AS $$
+          DECLARE
+            restriction_days INTEGER;
+            last_changed TIMESTAMP;
+            allowed_after TIMESTAMP;
+          BEGIN
+            -- Get the restriction setting, default to 14 if not found
+            SELECT COALESCE((value::INTEGER), 14) INTO restriction_days
+            FROM admin_settings WHERE key = 'postcode_restriction_days';
+            
+            -- If restriction is 0 (no restriction), allow the change
+            IF restriction_days = 0 THEN
+              RETURN NEW;
+            END IF;
+            
+            -- Check if postcode is actually changing
+            IF NEW.postcode IS DISTINCT FROM OLD.postcode THEN
+              -- Get the last changed timestamp
+              last_changed := OLD.postcode_last_changed_at;
+              
+              -- If never changed before, allow it
+              IF last_changed IS NULL THEN
+                RETURN NEW;
+              END IF;
+              
+              -- Calculate when change is allowed
+              allowed_after := last_changed + (restriction_days || ' days')::INTERVAL;
+              
+              -- Block if within restriction window
+              IF NOW() < allowed_after THEN
+                RAISE EXCEPTION 'You can only change your postcode once every % days', restriction_days;
+              END IF;
+            END IF;
+            
+            RETURN NEW;
+          END;
+          $$ LANGUAGE plpgsql
+        `);
+        
+        // Create the trigger
+        await db.execute(sql`
+          CREATE TRIGGER trg_postcode_guard
+          BEFORE UPDATE ON public.user_profiles
+          FOR EACH ROW
+          EXECUTE FUNCTION trg_postcode_guard()
+        `);
+        
+        console.log("[POST /api/admin/fix-postcode-trigger] Created new trigger with dynamic restriction setting");
+        res.json({ 
+          success: true, 
+          message: `Trigger recreated with dynamic restriction (currently ${restrictionDays} days from admin settings)`,
+          restrictionDays
+        });
+      } else {
+        console.log("[POST /api/admin/fix-postcode-trigger] Restriction is 0, trigger removed completely");
+        res.json({ 
+          success: true, 
+          message: "Trigger removed (restriction is set to 'No restriction')",
+          restrictionDays: 0
+        });
+      }
+    } catch (error: any) {
+      console.error("[POST /api/admin/fix-postcode-trigger] Error:", error);
+      res.status(500).json({ 
+        error: "Failed to fix trigger", 
+        details: error.message,
+        hint: "You may need to run this SQL directly in Supabase SQL Editor: DROP TRIGGER IF EXISTS trg_postcode_guard ON public.user_profiles; DROP FUNCTION IF EXISTS trg_postcode_guard();"
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
