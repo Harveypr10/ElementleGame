@@ -184,13 +184,16 @@
                 console.log("[GeneratingQuestions] Filtered from", eventData.length, "to", filteredEvents.length, "questions");
                 
                 if (filteredEvents.length > 0) {
-                  // Shuffle and take first 30
-                  const shuffled = filteredEvents.sort(() => Math.random() - 0.5);
-                  eventTitles = shuffled.slice(0, 30).map((e: any) => e.event_title + "...");
-                  console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, "(filtered by selected categories)");
+                  // Deduplicate and shuffle, then take first 30
+                  const uniqueTitles = Array.from(new Set(filteredEvents.map((e: any) => e.event_title)));
+                  const shuffled = uniqueTitles.sort(() => Math.random() - 0.5);
+                  eventTitles = shuffled.slice(0, 30).map((title: string) => title + "...");
+                  console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, "(filtered by selected categories, deduped)");
                 } else {
                   console.log("[GeneratingQuestions] No titles found for selected categories, using unfiltered");
-                  eventTitles = eventData.slice(0, 30).map((e: any) => e.event_title + "...");
+                  // Deduplicate unfiltered as well
+                  const uniqueTitles = Array.from(new Set(eventData.map((e: any) => e.event_title)));
+                  eventTitles = uniqueTitles.slice(0, 30).map((title: string) => title + "...");
                 }
               }
             } else {
@@ -198,12 +201,14 @@
               const { data: eventData, error: eventErr } = await supabase
                 .from("questions_master_region")
                 .select("event_title")
-                .limit(30);
+                .limit(50); // Fetch more to account for duplicates
               
               if (eventErr) console.error("[GeneratingQuestions] fetch titles error", eventErr);
               if (eventData && eventData.length) {
-                eventTitles = eventData.map((e: any) => e.event_title + "...");
-                console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, "(all categories)");
+                // Deduplicate event titles to avoid showing same title twice
+                const uniqueTitles = Array.from(new Set(eventData.map((e: any) => e.event_title)));
+                eventTitles = uniqueTitles.slice(0, 30).map((title: string) => title + "...");
+                console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, "(all categories, deduped)");
               }
             }
           } catch (err) {
