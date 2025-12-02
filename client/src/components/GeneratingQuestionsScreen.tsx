@@ -11,6 +11,7 @@
       postcode: string;
       onComplete: () => void;
       regenerationType?: RegenerationType;
+      selectedCategoryIds?: number[]; // For category_change: filter event_titles to match selected categories
     }
 
     interface TextBlock {
@@ -28,6 +29,7 @@
       postcode,
       onComplete,
       regenerationType = 'first_login',
+      selectedCategoryIds,
     }: GeneratingQuestionsScreenProps) {
       const supabase = useSupabase();
       const { toast } = useToast();
@@ -117,17 +119,34 @@
           console.log("[GeneratingQuestions] got access token");
 
           // Step 1: fetch titles
-          console.log("[GeneratingQuestions] Step 1: fetching titles...");
+          // For category_change with selectedCategoryIds, filter to matching categories only
+          // For first_login or postcode_change, show all questions
+          console.log("[GeneratingQuestions] Step 1: fetching titles...", {
+            regenerationType,
+            selectedCategoryIds: selectedCategoryIds?.length ?? 0,
+          });
           let eventTitles: string[] = [];
           try {
-            const { data: eventData, error: eventErr } = await supabase
+            let query = supabase
               .from("questions_master_region")
-              .select("event_title")
-              .limit(20);
+              .select("event_title, categories");
+            
+            // If this is a category change with selected categories, filter by those categories
+            // The categories column is a JSONB array of category IDs
+            if (regenerationType === 'category_change' && selectedCategoryIds && selectedCategoryIds.length > 0) {
+              // Build an OR filter for any category overlap using Supabase's overlaps operator
+              // The overlaps operator checks if the JSONB array has any overlap with the provided array
+              query = query.overlaps('categories', selectedCategoryIds);
+              console.log("[GeneratingQuestions] Filtering by categories:", selectedCategoryIds);
+            }
+            
+            const { data: eventData, error: eventErr } = await query.limit(30);
+            
             if (eventErr) console.error("[GeneratingQuestions] fetch titles error", eventErr);
             if (eventData && eventData.length) {
               eventTitles = eventData.map((e: any) => e.event_title + "...");
-              console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length);
+              console.log("[GeneratingQuestions] fetched titles count:", eventTitles.length, 
+                regenerationType === 'category_change' ? "(filtered by selected categories)" : "(all categories)");
             }
           } catch (err) {
             console.error("[GeneratingQuestions] fetch titles failed", err);

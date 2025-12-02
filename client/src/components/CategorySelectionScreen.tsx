@@ -53,7 +53,8 @@ export function CategorySelectionScreen({
   const [showGeneratingQuestions, setShowGeneratingQuestions] = useState(false);
   
   // Cache user data for GeneratingQuestionsScreen to prevent remounting on re-renders
-  const generatingDataRef = useRef<{ userId: string; region: string; postcode: string } | null>(null);
+  // Includes selectedCategoryIds for filtering event_titles during category regeneration
+  const generatingDataRef = useRef<{ userId: string; region: string; postcode: string; selectedCategoryIds: number[] } | null>(null);
   
   // Track if spinner has been managed for this open cycle
   const spinnerManagedRef = useRef(false);
@@ -330,11 +331,13 @@ export function CategorySelectionScreen({
       queryClient.invalidateQueries({ queryKey: ['/api/user/pro-categories'] });
       
       // Cache user data before showing GeneratingQuestionsScreen to prevent remounting on re-renders
+      // Include the selected category IDs so event_titles can be filtered during category regeneration
       if (user?.id && profile?.region) {
         generatingDataRef.current = {
           userId: user.id,
           region: profile.region,
           postcode: profile.postcode || '',
+          selectedCategoryIds: categoryIds,
         };
         console.log('[CategorySelectionScreen] Cached generating data:', generatingDataRef.current);
       }
@@ -440,11 +443,12 @@ export function CategorySelectionScreen({
   const generatingScreenPortal = useMemo(() => {
     if (!showGeneratingQuestions || !generatingDataRef.current) return null;
     
-    const { userId, region, postcode } = generatingDataRef.current;
+    const { userId, region, postcode, selectedCategoryIds } = generatingDataRef.current;
     console.log('[CategorySelectionScreen] Rendering GeneratingQuestionsScreen portal with cached data:', {
       userId,
       region,
       postcode,
+      selectedCategoryIds,
     });
     
     return createPortal(
@@ -455,6 +459,7 @@ export function CategorySelectionScreen({
           postcode={postcode}
           onComplete={handleGeneratingQuestionsComplete}
           regenerationType="category_change"
+          selectedCategoryIds={selectedCategoryIds}
         />
       </div>,
       document.body
