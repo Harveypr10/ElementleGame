@@ -33,10 +33,11 @@ export function IntroScreen({
   // Determine if this is a category question (local mode) or location question (global mode)
   const isCategoryQuestion = !!categoryName && !locationName;
   const isLocationQuestion = !!locationName && !categoryName;
-  const isLocalHistoryWithLocation = categoryName === "Local History" && !!locationName;
+  const isLocalHistoryCategory = categoryName === "Local History";
+  const isLocalHistoryWithLocation = isLocalHistoryCategory && !!locationName;
   
   const promptText = hasCluesEnabled 
-    ? "On what date did this local event occur?"
+    ? (isLocalHistoryCategory ? "On what date did this local event occur?" : "On what date did this historical event occur?")
     : "Take on the challenge of guessing a date in history!";
     
   // Build category/location label
