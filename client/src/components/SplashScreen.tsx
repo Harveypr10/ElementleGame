@@ -52,7 +52,7 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center p-4"
+      className="fixed inset-0 flex flex-col items-center justify-center p-4"
       style={{ backgroundColor: '#7DAAE8' }}
     >
       <div 

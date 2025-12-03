@@ -27,7 +27,12 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   }, []);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div 
+        className="fixed inset-0"
+        style={{ backgroundColor: '#7DAAE8' }} 
+      />
+    );
   }
 
   if (error || !supabase) {
