@@ -33,7 +33,8 @@ export function IntroScreen({
   // Determine if this is a category question (local mode) or location question (global mode)
   const isCategoryQuestion = !!categoryName && !locationName;
   const isLocationQuestion = !!locationName && !categoryName;
-  const isLocalHistoryCategory = categoryName === "Local History";
+  // Check if category starts with "Local History" (e.g., "Local History" or "Local History: London")
+  const isLocalHistoryCategory = categoryName?.startsWith("Local History") ?? false;
   const isLocalHistoryWithLocation = isLocalHistoryCategory && !!locationName;
   
   const promptText = hasCluesEnabled 
