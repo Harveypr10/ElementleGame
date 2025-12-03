@@ -64,12 +64,6 @@ export default function Home() {
   // Track which mode the puzzle was selected in (to prevent mode mismatch issues)
   const [puzzleSourceMode, setPuzzleSourceMode] = useState<'global' | 'local'>('global');
   
-  // Reset body background color from initial blue loading state (set in index.html)
-  useEffect(() => {
-    document.body.style.backgroundColor = '';
-    document.documentElement.style.backgroundColor = '';
-  }, []);
-  
   // Fetch puzzles from API (mode-aware, guest-aware)
   // Guests use /api/puzzles/guest, authenticated users use mode-specific endpoints
   const puzzlesEndpoint = isAuthenticated 

@@ -18,11 +18,6 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
   const [fadeIn, setFadeIn] = useState(false);
 
   useEffect(() => {
-    // Reset body background to white now that React has loaded
-    // (index.html sets it to blue for initial loading)
-    document.body.style.backgroundColor = '';
-    document.documentElement.style.backgroundColor = '';
-    
     // Preload GameSelection screen images and auth/generating screens
     const imagesToPreload = [
       historianHamsterBlue,
@@ -50,6 +45,17 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
 
     return () => clearTimeout(timer);
   }, []);
+
+  // Reset body background color after fade-in completes (1000ms fade + 100ms buffer)
+  useEffect(() => {
+    if (fadeIn) {
+      const timer = setTimeout(() => {
+        document.body.style.backgroundColor = '';
+        document.documentElement.style.backgroundColor = '';
+      }, 1100);
+      return () => clearTimeout(timer);
+    }
+  }, [fadeIn]);
 
   if (finished) {
     return <WelcomePage onLogin={onSignup} onSignup={onSignup} />;
