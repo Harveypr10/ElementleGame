@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ProSubscriptionDialog } from "./ProSubscriptionDialog";
 import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
+import { useStreakSaver } from "@/contexts/StreakSaverContext";
 import { useToast } from "@/hooks/use-toast";
 import { Flame, Umbrella, X } from "lucide-react";
 import hamsterStreakSaver from "@assets/Historian-Hamster-Blue.svg";
@@ -12,9 +13,10 @@ interface StreakSaverPopupProps {
   onClose: () => void;
   gameType: "region" | "user";
   currentStreak: number;
+  onPlayYesterdaysPuzzle?: (gameType: "region" | "user", puzzleDate: string) => void;
 }
 
-export function StreakSaverPopup({ open, onClose, gameType, currentStreak }: StreakSaverPopupProps) {
+export function StreakSaverPopup({ open, onClose, gameType, currentStreak, onPlayYesterdaysPuzzle }: StreakSaverPopupProps) {
   const { toast } = useToast();
   const [showProDialog, setShowProDialog] = useState(false);
   const {
@@ -23,40 +25,44 @@ export function StreakSaverPopup({ open, onClose, gameType, currentStreak }: Str
     userStreakSaversRemaining,
     holidaysRemaining,
     holidayDurationDays,
-    useStreakSaver,
-    isUsingStreakSaver,
     declineStreakSaver,
     isDeclining,
     startHoliday,
     isStartingHoliday,
   } = useStreakSaverStatus();
+  
+  const { startStreakSaverSession } = useStreakSaver();
 
   const streakSaversRemaining = gameType === "region" ? regionStreakSaversRemaining : userStreakSaversRemaining;
   const hasStreakSaversLeft = streakSaversRemaining > 0;
   const canStartHoliday = isPro && holidaysRemaining > 0 && holidayDurationDays > 0;
   
   const gameModeLabel = gameType === "region" ? "Global" : "Personal";
+  
+  // Calculate yesterday's date
+  const getYesterdayDate = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return yesterday.toISOString().split('T')[0];
+  };
 
-  const handleUseStreakSaver = async () => {
-    try {
-      await useStreakSaver(gameType);
-      toast({
-        title: "Streak Saved!",
-        description: `Your ${currentStreak}-day streak has been preserved.`,
-      });
-      onClose();
-    } catch (error: any) {
-      const needsSubscription = error?.message?.includes("remaining");
-      if (needsSubscription) {
-        setShowProDialog(true);
-      } else {
-        toast({
-          title: "Error",
-          description: error?.message || "Failed to use streak saver",
-          variant: "destructive",
-        });
-      }
+  const handleUseStreakSaver = () => {
+    if (!hasStreakSaversLeft) {
+      setShowProDialog(true);
+      return;
     }
+    
+    const yesterdayDate = getYesterdayDate();
+    
+    // Start the streak saver session (don't increment usage yet - that happens on completion)
+    startStreakSaverSession(gameType, yesterdayDate, currentStreak);
+    
+    // Navigate to yesterday's puzzle if callback provided
+    if (onPlayYesterdaysPuzzle) {
+      onPlayYesterdaysPuzzle(gameType, yesterdayDate);
+    }
+    
+    onClose();
   };
 
   const handleDecline = async () => {
@@ -132,11 +138,10 @@ export function StreakSaverPopup({ open, onClose, gameType, currentStreak }: Str
               {hasStreakSaversLeft ? (
                 <Button
                   onClick={handleUseStreakSaver}
-                  disabled={isUsingStreakSaver}
                   className="w-full bg-orange-500 hover:bg-orange-600"
                   data-testid="button-use-streak-saver"
                 >
-                  {isUsingStreakSaver ? "Saving..." : "Use Streak Saver"}
+                  Use Streak Saver
                 </Button>
               ) : (
                 <Button

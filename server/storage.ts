@@ -2714,13 +2714,12 @@ export class DatabaseStorage implements IStorage {
     };
   } | null> {
     try {
-      // Calculate yesterday's date (in YYYY-MM-DD format)
+      // Calculate today's and yesterday's dates (in YYYY-MM-DD format)
       const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
-      
-      console.log('[getStreakSaverStatus] Checking for userId:', userId, 'yesterday:', yesterdayStr);
       
       // Get region stats
       const regionResult = await db.execute(sql`
@@ -2768,7 +2767,7 @@ export class DatabaseStorage implements IStorage {
       // CHECK AND MANAGE MISSED_YESTERDAY_FLAG FOR REGION MODE
       // ========================================================================
       // Check if yesterday's REGION puzzle was played
-      const regionPlayedResult = await db.execute(sql`
+      const regionPlayedYesterdayResult = await db.execute(sql`
         SELECT ga.id 
         FROM game_attempts_region ga
         INNER JOIN questions_allocated_region qar ON ga.allocated_region_id = qar.id
@@ -2778,23 +2777,43 @@ export class DatabaseStorage implements IStorage {
         LIMIT 1
       `);
       
-      const regionPlayedRows = Array.isArray(regionPlayedResult) ? regionPlayedResult : (regionPlayedResult as any).rows || [];
-      const didPlayRegionYesterday = regionPlayedRows.length > 0;
+      const regionPlayedYesterdayRows = Array.isArray(regionPlayedYesterdayResult) ? regionPlayedYesterdayResult : (regionPlayedYesterdayResult as any).rows || [];
+      const didPlayRegionYesterday = regionPlayedYesterdayRows.length > 0;
       
-      console.log('[getStreakSaverStatus] Region - streak:', regionCurrentStreak, 'played yesterday:', didPlayRegionYesterday, 'flag:', regionMissedFlag);
+      // Check if TODAY's REGION puzzle was played
+      const regionPlayedTodayResult = await db.execute(sql`
+        SELECT ga.id 
+        FROM game_attempts_region ga
+        INNER JOIN questions_allocated_region qar ON ga.allocated_region_id = qar.id
+        WHERE ga.user_id = ${userId}
+          AND qar.puzzle_date = ${todayStr}
+          AND ga.result IS NOT NULL
+        LIMIT 1
+      `);
+      
+      const regionPlayedTodayRows = Array.isArray(regionPlayedTodayResult) ? regionPlayedTodayResult : (regionPlayedTodayResult as any).rows || [];
+      const didPlayRegionToday = regionPlayedTodayRows.length > 0;
       
       if (didPlayRegionYesterday && regionMissedFlag) {
         // User has played yesterday but flag is still set - CLEAR it!
-        console.log('[getStreakSaverStatus] Clearing missed_yesterday_flag_region for user:', userId);
         await db.execute(sql`
           UPDATE user_stats_region 
           SET missed_yesterday_flag_region = false, updated_at = NOW()
           WHERE user_id = ${userId}
         `);
         regionMissedFlag = false;
-      } else if (!didPlayRegionYesterday && regionCurrentStreak > 0 && !regionMissedFlag) {
-        // User had a streak but missed yesterday - SET the flag!
-        console.log('[getStreakSaverStatus] Setting missed_yesterday_flag_region = true for user:', userId);
+      } else if (didPlayRegionToday && regionMissedFlag) {
+        // User has already played TODAY - if they completed today's puzzle already,
+        // the streak saver window has passed. Clear the flag.
+        await db.execute(sql`
+          UPDATE user_stats_region 
+          SET missed_yesterday_flag_region = false, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        regionMissedFlag = false;
+      } else if (!didPlayRegionYesterday && !didPlayRegionToday && regionCurrentStreak > 0 && !regionMissedFlag) {
+        // User had a streak, missed yesterday, and hasn't played today yet - SET the flag!
+        // This is the only case where we should show the streak saver popup
         await db.execute(sql`
           UPDATE user_stats_region 
           SET missed_yesterday_flag_region = true, updated_at = NOW()
@@ -2807,7 +2826,7 @@ export class DatabaseStorage implements IStorage {
       // CHECK AND MANAGE MISSED_YESTERDAY_FLAG FOR USER MODE
       // ========================================================================
       // Check if yesterday's USER puzzle was played
-      const userPlayedResult = await db.execute(sql`
+      const userPlayedYesterdayResult = await db.execute(sql`
         SELECT ga.id 
         FROM game_attempts_user ga
         INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
@@ -2817,23 +2836,41 @@ export class DatabaseStorage implements IStorage {
         LIMIT 1
       `);
       
-      const userPlayedRows = Array.isArray(userPlayedResult) ? userPlayedResult : (userPlayedResult as any).rows || [];
-      const didPlayUserYesterday = userPlayedRows.length > 0;
+      const userPlayedYesterdayRows = Array.isArray(userPlayedYesterdayResult) ? userPlayedYesterdayResult : (userPlayedYesterdayResult as any).rows || [];
+      const didPlayUserYesterday = userPlayedYesterdayRows.length > 0;
       
-      console.log('[getStreakSaverStatus] User - streak:', userCurrentStreak, 'played yesterday:', didPlayUserYesterday, 'holiday:', holidayActive, 'flag:', userMissedFlag);
+      // Check if TODAY's USER puzzle was played
+      const userPlayedTodayResult = await db.execute(sql`
+        SELECT ga.id 
+        FROM game_attempts_user ga
+        INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
+        WHERE ga.user_id = ${userId}
+          AND qau.puzzle_date = ${todayStr}
+          AND ga.result IS NOT NULL
+        LIMIT 1
+      `);
+      
+      const userPlayedTodayRows = Array.isArray(userPlayedTodayResult) ? userPlayedTodayResult : (userPlayedTodayResult as any).rows || [];
+      const didPlayUserToday = userPlayedTodayRows.length > 0;
       
       if (didPlayUserYesterday && userMissedFlag) {
         // User has played yesterday but flag is still set - CLEAR it!
-        console.log('[getStreakSaverStatus] Clearing missed_yesterday_flag_user for user:', userId);
         await db.execute(sql`
           UPDATE user_stats_user 
           SET missed_yesterday_flag_user = false, updated_at = NOW()
           WHERE user_id = ${userId}
         `);
         userMissedFlag = false;
-      } else if (!didPlayUserYesterday && userCurrentStreak > 0 && !userMissedFlag && !holidayActive) {
-        // User had a streak but missed yesterday (and not on holiday) - SET the flag!
-        console.log('[getStreakSaverStatus] Setting missed_yesterday_flag_user = true for user:', userId);
+      } else if (didPlayUserToday && userMissedFlag) {
+        // User has already played TODAY - the streak saver window has passed. Clear the flag.
+        await db.execute(sql`
+          UPDATE user_stats_user 
+          SET missed_yesterday_flag_user = false, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        userMissedFlag = false;
+      } else if (!didPlayUserYesterday && !didPlayUserToday && userCurrentStreak > 0 && !userMissedFlag && !holidayActive) {
+        // User had a streak, missed yesterday, hasn't played today yet, and not on holiday - SET the flag!
         await db.execute(sql`
           UPDATE user_stats_user 
           SET missed_yesterday_flag_user = true, updated_at = NOW()

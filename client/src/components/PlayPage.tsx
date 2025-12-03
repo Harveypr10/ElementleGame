@@ -4,6 +4,7 @@ import { NumericKeyboard, type KeyState } from "./NumericKeyboard";
 import { EndGameModal } from "./EndGameModal";
 import { HelpDialog } from "./HelpDialog";
 import { StreakCelebrationPopup } from "./StreakCelebrationPopup";
+import { StreakSaverExitWarning } from "./StreakSaverExitWarning";
 import { IntroScreen } from "./IntroScreen";
 import { useInterstitialAd } from "./InterstitialAd";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { useGameData } from "@/hooks/useGameData";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useUserSettings } from "@/hooks/useUserSettings";
 import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
+import { useStreakSaver } from "@/contexts/StreakSaverContext";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
@@ -97,6 +99,7 @@ export function PlayPage({
   const { stats: supabaseStats } = useUserStats();
   const { settings } = useUserSettings();
   const { holidayActive, holidayEndDate, endHoliday, isEndingHoliday, refetch: refetchStreakStatus } = useStreakSaverStatus();
+  const { isInStreakSaverMode, session: streakSaverSession, completeStreakSaverSession, cancelStreakSaverSession } = useStreakSaver();
   const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
   const { isLocalMode: contextIsLocalMode } = useGameMode();
   
@@ -154,6 +157,9 @@ export function PlayPage({
   const [showIntroScreen, setShowIntroScreen] = useState(false);
   const [introScreenReady, setIntroScreenReady] = useState(false);
   
+  // Streak saver exit warning dialog state
+  const [showStreakSaverExitWarning, setShowStreakSaverExitWarning] = useState(false);
+  
   // Track when guesses are being fetched asynchronously
   const [guessesLoading, setGuessesLoading] = useState(false);
   // Track when guesses have fully loaded (for triggering the 0.6s delay)
@@ -182,6 +188,30 @@ export function PlayPage({
     });
     onBack();
   }, [toast, onBack]);
+  
+  // Check if this is a streak saver game in progress
+  const isCurrentStreakSaverGame = isInStreakSaverMode && streakSaverSession && !gameOver;
+  
+  // Handle back button press - show warning if in streak saver mode
+  const handleBackButtonPress = useCallback(() => {
+    if (isCurrentStreakSaverGame) {
+      setShowStreakSaverExitWarning(true);
+    } else {
+      onBack();
+    }
+  }, [isCurrentStreakSaverGame, onBack]);
+  
+  // Handle cancel streak saver and lose streak
+  const handleCancelStreakSaver = useCallback(() => {
+    setShowStreakSaverExitWarning(false);
+    cancelStreakSaverSession();
+    onBack();
+  }, [cancelStreakSaverSession, onBack]);
+  
+  // Handle continue playing
+  const handleContinuePlaying = useCallback(() => {
+    setShowStreakSaverExitWarning(false);
+  }, []);
   
   // Spinner with timeout for game loading
   // Note: /api/puzzles can take 5-7 seconds, so we use a generous 15s timeout
@@ -1402,7 +1432,7 @@ export function PlayPage({
             categoryName={category}
             locationName={undefined}
             onPlayClick={() => setShowIntroScreen(false)}
-            onBack={onBack}
+            onBack={handleBackButtonPress}
             formatDateForDisplay={formatDateForIntro}
           />
         )}
@@ -1414,7 +1444,7 @@ export function PlayPage({
       >
       <div className="flex items-center justify-between mb-0">
         <button
-          onClick={onBack}
+          onClick={handleBackButtonPress}
           data-testid="button-back"
           className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
@@ -1561,6 +1591,13 @@ export function PlayPage({
       />
 
       <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      
+      <StreakSaverExitWarning
+        open={showStreakSaverExitWarning}
+        onClose={() => setShowStreakSaverExitWarning(false)}
+        onCancelAndLoseStreak={handleCancelStreakSaver}
+        onContinuePlaying={handleContinuePlaying}
+      />
 
       {showStreakCelebration && (
         <StreakCelebrationPopup

@@ -334,6 +334,33 @@ export default function Home() {
     setCurrentScreen("options");
   };
   
+  // Handle playing yesterday's puzzle for streak saver flow
+  const handlePlayYesterdaysPuzzle = (gameType: "region" | "user", puzzleDate: string) => {
+    // Set the appropriate game mode
+    setGameMode(gameType === 'region' ? 'global' : 'local');
+    setPuzzleSourceMode(gameType === 'region' ? 'global' : 'local');
+    
+    // Find yesterday's puzzle in the puzzles array
+    const yesterdayPuzzle = puzzles.find(p => p.date === puzzleDate);
+    
+    if (yesterdayPuzzle) {
+      setSelectedPuzzleId(yesterdayPuzzle.id.toString());
+      setShowCelebrationFirst(false);
+      setHasOpenedCelebration(false);
+      setHasExistingProgress(false);
+      setPreviousScreen("selection");
+      setCurrentScreen("play");
+    } else {
+      // If puzzle not in current array, we may need to fetch it
+      // For now, show an error
+      toast({
+        title: "Puzzle not available",
+        description: "Yesterday's puzzle could not be loaded. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
   // Handle login success - check if user needs first login setup
   const handleLoginSuccess = () => {
     if (isAuthenticated && !hasCompletedFirstLogin() && !hasShownGeneratingScreen) {
@@ -537,6 +564,7 @@ export default function Home() {
               onViewStatsLocal={handleStatsLocal}
               onViewArchiveLocal={handleArchiveLocal}
               onOpenOptionsLocal={handleOptionsLocal}
+              onPlayYesterdaysPuzzle={handlePlayYesterdaysPuzzle}
             />
           </motion.div>
         )}

@@ -9,6 +9,7 @@ import { SettingsProvider } from "@/lib/SettingsProvider";
 import { SpinnerProvider } from "@/lib/SpinnerProvider";
 import { GuessCacheProvider } from "@/contexts/GuessCacheContext";
 import { GameModeProvider } from "@/contexts/GameModeContext";
+import { StreakSaverProvider } from "@/contexts/StreakSaverContext";
 import Home from "@/pages/Home";
 import NotFound from "@/pages/not-found";
 
@@ -37,13 +38,15 @@ function App() {
           <PreloadProvider>
             <SettingsProvider>
               <GameModeProvider>
-                <GuessCacheProvider>
-                  <TooltipProvider>
-                    <Toaster />
-                    <RoutePersistence />
-                    <Router />
-                  </TooltipProvider>
-                </GuessCacheProvider>
+                <StreakSaverProvider>
+                  <GuessCacheProvider>
+                    <TooltipProvider>
+                      <Toaster />
+                      <RoutePersistence />
+                      <Router />
+                    </TooltipProvider>
+                  </GuessCacheProvider>
+                </StreakSaverProvider>
               </GameModeProvider>
             </SettingsProvider>
           </PreloadProvider>

@@ -59,6 +59,7 @@ interface GameSelectionPageProps {
   onViewStatsLocal?: () => void;
   onViewArchiveLocal?: () => void;
   onOpenOptionsLocal?: () => void;
+  onPlayYesterdaysPuzzle?: (gameType: "region" | "user", puzzleDate: string) => void;
 }
 
 export function GameSelectionPage({ 
@@ -75,6 +76,7 @@ export function GameSelectionPage({
   onViewStatsLocal,
   onViewArchiveLocal,
   onOpenOptionsLocal,
+  onPlayYesterdaysPuzzle,
 }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const { profile } = useProfile();
@@ -1191,6 +1193,7 @@ export function GameSelectionPage({
               ? streakStatus.region?.currentStreak || 0
               : streakStatus.user?.currentStreak || 0
           }
+          onPlayYesterdaysPuzzle={onPlayYesterdaysPuzzle}
         />
       )}
     </div>
