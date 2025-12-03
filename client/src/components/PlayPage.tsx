@@ -1400,6 +1400,7 @@ export function PlayPage({
             hasCluesEnabled={cluesEnabled}
             isLocalMode={isLocalMode}
             categoryName={category}
+            locationName={undefined}
             onPlayClick={() => setShowIntroScreen(false)}
             onBack={onBack}
             formatDateForDisplay={formatDateForIntro}

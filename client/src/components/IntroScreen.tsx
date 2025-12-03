@@ -8,6 +8,7 @@ interface IntroScreenProps {
   hasCluesEnabled: boolean;
   isLocalMode: boolean;
   categoryName?: string;
+  locationName?: string;
   onPlayClick: () => void;
   onBack: () => void;
   formatDateForDisplay: (date: string) => string;
@@ -19,6 +20,7 @@ export function IntroScreen({
   hasCluesEnabled,
   isLocalMode,
   categoryName,
+  locationName,
   onPlayClick,
   onBack,
   formatDateForDisplay,
@@ -28,9 +30,18 @@ export function IntroScreen({
   // Button colors match GameSelectionPage
   const buttonColor = isLocalMode ? "#66becb" : "#7DAAE8";
   
-  const clueText = hasCluesEnabled 
-    ? `${categoryName ? categoryName + ": " : ""}On what date in history did this event occur?`
+  // Determine if this is a category question (local mode) or location question (global mode)
+  const isCategoryQuestion = !!categoryName && !locationName;
+  const isLocationQuestion = !!locationName && !categoryName;
+  
+  const promptText = hasCluesEnabled 
+    ? (isCategoryQuestion ? "On what date did this historical event occur?" : "On what date did this local event occur?")
     : "Take on the challenge of guessing a date in history!";
+    
+  // Build category/location label
+  const categoryOrLocationLabel = isCategoryQuestion 
+    ? categoryName 
+    : (isLocationQuestion ? locationName : null);
 
   const handlePlayClick = () => {
     console.log('[IntroScreen] Play button clicked');
@@ -65,15 +76,17 @@ export function IntroScreen({
         />
 
         {/* Clue Text */}
-        <div className="text-center space-y-2">
-          <p className="text-lg font-bold" data-testid="text-intro-clue-prompt">
-            {hasCluesEnabled && categoryName && (
-              <span className="text-gray-900 dark:text-gray-100">{categoryName}: </span>
-            )}
-            <span className="text-gray-700 dark:text-gray-500">
-              {hasCluesEnabled ? "On what date in history did this event occur?" : "Take on the challenge of guessing a date in history!"}
-            </span>
+        <div className="text-center space-y-4">
+          <p className="text-lg font-bold text-gray-700 dark:text-gray-500" data-testid="text-intro-clue-prompt">
+            {hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!"}
           </p>
+          
+          {hasCluesEnabled && categoryOrLocationLabel && (
+            <p className="text-xl font-bold dark:text-blue-400" style={{ color: '#1e3a8a' }} data-testid="text-intro-category-location">
+              {categoryOrLocationLabel}
+            </p>
+          )}
+          
           {hasCluesEnabled && (
             <p className="text-xl font-bold text-gray-600 dark:text-gray-400" data-testid="text-intro-event-title">
               {eventTitle}
