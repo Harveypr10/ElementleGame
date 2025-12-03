@@ -18,6 +18,11 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
   const [fadeIn, setFadeIn] = useState(false);
 
   useEffect(() => {
+    // Reset body background to white now that React has loaded
+    // (index.html sets it to blue for initial loading)
+    document.body.style.backgroundColor = '';
+    document.documentElement.style.backgroundColor = '';
+    
     // Preload GameSelection screen images and auth/generating screens
     const imagesToPreload = [
       historianHamsterBlue,
