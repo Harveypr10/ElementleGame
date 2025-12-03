@@ -15,7 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **UI/UX**: Custom color palette, responsive mobile-first design, Lottie animations for loading, and game-specific visual feedback.
 - **Features**: Realtime UI updates via `useRealtimeSubscriptions`, navigation-based data refresh, intro screen for game info.
 - **Loading System**: `SpinnerProvider` with a hamster wheel animation, including timeout/retry logic and data validation before completion.
-- **Game Modes**: Supports Global and Local game modes with independent data handling.
+- **Game Modes**: Supports Global and Local game modes with independent data handling. CRITICAL: Mode switching uses explicit `puzzleSourceMode` state to avoid race conditions with React's async state updates - see `handlePlayGlobal`/`handlePlayLocal` in Home.tsx.
 - **Subscription UI**: Dynamic display of subscription tiers, renewal options, and allowances for Pro and Standard users.
 - **Restriction System**: Cooldowns for location and category changes, managed by admin settings and implemented with React Query for robust client-side validation and UI feedback.
 - **Streak & Holiday Protection**: UI for managing streak savers and Pro-only holiday protection.

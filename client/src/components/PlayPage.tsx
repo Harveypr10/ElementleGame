@@ -107,6 +107,19 @@ export function PlayPage({
   // This ensures we use the correct mode that was active when the puzzle was selected
   const isLocalMode = puzzleSourceMode ? puzzleSourceMode === 'local' : contextIsLocalMode;
   
+  // Debug logging to help trace mode issues (CRITICAL for detecting cross-contamination bugs)
+  // Log once on mount and when mode changes
+  useEffect(() => {
+    console.log('[PlayPage] Mode configuration:', {
+      puzzleSourceMode,
+      contextIsLocalMode,
+      resolvedIsLocalMode: isLocalMode,
+      puzzleId,
+      puzzleDate,
+      willUseEndpoint: isLocalMode ? '/api/user/*' : '/api/*'
+    });
+  }, [puzzleSourceMode, contextIsLocalMode, isLocalMode, puzzleId, puzzleDate]);
+  
   // Cache mode for guess cache operations - must match the data source mode
   const cacheMode: 'global' | 'local' = isLocalMode ? 'local' : 'global';
   const { showAd, triggerAd, handleClose: closeInterstitialAd, InterstitialAdComponent } = useInterstitialAd();

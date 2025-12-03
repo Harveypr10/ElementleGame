@@ -174,7 +174,9 @@ export default function Home() {
     
     // Capture the current mode when the puzzle is selected
     // This ensures PlayPage uses the correct mode for data fetching
-    setPuzzleSourceMode(isLocalMode ? 'local' : 'global');
+    const mode = isLocalMode ? 'local' : 'global';
+    console.log('[handlePlayPuzzle] Setting puzzleSourceMode:', mode, 'for puzzleId:', puzzleId);
+    setPuzzleSourceMode(mode);
     
     // Check if this puzzle has any existing progress (completed or in-progress)
     let isCompleted = false;
@@ -227,12 +229,13 @@ export default function Home() {
     setCurrentScreen("play");
   };
   
-  const handlePlayToday = () => {
+  // Version of handlePlayToday that takes explicit mode to avoid race conditions
+  // This is called by handlePlayGlobal/handlePlayLocal where mode is already set
+  const handlePlayTodayWithMode = (mode: 'global' | 'local') => {
     setSelectedPuzzleId(null);
     setPreviousScreen("selection");
     
-    // Capture the current mode when playing today's puzzle
-    setPuzzleSourceMode(isLocalMode ? 'local' : 'global');
+    // Mode is already set by caller, no need to set puzzleSourceMode here
     
     // Check if today's puzzle has any existing progress (completed or in-progress)
     const todayPuzzle = getDailyPuzzle();
@@ -287,11 +290,15 @@ export default function Home() {
     setHasExistingProgress(hasProgress);
     setCurrentScreen("play");
   };
-
+  
   // Global mode handlers (always use region data)
   const handlePlayGlobal = () => {
+    console.log('[handlePlayGlobal] Setting mode to global explicitly');
     setGameMode('global');
-    handlePlayToday();
+    // CRITICAL: Explicitly set puzzleSourceMode to 'global' BEFORE calling handlePlayToday
+    // This avoids race condition where isLocalMode still has old value from context
+    setPuzzleSourceMode('global');
+    handlePlayTodayWithMode('global');
   };
 
   const handleStatsGlobal = () => {
@@ -313,8 +320,12 @@ export default function Home() {
 
   // Local mode handlers (always use user data)
   const handlePlayLocal = () => {
+    console.log('[handlePlayLocal] Setting mode to local explicitly');
     setGameMode('local');
-    handlePlayToday();
+    // CRITICAL: Explicitly set puzzleSourceMode to 'local' BEFORE calling handlePlayToday
+    // This avoids race condition where isLocalMode still has old value from context
+    setPuzzleSourceMode('local');
+    handlePlayTodayWithMode('local');
   };
 
   const handleStatsLocal = () => {
