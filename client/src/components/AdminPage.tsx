@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, Shield, Clock, CalendarClock } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { ChevronLeft, Shield, Clock, CalendarClock, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdBannerActive } from "@/components/AdBanner";
@@ -18,6 +19,14 @@ interface SchedulerConfig {
   start_time: string;
   frequency_hours: number;
   exists: boolean;
+}
+
+interface TierVisibility {
+  id: string;
+  tier: string;
+  tierType: string;
+  active: boolean;
+  region: string;
 }
 
 function calculateNextRunTimes(startTime: string, frequencyHours: number, count: number = 4): Date[] {
@@ -85,11 +94,16 @@ export function AdminPage({ onBack }: AdminPageProps) {
   const [schedulerFrequency, setSchedulerFrequency] = useState<string>("24");
   const [schedulerConfigExists, setSchedulerConfigExists] = useState(false);
   
+  // Tier visibility state
+  const [tiers, setTiers] = useState<TierVisibility[]>([]);
+  const [tierVisibilityMap, setTierVisibilityMap] = useState<Record<string, boolean>>({});
+  
   // Loading states
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingScheduler, setSavingScheduler] = useState(false);
   const [fixingTrigger, setFixingTrigger] = useState(false);
+  const [savingTiers, setSavingTiers] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -97,12 +111,15 @@ export function AdminPage({ onBack }: AdminPageProps) {
         const session = (await supabase.auth.getSession()).data.session;
         const accessToken = session?.access_token;
         
-        // Fetch admin settings and demand scheduler config in parallel
-        const [settingsResponse, schedulerResponse] = await Promise.all([
+        // Fetch admin settings, demand scheduler, and tiers in parallel
+        const [settingsResponse, schedulerResponse, tiersResponse] = await Promise.all([
           fetch('/api/admin/settings', {
             headers: { 'Authorization': `Bearer ${accessToken}` },
           }),
           fetch('/api/admin/demand-scheduler', {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+          }),
+          fetch('/api/admin/tiers', {
             headers: { 'Authorization': `Bearer ${accessToken}` },
           }),
         ]);
@@ -124,6 +141,16 @@ export function AdminPage({ onBack }: AdminPageProps) {
           setSchedulerStartTime(schedulerConfig.start_time);
           setSchedulerFrequency(schedulerConfig.frequency_hours.toString());
           setSchedulerConfigExists(schedulerConfig.exists);
+        }
+        
+        if (tiersResponse.ok) {
+          const tiersData: TierVisibility[] = await tiersResponse.json();
+          setTiers(tiersData);
+          const visibilityMap: Record<string, boolean> = {};
+          tiersData.forEach(t => {
+            visibilityMap[t.id] = t.active;
+          });
+          setTierVisibilityMap(visibilityMap);
         }
       } catch (error) {
         console.error('Error fetching admin settings:', error);
@@ -293,6 +320,47 @@ export function AdminPage({ onBack }: AdminPageProps) {
     }
   };
 
+  const handleSaveTierVisibility = async () => {
+    setSavingTiers(true);
+    try {
+      const session = (await supabase.auth.getSession()).data.session;
+      const accessToken = session?.access_token;
+      
+      // Save all tier visibility changes
+      const updates = Object.entries(tierVisibilityMap).map(([tierId, active]) => ({
+        tierId,
+        active,
+      }));
+      
+      const response = await fetch('/api/admin/tiers', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ updates }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save tier visibility');
+      }
+
+      toast({
+        title: "Tier settings saved",
+        description: "Subscription tier visibility has been updated.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save tier settings",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingTiers(false);
+    }
+  };
+
   // Calculate next run times preview
   const nextRunTimes = useMemo(() => {
     return calculateNextRunTimes(schedulerStartTime, parseInt(schedulerFrequency, 10), 4);
@@ -423,6 +491,54 @@ export function AdminPage({ onBack }: AdminPageProps) {
                   {fixingTrigger ? "Fixing Trigger..." : "Fix Database Trigger"}
                 </Button>
               </div>
+            </Card>
+
+            {/* Subscription Tier Visibility Card */}
+            <Card className="p-6 space-y-6">
+              <div className="flex items-center gap-2 pb-4 border-b">
+                <Zap className="h-5 w-5 text-purple-500" />
+                <span className="font-semibold text-purple-600 dark:text-purple-400">Subscription Tier Visibility</span>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Toggle which subscription tiers are available for purchase. Pro tiers are enabled by default, others are disabled.
+                </p>
+                
+                <div className="space-y-3 max-h-60 overflow-y-auto bg-muted/30 rounded-md p-3">
+                  {tiers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No subscription tiers found.</p>
+                  ) : (
+                    tiers.filter(t => t.tier !== 'Standard').map((tier) => (
+                      <div key={tier.id} className="flex items-center justify-between p-3 rounded-md bg-background border">
+                        <div className="flex flex-col gap-1 flex-1">
+                          <span className="font-medium">{tier.tier}</span>
+                          <span className="text-xs text-muted-foreground capitalize">{tier.tierType} • {tier.region}</span>
+                        </div>
+                        <Switch
+                          checked={tierVisibilityMap[tier.id] ?? tier.active}
+                          onCheckedChange={(checked) => {
+                            setTierVisibilityMap(prev => ({
+                              ...prev,
+                              [tier.id]: checked,
+                            }));
+                          }}
+                          data-testid={`toggle-tier-${tier.id}`}
+                        />
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={handleSaveTierVisibility}
+                disabled={savingTiers}
+                data-testid="button-save-tier-visibility"
+              >
+                {savingTiers ? "Saving..." : "Save Tier Visibility"}
+              </Button>
             </Card>
 
             {/* Demand Scheduler Card */}

@@ -2240,6 +2240,60 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Get all subscription tiers for admin visibility management
+  app.get("/api/admin/tiers", verifySupabaseAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT 
+          id,
+          region,
+          tier,
+          tier_type as "tierType",
+          active
+        FROM user_tier
+        WHERE tier != 'Standard'
+        ORDER BY region, sort_order ASC
+      `);
+      
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      return res.json(rows);
+    } catch (error: any) {
+      console.error("[GET /api/admin/tiers] Error:", error);
+      return res.status(500).json({ error: "Failed to fetch tiers" });
+    }
+  });
+
+  // Update tier visibility (active status)
+  app.put("/api/admin/tiers", verifySupabaseAuth, requireAdmin, async (req: any, res) => {
+    try {
+      const { updates } = req.body;
+      
+      if (!updates || !Array.isArray(updates)) {
+        return res.status(400).json({ error: "Invalid updates format" });
+      }
+
+      // Update each tier's active status
+      const results = await Promise.all(
+        updates.map(({ tierId, active }: { tierId: string; active: boolean }) =>
+          db.execute(sql`
+            UPDATE user_tier 
+            SET active = ${active}, updated_at = NOW()
+            WHERE id = ${tierId} AND tier != 'Standard'
+          `)
+        )
+      );
+
+      console.log("[PUT /api/admin/tiers] Updated tier visibility:", updates.length, "tiers");
+      return res.json({ 
+        success: true, 
+        message: `Updated ${updates.length} tier visibility settings` 
+      });
+    } catch (error: any) {
+      console.error("[PUT /api/admin/tiers] Error:", error);
+      return res.status(500).json({ error: "Failed to update tier visibility" });
+    }
+  });
+
   // Debug endpoint to check user data (admin only)
   app.get("/api/admin/debug-user/:userId", verifySupabaseAuth, requireAdmin, async (req, res) => {
     try {
