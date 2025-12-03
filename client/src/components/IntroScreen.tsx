@@ -33,15 +33,21 @@ export function IntroScreen({
   // Determine if this is a category question (local mode) or location question (global mode)
   const isCategoryQuestion = !!categoryName && !locationName;
   const isLocationQuestion = !!locationName && !categoryName;
+  const isLocalHistoryWithLocation = categoryName === "Local History" && !!locationName;
   
   const promptText = hasCluesEnabled 
-    ? (isCategoryQuestion ? "On what date did this historical event occur?" : "On what date did this local event occur?")
+    ? "On what date did this local event occur?"
     : "Take on the challenge of guessing a date in history!";
     
   // Build category/location label
-  const categoryOrLocationLabel = isCategoryQuestion 
-    ? categoryName 
-    : (isLocationQuestion ? locationName : null);
+  let categoryOrLocationLabel: string | null = null;
+  if (isCategoryQuestion) {
+    categoryOrLocationLabel = categoryName || null;
+  } else if (isLocalHistoryWithLocation) {
+    categoryOrLocationLabel = `Local History - ${locationName}:`;
+  } else if (isLocationQuestion) {
+    categoryOrLocationLabel = locationName || null;
+  }
 
   const handlePlayClick = () => {
     console.log('[IntroScreen] Play button clicked');
@@ -81,17 +87,20 @@ export function IntroScreen({
             {hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!"}
           </p>
           
-          {hasCluesEnabled && categoryOrLocationLabel && (
-            <p className="text-xl font-bold dark:text-blue-400" style={{ color: '#1e3a8a' }} data-testid="text-intro-category-location">
-              {categoryOrLocationLabel}
-            </p>
-          )}
-          
-          {hasCluesEnabled && (
-            <p className="text-xl font-bold text-gray-600 dark:text-gray-400" data-testid="text-intro-event-title">
-              {eventTitle}
-            </p>
-          )}
+          {/* Category/Location and Event Title - no gap between them */}
+          <div className="space-y-0">
+            {hasCluesEnabled && categoryOrLocationLabel && (
+              <p className="text-xl font-bold dark:text-blue-400" style={{ color: '#1e3a8a' }} data-testid="text-intro-category-location">
+                {categoryOrLocationLabel}
+              </p>
+            )}
+            
+            {hasCluesEnabled && (
+              <p className="text-xl font-bold text-gray-600 dark:text-gray-400" data-testid="text-intro-event-title">
+                {eventTitle}
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Play Button - rounder corners and larger font */}
