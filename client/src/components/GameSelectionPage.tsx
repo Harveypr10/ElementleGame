@@ -13,6 +13,8 @@ import { useGameData } from "@/hooks/useGameData";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
 import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
+import { useCategoryRestriction } from "@/hooks/useCategoryRestriction";
+import { useToast } from "@/hooks/use-toast";
 import { motion, useTransform } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
 import { useModeController } from "@/hooks/useModeController";
@@ -85,6 +87,8 @@ export function GameSelectionPage({
   const { formatCanonicalDate } = useUserDateFormat();
   const { isPro, tier } = useSubscription();
   const { containerRef, x, gameMode, snapTo, handleSwipeStart, handleSwiping, handleSwiped, isDesktop } = useModeController(() => setShowGuestRestriction('personal'));
+  const { isRestricted, restrictionDays } = useCategoryRestriction();
+  const { toast } = useToast();
   // Set up realtime subscriptions for automatic UI refresh when database changes occur
   const { refreshLocalData, refreshGlobalData } = useRealtimeSubscriptions({
     userId: user?.id,
@@ -150,6 +154,19 @@ export function GameSelectionPage({
       }
     }
   }, [profile]);
+
+  // Handler for opening category selection with restriction check
+  const handleOpenProCategories = () => {
+    if (isRestricted) {
+      toast({
+        title: "Categories restricted",
+        description: `You can update your categories once every ${restrictionDays} days and Hammie will regenerate your questions.`,
+        variant: "default",
+      });
+      return;
+    }
+    setShowCategorySelection(true);
+  };
 
   // Transform for Options button - moves based on content width, not viewport
   // Track container width, content width, and Stats row vertical position
@@ -896,7 +913,7 @@ export function GameSelectionPage({
                 {isAuthenticated && (
                   <div className={`absolute flex-shrink-0 ${isPro ? 'right-2' : 'right-0'}`}>
                     {isPro ? (
-                      <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
+                      <GoProButton onClick={handleOpenProCategories} isPro />
                     ) : (
                       <GoProButton onClick={() => setShowProDialog(true)} />
                     )}
@@ -946,7 +963,7 @@ export function GameSelectionPage({
               {isAuthenticated && (
                 <div className={`flex-shrink-0 ${isPro ? 'mr-2' : ''}`}>
                   {isPro ? (
-                    <GoProButton onClick={() => setShowCategorySelection(true)} isPro />
+                    <GoProButton onClick={handleOpenProCategories} isPro />
                   ) : (
                     <GoProButton onClick={() => setShowProDialog(true)} />
                   )}
