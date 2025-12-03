@@ -865,7 +865,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const stats = await storage.recalculateUserStatsRegion(userId);
       res.json(stats);
     } catch (error) {
-      console.error("Error recalculating stats:", error);
+      console.error("[POST /api/stats/recalculate] Error:", error);
       res.status(500).json({ error: "Failed to recalculate stats" });
     }
   });
@@ -1270,7 +1270,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const stats = await storage.recalculateUserStatsUser(userId);
       res.json(stats);
     } catch (error) {
-      console.error("Error recalculating user stats:", error);
+      console.error("[POST /api/user/stats/recalculate] Error:", error);
       res.status(500).json({ error: "Failed to recalculate user stats" });
     }
   });
