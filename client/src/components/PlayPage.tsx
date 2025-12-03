@@ -1325,7 +1325,7 @@ export function PlayPage({
   // The spinner overlay is managed by the gameLoadingSpinner effect above
   if (formatLoading || !digitsCheckComplete) {
     return (
-      <div className="min-h-screen" data-testid="game-loading" />
+      <div className="h-dvh" data-testid="game-loading" />
     );
   }
 
@@ -1340,7 +1340,7 @@ export function PlayPage({
       : 'unknown date';
     
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
+      <div className="h-dvh flex flex-col items-center justify-center p-4 bg-background overflow-hidden">
         <div className="text-center max-w-sm">
           <div className="mb-6">
             <Umbrella className="h-24 w-24 mx-auto text-primary" />
@@ -1410,7 +1410,7 @@ export function PlayPage({
       
       {/* Main game content - hidden behind intro screen when showing */}
       <div 
-        className="min-h-screen flex flex-col p-4"
+        className="h-dvh flex flex-col p-4 overflow-hidden"
       >
       <div className="flex items-center justify-between mb-0">
         <button
