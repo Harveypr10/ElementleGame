@@ -1,0 +1,95 @@
+Streak Saver & Holiday Workflow
+✅ Already Implemented (Streak Saver Workflow Foundations)
+- Tables & Fields
+- user_stats_user includes:
+- streak_savers_used_month (int, resets monthly)
+- holiday_active (bool)
+- holiday_start_date (date)
+- holiday_end_date (date)
+- missed_yesterday_flag_region (bool)
+- missed_yesterday_flag_user (bool)
+- user_stats_region includes:
+- streak_savers_used_month (int, resets monthly)
+- missed_yesterday_flag_region (bool)
+- missed_yesterday_flag_user (bool)
+- Triggers
+- trg_set_user_stats_user_updated_at and trg_set_user_stats_region_updated_at keep updated_at current on updates.
+- Cron Jobs
+- Supabase cron job reset_streak_savers runs monthly (0 0 1 * *) and resets streak_savers_used_month for all users and regions.
+- Rules
+- Streak savers reset monthly.
+- Holidays reset annually.
+- Standard users: 1 streak saver per month per game type (region + user).
+- Pro tiers: allowances defined in user_tier (streak_savers, holiday_savers, holiday_duration_days).
+
+✅ Brief Reminder (Tier/Subscription Workflow)
+- Canonical tier system is in place:
+- user_tier seeded for UK and US.
+- user_subscriptions linked via user_tier_id, with auto_renew.
+- user_profiles synced via sync_user_profile_tier().
+- Views: user_active_tier_view (active tier resolution), user_profiles_with_tier (profile + metadata).
+- Replit has already wired backend/frontend to use getUserTier(user_id) via user_active_tier_view.
+
+🔧 What Replit Needs to Implement Now
+1. Nightly Flags Updater
+- Extend the existing demand/streak recalculation job:
+- Region game:
+- If yesterday’s region puzzle not played and current_streak > 0 → set missed_yesterday_flag_region = true.
+- Else → set flag = false.
+- User game:
+- If yesterday’s user puzzle not played and current_streak > 0 → set missed_yesterday_flag_user = true.
+- Else → set flag = false.
+- Holiday auto‑end:
+- If holiday_active = true AND today > holiday_end_date → set holiday_active = false, clear holiday_start_date and holiday_end_date.
+2. Backend Endpoints
+- useStreakSaver(user_id, game_type)
+- Check allowance via getUserTier(user_id):
+- Standard → 1 per month per game type.
+- Pro tiers → streak_savers from tier metadata.
+- Compare against streak_savers_used_month in the relevant stats table.
+- If allowance remains:
+- Increment streak_savers_used_month.
+- Unlock yesterday’s puzzle for play.
+- Clear missed_yesterday_flag_*.
+- If no allowance:
+- Return error → trigger subscription flow.
+- startHoliday(user_id)
+- Check allowance via getUserTier(user_id).holiday_savers.
+- If allowance remains:
+- Set holiday_active = true.
+- holiday_start_date = last_played_date.
+- holiday_end_date = holiday_start_date + holiday_duration_days.
+- Track annual usage (see below).
+- endHoliday(user_id)
+- Set holiday_active = false.
+- Clear holiday_start_date and holiday_end_date.
+3. Holiday Allowance Tracking
+- Implement annual holiday usage tracking:
+- Option A (preferred): Create user_holiday_events(user_id, started_at, ended_at, created_at) and count rows per year.
+- Option B: Add holidays_used_year to user_stats_user and reset annually via cron.
+4. Frontend Flows
+- Login popup:
+- If missed_yesterday_flag_* = true → show “Use a streak saver?” popup.
+- Options: Yes → call useStreakSaver; No → reset streak to 0.
+- If no allowance → show “No streak savers left” + ProSubscriptionDialog.
+- Pro users:
+- Popup includes “Go on holiday” option.
+- On select → call startHoliday.
+- While holiday_active → missed days do not reset streak; plays do not increment streak.
+- GameSelectionPage:
+- If holiday_active = true → show “End holiday” button with warning.
+- On click → call endHoliday.
+- Button disappears when holiday ends naturally.
+- PlayPage logic:
+- On win: increment streak only if not holiday OR streak saver used.
+- On loss: defer reset until popup decision.
+- Clear missed_yesterday_flag_* when streak saver used.
+
+✅ Deliverables
+- Implement nightly flags updater logic.
+- Implement backend endpoints: useStreakSaver, startHoliday, endHoliday.
+- Implement holiday allowance tracking (Option A recommended).
+- Wire frontend popups, GameSelectionPage button, PlayPage adjustments.
+- Ensure allowances respect tier metadata via getUserTier(user_id).
+
+👉 This spec makes clear: all schema, fields, triggers, and cron jobs are already in place. Replit’s job is now to implement the logic, endpoints, and UI flows exactly as described.

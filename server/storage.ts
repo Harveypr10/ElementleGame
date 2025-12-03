@@ -2714,6 +2714,14 @@ export class DatabaseStorage implements IStorage {
     };
   } | null> {
     try {
+      // Calculate yesterday's date (in YYYY-MM-DD format)
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      
+      console.log('[getStreakSaverStatus] Checking for userId:', userId, 'yesterday:', yesterdayStr);
+      
       // Get region stats
       const regionResult = await db.execute(sql`
         SELECT 
@@ -2742,25 +2750,111 @@ export class DatabaseStorage implements IStorage {
       
       // Return null if user doesn't have any stats yet
       if (regionRows.length === 0 && userRows.length === 0) {
+        console.log('[getStreakSaverStatus] No stats found for user');
         return null;
       }
       
       const regionRow = regionRows[0] || {};
       const userRow = userRows[0] || {};
       
+      // Get current values
+      let regionCurrentStreak = regionRow.current_streak || 0;
+      let regionMissedFlag = regionRow.missed_yesterday_flag_region || false;
+      let userCurrentStreak = userRow.current_streak || 0;
+      let userMissedFlag = userRow.missed_yesterday_flag_user || false;
+      const holidayActive = userRow.holiday_active || false;
+      
+      // ========================================================================
+      // CHECK AND MANAGE MISSED_YESTERDAY_FLAG FOR REGION MODE
+      // ========================================================================
+      // Check if yesterday's REGION puzzle was played
+      const regionPlayedResult = await db.execute(sql`
+        SELECT ga.id 
+        FROM game_attempts_region ga
+        INNER JOIN questions_allocated_region qar ON ga.allocated_region_id = qar.id
+        WHERE ga.user_id = ${userId}
+          AND qar.puzzle_date = ${yesterdayStr}
+          AND ga.result IS NOT NULL
+        LIMIT 1
+      `);
+      
+      const regionPlayedRows = Array.isArray(regionPlayedResult) ? regionPlayedResult : (regionPlayedResult as any).rows || [];
+      const didPlayRegionYesterday = regionPlayedRows.length > 0;
+      
+      console.log('[getStreakSaverStatus] Region - streak:', regionCurrentStreak, 'played yesterday:', didPlayRegionYesterday, 'flag:', regionMissedFlag);
+      
+      if (didPlayRegionYesterday && regionMissedFlag) {
+        // User has played yesterday but flag is still set - CLEAR it!
+        console.log('[getStreakSaverStatus] Clearing missed_yesterday_flag_region for user:', userId);
+        await db.execute(sql`
+          UPDATE user_stats_region 
+          SET missed_yesterday_flag_region = false, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        regionMissedFlag = false;
+      } else if (!didPlayRegionYesterday && regionCurrentStreak > 0 && !regionMissedFlag) {
+        // User had a streak but missed yesterday - SET the flag!
+        console.log('[getStreakSaverStatus] Setting missed_yesterday_flag_region = true for user:', userId);
+        await db.execute(sql`
+          UPDATE user_stats_region 
+          SET missed_yesterday_flag_region = true, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        regionMissedFlag = true;
+      }
+      
+      // ========================================================================
+      // CHECK AND MANAGE MISSED_YESTERDAY_FLAG FOR USER MODE
+      // ========================================================================
+      // Check if yesterday's USER puzzle was played
+      const userPlayedResult = await db.execute(sql`
+        SELECT ga.id 
+        FROM game_attempts_user ga
+        INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
+        WHERE ga.user_id = ${userId}
+          AND qau.puzzle_date = ${yesterdayStr}
+          AND ga.result IS NOT NULL
+        LIMIT 1
+      `);
+      
+      const userPlayedRows = Array.isArray(userPlayedResult) ? userPlayedResult : (userPlayedResult as any).rows || [];
+      const didPlayUserYesterday = userPlayedRows.length > 0;
+      
+      console.log('[getStreakSaverStatus] User - streak:', userCurrentStreak, 'played yesterday:', didPlayUserYesterday, 'holiday:', holidayActive, 'flag:', userMissedFlag);
+      
+      if (didPlayUserYesterday && userMissedFlag) {
+        // User has played yesterday but flag is still set - CLEAR it!
+        console.log('[getStreakSaverStatus] Clearing missed_yesterday_flag_user for user:', userId);
+        await db.execute(sql`
+          UPDATE user_stats_user 
+          SET missed_yesterday_flag_user = false, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        userMissedFlag = false;
+      } else if (!didPlayUserYesterday && userCurrentStreak > 0 && !userMissedFlag && !holidayActive) {
+        // User had a streak but missed yesterday (and not on holiday) - SET the flag!
+        console.log('[getStreakSaverStatus] Setting missed_yesterday_flag_user = true for user:', userId);
+        await db.execute(sql`
+          UPDATE user_stats_user 
+          SET missed_yesterday_flag_user = true, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        userMissedFlag = true;
+      }
+      
       return {
         region: {
-          currentStreak: regionRow.current_streak || 0,
+          currentStreak: regionCurrentStreak,
           streakSaversUsedMonth: regionRow.streak_savers_used_month || 0,
-          missedYesterdayFlag: regionRow.missed_yesterday_flag_region || false,
+          missedYesterdayFlag: regionMissedFlag,
         },
         user: {
-          currentStreak: userRow.current_streak || 0,
+          currentStreak: userCurrentStreak,
           streakSaversUsedMonth: userRow.streak_savers_used_month || 0,
-          holidayActive: userRow.holiday_active || false,
+          holidayActive: holidayActive,
           holidayStartDate: userRow.holiday_start_date || null,
           holidayEndDate: userRow.holiday_end_date || null,
-          missedYesterdayFlag: userRow.missed_yesterday_flag_user || false,
+          missedYesterdayFlag: userMissedFlag,
         }
       };
     } catch (error: any) {

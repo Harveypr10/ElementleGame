@@ -422,10 +422,9 @@ export const userStatsRegion = pgTable("user_stats_region", {
   currentStreak: integer("current_streak").default(0),
   maxStreak: integer("max_streak").default(0),
   guessDistribution: jsonb("guess_distribution").default({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 }), // JSON object tracking wins by guess count
-  // Streak saver and holiday fields (managed by nightly cron and API endpoints)
+  // Streak saver fields (managed by nightly cron and API endpoints)
   streakSaversUsedMonth: integer("streak_savers_used_month").default(0),
-  missedYesterdayFlagRegion: boolean("missed_yesterday_flag_region").default(false),
-  missedYesterdayFlagUser: boolean("missed_yesterday_flag_user").default(false),
+  missedYesterdayFlagRegion: boolean("missed_yesterday_flag_region").default(false), // Tracks missed region puzzles
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -552,8 +551,7 @@ export const userStatsUser = pgTable("user_stats_user", {
   holidayActive: boolean("holiday_active").default(false),
   holidayStartDate: date("holiday_start_date"),
   holidayEndDate: date("holiday_end_date"),
-  missedYesterdayFlagRegion: boolean("missed_yesterday_flag_region").default(false),
-  missedYesterdayFlagUser: boolean("missed_yesterday_flag_user").default(false),
+  missedYesterdayFlagUser: boolean("missed_yesterday_flag_user").default(false), // Tracks missed user puzzles
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
