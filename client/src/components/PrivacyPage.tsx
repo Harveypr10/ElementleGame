@@ -26,7 +26,7 @@ export function PrivacyPage({ onBack }: PrivacyPageProps) {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[50px]' : ''}`}>
+    <div className={`min-h-screen flex flex-col p-4 bg-background ${adBannerActive ? 'pb-[50px]' : ''}`}>
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={onBack}

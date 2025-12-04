@@ -67,7 +67,7 @@ export function BugReportForm({ onBack }: BugReportFormProps) {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col p-4 pt-8 ${adBannerActive ? 'pb-[50px]' : ''}`}>
+    <div className={`min-h-screen flex flex-col p-4 bg-background pt-8 ${adBannerActive ? 'pb-[50px]' : ''}`}>
       <div className="w-full max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between mb-6">
           <button

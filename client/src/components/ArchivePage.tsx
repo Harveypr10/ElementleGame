@@ -350,7 +350,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
 
   return (
     <motion.div 
-      className={`min-h-screen flex flex-col p-4 ${adBannerActive ? 'pb-[50px]' : ''}`}
+      className={`min-h-screen flex flex-col p-4 bg-background ${adBannerActive ? 'pb-[50px]' : ''}`}
       initial={pageVariants.fadeIn.initial}
       animate={pageVariants.fadeIn.animate}
       exit={pageVariants.fadeIn.exit}
