@@ -193,15 +193,15 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
               <div className="flex-1 flex flex-col justify-between">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Played</span>
-                  <span className="text-xl font-bold ml-2" data-testid="stat-played">{stats.played}</span>
+                  <span className="text-xl font-bold w-16 text-center" data-testid="stat-played">{stats.played}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Win %</span>
-                  <span className="text-xl font-bold ml-2" data-testid="stat-win-percentage">{winPercentage}%</span>
+                  <span className="text-xl font-bold w-16 text-center" data-testid="stat-win-percentage">{winPercentage}%</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Average Guesses</span>
-                  <span className="text-xl font-bold ml-2" data-testid="stat-avg-guesses">{averageGuesses}</span>
+                  <span className="text-xl font-bold w-16 text-center" data-testid="stat-avg-guesses">{averageGuesses}</span>
                 </div>
               </div>
             </Card>
