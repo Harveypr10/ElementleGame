@@ -33,7 +33,7 @@ export function BadgesRow({ gameType }: BadgesRowProps) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm font-medium text-muted-foreground">Badges</span>
+            <span className="text-sm font-bold text-muted-foreground">Badges</span>
           </div>
         </div>
         <div className="flex justify-center gap-3">
@@ -50,7 +50,7 @@ export function BadgesRow({ gameType }: BadgesRowProps) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Trophy className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">Badges</span>
+          <span className="text-sm font-bold text-muted-foreground">Badges</span>
         </div>
       </div>
       <div className="flex justify-center gap-3">
