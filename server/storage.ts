@@ -3478,10 +3478,10 @@ export class DatabaseStorage implements IStorage {
     region: string
   ): Promise<UserBadgeWithDetails | null> {
     try {
-      // Get user's current percentile
+      // Get user's current percentile using existing methods
       const percentile = gameType === 'USER' 
-        ? await this.calculateUserPercentile(userId)
-        : await this.calculatePercentile(userId, region);
+        ? await this.getUserPercentileRankingUser(userId)
+        : await this.getUserPercentileRankingRegion(userId, region);
       
       if (percentile === null) {
         return null;
