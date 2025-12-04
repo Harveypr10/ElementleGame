@@ -66,7 +66,10 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
     streak: 0,
     percentile: 0,
   });
-  const [isVerticalSwiping, setIsVerticalSwiping] = useState(false);
+  // Track animation direction: 1 = scrolling down (next category), -1 = scrolling up (prev category)
+  const [animationDirection, setAnimationDirection] = useState(1);
+  // Track locked scroll direction during a gesture
+  const [lockedDirection, setLockedDirection] = useState<'horizontal' | 'vertical' | null>(null);
 
   const { data: allBadges } = useQuery<Badge[]>({
     queryKey: ['/api/badges'],
@@ -132,7 +135,35 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
 
   const handleCategorySwipe = (direction: number) => {
     const newIndex = Math.max(0, Math.min(CATEGORIES.length - 1, currentCategoryIndex + direction));
-    setCurrentCategoryIndex(newIndex);
+    if (newIndex !== currentCategoryIndex) {
+      // Set animation direction: direction > 0 means scrolling down (next), direction < 0 means scrolling up (prev)
+      setAnimationDirection(direction);
+      setCurrentCategoryIndex(newIndex);
+    }
+  };
+
+  const handleDragStart = () => {
+    // Reset locked direction at start of gesture
+    setLockedDirection(null);
+  };
+
+  const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    const { offset } = info;
+    
+    // Lock direction on first significant movement
+    if (lockedDirection === null) {
+      const absX = Math.abs(offset.x);
+      const absY = Math.abs(offset.y);
+      const threshold = 10; // Minimum movement to lock direction
+      
+      if (absX > threshold || absY > threshold) {
+        if (absY > absX) {
+          setLockedDirection('vertical');
+        } else {
+          setLockedDirection('horizontal');
+        }
+      }
+    }
   };
 
   const handlePanEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -140,11 +171,19 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
     const swipeThreshold = 50;
     const velocityThreshold = 500;
 
-    if (Math.abs(offset.y) > Math.abs(offset.x) && (Math.abs(offset.y) > swipeThreshold || Math.abs(velocity.y) > velocityThreshold)) {
-      handleCategorySwipe(offset.y < 0 ? 1 : -1);
-    } else if (Math.abs(offset.x) > swipeThreshold || Math.abs(velocity.x) > velocityThreshold) {
-      handleBadgeSwipe(offset.x < 0 ? 1 : -1);
+    // Only allow swipe in the locked direction
+    if (lockedDirection === 'vertical') {
+      if (Math.abs(offset.y) > swipeThreshold || Math.abs(velocity.y) > velocityThreshold) {
+        handleCategorySwipe(offset.y < 0 ? 1 : -1);
+      }
+    } else if (lockedDirection === 'horizontal') {
+      if (Math.abs(offset.x) > swipeThreshold || Math.abs(velocity.x) > velocityThreshold) {
+        handleBadgeSwipe(offset.x < 0 ? 1 : -1);
+      }
     }
+    
+    // Reset locked direction after gesture ends
+    setLockedDirection(null);
   };
 
   const activeBadgeIndex = currentBadgeIndex[currentCategory];
@@ -156,6 +195,9 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
       document.body.style.overflow = '';
     };
   }, []);
+
+  // Button blue color (same as IntroScreen play button for global mode)
+  const arrowButtonColor = "#7DAAE8";
 
   return (
     <motion.div
@@ -175,17 +217,29 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
       </button>
 
       <div className="flex-1 flex flex-col items-center justify-center overflow-hidden touch-none">
-        <div className="text-muted-foreground mb-2 flex items-center gap-1">
-          {currentCategoryIndex > 0 && <ChevronUp className="w-4 h-4 animate-bounce" />}
+        {/* Up Arrow - styled like back button with blue circle */}
+        <div className="mb-4">
+          {currentCategoryIndex > 0 ? (
+            <button
+              onClick={() => handleCategorySwipe(-1)}
+              className="w-14 h-14 flex items-center justify-center rounded-full transition-opacity hover:opacity-80"
+              style={{ backgroundColor: arrowButtonColor }}
+              data-testid="button-category-up"
+            >
+              <ChevronUp className="h-10 w-10 text-white" />
+            </button>
+          ) : (
+            <div className="w-14 h-14" /> 
+          )}
         </div>
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={currentCategory}
             className="flex flex-col items-center w-full"
-            initial={{ opacity: 0, y: 50 }}
+            initial={{ opacity: 0, y: animationDirection > 0 ? -50 : 50 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
+            exit={{ opacity: 0, y: animationDirection > 0 ? 50 : -50 }}
             transition={{ duration: 0.3 }}
           >
             <div className="flex items-center gap-2 text-foreground mb-6">
@@ -199,6 +253,8 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
               drag
               dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
               dragElastic={0.2}
+              onDragStart={handleDragStart}
+              onDrag={handleDrag}
               onDragEnd={handlePanEnd}
             >
               <div className="relative flex items-center justify-center" style={{ width: '100%', height: '100%' }}>
@@ -285,17 +341,16 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
           </motion.div>
         </AnimatePresence>
 
-        <div className="text-muted-foreground mt-4 flex items-center gap-1">
-          {currentCategoryIndex < CATEGORIES.length - 1 && (
-            <ChevronDown className="w-4 h-4 animate-bounce" />
-          )}
-        </div>
-
+        {/* Category toggle indicators */}
         <div className="flex gap-2 mt-4">
           {CATEGORIES.map((cat, index) => (
             <button
               key={cat}
-              onClick={() => setCurrentCategoryIndex(index)}
+              onClick={() => {
+                const direction = index > currentCategoryIndex ? 1 : -1;
+                setAnimationDirection(direction);
+                setCurrentCategoryIndex(index);
+              }}
               className={cn(
                 "w-2 h-2 rounded-full transition-all",
                 index === currentCategoryIndex 
@@ -305,6 +360,22 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
               data-testid={`category-indicator-${cat}`}
             />
           ))}
+        </div>
+
+        {/* Down Arrow - below the toggle, styled like back button with blue circle */}
+        <div className="mt-4">
+          {currentCategoryIndex < CATEGORIES.length - 1 ? (
+            <button
+              onClick={() => handleCategorySwipe(1)}
+              className="w-14 h-14 flex items-center justify-center rounded-full transition-opacity hover:opacity-80"
+              style={{ backgroundColor: arrowButtonColor }}
+              data-testid="button-category-down"
+            >
+              <ChevronDown className="h-10 w-10 text-white" />
+            </button>
+          ) : (
+            <div className="w-14 h-14" />
+          )}
         </div>
       </div>
 
