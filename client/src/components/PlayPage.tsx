@@ -1708,7 +1708,18 @@ export function PlayPage({
       {earnedBadge && (
         <BadgeCelebrationPopup
           badge={earnedBadge}
-          onDismiss={() => {
+          onDismiss={async () => {
+            // Mark the badge as awarded in the backend
+            try {
+              await apiRequest('POST', `/api/badges/${earnedBadge.id}/award`);
+              // Invalidate badges queries so stats page shows the new badge
+              const { queryClient } = await import("@/lib/queryClient");
+              const endpoint = isLocalMode ? '/api/user/badges/earned' : '/api/badges/earned';
+              queryClient.invalidateQueries({ queryKey: [endpoint] });
+            } catch (error) {
+              console.error('[BadgeCelebration] Failed to mark badge as awarded:', error);
+            }
+            
             setEarnedBadge(null);
             // If EndGameModal was pending, show it now
             if (pendingEndModal) {

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { Target, Flame, Percent } from "lucide-react";
 import type { UserBadgeWithDetails } from "@shared/schema";
+import badgePlaceholder from "@assets/Signup-Hamster-Grey.svg";
 
 declare global {
   interface Window {
@@ -158,6 +159,13 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
             ref={containerRef}
             className="w-48 h-48"
             data-testid="trophy-animation"
+          />
+          
+          <img 
+            src={badgePlaceholder} 
+            alt="Badge" 
+            className="w-20 h-20 object-contain"
+            data-testid="badge-image"
           />
           
           <div className={`flex items-center gap-2 ${getBadgeColor()}`}>
