@@ -303,7 +303,7 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
                 return (
                   <div key={guessNum} className="flex items-center gap-2">
                     <div className="w-4 text-sm font-medium">{guessNum}</div>
-                    <div className="flex-1 bg-muted rounded-sm h-8 relative overflow-hidden">
+                    <div className="flex-1 mx-1 bg-muted rounded-sm h-8 relative overflow-hidden">
                       <div
                         className="bg-brand-green h-full transition-all duration-300 flex items-center justify-end pr-2"
                         style={{ width: `${Math.max(percentage, count > 0 ? 10 : 0)}%` }}
@@ -318,8 +318,8 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
                 );
               })}
               <div className="flex items-center gap-2">
-                <div className="w-4 text-sm font-medium">Lost</div>
-                <div className="flex-1 bg-muted rounded-sm h-8 relative overflow-hidden">
+                <div className="w-4 text-sm font-medium -ml-1">Lost</div>
+                <div className="flex-1 mx-1 bg-muted rounded-sm h-8 relative overflow-hidden">
                   <div
                     className="bg-brand-purple h-full transition-all duration-300 flex items-center justify-end pr-2"
                     style={{ width: `${Math.max((stats.played - stats.won) > 0 ? ((stats.played - stats.won) / maxGuesses) * 100 : 0, (stats.played - stats.won) > 0 ? 10 : 0)}%` }}
