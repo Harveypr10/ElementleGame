@@ -150,13 +150,21 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
   const activeBadgeIndex = currentBadgeIndex[currentCategory];
   const activeBadge = categoryBadges[activeBadgeIndex];
 
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
   return (
     <motion.div
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col"
+      className="fixed inset-0 z-50 bg-black flex flex-col touch-none"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       data-testid="all-badges-popup"
+      onTouchMove={(e) => e.preventDefault()}
     >
       <button
         onClick={onClose}
@@ -166,7 +174,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
         <X className="w-6 h-6" />
       </button>
 
-      <div className="flex-1 flex flex-col items-center justify-center overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center overflow-hidden touch-none">
         <div className="text-white/50 mb-2 flex items-center gap-1">
           {currentCategoryIndex > 0 && <ChevronUp className="w-4 h-4 animate-bounce" />}
         </div>
@@ -186,9 +194,12 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
             </div>
 
             <motion.div
-              className="relative w-full flex items-center justify-center"
+              className="relative w-full flex items-center justify-center touch-none cursor-grab active:cursor-grabbing"
               style={{ height: '200px' }}
-              onPanEnd={handlePanEnd}
+              drag
+              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+              dragElastic={0.2}
+              onDragEnd={handlePanEnd}
             >
               <div className="flex items-center gap-4 overflow-visible">
                 {categoryBadges.map((item, index) => {
