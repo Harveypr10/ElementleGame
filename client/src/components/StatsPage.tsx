@@ -204,11 +204,11 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
               {/* Top Right Box - Streak */}
               <Card className="p-4 flex-1">
                 <div className="font-bold text-sm mb-2">Streak</div>
-                <div className="flex justify-between items-center mb-1">
+                <div className="flex justify-between items-center mb-1 pr-2">
                   <span className="text-sm text-muted-foreground">Current</span>
                   <span className="text-xl font-bold" data-testid="stat-current-streak">{stats.currentStreak}</span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center pr-2">
                   <span className="text-sm text-muted-foreground">Best</span>
                   <span className="text-xl font-bold" data-testid="stat-max-streak">{stats.maxStreak}</span>
                 </div>
