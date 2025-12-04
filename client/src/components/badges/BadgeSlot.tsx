@@ -150,9 +150,11 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
         )}>
           <div className={cn(
             emptyCircleSizeClasses[size],
-            "rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center"
-          )}>
-            <span className={cn(valueTextClasses[size], "opacity-50")}>?</span>
+            "bg-gray-200 dark:bg-gray-700 flex items-center justify-center"
+          )}
+          style={{
+            clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'
+          }}>
           </div>
         </div>
       ) : (
