@@ -5,34 +5,45 @@ import type { UserBadgeWithDetails } from "@shared/schema";
 interface BadgeSlotProps {
   category: 'elementle' | 'streak' | 'percentile';
   badge: UserBadgeWithDetails | null;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
-export function BadgeSlot({ category, badge, size = 'md' }: BadgeSlotProps) {
+export function BadgeSlot({ category, badge, size = 'xl' }: BadgeSlotProps) {
   const isEmpty = !badge;
   
   const sizeClasses = {
     sm: 'w-12 h-14',
     md: 'w-16 h-20',
     lg: 'w-20 h-24',
+    xl: 'w-48 h-60',
   };
   
   const iconSizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-5 h-5',
     lg: 'w-6 h-6',
+    xl: 'w-14 h-14',
   };
   
-  const textSizeClasses = {
+  const categoryLabelClasses = {
     sm: 'text-[10px]',
     md: 'text-xs',
     lg: 'text-sm',
+    xl: 'text-base',
   };
   
   const valueTextClasses = {
     sm: 'text-sm font-bold',
     md: 'text-base font-bold',
     lg: 'text-lg font-bold',
+    xl: 'text-2xl font-bold',
+  };
+  
+  const badgeNameClasses = {
+    sm: 'text-[8px]',
+    md: 'text-[10px]',
+    lg: 'text-xs',
+    xl: 'text-sm',
   };
 
   const getCategoryIcon = () => {
@@ -95,11 +106,21 @@ export function BadgeSlot({ category, badge, size = 'md' }: BadgeSlotProps) {
   };
 
   return (
-    <div className={cn("flex flex-col items-center", sizeClasses[size])}>
+    <div className="flex flex-col items-center gap-2">
+      {/* Category title - top */}
+      <span className={cn(
+        categoryLabelClasses[size],
+        "text-center text-muted-foreground font-medium whitespace-nowrap"
+      )}>
+        {getCategoryLabel()}
+      </span>
+      
+      {/* Badge hexagon - middle */}
       <div 
         className={cn(
           "relative flex items-center justify-center",
-          "transition-all duration-300"
+          "transition-all duration-300",
+          sizeClasses[size]
         )}
         data-testid={`badge-slot-${category}`}
       >
@@ -135,23 +156,27 @@ export function BadgeSlot({ category, badge, size = 'md' }: BadgeSlotProps) {
           isEmpty ? "text-gray-400 dark:text-gray-500" : "text-white"
         )}>
           {isEmpty ? (
-            <span className={cn(textSizeClasses[size], "opacity-50")}>?</span>
+            <span className={cn(valueTextClasses[size], "opacity-50")}>?</span>
           ) : (
             <>
               {getCategoryIcon()}
-              <span className={cn(valueTextClasses[size], "leading-none mt-0.5")}>
+              <span className={cn(valueTextClasses[size], "leading-none mt-1")}>
                 {getBadgeValue()}
               </span>
             </>
           )}
         </div>
       </div>
-      <span className={cn(
-        textSizeClasses[size],
-        "text-center text-muted-foreground mt-1 leading-tight"
-      )}>
-        {getCategoryLabel()}
-      </span>
+      
+      {/* Badge name - bottom (only show when earned) */}
+      {!isEmpty && (
+        <span className={cn(
+          badgeNameClasses[size],
+          "text-center text-muted-foreground leading-tight line-clamp-2 max-w-[14rem]"
+        )}>
+          {badge.badge.name}
+        </span>
+      )}
     </div>
   );
 }
