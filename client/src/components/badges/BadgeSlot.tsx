@@ -23,11 +23,25 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
     xl: 'w-24 h-32',
   };
   
+  const imageSizeClasses = {
+    sm: 'w-8 h-8',
+    md: 'w-12 h-12',
+    lg: 'w-16 h-16',
+    xl: 'w-16 h-16',
+  };
+
+  const emptyCircleSizeClasses = {
+    sm: 'w-8 h-8',
+    md: 'w-12 h-12',
+    lg: 'w-14 h-14',
+    xl: 'w-16 h-16',
+  };
+  
   const iconSizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-5 h-5',
-    lg: 'w-6 h-6',
-    xl: 'w-7 h-7',
+    sm: 'w-3 h-3',
+    md: 'w-4 h-4',
+    lg: 'w-5 h-5',
+    xl: 'w-5 h-5',
   };
   
   const categoryLabelClasses = {
@@ -87,26 +101,24 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
     }
   };
 
-  const getBadgeColor = () => {
-    if (!badge) return 'from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700';
+  const getBadgeTextColor = () => {
+    if (!badge) return 'text-gray-400';
     
     const threshold = badge.badge.threshold;
     
     switch (category) {
       case 'elementle':
-        return threshold === 1 
-          ? 'from-amber-400 to-amber-600' 
-          : 'from-emerald-400 to-emerald-600';
+        return threshold === 1 ? 'text-amber-500' : 'text-emerald-500';
       case 'streak':
-        if (threshold >= 365) return 'from-purple-500 to-purple-700';
-        if (threshold >= 100) return 'from-amber-400 to-amber-600';
-        if (threshold >= 30) return 'from-cyan-400 to-cyan-600';
-        return 'from-emerald-400 to-emerald-600';
+        if (threshold >= 365) return 'text-purple-500';
+        if (threshold >= 100) return 'text-amber-500';
+        if (threshold >= 30) return 'text-cyan-500';
+        return 'text-emerald-500';
       case 'percentile':
-        if (threshold <= 1) return 'from-purple-500 to-purple-700';
-        if (threshold <= 5) return 'from-amber-400 to-amber-600';
-        if (threshold <= 10) return 'from-cyan-400 to-cyan-600';
-        return 'from-emerald-400 to-emerald-600';
+        if (threshold <= 1) return 'text-purple-500';
+        if (threshold <= 5) return 'text-amber-500';
+        if (threshold <= 10) return 'text-cyan-500';
+        return 'text-emerald-500';
     }
   };
 
@@ -137,7 +149,8 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
           "text-gray-400 dark:text-gray-500"
         )}>
           <div className={cn(
-            "w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center"
+            emptyCircleSizeClasses[size],
+            "rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center"
           )}>
             <span className={cn(valueTextClasses[size], "opacity-50")}>?</span>
           </div>
@@ -147,11 +160,11 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
           <img 
             src={badgeImage} 
             alt={badge.badge.name}
-            className="w-16 h-16 object-contain"
+            className={cn(imageSizeClasses[size], "object-contain")}
           />
           <div className={cn(
             "flex items-center gap-1 mt-1",
-            getBadgeColor().replace('from-', 'text-').split(' ')[0].replace('text-text-', 'text-')
+            getBadgeTextColor()
           )}>
             {getCategoryIcon()}
             <span className={cn(valueTextClasses[size], "leading-none")}>
