@@ -122,7 +122,7 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
   
   const averageGuesses = stats.won > 0 && stats.guessDistribution
     ? (Object.entries(stats.guessDistribution).reduce((sum, [guesses, count]) => 
-        sum + (parseInt(guesses) * count), 0) / stats.won).toFixed(2)
+        sum + (parseInt(guesses) * count), 0) / stats.won).toFixed(1)
     : "0";
 
   const getLast30DaysData = () => {
