@@ -185,15 +185,17 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
             {/* Left Box - Full height with Played, Win %, Average Guesses */}
             <Card className="p-4 flex flex-col">
               <div className="font-bold text-sm mb-4">{title}</div>
-              <div className="flex-1 flex">
-                <div className="flex-1 flex flex-col justify-between">
+              <div className="flex-1 flex flex-col justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">Played</span>
-                  <span className="text-sm text-muted-foreground">Win %</span>
-                  <span className="text-sm text-muted-foreground">Average Guesses</span>
-                </div>
-                <div className="flex flex-col justify-between items-center w-14">
                   <span className="text-xl font-bold" data-testid="stat-played">{stats.played}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Win %</span>
                   <span className="text-xl font-bold" data-testid="stat-win-percentage">{winPercentage}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Average Guesses</span>
                   <span className="text-xl font-bold" data-testid="stat-avg-guesses">{averageGuesses}</span>
                 </div>
               </div>
