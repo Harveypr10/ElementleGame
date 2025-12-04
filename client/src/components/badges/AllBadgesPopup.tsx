@@ -235,7 +235,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
       </button>
 
       {/* Top section with up arrow - fixed at top */}
-      <div className="relative z-20 pt-4 pb-2 flex justify-center">
+      <div className="relative z-20 pt-8 pb-2 flex justify-center">
         {/* White overlay to hide content animating behind */}
         <div className="absolute inset-0 bg-background" />
         <div className="relative z-10">
@@ -368,7 +368,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
       </div>
 
       {/* Bottom section with toggle and down arrow - fixed at bottom */}
-      <div className="relative z-20 pb-4 pt-2 flex flex-col items-center">
+      <div className="relative z-20 pb-8 pt-2 flex flex-col items-center">
         {/* White overlay to hide content animating behind */}
         <div className="absolute inset-0 bg-background" />
         
