@@ -15,6 +15,14 @@ const initializeAppSettings = () => {
   if (storedTheme === "dark") {
     document.documentElement.classList.add("dark");
   }
+  
+  // Apply proper background and text classes to body element
+  // This ensures the correct theme colors are applied and persists across page transitions
+  document.body.classList.add("bg-background", "text-foreground", "font-sans", "antialiased");
+  
+  // Clear any inline background styles left by SplashScreen
+  document.body.style.backgroundColor = '';
+  document.documentElement.style.backgroundColor = '';
 };
 
 initializeAppSettings();
