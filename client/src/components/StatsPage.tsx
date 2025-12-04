@@ -191,7 +191,7 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
                   <span className="text-sm text-muted-foreground">Win %</span>
                   <span className="text-sm text-muted-foreground">Average Guesses</span>
                 </div>
-                <div className="flex flex-col justify-between items-center w-14">
+                <div className="flex flex-col justify-between items-end w-14">
                   <span className="text-xl font-bold" data-testid="stat-played">{stats.played}</span>
                   <span className="text-xl font-bold" data-testid="stat-win-percentage">{winPercentage}%</span>
                   <span className="text-xl font-bold" data-testid="stat-avg-guesses">{averageGuesses}</span>
