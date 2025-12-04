@@ -39,7 +39,7 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
         renderer: 'svg',
         loop: true,
         autoplay: true,
-        path: '/attached_assets/Trophy.json',
+        path: '/assets/Trophy.json',
       });
     }
 
@@ -55,8 +55,16 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
     };
   }, [onDismiss]);
 
+  const normalizeCategory = (cat: string): 'elementle' | 'streak' | 'percentile' | null => {
+    const lower = cat.toLowerCase();
+    if (lower.includes('elementle')) return 'elementle';
+    if (lower.includes('streak')) return 'streak';
+    if (lower.includes('percentile')) return 'percentile';
+    return null;
+  };
+
   const getCategoryIcon = () => {
-    const category = badge.badge.category;
+    const category = normalizeCategory(badge.badge.category);
     const iconClass = "w-6 h-6";
     
     switch (category) {
@@ -72,7 +80,7 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
   };
 
   const getBadgeTitle = () => {
-    const category = badge.badge.category;
+    const category = normalizeCategory(badge.badge.category);
     const threshold = badge.badge.threshold;
     
     switch (category) {
@@ -91,7 +99,7 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
   };
 
   const getBadgeDescription = () => {
-    const category = badge.badge.category;
+    const category = normalizeCategory(badge.badge.category);
     const threshold = badge.badge.threshold;
     
     switch (category) {
@@ -109,7 +117,7 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
   };
 
   const getBadgeColor = () => {
-    const category = badge.badge.category;
+    const category = normalizeCategory(badge.badge.category);
     const threshold = badge.badge.threshold;
     
     switch (category) {
