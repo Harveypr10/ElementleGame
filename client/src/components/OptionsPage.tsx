@@ -142,6 +142,13 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
 
     const storedUseRegionDefault = localStorage.getItem("useRegionDefault");
     if (storedUseRegionDefault !== null) setUseRegionDefault(storedUseRegionDefault === "true");
+    
+    // Streak saver settings from localStorage for guests
+    const storedStreakSaverActive = localStorage.getItem("streakSaverActive");
+    if (storedStreakSaverActive !== null) setStreakSaverActive(storedStreakSaverActive === "true");
+    
+    const storedHolidaySaverActive = localStorage.getItem("holidaySaverActive");
+    if (storedHolidaySaverActive !== null) setHolidaySaverActive(storedHolidaySaverActive === "true");
   }, [settings]);
 
   const handleTextSizeChange = async (size: "small" | "medium" | "large") => {
