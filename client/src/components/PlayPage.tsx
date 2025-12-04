@@ -1510,7 +1510,7 @@ export function PlayPage({
       
       {/* Main game content - hidden behind intro screen when showing */}
       <div 
-        className="h-dvh flex flex-col overflow-hidden bg-background"
+        className="fixed inset-0 flex flex-col overflow-hidden bg-background touch-none"
       >
       {/* Fixed Header */}
       <div className="shrink-0 flex items-center justify-between px-4 pt-4">
