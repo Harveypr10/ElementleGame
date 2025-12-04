@@ -270,7 +270,7 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
               
               <div className="pt-3">
                 <div className="flex gap-1 h-16 items-end">
-                  {last30Days.slice(-14).map((day, i) => (
+                  {last30Days.map((day, i) => (
                     <div
                       key={i}
                       className={cn(
@@ -284,7 +284,7 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
                   ))}
                 </div>
                 <div className="text-xs text-center text-muted-foreground mt-2">
-                  Last 14 games (height = guesses)
+                  Last 30 days - bar height = guesses
                 </div>
               </div>
             </Card>
