@@ -1453,7 +1453,7 @@ export function PlayPage({
       
       {/* Main game content - hidden behind intro screen when showing */}
       <div 
-        className="h-dvh flex flex-col p-4 overflow-hidden"
+        className="h-dvh flex flex-col p-4 overflow-hidden bg-background"
       >
       <div className="flex items-center justify-between mb-0">
         <button

@@ -42,12 +42,10 @@
         color: hsl(0 0% 25%);
       }
       
-      /* Dark mode support */
-      @media (prefers-color-scheme: dark) {
-        html, body {
-          background-color: hsl(222 47% 11%);
-          color: hsl(0 0% 98%);
-        }
+      /* Dark mode support - uses .dark class toggled by app, not system preference */
+      html.dark, html.dark body {
+        background-color: hsl(222 47% 11%);
+        color: hsl(0 0% 98%);
       }
       #root {
         min-height: 100vh;
