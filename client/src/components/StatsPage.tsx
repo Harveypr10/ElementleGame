@@ -290,11 +290,11 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
             </Card>
           )}
 
-          <div>
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Card className="p-4 space-y-3">
+            <div className="font-bold text-sm mb-2 flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
               Guess Distribution
-            </h3>
+            </div>
             <div className="space-y-2">
               {[1, 2, 3, 4, 5].map((guessNum) => {
                 const count = (stats.guessDistribution && stats.guessDistribution[guessNum]) || 0;
@@ -332,7 +332,7 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
                 </div>
               </div>
             </div>
-          </div>
+          </Card>
 
           {stats.played === 0 && (
             <Card className="p-6 text-center">
