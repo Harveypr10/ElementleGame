@@ -3471,6 +3471,62 @@ export class DatabaseStorage implements IStorage {
       return null;
     }
   }
+
+  async checkAndAwardPercentileBadge(
+    userId: string,
+    gameType: 'USER' | 'REGION',
+    region: string
+  ): Promise<UserBadgeWithDetails | null> {
+    try {
+      // Get user's current percentile
+      const percentile = gameType === 'USER' 
+        ? await this.calculateUserPercentile(userId)
+        : await this.calculatePercentile(userId, region);
+      
+      if (percentile === null) {
+        return null;
+      }
+
+      // Percentile thresholds (lower is better for rankings)
+      const percentileThresholds = [1, 5, 10, 20, 30, 40, 50];
+      const userPercentileInt = Math.ceil(100 - percentile); // Convert to "top X%"
+      
+      // Find the best threshold the user qualifies for
+      const qualifiedThreshold = percentileThresholds.find(t => userPercentileInt <= t);
+      
+      if (!qualifiedThreshold) {
+        return null; // Not in top 50%
+      }
+
+      // Get the badge for this threshold
+      const badge = await this.getBadgeByThreshold('percentile', qualifiedThreshold);
+      if (!badge) {
+        console.log(`[checkAndAwardPercentileBadge] No percentile badge found for threshold ${qualifiedThreshold}`);
+        return null;
+      }
+
+      // Check if user already has this badge
+      const existingBadges = await this.getUserBadges(userId, gameType, region, false);
+      const hasBadge = existingBadges.some(ub => ub.badge.id === badge.id);
+      
+      if (hasBadge) {
+        return null; // Already has this badge
+      }
+
+      // Award the badge
+      const newBadge = await this.awardBadge(userId, badge.id, gameType, region);
+      if (newBadge) {
+        return {
+          ...newBadge,
+          badge,
+        };
+      }
+      return null;
+    } catch (error: any) {
+      console.error('[checkAndAwardPercentileBadge] Error:', error);
+      return null;
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

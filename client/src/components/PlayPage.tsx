@@ -7,6 +7,9 @@ import { StreakCelebrationPopup } from "./StreakCelebrationPopup";
 import { StreakSaverExitWarning } from "./StreakSaverExitWarning";
 import { IntroScreen } from "./IntroScreen";
 import { useInterstitialAd } from "./InterstitialAd";
+import { BadgeCelebrationPopup } from "./badges";
+import { useBadgeChecker } from "@/hooks/useBadgeChecker";
+import type { UserBadgeWithDetails } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Umbrella } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
@@ -164,6 +167,11 @@ export function PlayPage({
   const [currentStreak, setCurrentStreak] = useState(0);
   const [showCelebrationModal, setShowCelebrationModal] = useState(false);
   const [pendingEndModal, setPendingEndModal] = useState(false); // Track if EndGameModal should show after streak celebration
+  const [earnedBadge, setEarnedBadge] = useState<UserBadgeWithDetails | null>(null);
+  const [pendingBadgeCheck, setPendingBadgeCheck] = useState(false); // Track if badge check should run after streak celebration
+  
+  // Badge checker hook
+  const { checkAllBadgesOnGameComplete } = useBadgeChecker();
   const [currentGameAttemptId, setCurrentGameAttemptId] = useState<number | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
   const [lockedDigits, setLockedDigits] = useState<string | null>(null);
@@ -998,7 +1006,42 @@ export function PlayPage({
               hasStreakCelebration = true;
               // Mark that EndGameModal should show after streak celebration is dismissed
               setPendingEndModal(true);
+              // Mark that badge check should run after streak celebration
+              setPendingBadgeCheck(true);
+            } else {
+              // No streak celebration, check badges immediately
+              const gameType = isLocalMode ? 'USER' : 'REGION';
+              console.log('[Win] Checking badges for game completion:', { 
+                guessCount: newGuesses.length, 
+                streak: freshStats.currentStreak || 0,
+                gameType 
+              });
+              const badge = await checkAllBadgesOnGameComplete(
+                true, 
+                newGuesses.length, 
+                freshStats.currentStreak || 0,
+                gameType
+              );
+              if (badge) {
+                setEarnedBadge(badge);
+              }
             }
+          }
+        } else {
+          // Not playing today's puzzle but still check for elementle badges
+          const gameType = isLocalMode ? 'USER' : 'REGION';
+          const statsEndpoint = isLocalMode ? "/api/user/stats" : "/api/stats";
+          const statsRes = await apiRequest("GET", statsEndpoint);
+          const freshStats = statsRes.ok ? await statsRes.json() : { currentStreak: 0 };
+          
+          const badge = await checkAllBadgesOnGameComplete(
+            true, 
+            newGuesses.length, 
+            freshStats.currentStreak || 0,
+            gameType
+          );
+          if (badge) {
+            setEarnedBadge(badge);
           }
         }
       } else if (isAuthenticated && !attemptId) {
@@ -1629,9 +1672,45 @@ export function PlayPage({
       {showStreakCelebration && (
         <StreakCelebrationPopup
           streak={currentStreak}
-          onDismiss={() => {
+          onDismiss={async () => {
             setShowStreakCelebration(false);
+            
+            // If badge check was pending (waiting for streak celebration to finish), run it now
+            if (pendingBadgeCheck) {
+              setPendingBadgeCheck(false);
+              const gameType = isLocalMode ? 'USER' : 'REGION';
+              console.log('[StreakCelebration] Checking badges after streak celebration:', { 
+                guessCount: guesses.length, 
+                streak: currentStreak,
+                gameType 
+              });
+              const badge = await checkAllBadgesOnGameComplete(
+                true, 
+                guesses.length, 
+                currentStreak,
+                gameType
+              );
+              if (badge) {
+                setEarnedBadge(badge);
+                return; // Wait for badge celebration before showing end modal
+              }
+            }
+            
             // If EndGameModal was pending (waiting for streak celebration to finish), show it now
+            if (pendingEndModal) {
+              setPendingEndModal(false);
+              setShowEndModal(true);
+            }
+          }}
+        />
+      )}
+      
+      {earnedBadge && (
+        <BadgeCelebrationPopup
+          badge={earnedBadge}
+          onDismiss={() => {
+            setEarnedBadge(null);
+            // If EndGameModal was pending, show it now
             if (pendingEndModal) {
               setPendingEndModal(false);
               setShowEndModal(true);

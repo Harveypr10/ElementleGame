@@ -999,7 +999,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       console.log(`[POST /api/badges/check-streak] userId: ${userId}, streak: ${streak}, gameType: REGION, region: ${region}`);
       
       const newBadge = await storage.checkAndAwardStreakBadge(userId, streak, 'REGION', region);
-      res.json({ badge: newBadge });
+      res.json({ badge: newBadge, awarded: !!newBadge });
     } catch (error) {
       console.error("[POST /api/badges/check-streak] Error:", error);
       res.status(500).json({ error: "Failed to check streak badge" });
@@ -1021,10 +1021,27 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       console.log(`[POST /api/badges/check-elementle] userId: ${userId}, guessCount: ${guessCount}, gameType: REGION, region: ${region}`);
       
       const newBadge = await storage.checkAndAwardElementleBadge(userId, guessCount, 'REGION', region);
-      res.json({ badge: newBadge });
+      res.json({ badge: newBadge, awarded: !!newBadge });
     } catch (error) {
       console.error("[POST /api/badges/check-elementle] Error:", error);
       res.status(500).json({ error: "Failed to check elementle badge" });
+    }
+  });
+
+  // Check and award percentile badge (REGION mode)
+  app.post("/api/badges/check-percentile", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || "UK";
+      
+      console.log(`[POST /api/badges/check-percentile] userId: ${userId}, gameType: REGION, region: ${region}`);
+      
+      const newBadge = await storage.checkAndAwardPercentileBadge(userId, 'REGION', region);
+      res.json({ badge: newBadge, awarded: !!newBadge });
+    } catch (error) {
+      console.error("[POST /api/badges/check-percentile] Error:", error);
+      res.status(500).json({ error: "Failed to check percentile badge" });
     }
   });
 
@@ -1500,7 +1517,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       console.log(`[POST /api/user/badges/check-streak] userId: ${userId}, streak: ${streak}, gameType: USER, region: GLOBAL`);
       
       const newBadge = await storage.checkAndAwardStreakBadge(userId, streak, 'USER', 'GLOBAL');
-      res.json({ badge: newBadge });
+      res.json({ badge: newBadge, awarded: !!newBadge });
     } catch (error) {
       console.error("[POST /api/user/badges/check-streak] Error:", error);
       res.status(500).json({ error: "Failed to check streak badge" });
@@ -1520,10 +1537,25 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       console.log(`[POST /api/user/badges/check-elementle] userId: ${userId}, guessCount: ${guessCount}, gameType: USER, region: GLOBAL`);
       
       const newBadge = await storage.checkAndAwardElementleBadge(userId, guessCount, 'USER', 'GLOBAL');
-      res.json({ badge: newBadge });
+      res.json({ badge: newBadge, awarded: !!newBadge });
     } catch (error) {
       console.error("[POST /api/user/badges/check-elementle] Error:", error);
       res.status(500).json({ error: "Failed to check elementle badge" });
+    }
+  });
+
+  // Check and award percentile badge for User mode
+  app.post("/api/user/badges/check-percentile", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      console.log(`[POST /api/user/badges/check-percentile] userId: ${userId}, gameType: USER, region: GLOBAL`);
+      
+      const newBadge = await storage.checkAndAwardPercentileBadge(userId, 'USER', 'GLOBAL');
+      res.json({ badge: newBadge, awarded: !!newBadge });
+    } catch (error) {
+      console.error("[POST /api/user/badges/check-percentile] Error:", error);
+      res.status(500).json({ error: "Failed to check percentile badge" });
     }
   });
 
