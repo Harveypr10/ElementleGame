@@ -50,12 +50,7 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
   
   // Determine the title based on gameType
   const title = gameType === 'USER' 
-    ? (profile?.firstName || cachedProfile?.firstName || 'Personal') + (
-        (profile?.firstName || cachedProfile?.firstName) && 
-        (profile?.firstName?.length || cachedProfile?.firstName?.length || 0) < 12 
-          ? ' Edition' 
-          : ''
-      )
+    ? 'Personal Edition'
     : (profile?.region || cachedProfile?.region || 'UK') + ' Edition';
   
   const [stats, setStats] = useState<GameStats>({
