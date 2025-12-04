@@ -29,7 +29,7 @@ export function BadgeSlot({ category, badge, size = 'xl' }: BadgeSlotProps) {
     sm: 'text-[10px]',
     md: 'text-xs',
     lg: 'text-sm',
-    xl: 'text-xs',
+    xl: 'text-sm',
   };
   
   const valueTextClasses = {
@@ -60,11 +60,11 @@ export function BadgeSlot({ category, badge, size = 'xl' }: BadgeSlotProps) {
   const getCategoryLabel = () => {
     switch (category) {
       case 'elementle':
-        return 'Elementle In';
+        return 'Won In';
       case 'streak':
         return 'Streak';
       case 'percentile':
-        return 'Top';
+        return 'Top %';
     }
   };
 
