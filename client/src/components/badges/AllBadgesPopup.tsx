@@ -259,26 +259,29 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
               </div>
             </motion.div>
 
-            {activeBadge && (
-              <motion.div
-                className="mt-6 text-center px-8"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                <p className={cn(
-                  "text-lg",
-                  activeBadge.isEarned ? "text-foreground" : "text-muted-foreground"
-                )}>
-                  {config.getBadgeDescription(activeBadge.badge.threshold)}
-                </p>
-                {activeBadge.isEarned && (
-                  <span className="inline-block mt-2 px-3 py-1 bg-emerald-500/20 text-emerald-600 rounded-full text-sm">
+            <div className="mt-6 text-center px-8 h-[72px] flex flex-col justify-start">
+              {activeBadge && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <p className={cn(
+                    "text-lg",
+                    activeBadge.isEarned ? "text-foreground" : "text-muted-foreground"
+                  )}>
+                    {config.getBadgeDescription(activeBadge.badge.threshold)}
+                  </p>
+                </motion.div>
+              )}
+              <div className="h-8 mt-2 flex items-center justify-center">
+                {activeBadge?.isEarned && (
+                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-600 rounded-full text-sm">
                     Earned!
                   </span>
                 )}
-              </motion.div>
-            )}
+              </div>
+            </div>
           </motion.div>
         </AnimatePresence>
 
