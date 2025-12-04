@@ -834,10 +834,15 @@ app.get("/api/guesses/:gameAttemptId", verifySupabaseAuth, async (req: any, res)
 });
 
 // Stats routes - REGION MODE
+// Stats are now scoped by region (user_id, region) to preserve history when users change regions
 app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const stats = await storage.getUserStatsRegion(userId);
+    // Get user's current region from profile
+    const profile = await storage.getUserProfile(userId);
+    const region = profile?.region || "UK";
+    
+    const stats = await storage.getUserStatsRegion(userId, region);
     res.json(stats || {});
   } catch (error) {
     console.error("Error fetching stats:", error);
@@ -848,8 +853,13 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   app.post("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      // Get user's current region from profile
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || "UK";
+      
       const stats = await storage.upsertUserStatsRegion({
         userId,
+        region, // Include region for composite unique constraint
         ...req.body,
       });
       res.json(stats);
@@ -862,7 +872,11 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   app.post("/api/stats/recalculate", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const stats = await storage.recalculateUserStatsRegion(userId);
+      // Get user's current region from profile
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || "UK";
+      
+      const stats = await storage.recalculateUserStatsRegion(userId, region);
       res.json(stats);
     } catch (error) {
       console.error("[POST /api/stats/recalculate] Error:", error);
@@ -873,7 +887,11 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   app.get("/api/stats/percentile", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const percentile = await storage.getUserPercentileRankingRegion(userId);
+      // Get user's current region from profile
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || "UK";
+      
+      const percentile = await storage.getUserPercentileRankingRegion(userId, region);
       res.json({ percentile });
     } catch (error) {
       console.error("Error fetching percentile:", error);

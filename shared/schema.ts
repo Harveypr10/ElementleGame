@@ -418,9 +418,11 @@ export type InsertGuessRegion = z.infer<typeof insertGuessRegionSchema>;
 export type GuessRegion = typeof guessesRegion.$inferSelect;
 
 // User stats (region) - Aggregated statistics for region mode
+// Each user can have one stats row per region (e.g., UK, US) to preserve history when changing regions
 export const userStatsRegion = pgTable("user_stats_region", {
   id: serial("id").primaryKey(),
-  userId: uuid("user_id").notNull().unique().references(() => userProfiles.id, { onDelete: "cascade" }),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  region: text("region").notNull().default("UK"), // Region code (e.g., 'UK', 'US') - defaults to UK for existing data
   gamesPlayed: integer("games_played").default(0),
   gamesWon: integer("games_won").default(0),
   currentStreak: integer("current_streak").default(0),
@@ -430,7 +432,10 @@ export const userStatsRegion = pgTable("user_stats_region", {
   streakSaversUsedMonth: integer("streak_savers_used_month").default(0),
   missedYesterdayFlagRegion: boolean("missed_yesterday_flag_region").default(false), // Tracks missed region puzzles
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  // Unique constraint on (user_id, region) to allow one stats row per user per region
+  userIdRegionIdx: unique("user_stats_region_user_id_region_unique").on(table.userId, table.region),
+}));
 
 export const insertUserStatsRegionSchema = createInsertSchema(userStatsRegion).omit({
   id: true,

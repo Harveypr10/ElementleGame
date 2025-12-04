@@ -1,0 +1,49 @@
+We’ve added a region field to the user_stats_region table. The purpose of this field is to ensure that each user’s stats are tracked separately for their current region (e.g. UK, US), so that if a user moves between regions they don’t lose their history.
+
+What we need from you:
+
+When updating stats after a game is played (Region game only, not User game):
+
+Check the user’s current region from user_profiles.region.
+
+Look for an existing row in user_stats_region where user_id = <current user> and region = <current region>.
+
+If a row exists → update that row with the new stats.
+
+If no row exists → insert a new row with:
+
+user_id = <current user>
+
+region = <current region>
+
+All other fields initialized as per defaults.
+
+Important notes:
+
+The uniqueness constraint has been updated to (user_id, region), so each user can have one stats row per region.
+
+When inserting new rows, you must explicitly set the region field to the user’s current region.
+
+The user_stats_user table (global game) does not use region filtering — only user_stats_region does.
+
+✅ Example SQL Pattern
+For clarity, here’s the SQL pattern you should use in your update logic:
+
+sql
+INSERT INTO user_stats_region (user_id, region, games_played, games_won, current_streak, max_streak, guess_distribution)
+VALUES ($1, $2, 1, CASE WHEN $game_won THEN 1 ELSE 0 END, $streak, $max_streak, $guess_distribution)
+ON CONFLICT (user_id, region)
+DO UPDATE SET
+  games_played = user_stats_region.games_played + 1,
+  games_won = user_stats_region.games_won + CASE WHEN $game_won THEN 1 ELSE 0 END,
+  current_streak = $streak,
+  max_streak = GREATEST(user_stats_region.max_streak, $max_streak),
+  guess_distribution = user_stats_region.guess_distribution || $guess_distribution,
+  updated_at = now();
+$1 = user_id
+
+$2 = region (from user_profiles.region)
+
+$game_won, $streak, $max_streak, $guess_distribution = values from the game result
+
+This way, every time a Region game is played, the stats are correctly aligned to the user’s current region, and new rows are created automatically when needed.

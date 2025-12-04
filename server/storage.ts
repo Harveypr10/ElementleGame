@@ -1658,22 +1658,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User stats operations (region)
-  async getUserStatsRegion(userId: string): Promise<UserStatsRegion | undefined> {
+  // Now filters by both userId AND region to support per-region stats
+  async getUserStatsRegion(userId: string, region?: string): Promise<UserStatsRegion | undefined> {
+    // If region is provided, filter by both userId and region
+    if (region) {
+      const [stats] = await db
+        .select()
+        .from(userStatsRegion)
+        .where(and(
+          eq(userStatsRegion.userId, userId),
+          eq(userStatsRegion.region, region)
+        ));
+      return stats;
+    }
+    
+    // Legacy: if no region provided, get user's current region from profile
+    const profile = await this.getUserProfile(userId);
+    const userRegion = profile?.region || "UK";
+    
     const [stats] = await db
       .select()
       .from(userStatsRegion)
-      .where(eq(userStatsRegion.userId, userId));
+      .where(and(
+        eq(userStatsRegion.userId, userId),
+        eq(userStatsRegion.region, userRegion)
+      ));
     return stats;
   }
 
   async upsertUserStatsRegion(statsData: InsertUserStatsRegion): Promise<UserStatsRegion> {
+    // Ensure region is set - required for the composite unique constraint
+    const region = statsData.region || "UK";
+    const dataWithRegion = { ...statsData, region };
+    
     const [stats] = await db
       .insert(userStatsRegion)
-      .values(statsData)
+      .values(dataWithRegion)
       .onConflictDoUpdate({
-        target: [userStatsRegion.userId],
+        target: [userStatsRegion.userId, userStatsRegion.region],
         set: {
-          ...statsData,
+          ...dataWithRegion,
           updatedAt: new Date(),
         },
       })
@@ -1681,8 +1705,16 @@ export class DatabaseStorage implements IStorage {
     return stats;
   }
 
-  async recalculateUserStatsRegion(userId: string): Promise<UserStatsRegion> {
-    // Get all completed game attempts for this user in region mode
+  async recalculateUserStatsRegion(userId: string, region?: string): Promise<UserStatsRegion> {
+    // Get user's current region if not provided
+    let targetRegion = region;
+    if (!targetRegion) {
+      const profile = await this.getUserProfile(userId);
+      targetRegion = profile?.region || "UK";
+    }
+    
+    // Get all completed game attempts for this user in this region
+    // Filter by region_code from questions_allocated_region
     const completedAttempts = await db
       .select({
         id: gameAttemptsRegion.id,
@@ -1699,12 +1731,13 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(gameAttemptsRegion.userId, userId),
+          eq(questionsAllocatedRegion.region, targetRegion),
           eq(gameAttemptsRegion.result, 'won')
         )
       )
       .orderBy(questionsAllocatedRegion.puzzleDate);
 
-    // Get lost games
+    // Get lost games for this region
     const lostAttempts = await db
       .select({
         id: gameAttemptsRegion.id,
@@ -1720,6 +1753,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(gameAttemptsRegion.userId, userId),
+          eq(questionsAllocatedRegion.region, targetRegion),
           eq(gameAttemptsRegion.result, 'lost')
         )
       );
@@ -1796,6 +1830,7 @@ export class DatabaseStorage implements IStorage {
 
     return await this.upsertUserStatsRegion({
       userId,
+      region: targetRegion,
       gamesPlayed,
       gamesWon,
       currentStreak,
@@ -1804,13 +1839,22 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getUserPercentileRankingRegion(userId: string): Promise<number> {
+  async getUserPercentileRankingRegion(userId: string, region?: string): Promise<number> {
+    // Get user's current region if not provided
+    let targetRegion = region;
+    if (!targetRegion) {
+      const profile = await this.getUserProfile(userId);
+      targetRegion = profile?.region || "UK";
+    }
+    
+    // Get all stats for users IN THE SAME REGION only
     const allUserStats = await db
       .select({
         userId: userStatsRegion.userId,
         gamesWon: userStatsRegion.gamesWon,
       })
       .from(userStatsRegion)
+      .where(eq(userStatsRegion.region, targetRegion))
       .orderBy(desc(userStatsRegion.gamesWon));
 
     if (allUserStats.length === 0) {
