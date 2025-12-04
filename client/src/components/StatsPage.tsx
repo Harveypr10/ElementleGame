@@ -196,8 +196,8 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                   <span className="text-sm text-muted-foreground">Win %</span>
                   <span className="text-xl font-bold" data-testid="stat-win-percentage">{winPercentage}%</span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-sm text-muted-foreground">Average Guesses</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground max-w-[70px]">Average Guesses</span>
                   <span className="text-xl font-bold" data-testid="stat-avg-guesses">{averageGuesses}</span>
                 </div>
               </div>
