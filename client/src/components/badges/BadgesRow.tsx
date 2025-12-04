@@ -30,11 +30,9 @@ export function BadgesRow({ gameType }: BadgesRowProps) {
   if (isLoading) {
     return (
       <Card className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-muted-foreground" />
-            <span className="text-sm font-bold text-muted-foreground">Badges</span>
-          </div>
+        <div className="font-bold text-sm mb-2 flex items-center gap-2">
+          <Trophy className="h-5 w-5" />
+          Badges
         </div>
         <div className="flex justify-center gap-3">
           <div className="w-24 h-32 bg-muted animate-pulse rounded" />
@@ -47,11 +45,9 @@ export function BadgesRow({ gameType }: BadgesRowProps) {
 
   return (
     <Card className="p-4" data-testid="badges-row-card">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Trophy className="h-5 w-5 text-muted-foreground" />
-          <span className="text-sm font-bold text-muted-foreground">Badges</span>
-        </div>
+      <div className="font-bold text-sm mb-2 flex items-center gap-2">
+        <Trophy className="h-5 w-5" />
+        Badges
       </div>
       <div className="flex justify-center gap-3">
         <BadgeSlot 
