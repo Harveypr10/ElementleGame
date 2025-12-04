@@ -250,46 +250,44 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
           <BadgesRow gameType={gameType} />
 
           {last30DaysPlayed > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Card className="p-4 space-y-3">
+              <div className="font-bold text-sm mb-2 flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
                 Last 30 Days
-              </h3>
-              <Card className="p-4 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Games Played</span>
-                  <span className="font-semibold" data-testid="stat-30day-played">{last30DaysPlayed}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Games Played</span>
+                <span className="font-semibold" data-testid="stat-30day-played">{last30DaysPlayed}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Wins</span>
+                <span className="font-semibold" data-testid="stat-30day-wins">{last30DaysWins}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Win Rate</span>
+                <span className="font-semibold" data-testid="stat-30day-winrate">{last30DaysWinRate}%</span>
+              </div>
+              
+              <div className="pt-3">
+                <div className="flex gap-1 h-16 items-end">
+                  {last30Days.slice(-14).map((day, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex-1 rounded-sm transition-all",
+                        day.won ? "bg-brand-green" : "bg-brand-purple"
+                      )}
+                      style={{ height: `${(day.guessCount / 5) * 100}%` }}
+                      title={`${day.won ? 'Won' : 'Lost'} in ${day.guessCount} guesses`}
+                      data-testid={`chart-bar-${i}`}
+                    />
+                  ))}
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Wins</span>
-                  <span className="font-semibold" data-testid="stat-30day-wins">{last30DaysWins}</span>
+                <div className="text-xs text-center text-muted-foreground mt-2">
+                  Last 14 games (height = guesses)
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Win Rate</span>
-                  <span className="font-semibold" data-testid="stat-30day-winrate">{last30DaysWinRate}%</span>
-                </div>
-                
-                <div className="pt-3">
-                  <div className="flex gap-1 h-16 items-end">
-                    {last30Days.slice(-14).map((day, i) => (
-                      <div
-                        key={i}
-                        className={cn(
-                          "flex-1 rounded-sm transition-all",
-                          day.won ? "bg-brand-green" : "bg-brand-purple"
-                        )}
-                        style={{ height: `${(day.guessCount / 5) * 100}%` }}
-                        title={`${day.won ? 'Won' : 'Lost'} in ${day.guessCount} guesses`}
-                        data-testid={`chart-bar-${i}`}
-                      />
-                    ))}
-                  </div>
-                  <div className="text-xs text-center text-muted-foreground mt-2">
-                    Last 14 games (height = guesses)
-                  </div>
-                </div>
-              </Card>
-            </div>
+              </div>
+            </Card>
           )}
 
           <div>
