@@ -54,6 +54,7 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [previousScreen, setPreviousScreen] = useState<Screen>("selection");
   const [statsReturnScreen, setStatsReturnScreen] = useState<Screen>("selection");
+  const [statsGameType, setStatsGameType] = useState<'REGION' | 'USER'>('REGION');
   const [showCelebrationFirst, setShowCelebrationFirst] = useState(false);
   const [hasOpenedCelebration, setHasOpenedCelebration] = useState(false);
   const [archiveMonthContext, setArchiveMonthContext] = useState<Date | null>(null);
@@ -303,6 +304,7 @@ export default function Home() {
 
   const handleStatsGlobal = () => {
     setGameMode('global');
+    setStatsGameType('REGION');
     setStatsReturnScreen("selection");
     setCurrentScreen("stats");
   };
@@ -330,6 +332,7 @@ export default function Home() {
 
   const handleStatsLocal = () => {
     setGameMode('local');
+    setStatsGameType('USER');
     setStatsReturnScreen("selection");
     setCurrentScreen("stats");
   };
@@ -620,6 +623,7 @@ export default function Home() {
           <motion.div key="stats" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
             <StatsPage 
               onBack={() => setCurrentScreen(statsReturnScreen)}
+              gameType={statsGameType}
             />
           </motion.div>
         )}
