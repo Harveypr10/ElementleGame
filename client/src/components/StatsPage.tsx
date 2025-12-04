@@ -256,16 +256,16 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
                 Last 30 Days
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Games Played</span>
-                <span className="text-xl font-bold" data-testid="stat-30day-played">{last30DaysPlayed}</span>
+                <span className="text-sm text-muted-foreground pl-2">Played</span>
+                <span className="text-xl font-bold pr-2" data-testid="stat-30day-played">{last30DaysPlayed}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Wins</span>
-                <span className="text-xl font-bold" data-testid="stat-30day-wins">{last30DaysWins}</span>
+                <span className="text-sm text-muted-foreground pl-2">Wins</span>
+                <span className="text-xl font-bold pr-2" data-testid="stat-30day-wins">{last30DaysWins}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Win Rate</span>
-                <span className="text-xl font-bold" data-testid="stat-30day-winrate">{last30DaysWinRate}%</span>
+                <span className="text-sm text-muted-foreground pl-2">Win %</span>
+                <span className="text-xl font-bold pr-2" data-testid="stat-30day-winrate">{last30DaysWinRate}%</span>
               </div>
               
               <div className="pt-3">
