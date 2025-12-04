@@ -213,6 +213,37 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
           }).then(data => ({ key: 'puzzles', data })).catch(() => ({ key: 'puzzles', data: null }))
           : Promise.resolve({ key: 'puzzles', data: null }),
           
+          // Preload badge images
+          (async () => {
+            try {
+              const response = await fetch('/api/badges', {
+                credentials: 'include',
+              });
+              if (!response.ok) throw new Error('Failed to fetch badges');
+              const badges = await response.json();
+              
+              // Preload all badge images
+              const badgeImagePromises = badges.map((badge: any) => {
+                return new Promise((resolve) => {
+                  if (!badge.iconUrl) {
+                    resolve(null);
+                    return;
+                  }
+                  const img = new Image();
+                  img.onload = resolve;
+                  img.onerror = resolve; // Don't fail on image load errors
+                  img.src = badge.iconUrl;
+                });
+              });
+              
+              await Promise.allSettled(badgeImagePromises);
+              console.log('[PreloadProvider] Preloaded', badges.length, 'badge images');
+              return { key: 'badgeImages', data: null };
+            } catch {
+              return { key: 'badgeImages', data: null };
+            }
+          })(),
+          
           // Check for pending percentile badges (REGION mode) - silent check on app load
           authToken ? (async () => {
             try {

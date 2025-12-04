@@ -106,11 +106,11 @@ export function BadgeSlot({ category, badge, size = 'xl' }: BadgeSlotProps) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-1">
       {/* Category title - top */}
       <span className={cn(
         categoryLabelClasses[size],
-        "text-center text-muted-foreground font-medium whitespace-nowrap"
+        "text-center text-muted-foreground font-bold whitespace-nowrap"
       )}>
         {getCategoryLabel()}
       </span>
