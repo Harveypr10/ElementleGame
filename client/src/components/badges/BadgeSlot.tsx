@@ -31,10 +31,10 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
   };
 
   const emptyCircleSizeClasses = {
-    sm: 'w-10 h-10',
-    md: 'w-14 h-14',
-    lg: 'w-20 h-20',
-    xl: 'w-20 h-20',
+    sm: 'w-12 h-10',
+    md: 'w-16 h-14',
+    lg: 'w-24 h-20',
+    xl: 'w-24 h-20',
   };
   
   const iconSizeClasses = {
@@ -150,7 +150,7 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
         )}>
           <div className={cn(
             emptyCircleSizeClasses[size],
-            "bg-gray-200 dark:bg-gray-700 flex items-center justify-center"
+            "bg-gray-300 dark:bg-gray-600 flex items-center justify-center"
           )}
           style={{
             clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)'

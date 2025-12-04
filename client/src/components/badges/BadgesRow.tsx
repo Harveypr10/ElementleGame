@@ -50,7 +50,7 @@ export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: 
           <Trophy className="h-5 w-5" />
           Badges
         </div>
-        <div className="flex justify-center gap-3">
+        <div className="flex justify-center gap-8">
           <div className="w-24 h-32 bg-muted animate-pulse rounded" />
           <div className="w-24 h-32 bg-muted animate-pulse rounded" />
           <div className="w-24 h-32 bg-muted animate-pulse rounded" />
@@ -92,7 +92,7 @@ export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: 
             See all
           </button>
         </div>
-        <div className="flex justify-center gap-3">
+        <div className="flex justify-center gap-8">
           <BadgeSlot 
             category="elementle" 
             badge={badges?.elementle || null}
