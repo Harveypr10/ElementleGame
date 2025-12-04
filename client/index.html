@@ -32,17 +32,29 @@
     <script src="https://unpkg.com/lottie-web@latest/build/player/lottie.min.js"></script>
 
     <style>
-      /* Initial loading background - matches SplashScreen blue */
+      /* Root element styling */
       html, body {
-        background-color: #7DAAE8;
         margin: 0;
         padding: 0;
         min-height: 100%;
         min-height: 100dvh;
+        background-color: hsl(0 0% 98%);
+        color: hsl(0 0% 25%);
+      }
+      
+      /* Dark mode support */
+      @media (prefers-color-scheme: dark) {
+        html, body {
+          background-color: hsl(0 0% 10%);
+          color: hsl(0 0% 98%);
+        }
       }
       #root {
         min-height: 100vh;
         min-height: 100dvh;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
         /* Extend into safe areas on notched devices */
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
@@ -85,7 +97,7 @@
       }
     </style>
   </head>
-  <body style="background-color: #7DAAE8;">
+  <body>
     <!-- Spinner container - controlled by React SpinnerProvider -->
     <div id="spinner" role="status" aria-label="Loading" aria-hidden="true">
       <div id="hamster"></div>
