@@ -212,6 +212,52 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             staleTime: 10 * 60 * 1000,
           }).then(data => ({ key: 'puzzles', data })).catch(() => ({ key: 'puzzles', data: null }))
           : Promise.resolve({ key: 'puzzles', data: null }),
+          
+          // Check for pending percentile badges (REGION mode) - silent check on app load
+          authToken ? (async () => {
+            try {
+              const response = await fetch('/api/badges/check-percentile', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+              if (response.ok) {
+                const data = await response.json();
+                if (data.awarded && data.badge) {
+                  console.log('[PreloadProvider] Awarded percentile badge (REGION):', data.badge);
+                }
+              }
+              return { key: 'regionBadgeCheck', data: null };
+            } catch {
+              return { key: 'regionBadgeCheck', data: null };
+            }
+          })() : Promise.resolve({ key: 'regionBadgeCheck', data: null }),
+          
+          // Check for pending percentile badges (USER mode) - silent check on app load
+          authToken ? (async () => {
+            try {
+              const response = await fetch('/api/user/badges/check-percentile', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+              if (response.ok) {
+                const data = await response.json();
+                if (data.awarded && data.badge) {
+                  console.log('[PreloadProvider] Awarded percentile badge (USER):', data.badge);
+                }
+              }
+              return { key: 'userBadgeCheck', data: null };
+            } catch {
+              return { key: 'userBadgeCheck', data: null };
+            }
+          })() : Promise.resolve({ key: 'userBadgeCheck', data: null }),
         ];
 
         // Execute all prefetch tasks in parallel
