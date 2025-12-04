@@ -15,35 +15,35 @@ export function BadgeSlot({ category, badge, size = 'xl' }: BadgeSlotProps) {
     sm: 'w-12 h-14',
     md: 'w-16 h-20',
     lg: 'w-20 h-24',
-    xl: 'w-48 h-60',
+    xl: 'w-24 h-32',
   };
   
   const iconSizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-5 h-5',
     lg: 'w-6 h-6',
-    xl: 'w-14 h-14',
+    xl: 'w-7 h-7',
   };
   
   const categoryLabelClasses = {
     sm: 'text-[10px]',
     md: 'text-xs',
     lg: 'text-sm',
-    xl: 'text-base',
+    xl: 'text-xs',
   };
   
   const valueTextClasses = {
     sm: 'text-sm font-bold',
     md: 'text-base font-bold',
     lg: 'text-lg font-bold',
-    xl: 'text-2xl font-bold',
+    xl: 'text-base font-bold',
   };
   
   const badgeNameClasses = {
     sm: 'text-[8px]',
     md: 'text-[10px]',
     lg: 'text-xs',
-    xl: 'text-sm',
+    xl: 'text-[10px]',
   };
 
   const getCategoryIcon = () => {

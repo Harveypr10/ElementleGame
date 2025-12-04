@@ -29,31 +29,31 @@ export function BadgesRow({ gameType }: BadgesRowProps) {
 
   if (isLoading) {
     return (
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-6">
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-muted-foreground" />
             <span className="text-sm font-medium text-muted-foreground">Badges</span>
           </div>
         </div>
-        <div className="flex justify-center gap-8">
-          <div className="w-48 h-80 bg-muted animate-pulse rounded" />
-          <div className="w-48 h-80 bg-muted animate-pulse rounded" />
-          <div className="w-48 h-80 bg-muted animate-pulse rounded" />
+        <div className="flex justify-center gap-3">
+          <div className="w-24 h-32 bg-muted animate-pulse rounded" />
+          <div className="w-24 h-32 bg-muted animate-pulse rounded" />
+          <div className="w-24 h-32 bg-muted animate-pulse rounded" />
         </div>
       </Card>
     );
   }
 
   return (
-    <Card className="p-6" data-testid="badges-row-card">
-      <div className="flex items-center justify-between mb-6">
+    <Card className="p-4" data-testid="badges-row-card">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Trophy className="h-5 w-5 text-muted-foreground" />
           <span className="text-sm font-medium text-muted-foreground">Badges</span>
         </div>
       </div>
-      <div className="flex justify-center gap-8">
+      <div className="flex justify-center gap-3">
         <BadgeSlot 
           category="elementle" 
           badge={badges?.elementle || null} 
