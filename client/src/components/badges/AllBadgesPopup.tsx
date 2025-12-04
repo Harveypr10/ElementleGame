@@ -410,11 +410,6 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
           ) : (
             <div className="w-14 h-14" />
           )}
-
-          {/* Hint text */}
-          <div className="mt-4 text-center text-muted-foreground text-sm">
-            Swipe left/right to browse badges, up/down to change category
-          </div>
         </div>
       </div>
     </motion.div>
