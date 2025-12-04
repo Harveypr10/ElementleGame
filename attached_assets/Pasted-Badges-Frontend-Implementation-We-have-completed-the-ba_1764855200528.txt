@@ -1,0 +1,90 @@
+Badges Frontend Implementation)
+We have completed the backend work for badges:
+
+Schema: user_badges table now includes a region field.
+
+Allocation: allocate_badges(region_code) inserts badges with region = 'GLOBAL' for Elementle/Streak, and region = <region_code> for Percentile.
+
+Cron jobs: run_monthly_jobs('UK') and run_monthly_jobs('US') handle score calculation and badge allocation per region.
+
+Stats tables: user_stats_user (global) and user_stats_region (region‑specific) are updated monthly.
+
+Badge categories:
+
+elementle → “Elementle in” badges (threshold = 1 or 2 guesses).
+
+streak → Streak badges (threshold = 7, 14, 30, etc.).
+
+percentile → Percentile badges (threshold = 50, 40, 30, … down to 1).
+
+Now we need the frontend implementation in the Stats screens.
+
+🎯 Requirements for Frontend
+Stats Screen Layout
+
+Add a new badges area below the Average Guesses box.
+
+Show three slots in a single row:
+
+Slot 1 → “Elementle in” badge.
+
+Slot 2 → “Streak” badge.
+
+Slot 3 → “Percentile” badge.
+
+Each slot should display:
+
+Category title above (e.g. “Elementle In”, “Streak”, “Percentile”).
+
+Badge image in the middle (from badges.icon_url).
+
+If the user doesn’t have a badge yet → show a grey hexagon placeholder.
+
+Badge name below (from badges.name).
+
+If no badge yet → leave blank.
+
+Badge Pop‑Up Logic
+
+Percentile badges:
+
+When allocated, user may receive multiple badges (e.g. Top 50%, Top 40%, Top 30%, Top 20%, Top 10%).
+
+Only one animation should play — for the highest badge achieved (e.g. Top 10%).
+
+Stats screen should show only that highest badge.
+
+Streak badges:
+
+Allocated immediately when streak threshold is hit.
+
+Only one streak badge is active at a time.
+
+Elementle In badges:
+
+Allocated when puzzle is solved in 1 or 2 guesses.
+
+If user earns “Elementle in 1”, show that badge.
+
+If later they solve in 2 guesses, add “Elementle in 2” badge.
+
+Each slot shows the latest badge earned for that category.
+
+Data Source
+
+Use user_badges table joined with badges table.
+
+Filter by user_id and region (for Percentile badges).
+
+Badge categories are defined in badges.category.
+
+Badge names and icons are in badges.name and badges.icon_url.
+
+✅ End State
+Each Stats screen shows three badge slots under Average Guesses.
+
+Grey hexagon placeholders appear until badges are earned.
+
+Pop‑ups show only the highest badge for Percentile, and one badge at a time for Streak/Elementle.
+
+Stats screen reflects the latest earned badge per category.

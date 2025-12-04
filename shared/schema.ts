@@ -590,6 +590,51 @@ export const insertUserHolidayEventSchema = createInsertSchema(userHolidayEvents
 export type InsertUserHolidayEvent = z.infer<typeof insertUserHolidayEventSchema>;
 export type UserHolidayEvent = typeof userHolidayEvents.$inferSelect;
 
+// Badges table - defines available badges
+export const badges = pgTable("badges", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  category: varchar("category", { length: 50 }).notNull(), // 'elementle', 'streak', 'percentile'
+  threshold: integer("threshold").notNull(), // numeric condition (1, 2 for elementle; 7, 14, etc. for streak; 50, 40, etc. for percentile)
+  iconUrl: text("icon_url"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export const insertBadgeSchema = createInsertSchema(badges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type Badge = typeof badges.$inferSelect;
+
+// User Badges table - tracks badges earned by users
+export const userBadges = pgTable("user_badges", {
+  id: serial("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  badgeId: integer("badge_id").notNull().references(() => badges.id, { onDelete: "cascade" }),
+  isAwarded: boolean("is_awarded").notNull().default(false), // false until shown in popup, true after
+  region: varchar("region", { length: 20 }).notNull().default("GLOBAL"), // 'GLOBAL' for User game, region code for Region game
+  gameType: varchar("game_type", { length: 20 }).notNull().default("USER"), // 'USER' or 'REGION'
+  awardedAt: timestamp("awarded_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  userIdIdx: index("idx_user_badges_user_id").on(table.userId),
+  badgeIdIdx: index("idx_user_badges_badge_id").on(table.badgeId),
+}));
+
+export const insertUserBadgeSchema = createInsertSchema(userBadges).omit({
+  id: true,
+  awardedAt: true,
+});
+
+export type InsertUserBadge = z.infer<typeof insertUserBadgeSchema>;
+export type UserBadge = typeof userBadges.$inferSelect;
+
+// Type for user badge with badge details joined
+export interface UserBadgeWithDetails extends UserBadge {
+  badge: Badge;
+}
+
 // Admin Settings table - stores configurable system settings
 export const adminSettings = pgTable("admin_settings", {
   id: serial("id").primaryKey(),

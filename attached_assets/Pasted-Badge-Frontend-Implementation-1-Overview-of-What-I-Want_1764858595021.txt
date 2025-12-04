@@ -1,0 +1,110 @@
+Badge Frontend Implementation
+1. Overview of What I Want
+I want to implement a unified badge system that applies to both the User game (global puzzles) and the Region game (region specific puzzles). Users can earn the same categories of badges in both contexts, as well as earn the same badges in different regions if they switch their region. I’ve done all the backend work and now I want the badges to be visible and animated in the front end. The backend already calculates and allocates badges that are awarded monthly, using a cron job; can you setup the triggers so that the badges that a user achieves when they win a game are triggered, and then setup the popups so the user get’s “presented” with their badge when either they win a game and trigger a badge, or when they sign in after a cron job has allocated them a badge, followed by presenting them correctly in the Stats screens. The badges have already been added to a table called badges in Supabase, and cover:
+•	Elementle In badges (threshold = 1 or 2 guesses).
+•	Streak badges (threshold = 7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000).
+•	Percentile badges for being in the top % of players in that month (this is updated using an already scheduled monthly cron job) (threshold = 50%, 40%, 30%, 20%, 15%, 10%, 5%, 3%, 2%, 1%).
+Badges are allocated separately for each game mode:
+•	User game → always game_type = 'USER', region = 'GLOBAL'.
+•	Region game → game_type = 'REGION', region = <region_code> (e.g. UK, US).
+Users can therefore hold:
+•	A streak badge in the User game and a streak badge in one or more Region games.
+•	Percentile badges in both User and Region games.
+•	Elementle In badges in both User and Region games.
+The frontend must present badges per game mode, so the Stats screen for the User game shows the User badges, and the Stats screen for a Region game shows the Region badges for that region. When they are “presented”, using a popup, after the popup has timeout or being clicked on to exit (same as the way the StreakCelebrationPopup is setup, the user is taken to the stats screen for that particular game type (Region or User), and the badge then appears in one of the three slots (as described below)
+2. Backend Work Already Implemented
+Tables
+•	badges
+o	id (PK)
+o	name (e.g. “Top 10%”, “Streak 30”, “Elementle in 1”)
+o	category (elementle, streak, percentile)
+o	threshold (numeric condition)
+o	icon_url (badge image)
+•	user_badges
+o	id (PK)
+o	user_id (FK → user_profiles.id)
+o	badge_id (FK → badges.id)
+o	is_awarded (boolean; false until shown in popup, true after)
+o	region (GLOBAL for User game, region code for Region game)
+o	game_type (USER or REGION)
+o	awarded_at (timestamp)
+•	user_stats_user (global game stats)
+o	Tracks streaks, guess distribution, percentile rank, etc.
+o	Used for User game badge allocation.
+•	user_stats_region (region game stats)
+o	Same fields as user stats, plus region.
+o	Used for Region game badge allocation.
+•	monthly_job_logs
+o	Tracks job runs.
+o	Now includes job_type (USER or REGION) to distinguish logs.
+Functions
+•	allocate_badges_user() → Allocates Elementle, Streak, Percentile badges for User game (game_type='USER', region='GLOBAL').
+•	allocate_badges_region(region_code) → Allocates Elementle, Streak, Percentile badges for Region game (game_type='REGION', region=region_code).
+•	run_monthly_jobs(region_code) → Orchestrates:
+o	Calculate User scores.
+o	Calculate Region scores.
+o	Allocate User badges.
+o	Allocate Region badges.
+o	Logs both USER and REGION runs separately with job_type.
+Cron Jobs
+•	monthly_job_uk → CALL run_monthly_jobs('UK');
+•	monthly_job_us → CALL run_monthly_jobs('US');
+3. What Needs to Happen in the Frontend
+What you need to do:
+Stats Screen Layout
+•	Add a badges row below the Average Guesses box.
+•	Show three slots in a single row:
+1.	Slot 1 → Elementle In badge.
+2.	Slot 2 → Streak badge.
+3.	Slot 3 → Percentile badge.
+•	Each slot displays:
+o	Category title above (from badges.category: “Elementle In”, “Streak”, “Percentile”).
+o	Badge image in the middle:
+	From badges.icon_url. – the URLs are correctly entered into the table for each, but the actual images haven’t been added to the attached_assets folder in your file structure yet, so for now just put in the welcome hamster image, shrunk down to fit
+	Grey hexagon placeholder if no badge yet.
+o	Badge name below:
+	From badges.name.
+	Blank if no badge yet.
+Pop Up Animation Logic
+•	On app load, before the streak saver check is run, query user_badges where is_awarded = false. This will just be to check for the Percentile badges that might have been awarded over night when the existing cron job has run Ensure after all the badge updates are dealt with and the user returns to the GameSelectionPage that the streak saver workflow does still run as it does now on startup. The other badges (“Streak” and “Elementle In”) should be triggered as the user completes a game and a check is run to see if they have achieved one of the badges
+•	For each pending badge:
+o	Show the Trophy animation, location attached_assets/Trophy.json once
+o	Then fade the trophy out and “grow in” the badge from nothing to a standard size, going slightly larger than it’s final size and then shrinking back down to the standard size. Alongside this, fade in the category above and the name below.
+o	After animation, set is_awarded = true.
+•	Percentile badges:
+o	If multiple thresholds are allocated (e.g. Top 50%, 40%, 30%, 20%, 10%), only animate the highest badge (lowest percentile rank).
+o	Stats screen shows only that highest badge (highest badges.id in the supabase table for that category.
+•	Streak badges:
+o	Animate immediately when threshold hit.
+o	Only one streak badge active at a time per game mode.
+•	Elementle In badges:
+o	Animate when puzzle solved in 1 or 2 guesses.
+o	Each threshold is separate; user can earn the two badges in either order.
+Example Queries
+•	Fetch badges for Stats screen (per mode):
+sql
+SELECT b.category, b.name, b.icon_url
+FROM user_badges ub
+JOIN badges b ON ub.badge_id = b.id
+WHERE ub.user_id = $user_id
+  AND ub.is_awarded = true
+  AND ub.game_type = $game_type
+  AND ub.region = $region;
+o	For User game: $game_type = 'USER', $region = 'GLOBAL'.
+o	For Region game: $game_type = 'REGION', $region = current region.
+•	Fetch pending badges for popup:
+sql
+SELECT ub.id, b.category, b.name, b.icon_url
+FROM user_badges ub
+JOIN badges b ON ub.badge_id = b.id
+WHERE ub.user_id = $user_id
+  AND ub.is_awarded = false
+  AND ub.game_type = $game_type
+  AND ub.region = $region
+ORDER BY ub.awarded_at ASC;
+✅ End State
+•	Stats screen shows three badge slots under Average Guesses, per game mode.
+•	Grey hexagon placeholders until badges earned.
+•	Pop ups animate only the highest badge per category.
+•	Stats screen reflects latest earned badge per category.
+•	Queries use user_badges + badges tables, scoped by game_type and region.

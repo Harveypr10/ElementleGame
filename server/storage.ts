@@ -17,6 +17,8 @@ import {
   adminSettings,
   userTier,
   userHolidayEvents,
+  badges,
+  userBadges,
   type UserProfile,
   type InsertUserProfile,
   type Puzzle,
@@ -54,6 +56,10 @@ import {
   type SubscriptionResponse,
   type UserHolidayEvent,
   type InsertUserHolidayEvent,
+  type Badge,
+  type UserBadge,
+  type UserBadgeWithDetails,
+  type InsertUserBadge,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, gte, desc, isNull, sql, notInArray } from "drizzle-orm";
@@ -3129,6 +3135,340 @@ export class DatabaseStorage implements IStorage {
         return;
       }
       throw error;
+    }
+  }
+
+  // ========================================================================
+  // BADGE OPERATIONS
+  // ========================================================================
+
+  async getAllBadges(): Promise<Badge[]> {
+    try {
+      return await db.select().from(badges).orderBy(badges.category, badges.threshold);
+    } catch (error: any) {
+      console.error('[getAllBadges] Error:', error);
+      if (error?.code === '42P01') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async getBadgeById(badgeId: number): Promise<Badge | undefined> {
+    try {
+      const [badge] = await db.select().from(badges).where(eq(badges.id, badgeId));
+      return badge;
+    } catch (error: any) {
+      console.error('[getBadgeById] Error:', error);
+      return undefined;
+    }
+  }
+
+  async getBadgeByThreshold(category: string, threshold: number): Promise<Badge | undefined> {
+    try {
+      const [badge] = await db
+        .select()
+        .from(badges)
+        .where(and(eq(badges.category, category), eq(badges.threshold, threshold)));
+      return badge;
+    } catch (error: any) {
+      console.error('[getBadgeByThreshold] Error:', error);
+      return undefined;
+    }
+  }
+
+  async getUserBadges(
+    userId: string, 
+    gameType: 'USER' | 'REGION', 
+    region: string,
+    onlyAwarded: boolean = true
+  ): Promise<UserBadgeWithDetails[]> {
+    try {
+      const whereConditions = onlyAwarded
+        ? and(
+            eq(userBadges.userId, userId),
+            eq(userBadges.gameType, gameType),
+            eq(userBadges.region, region),
+            eq(userBadges.isAwarded, true)
+          )
+        : and(
+            eq(userBadges.userId, userId),
+            eq(userBadges.gameType, gameType),
+            eq(userBadges.region, region)
+          );
+
+      const results = await db
+        .select({
+          id: userBadges.id,
+          userId: userBadges.userId,
+          badgeId: userBadges.badgeId,
+          isAwarded: userBadges.isAwarded,
+          region: userBadges.region,
+          gameType: userBadges.gameType,
+          awardedAt: userBadges.awardedAt,
+          badge: {
+            id: badges.id,
+            name: badges.name,
+            category: badges.category,
+            threshold: badges.threshold,
+            iconUrl: badges.iconUrl,
+            createdAt: badges.createdAt,
+          },
+        })
+        .from(userBadges)
+        .innerJoin(badges, eq(userBadges.badgeId, badges.id))
+        .where(whereConditions)
+        .orderBy(badges.category, desc(badges.threshold));
+
+      return results as UserBadgeWithDetails[];
+    } catch (error: any) {
+      console.error('[getUserBadges] Error:', error);
+      if (error?.code === '42P01') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async getPendingBadges(
+    userId: string, 
+    gameType: 'USER' | 'REGION', 
+    region: string
+  ): Promise<UserBadgeWithDetails[]> {
+    try {
+      const results = await db
+        .select({
+          id: userBadges.id,
+          userId: userBadges.userId,
+          badgeId: userBadges.badgeId,
+          isAwarded: userBadges.isAwarded,
+          region: userBadges.region,
+          gameType: userBadges.gameType,
+          awardedAt: userBadges.awardedAt,
+          badge: {
+            id: badges.id,
+            name: badges.name,
+            category: badges.category,
+            threshold: badges.threshold,
+            iconUrl: badges.iconUrl,
+            createdAt: badges.createdAt,
+          },
+        })
+        .from(userBadges)
+        .innerJoin(badges, eq(userBadges.badgeId, badges.id))
+        .where(
+          and(
+            eq(userBadges.userId, userId),
+            eq(userBadges.gameType, gameType),
+            eq(userBadges.region, region),
+            eq(userBadges.isAwarded, false)
+          )
+        )
+        .orderBy(userBadges.awardedAt);
+
+      return results as UserBadgeWithDetails[];
+    } catch (error: any) {
+      console.error('[getPendingBadges] Error:', error);
+      if (error?.code === '42P01') {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async markBadgeAwarded(userBadgeId: number): Promise<void> {
+    try {
+      await db
+        .update(userBadges)
+        .set({ isAwarded: true })
+        .where(eq(userBadges.id, userBadgeId));
+      console.log(`[markBadgeAwarded] Marked user badge ${userBadgeId} as awarded`);
+    } catch (error: any) {
+      console.error('[markBadgeAwarded] Error:', error);
+      throw error;
+    }
+  }
+
+  async awardBadge(
+    userId: string,
+    badgeId: number,
+    gameType: 'USER' | 'REGION',
+    region: string
+  ): Promise<UserBadge | null> {
+    try {
+      // Check if badge already exists for this user/game/region
+      const existing = await db
+        .select()
+        .from(userBadges)
+        .where(
+          and(
+            eq(userBadges.userId, userId),
+            eq(userBadges.badgeId, badgeId),
+            eq(userBadges.gameType, gameType),
+            eq(userBadges.region, region)
+          )
+        );
+
+      if (existing.length > 0) {
+        console.log(`[awardBadge] Badge ${badgeId} already exists for user ${userId} in ${gameType}/${region}`);
+        return existing[0];
+      }
+
+      const [newBadge] = await db
+        .insert(userBadges)
+        .values({
+          userId,
+          badgeId,
+          gameType,
+          region,
+          isAwarded: false, // Will be marked true after popup shown
+        })
+        .returning();
+
+      console.log(`[awardBadge] Created new badge ${badgeId} for user ${userId} in ${gameType}/${region}`);
+      return newBadge;
+    } catch (error: any) {
+      console.error('[awardBadge] Error:', error);
+      if (error?.code === '42P01') {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async getHighestBadgePerCategory(
+    userId: string,
+    gameType: 'USER' | 'REGION',
+    region: string
+  ): Promise<Record<string, UserBadgeWithDetails | null>> {
+    try {
+      const allBadges = await this.getUserBadges(userId, gameType, region, true);
+      
+      const result: Record<string, UserBadgeWithDetails | null> = {
+        elementle: null,
+        streak: null,
+        percentile: null,
+      };
+
+      for (const badge of allBadges) {
+        const category = badge.badge.category;
+        if (category in result) {
+          const current = result[category];
+          if (!current) {
+            result[category] = badge;
+          } else {
+            // For percentile, lower threshold is better (1% is better than 50%)
+            // For streak and elementle, higher threshold is better (30 streak > 7 streak)
+            if (category === 'percentile') {
+              if (badge.badge.threshold < current.badge.threshold) {
+                result[category] = badge;
+              }
+            } else {
+              if (badge.badge.threshold > current.badge.threshold) {
+                result[category] = badge;
+              }
+            }
+          }
+        }
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('[getHighestBadgePerCategory] Error:', error);
+      return {
+        elementle: null,
+        streak: null,
+        percentile: null,
+      };
+    }
+  }
+
+  async checkAndAwardStreakBadge(
+    userId: string,
+    streak: number,
+    gameType: 'USER' | 'REGION',
+    region: string
+  ): Promise<UserBadgeWithDetails | null> {
+    try {
+      // Streak thresholds: 7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000
+      const streakThresholds = [7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000];
+      
+      // Find the highest threshold the user qualifies for
+      const qualifiedThreshold = streakThresholds.filter(t => streak >= t).pop();
+      
+      if (!qualifiedThreshold) {
+        return null; // No badge threshold reached
+      }
+
+      // Get the badge for this threshold
+      const badge = await this.getBadgeByThreshold('streak', qualifiedThreshold);
+      if (!badge) {
+        console.log(`[checkAndAwardStreakBadge] No streak badge found for threshold ${qualifiedThreshold}`);
+        return null;
+      }
+
+      // Check if user already has this badge
+      const existingBadges = await this.getUserBadges(userId, gameType, region, false);
+      const hasBadge = existingBadges.some(ub => ub.badge.id === badge.id);
+      
+      if (hasBadge) {
+        return null; // Already has this badge
+      }
+
+      // Award the badge
+      const newBadge = await this.awardBadge(userId, badge.id, gameType, region);
+      if (newBadge) {
+        return {
+          ...newBadge,
+          badge,
+        };
+      }
+      return null;
+    } catch (error: any) {
+      console.error('[checkAndAwardStreakBadge] Error:', error);
+      return null;
+    }
+  }
+
+  async checkAndAwardElementleBadge(
+    userId: string,
+    guessCount: number,
+    gameType: 'USER' | 'REGION',
+    region: string
+  ): Promise<UserBadgeWithDetails | null> {
+    try {
+      // Elementle In thresholds: 1 or 2 guesses
+      if (guessCount !== 1 && guessCount !== 2) {
+        return null;
+      }
+
+      // Get the badge for this threshold
+      const badge = await this.getBadgeByThreshold('elementle', guessCount);
+      if (!badge) {
+        console.log(`[checkAndAwardElementleBadge] No elementle badge found for threshold ${guessCount}`);
+        return null;
+      }
+
+      // Check if user already has this badge
+      const existingBadges = await this.getUserBadges(userId, gameType, region, false);
+      const hasBadge = existingBadges.some(ub => ub.badge.id === badge.id);
+      
+      if (hasBadge) {
+        return null; // Already has this badge
+      }
+
+      // Award the badge
+      const newBadge = await this.awardBadge(userId, badge.id, gameType, region);
+      if (newBadge) {
+        return {
+          ...newBadge,
+          badge,
+        };
+      }
+      return null;
+    } catch (error: any) {
+      console.error('[checkAndAwardElementleBadge] Error:', error);
+      return null;
     }
   }
 }

@@ -900,6 +900,135 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
   });
 
   // ========================================================================
+  // BADGE ROUTES - REGION GAME MODE
+  // ========================================================================
+
+  // Get all badges (for reference)
+  app.get("/api/badges", async (req, res) => {
+    try {
+      const allBadges = await storage.getAllBadges();
+      res.json(allBadges);
+    } catch (error) {
+      console.error("[GET /api/badges] Error:", error);
+      res.status(500).json({ error: "Failed to fetch badges" });
+    }
+  });
+
+  // Get user's earned badges for Region game mode (for Stats screen display)
+  app.get("/api/badges/earned", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || "UK";
+      
+      console.log(`[GET /api/badges/earned] userId: ${userId}, region: ${region}, gameType: REGION`);
+      
+      const highestBadges = await storage.getHighestBadgePerCategory(userId, 'REGION', region);
+      res.json(highestBadges);
+    } catch (error) {
+      console.error("[GET /api/badges/earned] Error:", error);
+      res.status(500).json({ error: "Failed to fetch earned badges" });
+    }
+  });
+
+  // Get pending badges for Region game mode (for popup animation)
+  app.get("/api/badges/pending", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || "UK";
+      
+      console.log(`[GET /api/badges/pending] userId: ${userId}, region: ${region}, gameType: REGION`);
+      
+      const pendingBadges = await storage.getPendingBadges(userId, 'REGION', region);
+      
+      // For percentile badges, only return the highest (lowest threshold)
+      const categorized: Record<string, typeof pendingBadges[0] | null> = {};
+      const result: typeof pendingBadges = [];
+      
+      for (const badge of pendingBadges) {
+        const cat = badge.badge.category;
+        if (cat === 'percentile') {
+          if (!categorized[cat] || badge.badge.threshold < categorized[cat]!.badge.threshold) {
+            categorized[cat] = badge;
+          }
+        } else {
+          result.push(badge);
+        }
+      }
+      
+      if (categorized.percentile) {
+        result.push(categorized.percentile);
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("[GET /api/badges/pending] Error:", error);
+      res.status(500).json({ error: "Failed to fetch pending badges" });
+    }
+  });
+
+  // Mark a badge as awarded (after popup shown)
+  app.post("/api/badges/:userBadgeId/award", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userBadgeId = parseInt(req.params.userBadgeId, 10);
+      if (isNaN(userBadgeId)) {
+        return res.status(400).json({ error: "Invalid badge ID" });
+      }
+      
+      await storage.markBadgeAwarded(userBadgeId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[POST /api/badges/:userBadgeId/award] Error:", error);
+      res.status(500).json({ error: "Failed to mark badge as awarded" });
+    }
+  });
+
+  // Check and award streak badge
+  app.post("/api/badges/check-streak", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { streak } = req.body;
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || "UK";
+      
+      if (typeof streak !== 'number') {
+        return res.status(400).json({ error: "Streak must be a number" });
+      }
+      
+      console.log(`[POST /api/badges/check-streak] userId: ${userId}, streak: ${streak}, gameType: REGION, region: ${region}`);
+      
+      const newBadge = await storage.checkAndAwardStreakBadge(userId, streak, 'REGION', region);
+      res.json({ badge: newBadge });
+    } catch (error) {
+      console.error("[POST /api/badges/check-streak] Error:", error);
+      res.status(500).json({ error: "Failed to check streak badge" });
+    }
+  });
+
+  // Check and award elementle badge
+  app.post("/api/badges/check-elementle", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { guessCount } = req.body;
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || "UK";
+      
+      if (typeof guessCount !== 'number') {
+        return res.status(400).json({ error: "guessCount must be a number" });
+      }
+      
+      console.log(`[POST /api/badges/check-elementle] userId: ${userId}, guessCount: ${guessCount}, gameType: REGION, region: ${region}`);
+      
+      const newBadge = await storage.checkAndAwardElementleBadge(userId, guessCount, 'REGION', region);
+      res.json({ badge: newBadge });
+    } catch (error) {
+      console.error("[POST /api/badges/check-elementle] Error:", error);
+      res.status(500).json({ error: "Failed to check elementle badge" });
+    }
+  });
+
+  // ========================================================================
   // USER GAME MODE ROUTES
   // ========================================================================
 
@@ -1301,6 +1430,100 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     } catch (error) {
       console.error("Error fetching user percentile:", error);
       res.status(500).json({ error: "Failed to fetch user percentile" });
+    }
+  });
+
+  // ========================================================================
+  // BADGE ROUTES - USER GAME MODE
+  // ========================================================================
+
+  // Get user's earned badges for User game mode (for Stats screen display)
+  app.get("/api/user/badges/earned", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      console.log(`[GET /api/user/badges/earned] userId: ${userId}, gameType: USER, region: GLOBAL`);
+      
+      const highestBadges = await storage.getHighestBadgePerCategory(userId, 'USER', 'GLOBAL');
+      res.json(highestBadges);
+    } catch (error) {
+      console.error("[GET /api/user/badges/earned] Error:", error);
+      res.status(500).json({ error: "Failed to fetch earned badges" });
+    }
+  });
+
+  // Get pending badges for User game mode (for popup animation)
+  app.get("/api/user/badges/pending", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      console.log(`[GET /api/user/badges/pending] userId: ${userId}, gameType: USER, region: GLOBAL`);
+      
+      const pendingBadges = await storage.getPendingBadges(userId, 'USER', 'GLOBAL');
+      
+      // For percentile badges, only return the highest (lowest threshold)
+      const categorized: Record<string, typeof pendingBadges[0] | null> = {};
+      const result: typeof pendingBadges = [];
+      
+      for (const badge of pendingBadges) {
+        const cat = badge.badge.category;
+        if (cat === 'percentile') {
+          if (!categorized[cat] || badge.badge.threshold < categorized[cat]!.badge.threshold) {
+            categorized[cat] = badge;
+          }
+        } else {
+          result.push(badge);
+        }
+      }
+      
+      if (categorized.percentile) {
+        result.push(categorized.percentile);
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("[GET /api/user/badges/pending] Error:", error);
+      res.status(500).json({ error: "Failed to fetch pending badges" });
+    }
+  });
+
+  // Check and award streak badge for User mode
+  app.post("/api/user/badges/check-streak", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { streak } = req.body;
+      
+      if (typeof streak !== 'number') {
+        return res.status(400).json({ error: "Streak must be a number" });
+      }
+      
+      console.log(`[POST /api/user/badges/check-streak] userId: ${userId}, streak: ${streak}, gameType: USER, region: GLOBAL`);
+      
+      const newBadge = await storage.checkAndAwardStreakBadge(userId, streak, 'USER', 'GLOBAL');
+      res.json({ badge: newBadge });
+    } catch (error) {
+      console.error("[POST /api/user/badges/check-streak] Error:", error);
+      res.status(500).json({ error: "Failed to check streak badge" });
+    }
+  });
+
+  // Check and award elementle badge for User mode
+  app.post("/api/user/badges/check-elementle", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { guessCount } = req.body;
+      
+      if (typeof guessCount !== 'number') {
+        return res.status(400).json({ error: "guessCount must be a number" });
+      }
+      
+      console.log(`[POST /api/user/badges/check-elementle] userId: ${userId}, guessCount: ${guessCount}, gameType: USER, region: GLOBAL`);
+      
+      const newBadge = await storage.checkAndAwardElementleBadge(userId, guessCount, 'USER', 'GLOBAL');
+      res.json({ badge: newBadge });
+    } catch (error) {
+      console.error("[POST /api/user/badges/check-elementle] Error:", error);
+      res.status(500).json({ error: "Failed to check elementle badge" });
     }
   });
 
