@@ -216,11 +216,11 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
 
               {/* Bottom Right Box - Percentile Month to Date */}
               <Card className="p-4 flex-1">
-                <div className="flex items-center gap-1 mb-2">
+                <div className="flex items-start justify-between gap-2 mb-2">
                   <span className="font-bold text-sm">Percentile</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help flex-shrink-0" />
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[200px] text-center">
                       <p>You must have played at least 5 days this month for a percentile to be calculated</p>
@@ -228,7 +228,7 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
                   </Tooltip>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Month to Date</span>
+                  <span className="text-sm text-muted-foreground max-w-[50%]">Month to Date</span>
                   <span className="text-xl font-bold" data-testid="stat-percentile-mtd">
                     {(() => {
                       const dayOfMonth = new Date().getDate();
