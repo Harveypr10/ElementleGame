@@ -81,12 +81,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
 
     const categoryBadges = allBadges
       .filter(b => normalizeCategory(b.category) === category)
-      .sort((a, b) => {
-        if (category === 'percentile') {
-          return b.threshold - a.threshold;
-        }
-        return a.threshold - b.threshold;
-      });
+      .sort((a, b) => a.id - b.id);
 
     const earnedBadge = earnedBadges?.[category];
     const earnedThreshold = earnedBadge?.badge?.threshold ?? -1;
@@ -115,8 +110,13 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
           ...prev,
           [currentCategory]: earnedIndex,
         }));
+        return;
       }
     }
+    setCurrentBadgeIndex(prev => ({
+      ...prev,
+      [currentCategory]: 0,
+    }));
   }, [currentCategory, categoryBadges.length, earnedBadges]);
 
   const handleBadgeSwipe = (direction: number) => {
@@ -159,7 +159,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 bg-black flex flex-col touch-none"
+      className="fixed inset-0 z-50 bg-background flex flex-col touch-none"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -168,14 +168,14 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
     >
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 p-2 text-white/70 hover:text-white transition-colors"
+        className="absolute top-4 right-4 z-10 p-2 text-muted-foreground hover:text-foreground transition-colors"
         data-testid="button-close-all-badges"
       >
         <X className="w-6 h-6" />
       </button>
 
       <div className="flex-1 flex flex-col items-center justify-center overflow-hidden touch-none">
-        <div className="text-white/50 mb-2 flex items-center gap-1">
+        <div className="text-muted-foreground mb-2 flex items-center gap-1">
           {currentCategoryIndex > 0 && <ChevronUp className="w-4 h-4 animate-bounce" />}
         </div>
 
@@ -188,37 +188,40 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
             exit={{ opacity: 0, y: -50 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex items-center gap-2 text-white mb-6">
+            <div className="flex items-center gap-2 text-foreground mb-6">
               <CategoryIcon className="w-6 h-6" />
               <h2 className="text-xl font-bold">{config.title}</h2>
             </div>
 
             <motion.div
-              className="relative w-full flex items-center justify-center touch-none cursor-grab active:cursor-grabbing"
+              className="relative w-full flex items-center justify-center touch-none cursor-grab active:cursor-grabbing overflow-hidden"
               style={{ height: '200px' }}
               drag
               dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
               dragElastic={0.2}
               onDragEnd={handlePanEnd}
             >
-              <div className="flex items-center gap-4 overflow-visible">
+              <div className="relative flex items-center justify-center" style={{ width: '100%', height: '100%' }}>
                 {categoryBadges.map((item, index) => {
                   const offset = index - activeBadgeIndex;
                   const isCenter = offset === 0;
-                  const isLeft = offset < 0;
-                  const isRight = offset > 0;
+                  const xPosition = offset * 120;
 
                   return (
                     <motion.div
                       key={item.badge.id}
-                      className={cn(
-                        "flex flex-col items-center shrink-0 cursor-pointer",
-                        "transition-all duration-300"
-                      )}
-                      style={{
-                        transform: `translateX(${offset * 100}px) scale(${isCenter ? 1 : 0.7})`,
+                      className="absolute flex flex-col items-center cursor-pointer"
+                      initial={false}
+                      animate={{
+                        x: xPosition,
+                        scale: isCenter ? 1 : 0.7,
                         opacity: isCenter ? 1 : (item.isEarned ? 0.7 : 0.3),
                         zIndex: isCenter ? 10 : 1,
+                      }}
+                      transition={{ 
+                        type: "spring", 
+                        stiffness: 300, 
+                        damping: 30 
                       }}
                       onClick={() => {
                         setCurrentBadgeIndex(prev => ({
@@ -236,7 +239,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
                           src={badgeImage}
                           alt={item.badge.name}
                           className={cn(
-                            "w-20 h-20 object-contain",
+                            "w-20 h-20 object-contain transition-all duration-300",
                             isCenter && "w-24 h-24"
                           )}
                         />
@@ -245,8 +248,8 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
                         )}
                       </div>
                       <span className={cn(
-                        "mt-2 text-sm font-medium",
-                        item.isEarned ? "text-white" : "text-white/40"
+                        "mt-2 text-sm font-medium whitespace-nowrap",
+                        item.isEarned ? "text-foreground" : "text-muted-foreground"
                       )}>
                         {config.getBadgeLabel(item.badge.threshold)}
                       </span>
@@ -265,12 +268,12 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
               >
                 <p className={cn(
                   "text-lg",
-                  activeBadge.isEarned ? "text-white" : "text-white/50"
+                  activeBadge.isEarned ? "text-foreground" : "text-muted-foreground"
                 )}>
                   {config.getBadgeDescription(activeBadge.badge.threshold)}
                 </p>
                 {activeBadge.isEarned && (
-                  <span className="inline-block mt-2 px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-sm">
+                  <span className="inline-block mt-2 px-3 py-1 bg-emerald-500/20 text-emerald-600 rounded-full text-sm">
                     Earned!
                   </span>
                 )}
@@ -279,7 +282,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
           </motion.div>
         </AnimatePresence>
 
-        <div className="text-white/50 mt-4 flex items-center gap-1">
+        <div className="text-muted-foreground mt-4 flex items-center gap-1">
           {currentCategoryIndex < CATEGORIES.length - 1 && (
             <ChevronDown className="w-4 h-4 animate-bounce" />
           )}
@@ -293,8 +296,8 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
               className={cn(
                 "w-2 h-2 rounded-full transition-all",
                 index === currentCategoryIndex 
-                  ? "bg-white w-6" 
-                  : "bg-white/30 hover:bg-white/50"
+                  ? "bg-foreground w-6" 
+                  : "bg-muted-foreground/30 hover:bg-muted-foreground/50"
               )}
               data-testid={`category-indicator-${cat}`}
             />
@@ -302,7 +305,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
         </div>
       </div>
 
-      <div className="pb-8 text-center text-white/40 text-sm">
+      <div className="pb-8 text-center text-muted-foreground text-sm">
         Swipe left/right to browse badges, up/down to change category
       </div>
     </motion.div>
