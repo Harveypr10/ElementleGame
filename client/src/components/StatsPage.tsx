@@ -10,9 +10,11 @@ import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { BadgesRow } from "@/components/badges";
 
 interface StatsPageProps {
   onBack: () => void;
+  gameType?: 'USER' | 'REGION';
 }
 
 interface GameStats {
@@ -29,7 +31,7 @@ interface GameStats {
   }>;
 }
 
-export function StatsPage({ onBack }: StatsPageProps) {
+export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
   const { isAuthenticated } = useAuth();
   const { stats: supabaseStats, isLoading: loadingStats } = useUserStats();
   const { gameAttempts, loadingAttempts } = useGameData();
@@ -191,6 +193,8 @@ export function StatsPage({ onBack }: StatsPageProps) {
               <Award className="h-8 w-8 text-muted-foreground" />
             </div>
           </Card>
+
+          <BadgesRow gameType={gameType} />
 
           {last30DaysPlayed > 0 && (
             <div>
