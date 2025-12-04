@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useGameData } from "@/hooks/useGameData";
+import { useProfile } from "@/hooks/useProfile";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
+import type { UserProfile } from "@shared/schema";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useAdBannerActive } from "@/components/AdBanner";
@@ -40,7 +42,21 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
   const { isAuthenticated } = useAuth();
   const { stats: supabaseStats, isLoading: loadingStats } = useUserStats();
   const { gameAttempts, loadingAttempts } = useGameData();
+  const { profile } = useProfile();
   const adBannerActive = useAdBannerActive();
+
+  // Get cached profile for instant display
+  const cachedProfile = readLocal<UserProfile>(CACHE_KEYS.PROFILE);
+  
+  // Determine the title based on gameType
+  const title = gameType === 'USER' 
+    ? (profile?.firstName || cachedProfile?.firstName || 'Personal') + (
+        (profile?.firstName || cachedProfile?.firstName) && 
+        (profile?.firstName?.length || cachedProfile?.firstName?.length || 0) < 12 
+          ? ' Edition' 
+          : ''
+      )
+    : (profile?.region || cachedProfile?.region || 'UK') + ' Edition';
   
   const [stats, setStats] = useState<GameStats>({
     played: 0,
@@ -172,18 +188,21 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
         <div className="w-full max-w-md space-y-6">
           <div className="grid grid-cols-2 gap-3">
             {/* Left Box - Full height with Played, Win %, Average Guesses */}
-            <Card className="p-4 flex flex-col justify-between">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Played</span>
-                <span className="text-xl font-bold" data-testid="stat-played">{stats.played}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Win %</span>
-                <span className="text-xl font-bold" data-testid="stat-win-percentage">{winPercentage}%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Average Guesses</span>
-                <span className="text-xl font-bold" data-testid="stat-avg-guesses">{averageGuesses}</span>
+            <Card className="p-4 flex flex-col">
+              <div className="font-bold text-sm mb-4">{title}</div>
+              <div className="flex-1 flex flex-col justify-between">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Played</span>
+                  <span className="text-xl font-bold ml-2" data-testid="stat-played">{stats.played}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Win %</span>
+                  <span className="text-xl font-bold ml-2" data-testid="stat-win-percentage">{winPercentage}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Average Guesses</span>
+                  <span className="text-xl font-bold ml-2" data-testid="stat-avg-guesses">{averageGuesses}</span>
+                </div>
               </div>
             </Card>
 
