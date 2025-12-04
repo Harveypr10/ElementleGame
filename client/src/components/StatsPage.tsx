@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, BarChart3, TrendingUp, Award } from "lucide-react";
+import { ChevronLeft, BarChart3, TrendingUp, Award, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserStats } from "@/hooks/useUserStats";
@@ -11,6 +11,11 @@ import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useAdBannerActive } from "@/components/AdBanner";
 import { BadgesRow } from "@/components/badges";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface StatsPageProps {
   onBack: () => void;
@@ -165,34 +170,68 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
 
       <div className="flex-1 flex items-start justify-center pb-8">
         <div className="w-full max-w-md space-y-6">
-          <div className="grid grid-cols-4 gap-4">
-            <Card className="p-4 text-center">
-              <div className="text-3xl font-bold" data-testid="stat-played">{stats.played}</div>
-              <div className="text-xs text-muted-foreground mt-1">Played</div>
-            </Card>
-            <Card className="p-4 text-center">
-              <div className="text-3xl font-bold" data-testid="stat-win-percentage">{winPercentage}</div>
-              <div className="text-xs text-muted-foreground mt-1">Win %</div>
-            </Card>
-            <Card className="p-4 text-center">
-              <div className="text-3xl font-bold" data-testid="stat-current-streak">{stats.currentStreak}</div>
-              <div className="text-xs text-muted-foreground mt-1">Current</div>
-            </Card>
-            <Card className="p-4 text-center">
-              <div className="text-3xl font-bold" data-testid="stat-max-streak">{stats.maxStreak}</div>
-              <div className="text-xs text-muted-foreground mt-1">Best</div>
-            </Card>
-          </div>
-
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm text-muted-foreground">Average Guesses</div>
-                <div className="text-2xl font-bold" data-testid="stat-avg-guesses">{averageGuesses}</div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Left Box - Full height with Played, Win %, Average Guesses */}
+            <Card className="p-4 flex flex-col justify-between">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Played</span>
+                <span className="text-xl font-bold" data-testid="stat-played">{stats.played}</span>
               </div>
-              <Award className="h-8 w-8 text-muted-foreground" />
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Win %</span>
+                <span className="text-xl font-bold" data-testid="stat-win-percentage">{winPercentage}%</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Average Guesses</span>
+                <span className="text-xl font-bold" data-testid="stat-avg-guesses">{averageGuesses}</span>
+              </div>
+            </Card>
+
+            {/* Right Column - Two stacked boxes */}
+            <div className="flex flex-col gap-3">
+              {/* Top Right Box - Streak */}
+              <Card className="p-4 flex-1">
+                <div className="font-bold text-sm mb-2">Streak</div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-muted-foreground">Current</span>
+                  <span className="text-xl font-bold" data-testid="stat-current-streak">{stats.currentStreak}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Best</span>
+                  <span className="text-xl font-bold" data-testid="stat-max-streak">{stats.maxStreak}</span>
+                </div>
+              </Card>
+
+              {/* Bottom Right Box - Percentile Month to Date */}
+              <Card className="p-4 flex-1">
+                <div className="flex items-center gap-1 mb-2">
+                  <span className="font-bold text-sm">Percentile</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] text-center">
+                      <p>You must have played at least 5 days this month for a percentile to be calculated</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Month to Date</span>
+                  <span className="text-xl font-bold" data-testid="stat-percentile-mtd">
+                    {(() => {
+                      const dayOfMonth = new Date().getDate();
+                      const percentile = (supabaseStats as any)?.cumulativeMonthlyPercentile;
+                      if (dayOfMonth < 5 || percentile === null || percentile === undefined || percentile <= 0) {
+                        return "NA";
+                      }
+                      const rounded = Math.floor(percentile / 5) * 5;
+                      return `Top ${rounded}%`;
+                    })()}
+                  </span>
+                </div>
+              </Card>
             </div>
-          </Card>
+          </div>
 
           <BadgesRow gameType={gameType} />
 
