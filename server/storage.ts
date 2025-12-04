@@ -3296,21 +3296,19 @@ export class DatabaseStorage implements IStorage {
     region: string
   ): Promise<UserBadge | null> {
     try {
-      // Check if badge already exists for this user/game/region
+      // Check if badge already exists for this user (unique constraint is on user_id + badge_id only)
       const existing = await db
         .select()
         .from(userBadges)
         .where(
           and(
             eq(userBadges.userId, userId),
-            eq(userBadges.badgeId, badgeId),
-            eq(userBadges.gameType, gameType),
-            eq(userBadges.region, region)
+            eq(userBadges.badgeId, badgeId)
           )
         );
 
       if (existing.length > 0) {
-        console.log(`[awardBadge] Badge ${badgeId} already exists for user ${userId} in ${gameType}/${region}`);
+        console.log(`[awardBadge] Badge ${badgeId} already exists for user ${userId}`);
         return existing[0];
       }
 
@@ -3328,6 +3326,21 @@ export class DatabaseStorage implements IStorage {
       console.log(`[awardBadge] Created new badge ${badgeId} for user ${userId} in ${gameType}/${region}`);
       return newBadge;
     } catch (error: any) {
+      // Handle duplicate key constraint violation gracefully
+      if (error?.code === '23505') {
+        console.log(`[awardBadge] Badge ${badgeId} already exists for user ${userId} (duplicate key)`);
+        // Return existing badge
+        const existing = await db
+          .select()
+          .from(userBadges)
+          .where(
+            and(
+              eq(userBadges.userId, userId),
+              eq(userBadges.badgeId, badgeId)
+            )
+          );
+        return existing.length > 0 ? existing[0] : null;
+      }
       console.error('[awardBadge] Error:', error);
       if (error?.code === '42P01') {
         return null;

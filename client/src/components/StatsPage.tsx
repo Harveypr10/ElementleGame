@@ -8,7 +8,7 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { useGameData } from "@/hooks/useGameData";
 import { useProfile } from "@/hooks/useProfile";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
-import type { UserProfile } from "@shared/schema";
+import type { UserProfile, UserBadgeWithDetails } from "@shared/schema";
 import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useAdBannerActive } from "@/components/AdBanner";
@@ -22,6 +22,8 @@ import {
 interface StatsPageProps {
   onBack: () => void;
   gameType?: 'USER' | 'REGION';
+  newlyAwardedBadge?: UserBadgeWithDetails | null;
+  onBadgeAnimationComplete?: () => void;
 }
 
 interface GameStats {
@@ -38,7 +40,7 @@ interface GameStats {
   }>;
 }
 
-export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
+export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBadgeAnimationComplete }: StatsPageProps) {
   const { isAuthenticated } = useAuth();
   const { stats: supabaseStats, isLoading: loadingStats } = useUserStats();
   const { gameAttempts, loadingAttempts } = useGameData();
@@ -247,7 +249,11 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
             </div>
           </div>
 
-          <BadgesRow gameType={gameType} />
+          <BadgesRow 
+            gameType={gameType} 
+            newlyAwardedBadge={newlyAwardedBadge}
+            onAnimationComplete={onBadgeAnimationComplete}
+          />
 
           {last30DaysPlayed > 0 && (
             <Card className="p-4 space-y-3">

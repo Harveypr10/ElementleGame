@@ -42,6 +42,12 @@ Preferred communication style: Simple, everyday language.
   - Badges are checked on game completion (Elementle/Streak) and app load (Percentile)
   - Badge celebration popup with Trophy.json Lottie animation after streak celebration
   - BadgesRow displays earned badges on Stats screen with hexagonal slots
+  - **Pending Badge Fallback**: GameSelectionPage checks for unawarded badges (isAwarded=false) on mount
+    - Uses processedBadgeIds Set to track shown badges per session
+    - Shows BadgeCelebrationPopup for each pending badge sequentially
+    - On dismiss: marks badge as awarded, refetches pending lists, navigates to Stats
+    - BadgeSlot animates (fade-in + grow) for newly awarded badges using Framer Motion
+    - Error handling with toast notification and retry support
 
 ## External Dependencies
 

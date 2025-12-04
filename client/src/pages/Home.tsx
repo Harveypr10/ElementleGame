@@ -27,6 +27,7 @@ import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { AdBanner, AdBannerContext } from "@/components/AdBanner";
+import type { UserBadgeWithDetails } from "@shared/schema";
 
 type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
 
@@ -64,6 +65,8 @@ export default function Home() {
   const [hasShownGeneratingScreen, setHasShownGeneratingScreen] = useState(false);
   // Track which mode the puzzle was selected in (to prevent mode mismatch issues)
   const [puzzleSourceMode, setPuzzleSourceMode] = useState<'global' | 'local'>('global');
+  // Track newly awarded badge for animation on stats page
+  const [newlyAwardedBadge, setNewlyAwardedBadge] = useState<UserBadgeWithDetails | null>(null);
   
   // Fetch puzzles from API (mode-aware, guest-aware)
   // Guests use /api/puzzles/guest, authenticated users use mode-specific endpoints
@@ -579,6 +582,12 @@ export default function Home() {
               onViewArchiveLocal={handleArchiveLocal}
               onOpenOptionsLocal={handleOptionsLocal}
               onPlayYesterdaysPuzzle={handlePlayYesterdaysPuzzle}
+              onViewStatsWithBadge={(badge, gameType) => {
+                setNewlyAwardedBadge(badge);
+                setStatsGameType(gameType);
+                setStatsReturnScreen("selection");
+                setCurrentScreen("stats");
+              }}
             />
           </motion.div>
         )}
@@ -622,8 +631,13 @@ export default function Home() {
         {currentScreen === "stats" && (
           <motion.div key="stats" className="absolute w-full top-0 left-0" {...pageVariants.slideLeft} transition={pageTransition}>
             <StatsPage 
-              onBack={() => setCurrentScreen(statsReturnScreen)}
+              onBack={() => {
+                setNewlyAwardedBadge(null);
+                setCurrentScreen(statsReturnScreen);
+              }}
               gameType={statsGameType}
+              newlyAwardedBadge={newlyAwardedBadge}
+              onBadgeAnimationComplete={() => setNewlyAwardedBadge(null)}
             />
           </motion.div>
         )}

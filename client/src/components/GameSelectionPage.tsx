@@ -7,6 +7,7 @@ import { ProSubscriptionDialog } from "./ProSubscriptionDialog";
 import { GuestRestrictionPopup } from "./GuestRestrictionPopup";
 import { CategorySelectionScreen } from "./CategorySelectionScreen";
 import { StreakSaverPopup } from "./StreakSaverPopup";
+import { BadgeCelebrationPopup } from "./badges/BadgeCelebrationPopup";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
@@ -19,11 +20,12 @@ import { motion, useTransform } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
 import { useModeController } from "@/hooks/useModeController";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
-import type { UserProfile } from "@shared/schema";
+import type { UserProfile, UserBadgeWithDetails } from "@shared/schema";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { apiRequest } from "@/lib/queryClient";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import historianHamsterLocal from "@assets/Historian-Hamster-Local.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
@@ -62,6 +64,7 @@ interface GameSelectionPageProps {
   onViewArchiveLocal?: () => void;
   onOpenOptionsLocal?: () => void;
   onPlayYesterdaysPuzzle?: (gameType: "region" | "user", puzzleDate: string) => void;
+  onViewStatsWithBadge?: (badge: UserBadgeWithDetails, gameType: 'USER' | 'REGION') => void;
 }
 
 export function GameSelectionPage({ 
@@ -79,6 +82,7 @@ export function GameSelectionPage({
   onViewArchiveLocal,
   onOpenOptionsLocal,
   onPlayYesterdaysPuzzle,
+  onViewStatsWithBadge,
 }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const { profile } = useProfile();
@@ -114,6 +118,48 @@ export function GameSelectionPage({
 
   const [hasShownRegionPopup, setHasShownRegionPopup] = useState(false);
   const [hasShownUserPopup, setHasShownUserPopup] = useState(false);
+  
+  // Pending badge popup state
+  const [pendingBadgeToShow, setPendingBadgeToShow] = useState<UserBadgeWithDetails | null>(null);
+  const [pendingBadgeGameType, setPendingBadgeGameType] = useState<'USER' | 'REGION'>('REGION');
+  // Track which badge IDs we've already processed this session (to avoid re-showing)
+  const [processedBadgeIds, setProcessedBadgeIds] = useState<Set<number>>(new Set());
+  const [isAwarding, setIsAwarding] = useState(false);
+
+  // Query for pending badges (isAwarded=false) - Global mode (always enabled for authenticated users)
+  const { data: pendingGlobalBadges = [], refetch: refetchGlobalPending } = useQuery<UserBadgeWithDetails[]>({
+    queryKey: ['/api/badges/pending'],
+    queryFn: () => fetchAuthenticated('/api/badges/pending'),
+    enabled: isAuthenticated,
+  });
+  
+  // Query for pending badges (isAwarded=false) - Local mode (always enabled for authenticated users)
+  const { data: pendingLocalBadges = [], refetch: refetchLocalPending } = useQuery<UserBadgeWithDetails[]>({
+    queryKey: ['/api/user/badges/pending'],
+    queryFn: () => fetchAuthenticated('/api/user/badges/pending'),
+    enabled: isAuthenticated,
+  });
+
+  // Check for pending badges and show popup
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    // Don't show a new popup if one is already showing or we're in the process of awarding
+    if (pendingBadgeToShow || isAwarding) return;
+    
+    // Find first unprocessed pending badge (prioritize global over local)
+    const unprocessedGlobal = pendingGlobalBadges.find(b => !processedBadgeIds.has(b.id));
+    const unprocessedLocal = pendingLocalBadges.find(b => !processedBadgeIds.has(b.id));
+    
+    if (unprocessedGlobal) {
+      setPendingBadgeToShow(unprocessedGlobal);
+      setPendingBadgeGameType('REGION');
+    } else if (unprocessedLocal) {
+      setPendingBadgeToShow(unprocessedLocal);
+      setPendingBadgeGameType('USER');
+    }
+    // No pending badges or all already processed - nothing to do
+  }, [isAuthenticated, pendingGlobalBadges, pendingLocalBadges, pendingBadgeToShow, processedBadgeIds, isAwarding]);
 
   useEffect(() => {
     // Wait for authentication and status to load
@@ -1212,6 +1258,68 @@ export function GameSelectionPage({
               : streakStatus.user?.currentStreak || 0
           }
           onPlayYesterdaysPuzzle={onPlayYesterdaysPuzzle}
+        />
+      )}
+
+      {/* Pending Badge Celebration Popup */}
+      {pendingBadgeToShow && (
+        <BadgeCelebrationPopup
+          badge={pendingBadgeToShow}
+          onDismiss={async () => {
+            const badge = pendingBadgeToShow;
+            const gameType = pendingBadgeGameType;
+            
+            // Mark this badge as processed so we don't re-show it
+            setProcessedBadgeIds(prev => new Set([...prev, badge.id]));
+            setIsAwarding(true);
+            
+            // Mark the badge as awarded in the backend
+            try {
+              await apiRequest('POST', `/api/badges/${badge.id}/award`);
+              
+              // Invalidate badges queries and wait for them to complete
+              const earnedEndpoint = gameType === 'USER' ? '/api/user/badges/earned' : '/api/badges/earned';
+              const pendingEndpoint = gameType === 'USER' ? '/api/user/badges/pending' : '/api/badges/pending';
+              await Promise.all([
+                queryClient.invalidateQueries({ queryKey: [earnedEndpoint] }),
+                queryClient.invalidateQueries({ queryKey: [pendingEndpoint] }),
+                queryClient.invalidateQueries({ queryKey: ['/api/badges/pending'] }),
+                queryClient.invalidateQueries({ queryKey: ['/api/user/badges/pending'] }),
+              ]);
+              
+              // Refetch to get fresh pending badge data
+              await Promise.all([
+                refetchGlobalPending(),
+                refetchLocalPending(),
+              ]);
+              
+              // Clear current popup
+              setPendingBadgeToShow(null);
+              setIsAwarding(false);
+              
+              // Navigate to stats page with the badge info for animation
+              if (onViewStatsWithBadge) {
+                onViewStatsWithBadge(badge, gameType);
+              }
+            } catch (error) {
+              console.error('[GameSelectionPage] Failed to mark badge as awarded:', error);
+              // Show error toast
+              toast({
+                title: "Unable to save badge",
+                description: "Please try again later.",
+                variant: "destructive",
+              });
+              // Remove from processed so it can be retried
+              setProcessedBadgeIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(badge.id);
+                return newSet;
+              });
+              // Dismiss popup but allow retry
+              setPendingBadgeToShow(null);
+              setIsAwarding(false);
+            }
+          }}
         />
       )}
     </div>
