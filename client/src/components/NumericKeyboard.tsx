@@ -47,7 +47,7 @@ export function NumericKeyboard({
         {["1", "2", "3", "4", "5"].map((digit) => (
           <Button
             key={digit}
-            className={`h-11 sm:h-14 md:h-16 flex-1 text-lg sm:text-xl font-bold rounded-md active:scale-95 transition-transform ${
+            className={`h-14 sm:h-16 [@media(max-height:600px)]:h-11 flex-1 text-lg sm:text-xl font-bold rounded-md active:scale-95 transition-transform ${
               getKeyClasses(digit) || "bg-gray-200 text-gray-800 hover:bg-gray-300"
             }`}
             onClick={() => handleClick(() => onDigitPress(digit))}
@@ -63,7 +63,7 @@ export function NumericKeyboard({
         {["6", "7", "8", "9", "0"].map((digit) => (
           <Button
             key={digit}
-            className={`h-11 sm:h-14 md:h-16 flex-1 text-lg sm:text-xl font-bold rounded-md active:scale-95 transition-transform ${
+            className={`h-14 sm:h-16 [@media(max-height:600px)]:h-11 flex-1 text-lg sm:text-xl font-bold rounded-md active:scale-95 transition-transform ${
               getKeyClasses(digit) || "bg-gray-200 text-gray-800 hover:bg-gray-300"
             }`}
             onClick={() => handleClick(() => onDigitPress(digit))}
@@ -78,7 +78,7 @@ export function NumericKeyboard({
       <div className="flex gap-1.5 sm:gap-2 justify-center">
         {/* Enter key */}
         <Button
-          className={`flex-1 h-11 sm:h-14 md:h-16 text-base sm:text-lg font-bold rounded-md active:scale-95 transition-transform ${
+          className={`flex-1 h-14 sm:h-16 [@media(max-height:600px)]:h-11 text-base sm:text-lg font-bold rounded-md active:scale-95 transition-transform ${
             canSubmit
               ? "bg-brand-blue/90 hover:bg-brand-blue/80 text-white"
               : "bg-brand-blue/60 text-white cursor-not-allowed"
@@ -92,7 +92,7 @@ export function NumericKeyboard({
 
         {/* Clear key */}
         <Button
-          className="flex-1 h-11 sm:h-14 md:h-16 bg-gray-200 text-gray-800 font-bold rounded-md hover:bg-gray-300 active:scale-95 transition-transform"
+          className="flex-1 h-14 sm:h-16 [@media(max-height:600px)]:h-11 bg-gray-200 text-gray-800 font-bold rounded-md hover:bg-gray-300 active:scale-95 transition-transform"
           onClick={() => handleClick(onClear)}
           data-testid="key-clear"
         >
@@ -101,7 +101,7 @@ export function NumericKeyboard({
 
         {/* Delete key */}
         <Button
-          className="flex-1 h-11 sm:h-14 md:h-16 bg-gray-200 text-gray-800 font-bold rounded-md hover:bg-gray-300 active:scale-95 transition-transform"
+          className="flex-1 h-14 sm:h-16 [@media(max-height:600px)]:h-11 bg-gray-200 text-gray-800 font-bold rounded-md hover:bg-gray-300 active:scale-95 transition-transform"
           onClick={() => handleClick(onDelete)}
           data-testid="key-delete"
         >
