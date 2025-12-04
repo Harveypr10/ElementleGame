@@ -318,7 +318,10 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
                 );
               })}
               <div className="flex items-center gap-2">
-                <div className="w-4 text-sm font-medium text-left" style={{ marginLeft: '-10px', paddingRight: '10px' }}>Lost</div>
+                <div className="w-4 text-sm font-medium relative">
+                  <span aria-hidden="true" className="invisible">6</span>
+                  <span className="absolute right-0 whitespace-nowrap pointer-events-none">Lost</span>
+                </div>
                 <div className="flex-1 mx-1 bg-muted rounded-sm h-8 relative overflow-hidden">
                   <div
                     className="bg-brand-purple h-full transition-all duration-300 flex items-center justify-end pr-2"
