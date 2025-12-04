@@ -247,6 +247,10 @@ export const userSettings = pgTable("user_settings", {
   // Category preferences (for future use)
   categoryPreferences: jsonb("category_preferences"),
   
+  // Streak saver preferences
+  streakSaverActive: boolean("streak_saver_active").default(true), // Toggle for streak saver popup workflow
+  holidaySaverActive: boolean("holiday_saver_active").default(true), // Toggle for holiday protection (Pro/Education only)
+  
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

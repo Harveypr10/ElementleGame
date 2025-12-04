@@ -4,9 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Flame, Palmtree } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserSettings } from "@/hooks/useUserSettings";
+import { useSubscription } from "@/hooks/useSubscription";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { soundManager } from "@/lib/sounds";
 import { motion } from "framer-motion";
@@ -20,6 +21,7 @@ interface OptionsPageProps {
 export function OptionsPage({ onBack }: OptionsPageProps) {
   const { isAuthenticated } = useAuth();
   const { settings, updateSettings } = useUserSettings();
+  const { isPro, tierName } = useSubscription();
   const adBannerActive = useAdBannerActive();
 
   const [textSize, setTextSize] = useState<"small" | "medium" | "large">("medium");
@@ -29,6 +31,11 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
   const [digitPreference, setDigitPreference] = useState<"6" | "8">("8");
   const [dateFormatOrder, setDateFormatOrder] = useState<"ddmm" | "mmdd">("ddmm");
   const [useRegionDefault, setUseRegionDefault] = useState(true);
+  const [streakSaverActive, setStreakSaverActive] = useState(true);
+  const [holidaySaverActive, setHolidaySaverActive] = useState(true);
+  
+  // Check if user has Pro or Education tier (for holiday saver access)
+  const hasHolidaySaverAccess = isPro || tierName?.toLowerCase() === 'education';
 
 
   // Load settings from cache first for instant rendering
@@ -50,6 +57,10 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       setDateFormatOrder(order);
 
       setUseRegionDefault(cachedSettings.useRegionDefault ?? true);
+      
+      // Streak saver settings
+      setStreakSaverActive(cachedSettings.streakSaverActive ?? true);
+      setHolidaySaverActive(cachedSettings.holidaySaverActive ?? true);
 
       // Apply settings to DOM
       document.documentElement.style.setProperty(
@@ -91,6 +102,10 @@ export function OptionsPage({ onBack }: OptionsPageProps) {
       setDateFormatOrder(order);
 
       setUseRegionDefault(settings.useRegionDefault ?? true);
+      
+      // Streak saver settings
+      setStreakSaverActive((settings as any).streakSaverActive ?? true);
+      setHolidaySaverActive((settings as any).holidaySaverActive ?? true);
 
       // Update cache so future loads render instantly
       writeLocal(CACHE_KEYS.SETTINGS, settings);
@@ -285,6 +300,39 @@ const handleUseRegionDefaultToggle = async (checked: boolean) => {
     localStorage.setItem("useRegionDefault", String(checked));
   }
 };
+
+const handleStreakSaverToggle = async (checked: boolean) => {
+  setStreakSaverActive(checked);
+
+  if (settings && isAuthenticated) {
+    try {
+      await updateSettings({ streakSaverActive: checked } as any);
+    } catch (e) {
+      console.warn("Failed to update streakSaverActive in Supabase; falling back to cache/localStorage.");
+    }
+    const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
+    writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, streakSaverActive: checked });
+  } else {
+    localStorage.setItem("streakSaverActive", String(checked));
+  }
+};
+
+const handleHolidaySaverToggle = async (checked: boolean) => {
+  setHolidaySaverActive(checked);
+
+  if (settings && isAuthenticated) {
+    try {
+      await updateSettings({ holidaySaverActive: checked } as any);
+    } catch (e) {
+      console.warn("Failed to update holidaySaverActive in Supabase; falling back to cache/localStorage.");
+    }
+    const cachedSettings = readLocal<any>(CACHE_KEYS.SETTINGS) || {};
+    writeLocal(CACHE_KEYS.SETTINGS, { ...cachedSettings, holidaySaverActive: checked });
+  } else {
+    localStorage.setItem("holidaySaverActive", String(checked));
+  }
+};
+
 return (
   <div
     className={`min-h-screen flex flex-col p-4 bg-background ${adBannerActive ? 'pb-[50px]' : ''}`}
@@ -404,6 +452,59 @@ return (
             <p className="text-sm text-muted-foreground">Choose date format order</p>
           </div>
 
+        </Card>
+
+        {/* Streak Saver Section */}
+        <Card className="p-6 space-y-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Flame className="h-5 w-5 text-orange-500" />
+            <Label className="text-base font-semibold">Streak Saver</Label>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="streakSaver" className="text-base">
+                Streak Saver Reminders
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Show popup to save your streak when you miss a day
+              </p>
+            </div>
+            <Switch
+              id="streakSaver"
+              checked={streakSaverActive}
+              onCheckedChange={handleStreakSaverToggle}
+              data-testid="switch-streak-saver"
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="holidaySaver" className={`text-base ${!hasHolidaySaverAccess ? 'text-muted-foreground' : ''}`}>
+                  Holiday Protection
+                </Label>
+                {!hasHolidaySaverAccess && (
+                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                    Pro
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {hasHolidaySaverAccess 
+                  ? "Enable holiday mode option in streak saver popup"
+                  : "Upgrade to Pro to protect your streak during holidays"
+                }
+              </p>
+            </div>
+            <Switch
+              id="holidaySaver"
+              checked={holidaySaverActive}
+              onCheckedChange={handleHolidaySaverToggle}
+              disabled={!hasHolidaySaverAccess}
+              data-testid="switch-holiday-saver"
+            />
+          </div>
         </Card>
 
         {!isAuthenticated && (
