@@ -5,6 +5,7 @@ import { X, Target, Flame, Percent, ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils";
 import type { Badge, UserBadgeWithDetails } from "@shared/schema";
 import badgeImage from "@assets/Signup-Hamster-Transparent.png";
+import { useAdBannerActive } from "@/components/AdBanner";
 
 type CategoryType = 'elementle' | 'streak' | 'percentile';
 type HighestBadges = Record<CategoryType, UserBadgeWithDetails | null>;
@@ -88,6 +89,9 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
   const [direction, setDirection] = useState(0);
   // Track locked scroll direction during a gesture
   const [lockedDirection, setLockedDirection] = useState<'horizontal' | 'vertical' | null>(null);
+  
+  // Check if ad banner is active (Standard users)
+  const adBannerActive = useAdBannerActive();
 
   const { data: allBadges } = useQuery<Badge[]>({
     queryKey: ['/api/badges'],
@@ -368,7 +372,10 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
       </div>
 
       {/* Bottom section with toggle and down arrow - fixed at bottom */}
-      <div className="relative z-20 pb-8 pt-2 flex flex-col items-center">
+      <div className={cn(
+        "relative z-20 pt-2 flex flex-col items-center",
+        adBannerActive ? "pb-20" : "pb-8"
+      )}>
         {/* White overlay to hide content animating behind */}
         <div className="absolute inset-0 bg-background" />
         
