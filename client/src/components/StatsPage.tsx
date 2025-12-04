@@ -320,7 +320,7 @@ export function StatsPage({ onBack, gameType = 'REGION' }: StatsPageProps) {
               <div className="flex items-center gap-2">
                 <div className="w-4 text-sm font-medium relative">
                   <span aria-hidden="true" className="invisible">6</span>
-                  <span className="absolute right-0 whitespace-nowrap pointer-events-none">Lost</span>
+                  <span className="absolute right-[-4px] whitespace-nowrap pointer-events-none">Lost</span>
                 </div>
                 <div className="flex-1 mx-1 bg-muted rounded-sm h-8 relative overflow-hidden">
                   <div
