@@ -163,6 +163,7 @@ export function PlayPage({
   const [showStreakCelebration, setShowStreakCelebration] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [showCelebrationModal, setShowCelebrationModal] = useState(false);
+  const [pendingEndModal, setPendingEndModal] = useState(false); // Track if EndGameModal should show after streak celebration
   const [currentGameAttemptId, setCurrentGameAttemptId] = useState<number | null>(null);
   const [showEndModal, setShowEndModal] = useState(false);
   const [lockedDigits, setLockedDigits] = useState<string | null>(null);
@@ -237,7 +238,8 @@ export function PlayPage({
   
   // Check if game is loading based on actual data loading states
   // Show spinner when: format loading, attempts loading, or guesses being fetched
-  const isGameLoading = formatLoading || loadingAttempts || guessesLoading;
+  // But NEVER show spinner when game is already over (prevents spinner after win/loss)
+  const isGameLoading = !gameOver && (formatLoading || loadingAttempts || guessesLoading);
   
   // Manage game loading spinner with timeout
   useEffect(() => {
@@ -976,10 +978,8 @@ export function PlayPage({
       setGameOver(true);
       localStorage.removeItem(`puzzle-progress-${formattedAnswer}`);
       
-      // Delay showing modal by 4 seconds to show animations
-      setTimeout(() => {
-        setShowEndModal(true);
-      }, 4000);
+      // Track if we're showing a streak celebration (to delay EndGameModal)
+      let hasStreakCelebration = false;
       
       if (isAuthenticated && attemptId) {
         // Complete game attempt and recalculate stats from database (use attemptId, not state)
@@ -995,6 +995,9 @@ export function PlayPage({
             if (freshStats.currentStreak) {
               setCurrentStreak(freshStats.currentStreak);
               setShowStreakCelebration(true);
+              hasStreakCelebration = true;
+              // Mark that EndGameModal should show after streak celebration is dismissed
+              setPendingEndModal(true);
             }
           }
         }
@@ -1016,8 +1019,19 @@ export function PlayPage({
           if (stats.currentStreak) {
             setCurrentStreak(stats.currentStreak);
             setShowStreakCelebration(true);
+            hasStreakCelebration = true;
+            // Mark that EndGameModal should show after streak celebration is dismissed
+            setPendingEndModal(true);
           }
         }
+      }
+      
+      // Only set timer for EndGameModal if there's NO streak celebration
+      // If there IS a streak celebration, the modal will show after it's dismissed
+      if (!hasStreakCelebration) {
+        setTimeout(() => {
+          setShowEndModal(true);
+        }, 4000);
       }
       
       // Cache today's outcome (only if playing today's puzzle)
@@ -1615,7 +1629,14 @@ export function PlayPage({
       {showStreakCelebration && (
         <StreakCelebrationPopup
           streak={currentStreak}
-          onDismiss={() => setShowStreakCelebration(false)}
+          onDismiss={() => {
+            setShowStreakCelebration(false);
+            // If EndGameModal was pending (waiting for streak celebration to finish), show it now
+            if (pendingEndModal) {
+              setPendingEndModal(false);
+              setShowEndModal(true);
+            }
+          }}
         />
       )}
       
