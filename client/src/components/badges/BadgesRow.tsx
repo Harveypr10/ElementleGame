@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { BadgeSlot } from "./BadgeSlot";
+import { AllBadgesPopup } from "./AllBadgesPopup";
 import { Card } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
 import type { UserBadgeWithDetails } from "@shared/schema";
@@ -24,6 +26,7 @@ function normalizeCategory(category: string): 'elementle' | 'streak' | 'percenti
 
 export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: BadgesRowProps) {
   const { isAuthenticated } = useAuth();
+  const [showAllBadges, setShowAllBadges] = useState(false);
   
   const endpoint = gameType === 'USER' 
     ? '/api/user/badges/earned' 
@@ -74,31 +77,50 @@ export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: 
     : null;
 
   return (
-    <Card className="p-4" data-testid="badges-row-card">
-      <div className="font-bold text-sm mb-2 flex items-center gap-2">
-        <Trophy className="h-5 w-5" />
-        Badges
-      </div>
-      <div className="flex justify-center gap-3">
-        <BadgeSlot 
-          category="elementle" 
-          badge={badges?.elementle || null}
-          isAnimating={animatingCategory === 'elementle'}
-          onAnimationComplete={animatingCategory === 'elementle' ? onAnimationComplete : undefined}
+    <>
+      <Card className="p-4" data-testid="badges-row-card">
+        <div className="font-bold text-sm mb-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5" />
+            Badges
+          </div>
+          <button
+            onClick={() => setShowAllBadges(true)}
+            className="text-sm text-primary hover:underline font-normal"
+            data-testid="button-see-all-badges"
+          >
+            See all
+          </button>
+        </div>
+        <div className="flex justify-center gap-3">
+          <BadgeSlot 
+            category="elementle" 
+            badge={badges?.elementle || null}
+            isAnimating={animatingCategory === 'elementle'}
+            onAnimationComplete={animatingCategory === 'elementle' ? onAnimationComplete : undefined}
+          />
+          <BadgeSlot 
+            category="streak" 
+            badge={badges?.streak || null}
+            isAnimating={animatingCategory === 'streak'}
+            onAnimationComplete={animatingCategory === 'streak' ? onAnimationComplete : undefined}
+          />
+          <BadgeSlot 
+            category="percentile" 
+            badge={badges?.percentile || null}
+            isAnimating={animatingCategory === 'percentile'}
+            onAnimationComplete={animatingCategory === 'percentile' ? onAnimationComplete : undefined}
+          />
+        </div>
+      </Card>
+
+      {showAllBadges && (
+        <AllBadgesPopup
+          gameType={gameType}
+          earnedBadges={badges}
+          onClose={() => setShowAllBadges(false)}
         />
-        <BadgeSlot 
-          category="streak" 
-          badge={badges?.streak || null}
-          isAnimating={animatingCategory === 'streak'}
-          onAnimationComplete={animatingCategory === 'streak' ? onAnimationComplete : undefined}
-        />
-        <BadgeSlot 
-          category="percentile" 
-          badge={badges?.percentile || null}
-          isAnimating={animatingCategory === 'percentile'}
-          onAnimationComplete={animatingCategory === 'percentile' ? onAnimationComplete : undefined}
-        />
-      </div>
-    </Card>
+      )}
+    </>
   );
 }
