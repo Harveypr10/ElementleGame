@@ -35,6 +35,13 @@ Preferred communication style: Simple, everyday language.
 - **Admin Panel**: For configuring postcode/region/category change restrictions and demand scheduler cron jobs.
 - **Streak Saver System**: Allows users to protect streaks with tier-based allowances, with API for status and usage.
 - **Holiday Protection System**: Pro-only feature to pause Local mode puzzles.
+- **Badge System**: Achievement badges for milestones across three categories:
+  - **Elementle In**: Awarded for winning in 1 or 2 guesses
+  - **Streak**: Awarded for streak milestones (7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000 days)
+  - **Percentile**: Region-scoped rankings (Top 50%, 40%, 30%, 20%, 15%, 10%, 5%, 3%, 2%, 1%)
+  - Badges are checked on game completion (Elementle/Streak) and app load (Percentile)
+  - Badge celebration popup with Trophy.json Lottie animation after streak celebration
+  - BadgesRow displays earned badges on Stats screen with hexagonal slots
 
 ## External Dependencies
 

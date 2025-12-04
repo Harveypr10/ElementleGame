@@ -3344,6 +3344,13 @@ export class DatabaseStorage implements IStorage {
     try {
       const allBadges = await this.getUserBadges(userId, gameType, region, true);
       
+      // Map database category names to result keys
+      const categoryMap: Record<string, string> = {
+        'Elementle In': 'elementle',
+        'Streak': 'streak',
+        'Percentile': 'percentile',
+      };
+      
       const result: Record<string, UserBadgeWithDetails | null> = {
         elementle: null,
         streak: null,
@@ -3351,21 +3358,23 @@ export class DatabaseStorage implements IStorage {
       };
 
       for (const badge of allBadges) {
-        const category = badge.badge.category;
-        if (category in result) {
-          const current = result[category];
+        const dbCategory = badge.badge.category;
+        const resultKey = categoryMap[dbCategory];
+        
+        if (resultKey && resultKey in result) {
+          const current = result[resultKey];
           if (!current) {
-            result[category] = badge;
+            result[resultKey] = badge;
           } else {
             // For percentile, lower threshold is better (1% is better than 50%)
             // For streak and elementle, higher threshold is better (30 streak > 7 streak)
-            if (category === 'percentile') {
+            if (resultKey === 'percentile') {
               if (badge.badge.threshold < current.badge.threshold) {
-                result[category] = badge;
+                result[resultKey] = badge;
               }
             } else {
               if (badge.badge.threshold > current.badge.threshold) {
-                result[category] = badge;
+                result[resultKey] = badge;
               }
             }
           }
@@ -3400,10 +3409,10 @@ export class DatabaseStorage implements IStorage {
         return null; // No badge threshold reached
       }
 
-      // Get the badge for this threshold
-      const badge = await this.getBadgeByThreshold('streak', qualifiedThreshold);
+      // Get the badge for this threshold (use exact category name from database)
+      const badge = await this.getBadgeByThreshold('Streak', qualifiedThreshold);
       if (!badge) {
-        console.log(`[checkAndAwardStreakBadge] No streak badge found for threshold ${qualifiedThreshold}`);
+        console.log(`[checkAndAwardStreakBadge] No Streak badge found for threshold ${qualifiedThreshold}`);
         return null;
       }
 
@@ -3442,10 +3451,10 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      // Get the badge for this threshold
-      const badge = await this.getBadgeByThreshold('elementle', guessCount);
+      // Get the badge for this threshold (use exact category name from database)
+      const badge = await this.getBadgeByThreshold('Elementle In', guessCount);
       if (!badge) {
-        console.log(`[checkAndAwardElementleBadge] No elementle badge found for threshold ${guessCount}`);
+        console.log(`[checkAndAwardElementleBadge] No Elementle In badge found for threshold ${guessCount}`);
         return null;
       }
 
@@ -3498,10 +3507,10 @@ export class DatabaseStorage implements IStorage {
         return null; // Not in top 50%
       }
 
-      // Get the badge for this threshold
-      const badge = await this.getBadgeByThreshold('percentile', qualifiedThreshold);
+      // Get the badge for this threshold (use exact category name from database)
+      const badge = await this.getBadgeByThreshold('Percentile', qualifiedThreshold);
       if (!badge) {
-        console.log(`[checkAndAwardPercentileBadge] No percentile badge found for threshold ${qualifiedThreshold}`);
+        console.log(`[checkAndAwardPercentileBadge] No Percentile badge found for threshold ${qualifiedThreshold}`);
         return null;
       }
 
