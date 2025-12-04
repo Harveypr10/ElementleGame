@@ -1510,9 +1510,10 @@ export function PlayPage({
       
       {/* Main game content - hidden behind intro screen when showing */}
       <div 
-        className="h-dvh flex flex-col p-4 overflow-hidden bg-background"
+        className="h-dvh flex flex-col overflow-hidden bg-background"
       >
-      <div className="flex items-center justify-between mb-0">
+      {/* Fixed Header */}
+      <div className="shrink-0 flex items-center justify-between px-4 pt-4">
         <button
           onClick={handleBackButtonPress}
           data-testid="button-back"
@@ -1546,65 +1547,67 @@ export function PlayPage({
 
       </div>
 
-      <div className="flex-1 flex flex-col justify-between">
-        <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="w-full max-w-md space-y-0.5 sm:space-y-1">
-            {cluesEnabled && (
-              <div className="text-center mb-3">
-                {isLocalMode && (
-                  <div
-                    className="text-sm font-medium text-muted-foreground mb-1 tracking-wide"
-                    data-testid="text-category"
-                  >
-                    {guessRecords[0]?.categoryName || category || ""}
-                  </div>
-                )}
-
-                <h3
-                  className="text-xl font-semibold text-foreground"
-                  data-testid="text-event-title"
+      {/* Middle Content - fills remaining space */}
+      <div className="flex-1 min-h-0 flex flex-col justify-center items-center px-4 overflow-hidden">
+        <div className="w-full max-w-md space-y-0.5 sm:space-y-1">
+          {cluesEnabled && (
+            <div className="text-center mb-3">
+              {isLocalMode && (
+                <div
+                  className="text-sm font-medium text-muted-foreground mb-1 tracking-wide"
+                  data-testid="text-category"
                 >
-                  {eventTitle}
-                </h3>
-              </div>
-            )}
-
-            <InputGrid
-              guesses={gridDataReady ? guesses : []}
-              currentInput={gridDataReady ? currentInput : ""}
-              maxGuesses={maxGuesses}
-              placeholders={activePlaceholders}
-            />
-            
-            {gameOver && !isWin && (
-              <div className="w-full mt-12">
-                <p className="text-center text-sm text-muted-foreground mb-3">Correct answer:</p>
-                <div className="flex gap-2 justify-center">
-                  {activeFormattedAnswer.split('').map((digit, i) => (
-                    <div
-                      key={i}
-                      className="flex-1 basis-0 shrink min-h-[56px] sm:min-h-[64px]"
-                      data-testid={`answer-container-${i}`}
-                    >
-                      <div
-                        className="w-full h-full flex items-center justify-center bg-game-correct text-white border-2 border-game-correct text-3xl sm:text-4xl font-semibold rounded-md"
-                        data-testid={`answer-digit-${i}`}
-                      >
-                        {digit}
-                      </div>
-                    </div>
-                  ))}
+                  {guessRecords[0]?.categoryName || category || ""}
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
+              )}
 
+              <h3
+                className="text-xl font-semibold text-foreground"
+                data-testid="text-event-title"
+              >
+                {eventTitle}
+              </h3>
+            </div>
+          )}
+
+          <InputGrid
+            guesses={gridDataReady ? guesses : []}
+            currentInput={gridDataReady ? currentInput : ""}
+            maxGuesses={maxGuesses}
+            placeholders={activePlaceholders}
+          />
+          
+          {gameOver && !isWin && (
+            <div className="w-full mt-6 sm:mt-12">
+              <p className="text-center text-sm text-muted-foreground mb-2 sm:mb-3">Correct answer:</p>
+              <div className="flex gap-2 justify-center">
+                {activeFormattedAnswer.split('').map((digit, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 basis-0 shrink min-h-[40px] sm:min-h-[56px] md:min-h-[64px]"
+                    data-testid={`answer-container-${i}`}
+                  >
+                    <div
+                      className="w-full h-full flex items-center justify-center bg-game-correct text-white border-2 border-game-correct text-2xl sm:text-3xl md:text-4xl font-semibold rounded-md"
+                      data-testid={`answer-digit-${i}`}
+                    >
+                      {digit}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Fixed Bottom - Numpad or Continue button */}
+      <div className="shrink-0 px-4 pb-4">
         {showCelebrationFirst && gameOver && !hasOpenedCelebration && (
-          <div className="w-full max-w-md mx-auto pb-4">
+          <div className="w-full max-w-md mx-auto">
             <Button
               variant="outline"
-              className="w-full h-16 sm:h-20 md:h-24 flex items-center justify-center px-6 rounded-3xl shadow-sm bg-brand-grey"
+              className="w-full h-14 sm:h-16 md:h-20 flex items-center justify-center px-6 rounded-3xl shadow-sm bg-brand-grey"
               onClick={() => {
                 onSetHasOpenedCelebration?.(true);
                 setShowCelebrationModal(true);
@@ -1619,7 +1622,7 @@ export function PlayPage({
         )}
 
         {!viewOnly && !showCelebrationFirst && (
-          <div className="w-full max-w-md mx-auto pb-4">
+          <div className="w-full max-w-md mx-auto">
             <NumericKeyboard
               onDigitPress={(digit) => {
                 if (currentInput.length < activeNumDigits) {
