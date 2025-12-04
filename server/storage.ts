@@ -3296,19 +3296,24 @@ export class DatabaseStorage implements IStorage {
     region: string
   ): Promise<UserBadge | null> {
     try {
-      // Check if badge already exists for this user (unique constraint is on user_id + badge_id only)
+      // Check if badge already exists for this user/gameType/region combination
+      // The unique constraint is on (user_id, badge_id, gameType, region)
+      // A user CAN have the same badge for different game types (USER vs REGION)
+      // A user CAN have the same badge for different regions in REGION game type
       const existing = await db
         .select()
         .from(userBadges)
         .where(
           and(
             eq(userBadges.userId, userId),
-            eq(userBadges.badgeId, badgeId)
+            eq(userBadges.badgeId, badgeId),
+            eq(userBadges.gameType, gameType),
+            eq(userBadges.region, region)
           )
         );
 
       if (existing.length > 0) {
-        console.log(`[awardBadge] Badge ${badgeId} already exists for user ${userId}`);
+        console.log(`[awardBadge] Badge ${badgeId} already exists for user ${userId} in ${gameType}/${region}`);
         return existing[0];
       }
 
@@ -3328,15 +3333,17 @@ export class DatabaseStorage implements IStorage {
     } catch (error: any) {
       // Handle duplicate key constraint violation gracefully
       if (error?.code === '23505') {
-        console.log(`[awardBadge] Badge ${badgeId} already exists for user ${userId} (duplicate key)`);
-        // Return existing badge
+        console.log(`[awardBadge] Badge ${badgeId} already exists for user ${userId} in ${gameType}/${region} (duplicate key)`);
+        // Return existing badge with full constraint check
         const existing = await db
           .select()
           .from(userBadges)
           .where(
             and(
               eq(userBadges.userId, userId),
-              eq(userBadges.badgeId, badgeId)
+              eq(userBadges.badgeId, badgeId),
+              eq(userBadges.gameType, gameType),
+              eq(userBadges.region, region)
             )
           );
         return existing.length > 0 ? existing[0] : null;

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Hexagon, Target, Flame, Percent } from "lucide-react";
+import { Target, Flame, Percent } from "lucide-react";
 import { motion } from "framer-motion";
 import type { UserBadgeWithDetails } from "@shared/schema";
+import badgeImage from "@assets/Signup-Hamster-Grey.svg";
 
 interface BadgeSlotProps {
   category: 'elementle' | 'streak' | 'percentile';
@@ -129,50 +130,37 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
 
   // Badge content to render (with or without animation)
   const badgeContent = (
-    <>
-      <Hexagon 
-        className={cn(
-          "w-full h-full drop-shadow-md",
-          isEmpty 
-            ? "text-gray-300 dark:text-gray-600" 
-            : `text-transparent fill-current bg-gradient-to-b ${getBadgeColor()}`
-        )}
-        style={!isEmpty ? {
-          background: `linear-gradient(to bottom, var(--tw-gradient-from), var(--tw-gradient-to))`,
-          WebkitBackgroundClip: 'text',
-          backgroundClip: 'text',
-        } : undefined}
-        fill={isEmpty ? 'currentColor' : 'url(#badgeGradient)'}
-        strokeWidth={1.5}
-      />
-      
-      {!isEmpty && (
-        <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
-          <defs>
-            <linearGradient id={`badgeGradient-${category}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style={{ stopColor: 'rgb(251, 191, 36)' }} />
-              <stop offset="100%" style={{ stopColor: 'rgb(217, 119, 6)' }} />
-            </linearGradient>
-          </defs>
-        </svg>
-      )}
-      
-      <div className={cn(
-        "absolute inset-0 flex flex-col items-center justify-center",
-        isEmpty ? "text-gray-400 dark:text-gray-500" : "text-white"
-      )}>
-        {isEmpty ? (
-          <span className={cn(valueTextClasses[size], "opacity-50")}>?</span>
-        ) : (
-          <>
+    <div className="relative flex flex-col items-center justify-center w-full h-full">
+      {isEmpty ? (
+        <div className={cn(
+          "flex flex-col items-center justify-center w-full h-full",
+          "text-gray-400 dark:text-gray-500"
+        )}>
+          <div className={cn(
+            "w-16 h-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center"
+          )}>
+            <span className={cn(valueTextClasses[size], "opacity-50")}>?</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <img 
+            src={badgeImage} 
+            alt={badge.badge.name}
+            className="w-16 h-16 object-contain"
+          />
+          <div className={cn(
+            "flex items-center gap-1 mt-1",
+            getBadgeColor().replace('from-', 'text-').split(' ')[0].replace('text-text-', 'text-')
+          )}>
             {getCategoryIcon()}
-            <span className={cn(valueTextClasses[size], "leading-none mt-1")}>
+            <span className={cn(valueTextClasses[size], "leading-none")}>
               {getBadgeValue()}
             </span>
-          </>
-        )}
-      </div>
-    </>
+          </div>
+        </>
+      )}
+    </div>
   );
 
   return (
