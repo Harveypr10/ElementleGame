@@ -264,20 +264,6 @@ export function GameSelectionPage({
     enabled: isAuthenticated,
   });
 
-  // Fetch Global percentile (always enabled when authenticated)
-  const { data: globalPercentileData } = useQuery<any>({
-    queryKey: ['/api/stats/percentile'],
-    queryFn: () => fetchAuthenticated('/api/stats/percentile'),
-    enabled: isAuthenticated,
-  });
-
-  // Fetch Local percentile (always enabled when authenticated)
-  const { data: localPercentileData } = useQuery<any>({
-    queryKey: ['/api/user/stats/percentile'],
-    queryFn: () => fetchAuthenticated('/api/user/stats/percentile'),
-    enabled: isAuthenticated,
-  });
-
   // Fetch Global puzzles (for authenticated users - uses region data)
   const { data: globalPuzzles = [] } = useQuery<any[]>({
     queryKey: ['/api/puzzles'],
@@ -467,7 +453,10 @@ export function GameSelectionPage({
     const globalPlayStatus = computePlayButtonStatus(globalGameAttempts, todayGlobalPuzzleId);
     const totalGamesGlobal = globalGameAttempts.filter(attempt => attempt.result === "won" || attempt.result === "lost").length;
     const globalStreak = globalStats?.currentStreak || 0;
-    const globalPercentile = globalPercentileData?.percentile ?? null;
+    
+    // Use cumulative monthly percentile from stats (only show if day of month >= 5)
+    const dayOfMonth = new Date().getDate();
+    const globalCumulativePercentile = globalStats?.cumulativeMonthlyPercentile ?? null;
 
     // Compute Global intro message
     let globalIntroMessage = null;
@@ -480,9 +469,10 @@ export function GameSelectionPage({
         globalIntroMessage = { firstLine: greeting, secondLine: streakMessage };
       } else {
         let percentileMessage = "Play the archive to boost your ranking";
-        if (globalPercentile !== null) {
-          const roundedPercentile = Math.floor(globalPercentile / 5) * 5;
-          if (globalPercentile >= 50) {
+        // Only show percentile if day >= 5 and we have a valid percentile score
+        if (dayOfMonth >= 5 && globalCumulativePercentile !== null && globalCumulativePercentile > 0) {
+          const roundedPercentile = Math.floor(globalCumulativePercentile / 5) * 5;
+          if (globalCumulativePercentile >= 50) {
             percentileMessage = `You're in the top ${roundedPercentile}% of players - play the archive to boost your ranking`;
           }
         }
@@ -650,7 +640,10 @@ export function GameSelectionPage({
     const localPlayStatus = computePlayButtonStatus(localGameAttempts, todayLocalPuzzleId);
     const totalGamesLocal = localGameAttempts.filter(attempt => attempt.result === "won" || attempt.result === "lost").length;
     const localStreak = localStats?.currentStreak || 0;
-    const localPercentile = localPercentileData?.percentile ?? null;
+    
+    // Use cumulative monthly percentile from stats (only show if day of month >= 5)
+    const dayOfMonth = new Date().getDate();
+    const localCumulativePercentile = localStats?.cumulativeMonthlyPercentile ?? null;
 
     // Compute Local intro message
     let localIntroMessage = null;
@@ -662,9 +655,17 @@ export function GameSelectionPage({
           : `Continue your streak of ${localStreak} ${localStreak === 1 ? 'day' : 'days'} in a row`;
         localIntroMessage = { firstLine: greeting, secondLine: streakMessage };
       } else {
+        let percentileMessage = "Play your personalised puzzles";
+        // Only show percentile if day >= 5 and we have a valid percentile score
+        if (dayOfMonth >= 5 && localCumulativePercentile !== null && localCumulativePercentile > 0) {
+          const roundedPercentile = Math.floor(localCumulativePercentile / 5) * 5;
+          if (localCumulativePercentile >= 50) {
+            percentileMessage = `You're in the top ${roundedPercentile}% of players`;
+          }
+        }
         localIntroMessage = { 
           firstLine: "Welcome back", 
-          secondLine: "Play your personalised puzzles" 
+          secondLine: percentileMessage 
         };
       }
     }

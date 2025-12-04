@@ -431,6 +431,8 @@ export const userStatsRegion = pgTable("user_stats_region", {
   // Streak saver fields (managed by nightly cron and API endpoints)
   streakSaversUsedMonth: integer("streak_savers_used_month").default(0),
   missedYesterdayFlagRegion: boolean("missed_yesterday_flag_region").default(false), // Tracks missed region puzzles
+  // Cumulative monthly percentile score (updated by badge check logic)
+  cumulativeMonthlyPercentile: integer("cumulative_monthly_percentile"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   // Unique constraint on (user_id, region) to allow one stats row per user per region
@@ -561,6 +563,8 @@ export const userStatsUser = pgTable("user_stats_user", {
   holidayStartDate: date("holiday_start_date"),
   holidayEndDate: date("holiday_end_date"),
   missedYesterdayFlagUser: boolean("missed_yesterday_flag_user").default(false), // Tracks missed user puzzles
+  // Cumulative monthly percentile score (updated by badge check logic)
+  cumulativeMonthlyPercentile: integer("cumulative_monthly_percentile"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
