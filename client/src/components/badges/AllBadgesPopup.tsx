@@ -4,7 +4,7 @@ import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { X, Target, Flame, Percent, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Badge, UserBadgeWithDetails } from "@shared/schema";
-import badgeImage from "@assets/Signup-Hamster-Grey.svg";
+import badgeImage from "@assets/Signup-Hamster-Transparent.png";
 
 type CategoryType = 'elementle' | 'streak' | 'percentile';
 type HighestBadges = Record<CategoryType, UserBadgeWithDetails | null>;

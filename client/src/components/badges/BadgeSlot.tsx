@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { Target, Flame, Percent } from "lucide-react";
 import { motion } from "framer-motion";
 import type { UserBadgeWithDetails } from "@shared/schema";
-import badgeImage from "@assets/Signup-Hamster-Grey.svg";
+import badgeImage from "@assets/Signup-Hamster-Transparent.png";
 
 interface BadgeSlotProps {
   category: 'elementle' | 'streak' | 'percentile';
