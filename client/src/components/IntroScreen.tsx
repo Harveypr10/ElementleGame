@@ -257,21 +257,19 @@ export function IntroScreen({
                   {isStreakGame ? "Continue your streak!" : (hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!")}
                 </p>
                 
-                {!isStreakGame && (
-                  <div className="space-y-0">
-                    {hasCluesEnabled && categoryOrLocationLabel && (
-                      <p className="text-xl font-bold" data-testid="text-intro-category-location" style={{ color: categoryTextColor }}>
-                        {categoryOrLocationLabel}
-                      </p>
-                    )}
-                    
-                    {hasCluesEnabled && (
-                      <p className="text-xl font-bold" data-testid="text-intro-event-title" style={{ color: textColor }}>
-                        {eventTitle}
-                      </p>
-                    )}
-                  </div>
-                )}
+                <div className="space-y-0">
+                  {hasCluesEnabled && categoryOrLocationLabel && (
+                    <p className="text-xl font-bold" data-testid="text-intro-category-location" style={{ color: categoryTextColor }}>
+                      {categoryOrLocationLabel}
+                    </p>
+                  )}
+                  
+                  {hasCluesEnabled && (
+                    <p className="text-xl font-bold" data-testid="text-intro-event-title" style={{ color: textColor }}>
+                      {eventTitle}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <button
