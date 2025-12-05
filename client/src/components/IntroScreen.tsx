@@ -225,7 +225,13 @@ export function IntroScreen({
                     style={{ top: "50%" }}
                   >
                     <span
-                      className="font-bold drop-shadow-lg leading-none text-5xl"
+                      className={`font-bold drop-shadow-lg leading-none ${
+                        String(currentStreak).length === 1
+                          ? "text-6xl"
+                          : String(currentStreak).length === 2
+                          ? "text-5xl"
+                          : "text-4xl"
+                      }`}
                       style={{ color: streakRedColor }}
                       data-testid="text-intro-streak-number"
                     >
