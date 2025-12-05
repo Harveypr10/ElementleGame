@@ -107,10 +107,6 @@ export function AdminPage({ onBack }: AdminPageProps) {
   const [fixingTrigger, setFixingTrigger] = useState(false);
   const [savingTiers, setSavingTiers] = useState(false);
 
-  if (showScreenNavigator) {
-    return <AdminScreenNavigator onBack={() => setShowScreenNavigator(false)} />;
-  }
-
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -379,6 +375,10 @@ export function AdminPage({ onBack }: AdminPageProps) {
     { value: "12", label: "Every 12 hours" },
     { value: "24", label: "Every 24 hours (daily)" },
   ];
+
+  if (showScreenNavigator) {
+    return <AdminScreenNavigator onBack={() => setShowScreenNavigator(false)} />;
+  }
 
   return (
     <div className={`min-h-screen flex flex-col p-4 bg-background ${adBannerActive ? 'pb-[50px]' : ''}`}>

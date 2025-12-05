@@ -1061,8 +1061,10 @@ export function GameSelectionPage({
                     onViewStats();
                   }}
                   data-testid="button-stats-desktop-global"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
                   layout
-                  transition={{ duration: 0.25 }}
+                  transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
                     {cachedRegionLabel.split(' ')[0]} Stats
@@ -1079,8 +1081,10 @@ export function GameSelectionPage({
                   style={{ backgroundColor: "#C4C9D4" }}
                   onClick={onOpenOptions}
                   data-testid="button-options-desktop"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
                   layout
-                  transition={{ duration: 0.25 }}
+                  transition={{ duration: 0.25, delay: 0.2, ease: "easeOut" }}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
                     Options
@@ -1103,8 +1107,10 @@ export function GameSelectionPage({
                     onViewStatsLocal?.();
                   }}
                   data-testid="button-stats-desktop-local"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
                   layout
-                  transition={{ duration: 0.25 }}
+                  transition={{ duration: 0.25, delay: 0.25, ease: "easeOut" }}
                 >
                   <span className="text-xl font-bold text-gray-800 text-center">
                     Personal Stats
