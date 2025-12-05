@@ -374,9 +374,6 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
                             isCenter ? badgeSizeCenter : badgeSizeNormal
                           )}
                         />
-                        {!item.isEarned && (
-                          <div className="absolute inset-0 bg-black/30 rounded-full" />
-                        )}
                       </div>
                       <span className={cn(
                         "mt-2 text-sm font-medium whitespace-nowrap",
