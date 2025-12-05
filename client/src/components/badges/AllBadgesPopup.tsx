@@ -406,9 +406,9 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
                   </p>
                 </motion.div>
               )}
-              <div className="h-8 mt-2 flex items-center justify-center">
+              <div className="h-16 mt-2 flex items-center justify-center">
                 {activeBadge?.isEarned && (
-                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-600 rounded-full text-sm">
+                  <span className="px-6 py-2 bg-brand-green text-white rounded-full text-lg font-semibold">
                     Earned!
                   </span>
                 )}
