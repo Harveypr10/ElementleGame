@@ -28,6 +28,7 @@ import { parseUserDateWithContext, formatCanonicalDate as formatCanonicalDateUti
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
 import whiteHelpIcon from "@assets/White-Help-DarkMode.svg";
 import mechanicHamsterGrey from "@assets/Mechanic-Hamster-Grey.svg";
+import welcomeHamsterGrey from "@assets/Welcome-Hamster-Grey.svg";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
@@ -178,6 +179,8 @@ export function PlayPage({
   const [digitsCheckComplete, setDigitsCheckComplete] = useState(false);
   const [showIntroScreen, setShowIntroScreen] = useState(false);
   const [introScreenReady, setIntroScreenReady] = useState(false);
+  const [introContentPreloaded, setIntroContentPreloaded] = useState(false);
+  const introSpinnerRef = useRef(false);
   
   // Streak saver exit warning dialog state
   const [showStreakSaverExitWarning, setShowStreakSaverExitWarning] = useState(false);
@@ -242,6 +245,21 @@ export function PlayPage({
     timeoutMs: 15000,
     onRetry: handleGameLoadRetry,
     onTimeout: handleGameLoadTimeout,
+  });
+  
+  // Spinner for intro screen image preloading
+  // Callback when intro spinner completes or image loaded quickly
+  const handleIntroPreloadComplete = useCallback(() => {
+    console.log('[PlayPage] Intro content preloaded - now showing IntroScreen');
+    setIntroContentPreloaded(true);
+    setShowIntroScreen(true);
+    introSpinnerRef.current = false;
+  }, []);
+  
+  const introSpinner = useSpinnerWithTimeout({
+    retryDelayMs: 10000, // Generous retry for image loading
+    timeoutMs: 15000, 
+    onFadeOutComplete: handleIntroPreloadComplete,
   });
   
   // Check if game is loading based on actual data loading states
@@ -786,6 +804,7 @@ export function PlayPage({
 
   // Check if we should show the intro screen (new game with no guesses)
   // Only show intro once when component mounts and conditions are met
+  // Now with image preloading to prevent visual jumping
   useEffect(() => {
     if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !introScreenReady) {
       // Skip intro if parent tells us there's existing progress
@@ -793,10 +812,40 @@ export function PlayPage({
         setIntroScreenReady(true); // Mark as ready but don't show
         return;
       }
-      setShowIntroScreen(true);
+      
+      // Mark intro as ready but don't show yet - need to preload image first
       setIntroScreenReady(true);
+      
+      // Start preloading the intro screen image with spinner delay
+      if (!introSpinnerRef.current) {
+        introSpinnerRef.current = true;
+        
+        // Start spinner with 150ms delay (only shows if loading takes longer)
+        introSpinner.start(150);
+        
+        // Preload the hamster image
+        const img = new Image();
+        img.onload = () => {
+          console.log('[PlayPage] Intro hamster image preloaded');
+          // Image loaded - complete the spinner (handles fade out timing)
+          introSpinner.complete();
+        };
+        img.onerror = () => {
+          console.warn('[PlayPage] Failed to preload intro image, showing anyway');
+          introSpinner.complete();
+        };
+        img.src = welcomeHamsterGrey;
+      }
     }
-  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady, hasExistingProgress]);
+    
+    // Cleanup on unmount
+    return () => {
+      if (introSpinnerRef.current) {
+        introSpinner.cancel();
+        introSpinnerRef.current = false;
+      }
+    };
+  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady, hasExistingProgress, introSpinner]);
 
   // Helper function to format date for intro display
   const formatDateForIntro = (dateCanonical: string): string => {
@@ -1493,7 +1542,7 @@ export function PlayPage({
     <>
       {/* IntroScreen overlay with fade animations */}
       <AnimatePresence>
-        {showIntroScreen && introScreenReady && (
+        {showIntroScreen && introScreenReady && introContentPreloaded && (
           <IntroScreen
             puzzleDateCanonical={puzzleDateToShow}
             eventTitle={eventTitle}
@@ -1504,6 +1553,7 @@ export function PlayPage({
             onPlayClick={() => setShowIntroScreen(false)}
             onBack={handleBackButtonPress}
             formatDateForDisplay={formatDateForIntro}
+            isContentPreloaded={true}
           />
         )}
       </AnimatePresence>
