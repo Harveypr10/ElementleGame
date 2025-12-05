@@ -221,7 +221,7 @@ export function StreakSaverPopup({
           </DialogHeader>
 
           <div className="flex flex-col items-center gap-4 py-4">
-            <div className="w-32 h-32 bg-black rounded-full flex items-center justify-center">
+            <div className="w-36 h-36 bg-black rounded-full flex items-center justify-center">
               <img 
                 src={Streak_Hamster_Black} 
                 alt="Hamster" 
