@@ -36,13 +36,14 @@ Preferred communication style: Simple, everyday language.
 - **Streak Saver System**: Allows users to protect streaks with tier-based allowances, with API for status and usage.
 - **Holiday Protection System**: Pro-only feature to pause Local mode puzzles.
 - **Badge System**: Achievement badges for milestones across three categories:
-  - **Elementle In**: Awarded for winning in 1 or 2 guesses
-  - **Streak**: Awarded for streak milestones (7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000 days)
-  - **Percentile**: Region-scoped rankings (Top 50%, 40%, 30%, 20%, 15%, 10%, 5%, 3%, 2%, 1%)
-  - Badges are checked on game completion (Elementle/Streak) and app load (Percentile)
+  - **Elementle In**: Awarded for winning in 1 or 2 guesses (checked immediately after each game)
+  - **Streak**: Awarded for streak milestones (7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000 days) (checked immediately after each game)
+  - **Percentile (TOP %)**: Region-scoped rankings (Top 50%, 40%, 30%, 20%, 15%, 10%, 5%, 3%, 2%, 1%) - **Monthly cron job only**
+    - A Supabase scheduled function runs monthly to calculate rankings and insert pending badges (is_awarded=false)
+    - NOT checked after each game - only processed when GameSelectionPage loads
   - Badge celebration popup with Trophy.json Lottie animation after streak celebration
   - BadgesRow displays earned badges on Stats screen with hexagonal slots
-  - **Pending Badge Fallback**: GameSelectionPage checks for unawarded badges (isAwarded=false) on mount
+  - **Pending Badge Processing**: GameSelectionPage checks for unawarded badges (isAwarded=false) on mount
     - Uses processedBadgeIds Set to track shown badges per session
     - Shows BadgeCelebrationPopup for each pending badge sequentially
     - On dismiss: marks badge as awarded, refetches pending lists, navigates to Stats
