@@ -1,6 +1,7 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, Loader2 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { motion, usePresence } from "framer-motion";
+import { ChevronLeft } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
 import welcomeHamsterGrey from "@assets/Welcome-Hamster-Grey.svg";
 
 interface IntroScreenProps {
@@ -15,10 +16,6 @@ interface IntroScreenProps {
   formatDateForDisplay: (date: string) => string;
 }
 
-type IntroStatus = 'loading' | 'ready';
-
-const MINIMUM_SPINNER_DURATION = 300; // Ensure spinner is visible for at least 300ms
-
 export function IntroScreen({
   puzzleDateCanonical,
   eventTitle,
@@ -30,9 +27,10 @@ export function IntroScreen({
   onBack,
   formatDateForDisplay,
 }: IntroScreenProps) {
-  const [status, setStatus] = useState<IntroStatus>('loading');
+  const [isReady, setIsReady] = useState(false);
+  const spinnerManagedRef = useRef(false);
   const hasStartedLoading = useRef(false);
-  const mountTimeRef = useRef(Date.now());
+  const [isPresent, safeToRemove] = usePresence();
   
   const displayDate = formatDateForDisplay(puzzleDateCanonical);
   
@@ -56,14 +54,40 @@ export function IntroScreen({
     categoryOrLocationLabel = locationName || null;
   }
 
-  const handlePlayClick = () => {
+  const handlePlayClick = useCallback(() => {
     onPlayClick();
-  };
+  }, [onPlayClick]);
+  
+  const handleBack = useCallback(() => {
+    onBack();
+  }, [onBack]);
 
+  // Use the global hamster spinner
+  const spinner = useSpinnerWithTimeout({
+    retryDelayMs: 4000,
+    timeoutMs: 8000,
+    onRetry: () => {
+      console.log('[IntroScreen] Spinner timeout - retrying asset load');
+    },
+    onTimeout: () => {
+      console.log('[IntroScreen] Spinner timeout - proceeding anyway');
+      setIsReady(true);
+    },
+  });
+
+  // Start spinner and preload assets on mount
   useEffect(() => {
     if (hasStartedLoading.current) return;
     hasStartedLoading.current = true;
+    
+    // Show hamster spinner immediately
+    if (!spinnerManagedRef.current) {
+      console.log('[IntroScreen] Starting hamster spinner');
+      spinner.start(0);
+      spinnerManagedRef.current = true;
+    }
 
+    // Preload image and wait for fonts
     const img = new Image();
     img.src = welcomeHamsterGrey;
     
@@ -71,18 +95,32 @@ export function IntroScreen({
       img.decode().catch(() => {}),
       document.fonts?.ready || Promise.resolve(),
     ]).then(() => {
-      const elapsed = Date.now() - mountTimeRef.current;
-      const remainingDelay = Math.max(0, MINIMUM_SPINNER_DURATION - elapsed);
-      
-      setTimeout(() => {
+      // Use double requestAnimationFrame to ensure layout is committed
+      requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            setStatus('ready');
-          });
+          console.log('[IntroScreen] Assets ready, completing spinner');
+          spinner.complete();
+          setIsReady(true);
         });
-      }, remainingDelay);
+      });
     });
-  }, []);
+  }, [spinner]);
+
+  // Only cancel spinner AFTER exit animation completes (when no longer present AND safe to remove)
+  useEffect(() => {
+    if (!isPresent && spinnerManagedRef.current) {
+      // Component is exiting - wait for animation to complete before cleanup
+      const timer = setTimeout(() => {
+        if (spinnerManagedRef.current) {
+          spinner.cancel();
+          spinnerManagedRef.current = false;
+        }
+        safeToRemove?.();
+      }, 300); // Match exit animation duration
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isPresent, spinner, safeToRemove]);
 
   return (
     <motion.div
@@ -90,89 +128,74 @@ export function IntroScreen({
       animate={{ opacity: 1 }}
       exit={{ x: "-100%", opacity: 0 }}
       transition={{ duration: 0.25, ease: "easeInOut" }}
-      className="fixed inset-0 flex flex-col items-center justify-center p-4 z-50"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center"
       style={{ backgroundColor: '#FAFAFA' }}
     >
-      {/* Back button - OUTSIDE AnimatePresence to prevent jumping */}
-      {status === 'ready' && (
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2, delay: 0.1 }}
-          onClick={onBack}
-          className="absolute top-4 left-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          data-testid="button-intro-back"
-        >
-          <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
-        </motion.button>
-      )}
+      {/* Back button - fixed position, not affected by content layout */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: isReady ? 1 : 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={handleBack}
+        className="absolute top-4 left-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        data-testid="button-intro-back"
+        style={{ pointerEvents: isReady ? 'auto' : 'none' }}
+      >
+        <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
+      </motion.button>
 
-      <AnimatePresence mode="wait">
-        {status === 'loading' ? (
-          <motion.div
-            key="spinner"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="flex items-center justify-center"
-          >
-            <Loader2 className="w-12 h-12 text-gray-400 animate-spin" />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="content"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.25, ease: "easeOut" }}
-            className="flex flex-col items-center justify-center max-w-md w-full"
-          >
-            <div className="flex flex-col items-center justify-center space-y-6">
-              <div className="h-32 w-32 flex items-center justify-center">
-                <img
-                  src={welcomeHamsterGrey}
-                  alt="Welcome"
-                  className="h-32 w-auto object-contain"
-                  data-testid="img-hamster-intro"
-                />
-              </div>
+      {/* Content - opacity controlled, but layout always maintained */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: isReady ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        className="flex flex-col items-center justify-center max-w-md w-full p-4"
+        style={{ pointerEvents: isReady ? 'auto' : 'none' }}
+      >
+        <div className="flex flex-col items-center justify-center w-full space-y-6">
+          <div className="h-32 w-32 flex items-center justify-center">
+            <img
+              src={welcomeHamsterGrey}
+              alt="Welcome"
+              className="h-32 w-auto object-contain"
+              data-testid="img-hamster-intro"
+            />
+          </div>
 
-              <div className="text-center space-y-4">
-                <p className="text-lg font-bold text-gray-700 dark:text-gray-500" data-testid="text-intro-clue-prompt">
-                  {hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!"}
+          <div className="text-center space-y-4">
+            <p className="text-lg font-bold text-gray-700 dark:text-gray-500" data-testid="text-intro-clue-prompt">
+              {hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!"}
+            </p>
+            
+            <div className="space-y-0">
+              {hasCluesEnabled && categoryOrLocationLabel && (
+                <p className="text-xl font-bold dark:text-blue-400" style={{ color: '#1e3a8a' }} data-testid="text-intro-category-location">
+                  {categoryOrLocationLabel}
                 </p>
-                
-                <div className="space-y-0">
-                  {hasCluesEnabled && categoryOrLocationLabel && (
-                    <p className="text-xl font-bold dark:text-blue-400" style={{ color: '#1e3a8a' }} data-testid="text-intro-category-location">
-                      {categoryOrLocationLabel}
-                    </p>
-                  )}
-                  
-                  {hasCluesEnabled && (
-                    <p className="text-xl font-bold text-gray-600 dark:text-gray-400" data-testid="text-intro-event-title">
-                      {eventTitle}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <button
-                onClick={handlePlayClick}
-                className="w-1/2 text-white font-bold text-xl py-4 rounded-full hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: buttonColor }}
-                data-testid="button-intro-play"
-              >
-                Play
-              </button>
-
-              <p className="text-sm text-gray-500 dark:text-gray-500" data-testid="text-intro-puzzle-date">
-                Puzzle date: {displayDate}
-              </p>
+              )}
+              
+              {hasCluesEnabled && (
+                <p className="text-xl font-bold text-gray-600 dark:text-gray-400" data-testid="text-intro-event-title">
+                  {eventTitle}
+                </p>
+              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+
+          <button
+            onClick={handlePlayClick}
+            className="w-1/2 text-white font-bold text-xl py-4 rounded-full hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: buttonColor }}
+            data-testid="button-intro-play"
+          >
+            Play
+          </button>
+
+          <p className="text-sm text-gray-500 dark:text-gray-500" data-testid="text-intro-puzzle-date">
+            Puzzle date: {displayDate}
+          </p>
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
