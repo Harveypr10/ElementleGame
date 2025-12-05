@@ -227,7 +227,7 @@ export function StreakSaverPopup({
               {hasStreakSaversLeft ? (
                 <Button
                   onClick={handleUseStreakSaver}
-                  className="w-full bg-orange-500 hover:bg-orange-600"
+                  className="w-full text-[16px] bg-black hover:bg-gray-800"
                   data-testid="button-use-streak-saver"
                 >
                   Use Streak Saver
