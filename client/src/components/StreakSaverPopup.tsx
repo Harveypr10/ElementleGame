@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Flame, Umbrella, X } from "lucide-react";
 import hamsterStreakSaver from "@assets/Historian-Hamster-Blue.svg";
 
+import Streak_Hamster_Black from "@assets/Streak-Hamster-Black.svg";
+
 interface StreakSaverPopupProps {
   open: boolean;
   onClose: () => void;
@@ -206,7 +208,7 @@ export function StreakSaverPopup({
 
           <div className="flex flex-col items-center gap-4 py-4">
             <img 
-              src={hamsterStreakSaver} 
+              src={Streak_Hamster_Black} 
               alt="Hamster" 
               className="w-24 h-24"
             />
@@ -267,7 +269,6 @@ export function StreakSaverPopup({
           </div>
         </DialogContent>
       </Dialog>
-
       <ProSubscriptionDialog
         isOpen={showProDialog}
         onClose={handleProDialogClose}
