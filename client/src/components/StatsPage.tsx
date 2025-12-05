@@ -224,9 +224,11 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                   <span className="font-bold text-sm">Percentile</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help flex-shrink-0" data-testid="info-percentile" />
+                      <button className="p-1.5 -m-1.5 hover:bg-muted rounded transition-colors flex-shrink-0">
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" data-testid="info-percentile" />
+                      </button>
                     </TooltipTrigger>
-                    <TooltipContent side="left" sideOffset={8} className="max-w-[160px] text-center">
+                    <TooltipContent side="bottom" sideOffset={8} className="max-w-[160px] text-center">
                       <p>You must have played at least 5 days this month for a percentile to be calculated</p>
                     </TooltipContent>
                   </Tooltip>
