@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ProSubscriptionDialog } from "./ProSubscriptionDialog";
@@ -14,11 +14,20 @@ interface StreakSaverPopupProps {
   gameType: "region" | "user";
   currentStreak: number;
   onPlayYesterdaysPuzzle?: (gameType: "region" | "user", puzzleDate: string) => void;
+  onStreakLost?: () => void; // Called when user confirms losing their streak
 }
 
-export function StreakSaverPopup({ open, onClose, gameType, currentStreak, onPlayYesterdaysPuzzle }: StreakSaverPopupProps) {
+export function StreakSaverPopup({ 
+  open, 
+  onClose, 
+  gameType, 
+  currentStreak, 
+  onPlayYesterdaysPuzzle,
+  onStreakLost 
+}: StreakSaverPopupProps) {
   const { toast } = useToast();
   const [showProDialog, setShowProDialog] = useState(false);
+  const [showStreakSaverAfterPro, setShowStreakSaverAfterPro] = useState(false);
   const {
     isPro,
     regionStreakSaversRemaining,
@@ -29,6 +38,7 @@ export function StreakSaverPopup({ open, onClose, gameType, currentStreak, onPla
     isDeclining,
     startHoliday,
     isStartingHoliday,
+    refetch,
   } = useStreakSaverStatus();
   
   const { startStreakSaverSession } = useStreakSaver();
@@ -38,6 +48,14 @@ export function StreakSaverPopup({ open, onClose, gameType, currentStreak, onPla
   const canStartHoliday = isPro && holidaysRemaining > 0 && holidayDurationDays > 0;
   
   const gameModeLabel = gameType === "region" ? "Global" : "Personal";
+  
+  // When returning from successful Pro subscription, refetch status and ensure popup is shown
+  useEffect(() => {
+    if (showStreakSaverAfterPro) {
+      refetch();
+      setShowStreakSaverAfterPro(false);
+    }
+  }, [showStreakSaverAfterPro, refetch]);
   
   // Calculate yesterday's date
   const getYesterdayDate = () => {
@@ -73,6 +91,9 @@ export function StreakSaverPopup({ open, onClose, gameType, currentStreak, onPla
         description: "Your streak has been reset to 0. Start fresh today!",
       });
       onClose();
+      if (onStreakLost) {
+        onStreakLost();
+      }
     } catch (error: any) {
       toast({
         title: "Error",
@@ -103,9 +124,68 @@ export function StreakSaverPopup({ open, onClose, gameType, currentStreak, onPla
     setShowProDialog(true);
   };
 
+  const handleProDialogClose = () => {
+    // This is called when user clicks back arrow and confirms exit warning
+    // Do nothing here - the streak loss is handled by onStreakLost callback
+    setShowProDialog(false);
+  };
+
+  const handleProDialogSuccess = async () => {
+    // User successfully subscribed to Pro
+    // Refetch streak saver status to get updated allowances
+    await refetch();
+    setShowProDialog(false);
+    // Flag that we should show the streak saver popup with updated data
+    setShowStreakSaverAfterPro(true);
+    
+    toast({
+      title: "Welcome to Pro!",
+      description: "You now have more streak savers available.",
+    });
+  };
+
+  const handleStreakLost = async () => {
+    // User chose to exit Pro dialog and lose their streak
+    try {
+      await declineStreakSaver(gameType);
+      toast({
+        title: "Streak Reset",
+        description: "Your streak has been reset to 0. Start fresh today!",
+      });
+      setShowProDialog(false);
+      onClose();
+      if (onStreakLost) {
+        onStreakLost();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to reset streak",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleStayOnProDialog = () => {
+    // User chose to stay on Pro dialog after exit warning
+    // Do nothing - they remain on the Pro dialog
+  };
+
+  // Keep the StreakSaverPopup dialog open but hidden when ProDialog is shown
+  // This ensures when Pro dialog closes successfully, we can show the popup again
+  const showMainPopup = open && !showProDialog;
+
+  // Prevent the dialog from closing via backdrop when going to Pro signup
+  const handleDialogOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      // Only allow closing through our explicit handlers
+      onClose();
+    }
+  };
+
   return (
     <>
-      <Dialog open={open} onOpenChange={() => onClose()}>
+      <Dialog open={showMainPopup} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="max-w-sm" data-testid="streak-saver-popup">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
@@ -183,8 +263,13 @@ export function StreakSaverPopup({ open, onClose, gameType, currentStreak, onPla
 
       <ProSubscriptionDialog
         isOpen={showProDialog}
-        onClose={() => setShowProDialog(false)}
-        onSuccess={() => setShowProDialog(false)}
+        onClose={handleProDialogClose}
+        onSuccess={handleProDialogSuccess}
+        fromStreakSaver={true}
+        currentStreak={currentStreak}
+        gameType={gameType}
+        onStreakLost={handleStreakLost}
+        onStayOnPage={handleStayOnProDialog}
       />
     </>
   );

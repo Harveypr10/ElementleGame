@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, type MouseEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Check, Crown, Sparkles, Star, Loader2 } from 'lucide-react';
+import { ChevronLeft, Check, Crown, Sparkles, Star, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,12 @@ interface ProSubscriptionDialogProps {
   onClose: () => void;
   onSuccess: (tierName: string) => void;
   onLoginRequired?: () => void;
+  // Props for streak saver flow
+  fromStreakSaver?: boolean;
+  currentStreak?: number;
+  gameType?: "region" | "user";
+  onStreakLost?: () => void;
+  onStayOnPage?: () => void;
 }
 
 // Tier data from user_tier table
@@ -77,13 +83,45 @@ export function ProSubscriptionDialog({
   onClose,
   onSuccess,
   onLoginRequired,
+  fromStreakSaver = false,
+  currentStreak = 0,
+  gameType,
+  onStreakLost,
+  onStayOnPage,
 }: ProSubscriptionDialogProps) {
   const [selectedTier, setSelectedTier] = useState<TierData | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showExitWarning, setShowExitWarning] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+
+  // Handle ESC key - show exit warning instead of closing directly when in streak saver flow
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (showConfirmDialog) {
+          setShowConfirmDialog(false);
+          setSelectedTier(null);
+        } else if (showExitWarning) {
+          // Do nothing - they need to make a choice
+        } else if (fromStreakSaver && currentStreak > 0) {
+          setShowExitWarning(true);
+        } else {
+          onClose();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen, showConfirmDialog, showExitWarning, fromStreakSaver, currentStreak, onClose]);
 
   // Fetch available tiers from API
   const { data: tiers, isLoading: tiersLoading } = useQuery<TierData[]>({
@@ -106,6 +144,31 @@ export function ProSubscriptionDialog({
     enabled: isOpen && isAuthenticated,
     staleTime: 5 * 60 * 1000,
   });
+
+  const handleBackClick = () => {
+    if (fromStreakSaver && currentStreak > 0) {
+      // Show warning that they'll lose their streak
+      setShowExitWarning(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitWarning(false);
+    if (onStreakLost) {
+      onStreakLost();
+    } else {
+      onClose();
+    }
+  };
+
+  const handleCancelExit = () => {
+    setShowExitWarning(false);
+    if (onStayOnPage) {
+      onStayOnPage();
+    }
+  };
 
   const handleTierClick = (tier: TierData) => {
     console.log('[ProSubscriptionDialog] Tier clicked:', tier.tier, tier.tierType, 'id:', tier.id);
@@ -172,8 +235,9 @@ export function ProSubscriptionDialog({
       
       if (result.success) {
         console.log('[ProSubscriptionDialog] Subscription created successfully');
-        // Invalidate subscription query to refresh UI
+        // Invalidate subscription and streak saver queries to refresh UI
         queryClient.invalidateQueries({ queryKey: ['/api/subscription'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/streak-saver/status'] });
         toast({
           title: 'Success!',
           description: 'Your subscription has been activated.',
@@ -193,6 +257,18 @@ export function ProSubscriptionDialog({
     }
   };
 
+  // Handle backdrop click - show exit warning when in streak saver flow
+  const handleBackdropClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
+    // Only handle clicks on the backdrop itself, not on children
+    if (e.target === e.currentTarget) {
+      if (fromStreakSaver && currentStreak > 0) {
+        setShowExitWarning(true);
+      } else {
+        onClose();
+      }
+    }
+  }, [fromStreakSaver, currentStreak, onClose]);
+
   return (
     <>
     <AnimatePresence>
@@ -205,10 +281,14 @@ export function ProSubscriptionDialog({
           transition={{ duration: 0.3 }}
           className="fixed inset-0 z-[100] bg-background flex flex-col"
           data-testid="pro-subscription-dialog"
+          onClick={handleBackdropClick}
         >
-          <div className="absolute top-0 left-0 right-0 flex items-center p-4 z-[101]">
+          <div 
+            className="absolute top-0 left-0 right-0 flex items-center p-4 z-[101]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={onClose}
+              onClick={handleBackClick}
               className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               data-testid="button-close-pro-dialog"
             >
@@ -216,7 +296,10 @@ export function ProSubscriptionDialog({
             </button>
           </div>
 
-          <div className="flex-1 flex flex-col items-center px-4 pt-16 pb-4 overflow-y-auto">
+          <div 
+            className="flex-1 flex flex-col items-center px-4 pt-16 pb-4 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="max-w-md w-full max-h-screen flex flex-col" style={{ gap: 'clamp(1rem, 2vh, 1.5rem)' }}>
               <div className="text-center flex flex-col items-center" style={{ gap: 'clamp(0.5rem, 1vh, 0.75rem)' }}>
                 <img src={signupHamsterGrey} alt="Pro" className="h-24 w-auto object-contain" />
@@ -295,12 +378,22 @@ export function ProSubscriptionDialog({
       )}
     </AnimatePresence>
 
+    {/* Subscription Confirm Dialog */}
     {showConfirmDialog && selectedTier && (
       <div 
         className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80"
         data-testid="confirm-subscription-dialog"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setShowConfirmDialog(false);
+            setSelectedTier(null);
+          }
+        }}
       >
-        <div className="bg-background border rounded-lg p-6 max-w-sm mx-4 shadow-lg">
+        <div 
+          className="bg-background border rounded-lg p-6 max-w-sm mx-4 shadow-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
           <h2 className="text-lg font-semibold mb-2">Confirm Subscription</h2>
           <p className="text-sm text-muted-foreground mb-4">
             You are about to subscribe to <strong>{getTierStyle(selectedTier.tierType).displayName}</strong> for{' '}
@@ -324,6 +417,44 @@ export function ProSubscriptionDialog({
               data-testid="button-confirm-subscription"
             >
               Yes
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Exit Warning Dialog for Streak Saver Flow */}
+    {showExitWarning && (
+      <div 
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80"
+        data-testid="streak-exit-warning-dialog"
+      >
+        <div 
+          className="bg-background border rounded-lg p-6 max-w-sm mx-4 shadow-lg"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="h-6 w-6 text-orange-500" />
+            <h2 className="text-lg font-semibold">Are you sure?</h2>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            If you exit now without subscribing, you will lose your <strong className="text-orange-500">{currentStreak} day streak</strong>.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button 
+              onClick={handleCancelExit}
+              className="w-full"
+              data-testid="button-stay-on-page"
+            >
+              Stay on Page
+            </Button>
+            <Button 
+              variant="ghost"
+              onClick={handleConfirmExit}
+              className="w-full text-muted-foreground"
+              data-testid="button-exit-lose-streak"
+            >
+              Exit and Lose Streak
             </Button>
           </div>
         </div>
