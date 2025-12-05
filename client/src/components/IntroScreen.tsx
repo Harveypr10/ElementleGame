@@ -1,4 +1,3 @@
-import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import welcomeHamsterGrey from "@assets/Welcome-Hamster-Grey.svg";
@@ -13,8 +12,6 @@ interface IntroScreenProps {
   onPlayClick: () => void;
   onBack: () => void;
   formatDateForDisplay: (date: string) => string;
-  onContentReady?: () => void; // Called when image and content are fully ready
-  isContentPreloaded?: boolean; // If true, content is already loaded (skip internal loading)
 }
 
 export function IntroScreen({
@@ -27,25 +24,7 @@ export function IntroScreen({
   onPlayClick,
   onBack,
   formatDateForDisplay,
-  onContentReady,
-  isContentPreloaded = false,
 }: IntroScreenProps) {
-  const [imageLoaded, setImageLoaded] = useState(isContentPreloaded);
-  const [isReady, setIsReady] = useState(isContentPreloaded);
-  const hasNotifiedReady = useRef(false);
-  
-  // Notify parent when content is ready
-  useEffect(() => {
-    if (imageLoaded && !hasNotifiedReady.current) {
-      hasNotifiedReady.current = true;
-      // Small delay to ensure layout has settled
-      requestAnimationFrame(() => {
-        setIsReady(true);
-        onContentReady?.();
-      });
-    }
-  }, [imageLoaded, onContentReady]);
-  
   const displayDate = formatDateForDisplay(puzzleDateCanonical);
   
   // Button colors match GameSelectionPage
@@ -80,7 +59,7 @@ export function IntroScreen({
   return (
     <motion.div
       initial={{ opacity: 0 }}
-      animate={{ opacity: isReady ? 1 : 0 }}
+      animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
       className="fixed inset-0 flex flex-col items-center justify-center p-4 z-50"
@@ -91,19 +70,17 @@ export function IntroScreen({
         onClick={onBack}
         className="absolute top-4 left-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
         data-testid="button-intro-back"
-        style={{ opacity: isReady ? 1 : 0 }}
       >
         <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
       </button>
 
       <div className="flex flex-col items-center justify-center max-w-md w-full space-y-6">
-        {/* Hamster Image */}
+        {/* Hamster Image - already preloaded by parent */}
         <img
           src={welcomeHamsterGrey}
           alt="Welcome"
           className="h-32 w-auto object-contain"
           data-testid="img-hamster-intro"
-          onLoad={() => setImageLoaded(true)}
         />
 
         {/* Clue Text */}

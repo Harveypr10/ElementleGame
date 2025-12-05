@@ -426,6 +426,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           <motion.div
             className="grid grid-cols-7 gap-2"
             style={{ x }}
+            initial={{ x: 0 }}
           >
             {renderCalendarDays(currentMonth)}
           </motion.div>

@@ -804,8 +804,10 @@ export function PlayPage({
 
   // Check if we should show the intro screen (new game with no guesses)
   // Only show intro once when component mounts and conditions are met
-  // Now with image preloading to prevent visual jumping
+  // Uses image.decode() for reliable image readiness before mounting
   useEffect(() => {
+    let cancelled = false;
+    
     if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !introScreenReady) {
       // Skip intro if parent tells us there's existing progress
       if (hasExistingProgress) {
@@ -823,23 +825,31 @@ export function PlayPage({
         // Start spinner with 150ms delay (only shows if loading takes longer)
         introSpinner.start(150);
         
-        // Preload the hamster image
+        // Preload the hamster image using decode() for reliable readiness
         const img = new Image();
-        img.onload = () => {
-          console.log('[PlayPage] Intro hamster image preloaded');
-          // Image loaded - complete the spinner (handles fade out timing)
-          introSpinner.complete();
-        };
-        img.onerror = () => {
-          console.warn('[PlayPage] Failed to preload intro image, showing anyway');
-          introSpinner.complete();
-        };
         img.src = welcomeHamsterGrey;
+        
+        // Use decode() for reliable "ready to display" detection
+        img.decode()
+          .then(() => {
+            if (!cancelled) {
+              console.log('[PlayPage] Intro hamster image decoded and ready');
+              // Image fully decoded - complete the spinner (handles fade out timing)
+              introSpinner.complete();
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              console.warn('[PlayPage] Failed to decode intro image, showing anyway');
+              introSpinner.complete();
+            }
+          });
       }
     }
     
     // Cleanup on unmount
     return () => {
+      cancelled = true;
       if (introSpinnerRef.current) {
         introSpinner.cancel();
         introSpinnerRef.current = false;
@@ -1540,7 +1550,7 @@ export function PlayPage({
 
   return (
     <>
-      {/* IntroScreen overlay with fade animations */}
+      {/* IntroScreen overlay with fade animations - only mounts after image is preloaded */}
       <AnimatePresence>
         {showIntroScreen && introScreenReady && introContentPreloaded && (
           <IntroScreen
@@ -1553,7 +1563,6 @@ export function PlayPage({
             onPlayClick={() => setShowIntroScreen(false)}
             onBack={handleBackButtonPress}
             formatDateForDisplay={formatDateForIntro}
-            isContentPreloaded={true}
           />
         )}
       </AnimatePresence>
