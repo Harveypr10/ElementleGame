@@ -253,7 +253,7 @@ export function IntroScreen({
               )}
 
               <div className="text-center space-y-4 flex-grow flex flex-col justify-center">
-                <p className="font-bold text-lg" data-testid="text-intro-clue-prompt" style={{ maxWidth: '280px', margin: '0 auto', color: isStreakGame ? streakRedColor : textColor }}>
+                <p className="font-bold text-lg" data-testid="text-intro-clue-prompt" style={{ maxWidth: isLocalHistoryCategory ? '220px' : '280px', margin: '0 auto', color: isStreakGame ? streakRedColor : textColor }}>
                   {isStreakGame ? "Continue your streak!" : (hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!")}
                 </p>
                 
