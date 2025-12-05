@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, animate, PanInfo } from "framer-motion";
 import { X, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Badge, UserBadgeWithDetails } from "@shared/schema";
@@ -237,10 +237,12 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
       }
     }
     
-    // Reset motion values (only bounce back if no category change)
+    // Always animate dragX back to center for smooth snap-back of badges
+    animate(dragX, 0, { type: "spring", stiffness: 300, damping: 30 });
+    
+    // Reset dragY (only bounce back if no category change)
     if (!categoryChangeTriggered.current) {
-      dragY.set(0);
-      dragX.set(0);
+      animate(dragY, 0, { type: "spring", stiffness: 300, damping: 30 });
     }
     
     setLockedDirection(null);
@@ -281,19 +283,19 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
         <X className="w-6 h-6" />
       </button>
 
-      {/* Top section with up arrow - fixed at top */}
+      {/* Top section with DOWN arrow (goes to next category) - fixed at top */}
       <div className="relative z-20 pt-8 pb-2 flex justify-center">
         {/* Background overlay to hide content animating behind */}
         <div className="absolute inset-0 bg-background" />
         <div className="relative z-10">
-          {currentCategoryIndex > 0 ? (
+          {currentCategoryIndex < CATEGORIES.length - 1 ? (
             <button
-              onClick={() => handleCategoryChange(currentCategoryIndex - 1)}
+              onClick={() => handleCategoryChange(currentCategoryIndex + 1)}
               className="w-14 h-14 flex items-center justify-center rounded-full transition-opacity hover:opacity-80"
               style={{ backgroundColor: arrowButtonColor }}
-              data-testid="button-category-up"
+              data-testid="button-category-down"
             >
-              <ChevronUp className="h-10 w-10 text-white" />
+              <ChevronDown className="h-10 w-10 text-white" />
             </button>
           ) : (
             <div className="w-14 h-14" /> 
@@ -419,7 +421,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
         </AnimatePresence>
       </div>
 
-      {/* Bottom section with toggle and down arrow - fixed at bottom */}
+      {/* Bottom section with toggle and UP arrow (goes to previous category) - fixed at bottom */}
       <div className={cn(
         "relative z-20 flex flex-col items-center",
         adBannerActive ? "pb-20" : "pb-8"
@@ -445,15 +447,15 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
             ))}
           </div>
 
-          {/* Down Arrow */}
-          {currentCategoryIndex < CATEGORIES.length - 1 ? (
+          {/* Up Arrow (goes to previous category) */}
+          {currentCategoryIndex > 0 ? (
             <button
-              onClick={() => handleCategoryChange(currentCategoryIndex + 1)}
+              onClick={() => handleCategoryChange(currentCategoryIndex - 1)}
               className="w-14 h-14 flex items-center justify-center rounded-full transition-opacity hover:opacity-80"
               style={{ backgroundColor: arrowButtonColor }}
-              data-testid="button-category-down"
+              data-testid="button-category-up"
             >
-              <ChevronDown className="h-10 w-10 text-white" />
+              <ChevronUp className="h-10 w-10 text-white" />
             </button>
           ) : (
             <div className="w-14 h-14" />
