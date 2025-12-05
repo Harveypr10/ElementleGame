@@ -279,11 +279,13 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                   {last30Days.map((day, i) => (
                     <div
                       key={i}
-                      className={cn(
-                        "flex-1 rounded-sm transition-all",
-                        day.won ? "bg-brand-green" : "bg-brand-purple"
-                      )}
-                      style={{ height: `${(day.guessCount / 5) * 100}%` }}
+                      className="flex-1 rounded-sm transition-all"
+                      style={{ 
+                        height: `${(day.guessCount / 5) * 100}%`,
+                        backgroundColor: day.won 
+                          ? (gameType === 'USER' ? '#93cd78' : '#FFD429')
+                          : (gameType === 'USER' ? '#fdab58' : '#8e57db')
+                      }}
                       title={`${day.won ? 'Won' : 'Lost'} in ${day.guessCount} guesses`}
                       data-testid={`chart-bar-${i}`}
                     />
@@ -311,8 +313,11 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                     <div className="w-4 text-sm font-medium">{guessNum}</div>
                     <div className="flex-1 mx-1 bg-muted rounded-sm h-8 relative overflow-hidden">
                       <div
-                        className="bg-brand-green h-full transition-all duration-300 flex items-center justify-end pr-2"
-                        style={{ width: `${Math.max(percentage, count > 0 ? 10 : 0)}%` }}
+                        className="h-full transition-all duration-300 flex items-center justify-end pr-2"
+                        style={{ 
+                          width: `${Math.max(percentage, count > 0 ? 10 : 0)}%`,
+                          backgroundColor: gameType === 'USER' ? '#93cd78' : '#FFD429'
+                        }}
                         data-testid={`dist-bar-${guessNum}`}
                       >
                         {count > 0 && (
@@ -330,8 +335,11 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                 </div>
                 <div className="flex-1 mx-1 bg-muted rounded-sm h-8 relative overflow-hidden">
                   <div
-                    className="bg-brand-purple h-full transition-all duration-300 flex items-center justify-end pr-2"
-                    style={{ width: `${Math.max((stats.played - stats.won) > 0 ? ((stats.played - stats.won) / maxGuesses) * 100 : 0, (stats.played - stats.won) > 0 ? 10 : 0)}%` }}
+                    className="h-full transition-all duration-300 flex items-center justify-end pr-2"
+                    style={{ 
+                      width: `${Math.max((stats.played - stats.won) > 0 ? ((stats.played - stats.won) / maxGuesses) * 100 : 0, (stats.played - stats.won) > 0 ? 10 : 0)}%`,
+                      backgroundColor: gameType === 'USER' ? '#fdab58' : '#8e57db'
+                    }}
                     data-testid="dist-bar-lost"
                   >
                     {(stats.played - stats.won) > 0 && (

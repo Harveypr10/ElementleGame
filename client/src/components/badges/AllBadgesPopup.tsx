@@ -405,7 +405,10 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
               )}
               <div className="h-16 mt-2 flex items-center justify-center">
                 {activeBadge?.isEarned && (
-                  <span className="px-6 py-2 bg-brand-green text-white rounded-full text-lg font-semibold">
+                  <span 
+                    className="px-6 py-2 text-white rounded-full text-lg font-semibold"
+                    style={{ backgroundColor: gameType === 'USER' ? '#93cd78' : '#A4DB57' }}
+                  >
                     Earned!
                   </span>
                 )}
