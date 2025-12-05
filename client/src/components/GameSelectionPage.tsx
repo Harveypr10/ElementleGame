@@ -985,7 +985,7 @@ export function GameSelectionPage({
       ) : (
         /* Desktop: Header (not fixed) */
         <div className="flex-shrink-0 p-4">
-          <div className="max-w-md mx-auto w-full">
+          <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto w-full">
             <div className="flex items-center justify-between mb-2">
               <button
                 onClick={() => setShowHelp(true)}
@@ -1000,28 +1000,28 @@ export function GameSelectionPage({
                 Elementle
               </h1>
 
-              <button
-                onClick={onOpenSettings}
-                disabled={!onOpenSettings}
-                data-testid="button-settings"
-                className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 mr-1"
-              >
-                <img src={greyCogIcon} alt="Settings" className="h-9 w-9 block dark:hidden" />
-                <img src={whiteCogIcon} alt="Settings" className="h-9 w-9 hidden dark:block" />
-              </button>
-            </div>
-
-            <div className="flex items-center pr-2 mb-2 justify-end">
-              {/* Go Pro / Ads button - right side, only for authenticated users */}
-              {isAuthenticated && (
-                <div className={`flex-shrink-0 ${isPro ? 'mr-2' : ''}`}>
-                  {isPro ? (
-                    <GoProButton onClick={handleOpenProCategories} isPro />
-                  ) : (
-                    <GoProButton onClick={() => setShowProDialog(true)} />
-                  )}
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {/* Go Pro / Ads button - next to settings, only for authenticated users */}
+                {isAuthenticated && (
+                  <div className="flex-shrink-0">
+                    {isPro ? (
+                      <GoProButton onClick={handleOpenProCategories} isPro />
+                    ) : (
+                      <GoProButton onClick={() => setShowProDialog(true)} />
+                    )}
+                  </div>
+                )}
+                
+                <button
+                  onClick={onOpenSettings}
+                  disabled={!onOpenSettings}
+                  data-testid="button-settings"
+                  className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+                >
+                  <img src={greyCogIcon} alt="Settings" className="h-9 w-9 block dark:hidden" />
+                  <img src={whiteCogIcon} alt="Settings" className="h-9 w-9 hidden dark:block" />
+                </button>
+              </div>
             </div>
 
             <div className="flex justify-center mb-2">
