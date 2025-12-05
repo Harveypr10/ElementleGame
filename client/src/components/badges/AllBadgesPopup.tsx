@@ -428,7 +428,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
         
         <div className="relative z-10 flex flex-col items-center">
           {/* Category toggle indicators - positioned with proper spacing */}
-          <div className="flex gap-2 py-3">
+          <div className="flex gap-2 py-3 mb-6">
             {CATEGORIES.map((cat, index) => (
               <button
                 key={cat}
