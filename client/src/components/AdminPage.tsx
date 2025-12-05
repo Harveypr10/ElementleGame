@@ -5,11 +5,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, Shield, Clock, CalendarClock, Zap } from "lucide-react";
+import { ChevronLeft, Shield, Clock, CalendarClock, Zap, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdBannerActive } from "@/components/AdBanner";
 import { useSupabase } from "@/lib/SupabaseProvider";
+import { AdminScreenNavigator } from "@/components/AdminScreenNavigator";
 
 interface AdminPageProps {
   onBack: () => void;
@@ -82,6 +83,7 @@ export function AdminPage({ onBack }: AdminPageProps) {
   const { user } = useAuth();
   const supabase = useSupabase();
   const adBannerActive = useAdBannerActive();
+  const [showScreenNavigator, setShowScreenNavigator] = useState(false);
   
   // Postcode/Region restriction state
   const [postcodeRestrictionDays, setPostcodeRestrictionDays] = useState<string>("14");
@@ -104,6 +106,10 @@ export function AdminPage({ onBack }: AdminPageProps) {
   const [savingScheduler, setSavingScheduler] = useState(false);
   const [fixingTrigger, setFixingTrigger] = useState(false);
   const [savingTiers, setSavingTiers] = useState(false);
+
+  if (showScreenNavigator) {
+    return <AdminScreenNavigator onBack={() => setShowScreenNavigator(false)} />;
+  }
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -400,6 +406,16 @@ export function AdminPage({ onBack }: AdminPageProps) {
           </div>
         ) : (
           <>
+            <Button
+              onClick={() => setShowScreenNavigator(true)}
+              variant="outline"
+              className="w-full mb-4 justify-start gap-2"
+              data-testid="button-screen-navigator"
+            >
+              <Layers className="h-4 w-4" />
+              Screen Navigator (Test Screens)
+            </Button>
+
             {/* Restriction Settings Card */}
             <Card className="p-6 space-y-6">
               <div className="flex items-center gap-2 pb-4 border-b">
