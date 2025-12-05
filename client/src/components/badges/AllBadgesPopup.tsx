@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { X, ChevronUp, ChevronDown } from "lucide-react";
@@ -57,17 +57,15 @@ function normalizeCategory(category: string): CategoryType {
 }
 
 // Animation variants for category transitions
-// direction = 1: going to NEXT category (clicking DOWN arrow / swiping DOWN)
-// direction = -1: going to PREVIOUS category (clicking UP arrow / swiping UP)
+// direction = 1: going to NEXT category (clicking DOWN arrow / swiping UP)
+// direction = -1: going to PREVIOUS category (clicking UP arrow / swiping DOWN)
 //
-// When swiping DOWN or clicking DOWN arrow (direction = 1): 
-//   current row exits UPWARD (scrolls up off screen), new row enters from BELOW
-// When swiping UP or clicking UP arrow (direction = -1): 
-//   current row exits DOWNWARD (scrolls down off screen), new row enters from ABOVE
+// When clicking UP arrow (direction = -1): current row exits UPWARD, new row enters from BELOW
+// When clicking DOWN arrow (direction = 1): current row exits DOWNWARD, new row enters from ABOVE
 const categoryVariants = {
   enter: (direction: number) => ({
     opacity: 0,
-    y: direction > 0 ? 100 : -100, // From below when going next (dir=1), from above when going prev (dir=-1)
+    y: direction > 0 ? -100 : 100, // From above when going next (dir=1), from below when going prev (dir=-1)
   }),
   center: {
     opacity: 1,
@@ -75,7 +73,7 @@ const categoryVariants = {
   },
   exit: (direction: number) => ({
     opacity: 0,
-    y: direction > 0 ? -100 : 100, // Goes up when going next (dir=1), goes down when going prev (dir=-1)
+    y: direction > 0 ? 100 : -100, // Goes down when going next (dir=1), goes up when going prev (dir=-1)
   }),
 };
 
@@ -89,11 +87,9 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
   // Track animation direction: 1 = going to next (higher index), -1 = going to prev (lower index)
   const [direction, setDirection] = useState(0);
   // Track locked scroll direction during a gesture
-  const lockedDirectionRef = useRef<'horizontal' | 'vertical' | null>(null);
+  const [lockedDirection, setLockedDirection] = useState<'horizontal' | 'vertical' | null>(null);
   // Track if we're currently animating a category change
   const [isAnimating, setIsAnimating] = useState(false);
-  // Track if a category change was triggered (to prevent bounce back)
-  const categoryChangeTriggeredRef = useRef(false);
   
   // Check if ad banner is active (Standard users)
   const adBannerActive = useAdBannerActive();
@@ -165,39 +161,35 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
     if (isAnimating) return;
     
     // Set direction based on which way we're going
-    // Positive direction = going to higher index (next category)
-    // Negative direction = going to lower index (previous category)
+    // Positive direction = going to higher index (next category, scroll/click down)
+    // Negative direction = going to lower index (previous category, scroll/click up)
     setDirection(newIndex > currentCategoryIndex ? 1 : -1);
     setIsAnimating(true);
-    categoryChangeTriggeredRef.current = true;
     setCurrentCategoryIndex(newIndex);
   };
 
   const handleAnimationComplete = () => {
     setIsAnimating(false);
-    categoryChangeTriggeredRef.current = false;
   };
 
-  // Gesture handlers for vertical category swiping (no visual drag, just detection)
-  const handlePanStart = () => {
-    lockedDirectionRef.current = null;
-    categoryChangeTriggeredRef.current = false;
+  const handleDragStart = () => {
+    setLockedDirection(null);
   };
 
-  const handlePan = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+  const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const { offset } = info;
     
     // Lock direction on first significant movement
-    if (lockedDirectionRef.current === null) {
+    if (lockedDirection === null) {
       const absX = Math.abs(offset.x);
       const absY = Math.abs(offset.y);
       const threshold = 10;
       
       if (absX > threshold || absY > threshold) {
         if (absY > absX) {
-          lockedDirectionRef.current = 'vertical';
+          setLockedDirection('vertical');
         } else {
-          lockedDirectionRef.current = 'horizontal';
+          setLockedDirection('horizontal');
         }
       }
     }
@@ -208,13 +200,13 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
     const swipeThreshold = 50;
     const velocityThreshold = 500;
 
-    if (lockedDirectionRef.current === 'vertical') {
+    if (lockedDirection === 'vertical') {
       const sufficientSwipe = Math.abs(offset.y) > swipeThreshold || Math.abs(velocity.y) > velocityThreshold;
       
-      if (sufficientSwipe && !categoryChangeTriggeredRef.current) {
-        // FIXED: Swipe DOWN (positive offset.y) = go to NEXT category (higher index)
-        // Swipe UP (negative offset.y) = go to PREVIOUS category (lower index)
-        const swipeDir = offset.y > 0 ? 1 : -1;
+      if (sufficientSwipe) {
+        // Swipe up (negative offset.y) = go to next category (higher index)
+        // Swipe down (positive offset.y) = go to previous category (lower index)
+        const swipeDir = offset.y < 0 ? 1 : -1;
         const newIndex = currentCategoryIndex + swipeDir;
         
         // Only change if valid index
@@ -222,13 +214,14 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
           handleCategoryChange(newIndex);
         }
       }
-    } else if (lockedDirectionRef.current === 'horizontal') {
+      // If not sufficient swipe, the drag will bounce back naturally due to dragConstraints
+    } else if (lockedDirection === 'horizontal') {
       if (Math.abs(offset.x) > swipeThreshold || Math.abs(velocity.x) > velocityThreshold) {
         handleBadgeSwipe(offset.x < 0 ? 1 : -1);
       }
     }
     
-    lockedDirectionRef.current = null;
+    setLockedDirection(null);
   };
 
   const activeBadgeIndex = currentBadgeIndex[currentCategory];
@@ -286,13 +279,8 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
         </div>
       </div>
 
-      {/* Main content area - gesture detection layer */}
-      <motion.div 
-        className="flex-1 flex flex-col items-center justify-center overflow-hidden touch-none"
-        onPanStart={handlePanStart}
-        onPan={handlePan}
-        onPanEnd={handlePanEnd}
-      >
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col items-center justify-center overflow-hidden touch-none">
         <AnimatePresence mode="wait" custom={direction} initial={false} onExitComplete={handleAnimationComplete}>
           <motion.div
             key={currentCategory}
@@ -312,22 +300,16 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
               <h2 className="text-xl font-bold">{config.title}</h2>
             </div>
 
-            {/* Badge carousel - horizontal scrolling only */}
             <motion.div
               className="relative w-full flex items-center justify-center touch-none cursor-grab active:cursor-grabbing overflow-hidden"
               style={{ height: '220px' }}
-              drag={lockedDirectionRef.current !== 'vertical' ? "x" : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.1}
-              onDragEnd={(e, info) => {
-                if (lockedDirectionRef.current === 'horizontal') {
-                  const swipeThreshold = 50;
-                  const velocityThreshold = 500;
-                  if (Math.abs(info.offset.x) > swipeThreshold || Math.abs(info.velocity.x) > velocityThreshold) {
-                    handleBadgeSwipe(info.offset.x < 0 ? 1 : -1);
-                  }
-                }
-              }}
+              drag={lockedDirection !== 'vertical' || !isAnimating}
+              dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+              dragElastic={{ left: 0.1, right: 0.1, top: 0.1, bottom: 0.1 }}
+              dragDirectionLock={true}
+              onDragStart={handleDragStart}
+              onDrag={handleDrag}
+              onDragEnd={handlePanEnd}
             >
               <div className="relative flex items-center justify-center" style={{ width: '100%', height: '100%' }}>
                 {categoryBadges.map((item, index) => {
@@ -413,7 +395,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
             </div>
           </motion.div>
         </AnimatePresence>
-      </motion.div>
+      </div>
 
       {/* Bottom section with toggle and down arrow - fixed at bottom */}
       <div className={cn(
