@@ -259,7 +259,7 @@ export function StreakSaverPopup({
                 onClick={handleDecline}
                 disabled={isDeclining}
                 variant="ghost"
-                className="w-full text-muted-foreground"
+                className="w-full text-muted-foreground bg-white text-[16px]"
                 data-testid="button-decline-streak-saver"
               >
                 <X className="h-4 w-4 mr-2" />
