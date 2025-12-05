@@ -65,6 +65,12 @@ export function CategorySelectionScreen({
   // Track if we've synced from API to avoid re-initializing
   const [hasSyncedFromApi, setHasSyncedFromApi] = useState(false);
   
+  // Content visibility state - only show content after spinner fades out
+  const [isReady, setIsReady] = useState(false);
+  
+  // Delayed render to prevent flash behind spinner
+  const [shouldRender, setShouldRender] = useState(false);
+  
   // Read cached data immediately for instant display
   const cachedCategoryIds = useMemo(() => {
     const cached = readLocal<number[]>(CACHE_KEYS.PRO_CATEGORIES);
@@ -160,19 +166,41 @@ export function CategorySelectionScreen({
     onClose();
   }, [toast, onClose]);
   
+  const handleFadeOutComplete = useCallback(() => {
+    // Only show content AFTER hamster has fully faded out
+    console.log('[CategorySelectionScreen] Hamster fade complete - showing content');
+    setIsReady(true);
+  }, []);
+  
   // Use spinner with timeout for automatic retry and failure handling
   const spinner = useSpinnerWithTimeout({
     retryDelayMs: 4000,
     timeoutMs: 8000,
     onRetry: handleRetry,
     onTimeout: handleTimeout,
+    onFadeOutComplete: handleFadeOutComplete,
   });
+  
+  // Handle shouldRender delay to prevent flash behind spinner
+  useEffect(() => {
+    if (isOpen) {
+      // Delay rendering content to allow spinner to appear first
+      const timer = setTimeout(() => {
+        setShouldRender(true);
+      }, 150);
+      return () => clearTimeout(timer);
+    } else {
+      setShouldRender(false);
+      setIsReady(false);
+    }
+  }, [isOpen]);
   
   // Force refetch when screen opens with authenticated user
   useEffect(() => {
     if (isOpen && isAuthenticated) {
       console.log('[CategorySelectionScreen] Screen opened - forcing refetch');
       setHasSyncedFromApi(false); // Reset sync flag when screen opens
+      setIsReady(false); // Reset content visibility
       spinnerManagedRef.current = false; // Reset spinner management for new open cycle
       refetch();
     }
@@ -492,108 +520,126 @@ export function CategorySelectionScreen({
           className={`fixed inset-0 z-[100] bg-background flex flex-col ${adBannerActive ? 'pb-[50px]' : ''}`}
           data-testid="category-selection-screen"
         >
-          {/* Fixed Header - title centered on full screen */}
-          <div className="p-4 flex-shrink-0 relative">
-            <button
-              onClick={onClose}
-              className="absolute left-4 top-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              data-testid="button-close-categories"
-            >
-              <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
-            </button>
-
-            <h1 className="text-3xl font-bold text-foreground text-center" data-testid="text-categories-title">
-              Select Your<br />Categories
-            </h1>
-          </div>
-
-          {/* Fixed Hamster and Text Description */}
-          <div className="px-4 pb-4 flex-shrink-0">
-            <div className="max-w-md mx-auto w-full">
-              <div className="flex items-start gap-4">
-                {/* Hamster image with natural aspect ratio */}
-                <img
-                  src={hamsterImage}
-                  alt="Hammie"
-                  className="w-16 h-auto flex-shrink-0"
-                />
-                {/* Text boxes - centered text, centered in the remaining space */}
-                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-1">
-                  <p className="text-base text-muted-foreground">
-                    Choose your favourite subjects so Hammie can personalise your puzzles
-                  </p>
-                  <p className="text-base font-medium text-foreground">
-                    {selectedCategories.size} selected (min 3)
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Scrollable Categories Area */}
-          <div className="flex-1 overflow-y-auto px-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <div className="max-w-md mx-auto w-full">
-              {/* Categories Grid */}
-              {loadingCategories ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 pb-4">
-                  {categories.map((category) => {
-                    const isSelected = selectedCategories.has(category.id);
-                    
-                    return (
-                      <button
-                        key={category.id}
-                        onClick={() => toggleCategory(category.id)}
-                        className={`
-                          px-4 py-3 rounded-xl text-sm font-medium transition-all
-                          ${isSelected 
-                            ? 'bg-blue-500 text-white font-bold' 
-                            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                          }
-                        `}
-                        data-testid={`button-category-${category.id}`}
-                      >
-                        {category.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Fixed Footer Button */}
-          <div className="px-4 py-4 flex-shrink-0">
-            <div className="max-w-md mx-auto w-full">
-              <Button
-                onClick={handleGenerate}
-                disabled={!canGenerate || saveCategoriesMutation.isPending}
-                className={`
-                  w-full h-14 text-lg font-bold rounded-full transition-all
-                  ${canGenerate 
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white' 
-                    : 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
-                  }
-                `}
-                data-testid="button-generate"
+          {/* Only render content after delay to avoid flash behind spinner */}
+          {shouldRender && (
+            <>
+              {/* Back button - fixed position, visibility controlled by isReady */}
+              <motion.button
+                initial={{ opacity: 0 }}
+                animate={{ opacity: isReady ? 1 : 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={onClose}
+                className="absolute left-4 top-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors z-10"
+                style={{ pointerEvents: isReady ? 'auto' : 'none' }}
+                data-testid="button-close-categories"
               >
-                {saveCategoriesMutation.isPending ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  isRegeneration ? 'Re-Generate' : 'Generate'
-                )}
-              </Button>
-            </div>
-          </div>
+                <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
+              </motion.button>
+
+              {/* Content - opacity controlled by isReady */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: isReady ? 1 : 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="flex flex-col flex-1 overflow-hidden"
+                style={{ pointerEvents: isReady ? 'auto' : 'none' }}
+              >
+                {/* Fixed Header - title centered on full screen */}
+                <div className="p-4 flex-shrink-0 relative">
+                  <h1 className="text-3xl font-bold text-foreground text-center" data-testid="text-categories-title">
+                    Select Your<br />Categories
+                  </h1>
+                </div>
+
+                {/* Fixed Hamster and Text Description */}
+                <div className="px-4 pb-4 flex-shrink-0">
+                  <div className="max-w-md mx-auto w-full">
+                    <div className="flex items-start gap-4">
+                      {/* Hamster image with natural aspect ratio */}
+                      <img
+                        src={hamsterImage}
+                        alt="Hammie"
+                        className="w-16 h-auto flex-shrink-0"
+                      />
+                      {/* Text boxes - centered text, centered in the remaining space */}
+                      <div className="flex-1 flex flex-col items-center justify-center text-center space-y-1">
+                        <p className="text-base text-muted-foreground">
+                          Choose your favourite subjects so Hammie can personalise your puzzles
+                        </p>
+                        <p className="text-base font-medium text-foreground">
+                          {selectedCategories.size} selected (min 3)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scrollable Categories Area */}
+                <div className="flex-1 overflow-y-auto px-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  <div className="max-w-md mx-auto w-full">
+                    {/* Categories Grid */}
+                    {loadingCategories ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 pb-4">
+                        {categories.map((category) => {
+                          const isSelected = selectedCategories.has(category.id);
+                          
+                          return (
+                            <button
+                              key={category.id}
+                              onClick={() => toggleCategory(category.id)}
+                              className={`
+                                px-4 py-3 rounded-xl text-sm font-medium transition-all
+                                ${isSelected 
+                                  ? 'bg-blue-500 text-white font-bold' 
+                                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                                }
+                              `}
+                              data-testid={`button-category-${category.id}`}
+                            >
+                              {category.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Fixed Footer Button */}
+                <div className="px-4 py-4 flex-shrink-0">
+                  <div className="max-w-md mx-auto w-full">
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={!canGenerate || saveCategoriesMutation.isPending}
+                      className={`
+                        w-full h-14 text-lg font-bold rounded-full transition-all
+                        ${canGenerate 
+                          ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                          : 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
+                        }
+                      `}
+                      data-testid="button-generate"
+                    >
+                      {saveCategoriesMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        isRegeneration ? 'Re-Generate' : 'Generate'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          )}
         </motion.div>
       )}
-
     </AnimatePresence>
   );
 }
