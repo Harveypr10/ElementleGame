@@ -207,7 +207,7 @@ export function IntroScreen({
               </div>
 
               <div className="text-center space-y-4">
-                <p className="text-lg font-bold text-gray-700 dark:text-gray-500" data-testid="text-intro-clue-prompt">
+                <p className="text-lg font-bold text-gray-700 dark:text-gray-500" data-testid="text-intro-clue-prompt" style={{ maxWidth: '280px', margin: '0 auto' }}>
                   {hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!"}
                 </p>
                 
