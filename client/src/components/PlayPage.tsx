@@ -1515,13 +1515,15 @@ export function PlayPage({
         )}
       </AnimatePresence>
       
-      {/* Main game content - hidden when IntroScreen is exiting via back button */}
-      {/* When introExitingViaBack is true, we hide content so IntroScreen animates over solid background */}
+      {/* Main game content - fades out when IntroScreen is exiting via back button */}
+      {/* When introExitingViaBack is true, content fades out so IntroScreen animates over solid background */}
       <div 
         className="fixed inset-0 flex flex-col overflow-hidden touch-none"
         style={{ 
           backgroundColor: '#FAFAFA',
-          visibility: introExitingViaBack ? 'hidden' : 'visible'
+          opacity: introExitingViaBack ? 0 : 1,
+          transition: 'opacity 150ms ease-out',
+          pointerEvents: introExitingViaBack ? 'none' : 'auto'
         }}
       >
       {/* Fixed Header */}

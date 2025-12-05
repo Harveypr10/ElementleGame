@@ -96,9 +96,12 @@ export function IntroScreen({
   }, [onPlayClick, triggerExit]);
   
   const handleBack = useCallback(() => {
-    // Call onExitStart immediately so parent can hide its content before we animate
+    // Call onExitStart immediately so parent can start fading its content
     onExitStart?.();
-    triggerExit(onBack);
+    // Small delay before starting slide animation - lets parent content fade first
+    setTimeout(() => {
+      triggerExit(onBack);
+    }, 50);
   }, [onBack, onExitStart, triggerExit]);
 
   // Delay initial render by 150ms to let spinner fully paint first
