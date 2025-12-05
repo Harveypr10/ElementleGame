@@ -253,23 +253,25 @@ export function IntroScreen({
               )}
 
               <div className="text-center space-y-4 flex-grow flex flex-col justify-center">
-                <p className="font-bold text-lg" data-testid="text-intro-clue-prompt" style={{ maxWidth: '280px', margin: '0 auto', color: textColor }}>
-                  {hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!"}
+                <p className="font-bold text-lg" data-testid="text-intro-clue-prompt" style={{ maxWidth: '280px', margin: '0 auto', color: isStreakGame ? streakRedColor : textColor }}>
+                  {isStreakGame ? "Continue your streak!" : (hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!")}
                 </p>
                 
-                <div className="space-y-0">
-                  {hasCluesEnabled && categoryOrLocationLabel && (
-                    <p className="text-xl font-bold" data-testid="text-intro-category-location" style={{ color: categoryTextColor }}>
-                      {categoryOrLocationLabel}
-                    </p>
-                  )}
-                  
-                  {hasCluesEnabled && (
-                    <p className="text-xl font-bold" data-testid="text-intro-event-title" style={{ color: textColor }}>
-                      {eventTitle}
-                    </p>
-                  )}
-                </div>
+                {!isStreakGame && (
+                  <div className="space-y-0">
+                    {hasCluesEnabled && categoryOrLocationLabel && (
+                      <p className="text-xl font-bold" data-testid="text-intro-category-location" style={{ color: categoryTextColor }}>
+                        {categoryOrLocationLabel}
+                      </p>
+                    )}
+                    
+                    {hasCluesEnabled && (
+                      <p className="text-xl font-bold" data-testid="text-intro-event-title" style={{ color: textColor }}>
+                        {eventTitle}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <button
@@ -281,17 +283,9 @@ export function IntroScreen({
                 Play
               </button>
 
-              <div className="flex-grow flex flex-col justify-between w-full items-center gap-4">
-                <p className="text-sm" data-testid="text-intro-puzzle-date" style={{ color: isStreakGame ? 'rgba(255, 255, 255, 0.7)' : '#999' }}>
-                  Puzzle date: {displayDate}
-                </p>
-                
-                {isStreakGame && (
-                  <p className="text-lg font-bold" style={{ color: streakRedColor }} data-testid="text-intro-continue-streak">
-                    Continue your streak!
-                  </p>
-                )}
-              </div>
+              <p className="text-sm" data-testid="text-intro-puzzle-date" style={{ color: isStreakGame ? 'rgba(255, 255, 255, 0.7)' : '#999' }}>
+                Puzzle date: {displayDate}
+              </p>
             </div>
           </motion.div>
         </>
