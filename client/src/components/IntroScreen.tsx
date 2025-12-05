@@ -227,10 +227,10 @@ export function IntroScreen({
                     <span
                       className={`font-bold drop-shadow-lg leading-none ${
                         String(currentStreak).length === 1
-                          ? "text-6xl"
-                          : String(currentStreak).length === 2
                           ? "text-5xl"
-                          : "text-4xl"
+                          : String(currentStreak).length === 2
+                          ? "text-4xl"
+                          : "text-3xl"
                       }`}
                       style={{ color: streakRedColor }}
                       data-testid="text-intro-streak-number"
