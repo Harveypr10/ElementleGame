@@ -247,7 +247,7 @@ export function StreakSaverPopup({
                   onClick={handleStartHoliday}
                   disabled={isStartingHoliday}
                   variant="outline"
-                  className="w-full border-blue-400 text-blue-600 hover:bg-blue-50"
+                  className="w-full bg-[#7DAAE8] text-white text-[16px] border-blue-400 hover:bg-blue-400"
                   data-testid="button-start-holiday"
                 >
                   <Umbrella className="h-4 w-4 mr-2" />
