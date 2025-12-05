@@ -118,6 +118,9 @@ export function useBadgeChecker() {
     }
   }, []);
 
+  // Check badges after game completion - only checks Elementle (won in 1-2) and Streak badges
+  // TOP % percentile badges are handled separately by a monthly cron job that inserts pending badges,
+  // which are then awarded when GameSelectionPage loads and processes unawarded badges
   const checkAllBadgesOnGameComplete = useCallback(async (
     won: boolean,
     guessCount: number,
@@ -126,23 +129,23 @@ export function useBadgeChecker() {
   ): Promise<UserBadgeWithDetails | null> => {
     if (!won) return null;
 
+    // Check for "Elementle In" badges (won in 1 or 2 guesses)
     const elementleResult = await checkElementleBadge(guessCount, gameType);
     if (elementleResult.newBadge) {
       return elementleResult.newBadge;
     }
 
+    // Check for streak milestone badges (7, 14, 30, etc. day streaks)
     const streakResult = await checkStreakBadge(currentStreak, gameType);
     if (streakResult.newBadge) {
       return streakResult.newBadge;
     }
 
-    const percentileResult = await checkPercentileBadge(gameType);
-    if (percentileResult.newBadge) {
-      return percentileResult.newBadge;
-    }
+    // Note: TOP % percentile badges are NOT checked here - they are managed by a monthly cron job
+    // and processed as pending badges when the user visits GameSelectionPage
 
     return null;
-  }, [checkElementleBadge, checkStreakBadge, checkPercentileBadge]);
+  }, [checkElementleBadge, checkStreakBadge]);
 
   const dismissBadge = useCallback(() => {
     setPendingBadge(null);
