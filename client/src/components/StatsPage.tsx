@@ -283,7 +283,7 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                       style={{ 
                         height: `${(day.guessCount / 5) * 100}%`,
                         backgroundColor: day.won 
-                          ? (gameType === 'USER' ? '#93cd78' : '#FFD429')
+                          ? (gameType === 'USER' ? '#93cd78' : '#A4DB57')
                           : (gameType === 'USER' ? '#fdab58' : '#8e57db')
                       }}
                       title={`${day.won ? 'Won' : 'Lost'} in ${day.guessCount} guesses`}
@@ -316,7 +316,7 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                         className="h-full transition-all duration-300 flex items-center justify-end pr-2"
                         style={{ 
                           width: `${Math.max(percentage, count > 0 ? 10 : 0)}%`,
-                          backgroundColor: gameType === 'USER' ? '#93cd78' : '#FFD429'
+                          backgroundColor: gameType === 'USER' ? '#93cd78' : '#A4DB57'
                         }}
                         data-testid={`dist-bar-${guessNum}`}
                       >
@@ -338,7 +338,7 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                     className="h-full transition-all duration-300 flex items-center justify-end pr-2"
                     style={{ 
                       width: `${Math.max((stats.played - stats.won) > 0 ? ((stats.played - stats.won) / maxGuesses) * 100 : 0, (stats.played - stats.won) > 0 ? 10 : 0)}%`,
-                      backgroundColor: gameType === 'USER' ? '#fdab58' : '#8e57db'
+                      backgroundColor: gameType === 'USER' ? '#fdab58' : '#FFD429'
                     }}
                     data-testid="dist-bar-lost"
                   >
