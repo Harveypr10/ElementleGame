@@ -183,16 +183,23 @@ export function StreakSaverPopup({
     }
   };
 
+  // Set background color based on game type (matching Archive button colors)
+  const popupBackgroundColor = gameType === "region" ? "#FFD429" : "#fdab58";
+
   return (
     <>
       <Dialog open={showMainPopup} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="max-w-sm" data-testid="streak-saver-popup">
+        <DialogContent 
+          className="max-w-sm" 
+          data-testid="streak-saver-popup"
+          style={{ backgroundColor: popupBackgroundColor }}
+        >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl">
+            <DialogTitle className="flex items-center gap-2 text-xl text-gray-800">
               <Flame className="h-6 w-6 text-orange-500" />
               Save Your Streak?
             </DialogTitle>
-            <DialogDescription className="text-center">
+            <DialogDescription className="text-center text-gray-700">
               You missed yesterday's {gameModeLabel} puzzle!
             </DialogDescription>
           </DialogHeader>
@@ -205,8 +212,8 @@ export function StreakSaverPopup({
             />
             
             <div className="text-center">
-              <p className="text-2xl font-bold text-orange-500">{currentStreak} Day Streak</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-2xl font-bold text-gray-800">{currentStreak} Day Streak</p>
+              <p className="text-sm text-gray-700 mt-1">
                 {hasStreakSaversLeft 
                   ? `You have ${streakSaversRemaining} streak saver${streakSaversRemaining > 1 ? 's' : ''} remaining this month`
                   : "You've used all your streak savers this month"
