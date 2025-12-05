@@ -237,13 +237,10 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
       }
     }
     
-    // Always animate dragX back to center for smooth snap-back of badges
+    // Always animate both dragX and dragY back to center for smooth snap-back
+    // The category transition animation is separate from the drag feedback
     animate(dragX, 0, { type: "spring", stiffness: 300, damping: 30 });
-    
-    // Reset dragY (only bounce back if no category change)
-    if (!categoryChangeTriggered.current) {
-      animate(dragY, 0, { type: "spring", stiffness: 300, damping: 30 });
-    }
+    animate(dragY, 0, { type: "spring", stiffness: 300, damping: 30 });
     
     setLockedDirection(null);
   };
@@ -283,7 +280,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
         <X className="w-6 h-6" />
       </button>
 
-      {/* Top section with DOWN arrow (goes to next category) - fixed at top */}
+      {/* Top section with UP arrow icon (goes to next category) - fixed at top */}
       <div className="relative z-20 pt-8 pb-2 flex justify-center">
         {/* Background overlay to hide content animating behind */}
         <div className="absolute inset-0 bg-background" />
@@ -293,9 +290,9 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
               onClick={() => handleCategoryChange(currentCategoryIndex + 1)}
               className="w-14 h-14 flex items-center justify-center rounded-full transition-opacity hover:opacity-80"
               style={{ backgroundColor: arrowButtonColor }}
-              data-testid="button-category-down"
+              data-testid="button-category-next"
             >
-              <ChevronDown className="h-10 w-10 text-white" />
+              <ChevronUp className="h-10 w-10 text-white" />
             </button>
           ) : (
             <div className="w-14 h-14" /> 
@@ -421,7 +418,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
         </AnimatePresence>
       </div>
 
-      {/* Bottom section with toggle and UP arrow (goes to previous category) - fixed at bottom */}
+      {/* Bottom section with toggle and DOWN arrow icon (goes to previous category) - fixed at bottom */}
       <div className={cn(
         "relative z-20 flex flex-col items-center",
         adBannerActive ? "pb-20" : "pb-8"
@@ -447,15 +444,15 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
             ))}
           </div>
 
-          {/* Up Arrow (goes to previous category) */}
+          {/* Down Arrow icon (goes to previous category) */}
           {currentCategoryIndex > 0 ? (
             <button
               onClick={() => handleCategoryChange(currentCategoryIndex - 1)}
               className="w-14 h-14 flex items-center justify-center rounded-full transition-opacity hover:opacity-80"
               style={{ backgroundColor: arrowButtonColor }}
-              data-testid="button-category-up"
+              data-testid="button-category-prev"
             >
-              <ChevronUp className="h-10 w-10 text-white" />
+              <ChevronDown className="h-10 w-10 text-white" />
             </button>
           ) : (
             <div className="w-14 h-14" />
