@@ -702,20 +702,20 @@ if (!supabaseUrl) {
 
       return (
         <div
-          className="min-h-screen flex flex-col p-4"
+          className="h-screen flex flex-col p-4 overflow-hidden"
           style={{ backgroundColor: "#7DAAE8" }}
         >
-          {/* Hamster Image */}
-          <div className="mb-8 flex justify-center">
+          {/* Hamster Image - smaller on mobile to give more room for event titles */}
+          <div className="mb-4 sm:mb-8 flex justify-center flex-shrink-0">
             <img
               src={HamsterImageUrl}
               alt="Hammie"
-              className="w-64 h-64 object-contain"
+              className="w-44 h-44 sm:w-64 sm:h-64 object-contain"
             />
           </div>
 
           {/* Animated Text Blocks (constrained area between hamster and footer) */}
-          <div ref={containerRef} className="relative w-full flex-1 pb-6">
+          <div ref={containerRef} className="relative w-full flex-1 min-h-0">
             {textBlocks.map((block) => (
               <div
                 key={block.id}
@@ -743,12 +743,9 @@ if (!supabaseUrl) {
             ))}
           </div>
 
-          {/* Footer Text */}
-          <div
-            className="mt-4 text-center max-w-md mx-auto"
-            style={{ transform: "translateY(-8px)" }} // adjust -8px to taste
-          >
-            <p className="text-white font-medium text-xl leading-snug">
+          {/* Footer Text - always visible at bottom */}
+          <div className="flex-shrink-0 py-4 text-center max-w-md mx-auto">
+            <p className="text-white font-medium text-lg sm:text-xl leading-snug">
               One moment please, Hammie is cooking up your personalised questions...
             </p>
           </div>
