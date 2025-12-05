@@ -986,21 +986,21 @@ export function GameSelectionPage({
         /* Desktop: Header (not fixed) */
         <div className="flex-shrink-0 p-4">
           <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto w-full">
-            <div className="flex items-center justify-between mb-2">
+            <div className="relative flex items-center justify-between mb-2">
               <button
                 onClick={() => setShowHelp(true)}
                 data-testid="button-help"
-                className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors z-10"
               >
                 <img src={greyHelpIcon} alt="Help" className="h-9 w-9 block dark:hidden" />
                 <img src={whiteHelpIcon} alt="Help" className="h-9 w-9 hidden dark:block" />
               </button>
 
-              <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-gray-100" data-testid="text-title">
+              <h1 className="absolute left-1/2 -translate-x-1/2 text-4xl sm:text-5xl font-bold text-gray-900 dark:text-gray-100" data-testid="text-title">
                 Elementle
               </h1>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 z-10">
                 {/* Go Pro / Ads button - next to settings, only for authenticated users */}
                 {isAuthenticated && (
                   <div className="flex-shrink-0">
