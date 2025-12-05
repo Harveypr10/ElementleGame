@@ -101,7 +101,7 @@ export function PlayPage({
   );
   const { stats: supabaseStats } = useUserStats();
   const { settings } = useUserSettings();
-  const { holidayActive, holidayEndDate, endHoliday, isEndingHoliday, refetch: refetchStreakStatus } = useStreakSaverStatus();
+  const { holidayActive, holidayEndDate, endHoliday, isEndingHoliday, useStreakSaver: useStreakSaverMutation, declineStreakSaver, refetch: refetchStreakStatus } = useStreakSaverStatus();
   const { isInStreakSaverMode, session: streakSaverSession, completeStreakSaverSession, cancelStreakSaverSession } = useStreakSaver();
   const { getGuessesForPuzzle, setGuessesForPuzzle, addGuessToCache } = useGuessCache();
   const { isLocalMode: contextIsLocalMode } = useGameMode();
@@ -225,11 +225,27 @@ export function PlayPage({
   }, [isCurrentStreakSaverGame, onBack]);
   
   // Handle cancel streak saver and lose streak
-  const handleCancelStreakSaver = useCallback(() => {
+  // This is called when user confirms they want to exit without completing the puzzle
+  // The streak is reset to 0 but the streak saver is NOT consumed
+  const handleCancelStreakSaver = useCallback(async () => {
     setShowStreakSaverExitWarning(false);
+    
+    // Reset streak via decline API (does NOT use a streak saver)
+    if (streakSaverSession) {
+      try {
+        console.log('[CancelStreakSaver] Declining streak saver - resetting streak without consuming saver');
+        await declineStreakSaver(streakSaverSession.gameType);
+        // Refetch streak status to update UI
+        await refetchStreakStatus();
+      } catch (error) {
+        console.error('[CancelStreakSaver] Failed to decline streak saver:', error);
+      }
+    }
+    
+    // Clear the session context
     cancelStreakSaverSession();
     onBack();
-  }, [cancelStreakSaverSession, onBack]);
+  }, [streakSaverSession, declineStreakSaver, refetchStreakStatus, cancelStreakSaverSession, onBack]);
   
   // Handle continue playing
   const handleContinuePlaying = useCallback(() => {
@@ -1092,6 +1108,25 @@ export function PlayPage({
           guessCount: newGuesses.length,
         });
       }
+      
+      // Handle streak saver completion - mark as used only after puzzle played to conclusion
+      if (isInStreakSaverMode && streakSaverSession && isAuthenticated) {
+        const gameType = streakSaverSession.gameType;
+        console.log('[Win] Completing streak saver session:', { gameType, won: true });
+        try {
+          // Mark streak saver as used in database
+          await useStreakSaverMutation(gameType);
+          // Refetch streak status to update UI
+          await refetchStreakStatus();
+          // Complete the session context
+          completeStreakSaverSession(true);
+          console.log('[Win] Streak saver used successfully - streak extended by 1 day');
+        } catch (error) {
+          console.error('[Win] Failed to use streak saver:', error);
+          // Still complete the session to clear the mode
+          completeStreakSaverSession(true);
+        }
+      }
     } else if (isLosingGuess) {
       // Game lost
       setIsWin(false);
@@ -1127,6 +1162,26 @@ export function PlayPage({
           guessCount: newGuesses.length,
         });
       }
+      
+      // Handle streak saver completion - mark as used only after puzzle played to conclusion
+      // On loss: still uses streak saver, but streak resets to 0
+      if (isInStreakSaverMode && streakSaverSession && isAuthenticated) {
+        const gameType = streakSaverSession.gameType;
+        console.log('[Lose] Completing streak saver session:', { gameType, won: false });
+        try {
+          // Mark streak saver as used in database
+          await useStreakSaverMutation(gameType);
+          // Refetch streak status to update UI
+          await refetchStreakStatus();
+          // Complete the session context (with false to indicate loss)
+          completeStreakSaverSession(false);
+          console.log('[Lose] Streak saver used - streak reset to 0 due to loss');
+        } catch (error) {
+          console.error('[Lose] Failed to use streak saver:', error);
+          // Still complete the session to clear the mode
+          completeStreakSaverSession(false);
+        }
+      }
     } else {
       // Game in progress - save current state to localStorage
       setWrongGuessCount(newWrongGuessCount);
@@ -1152,7 +1207,7 @@ export function PlayPage({
         keyStates: newKeyStates
       }));
     }
-  }, [currentInput, gameOver, guesses, guessRecords, formattedAnswer, maxGuesses, keyStates, wrongGuessCount, isAuthenticated, puzzleId, currentGameAttemptId, activeNumDigits]);
+  }, [currentInput, gameOver, guesses, guessRecords, formattedAnswer, maxGuesses, keyStates, wrongGuessCount, isAuthenticated, puzzleId, currentGameAttemptId, activeNumDigits, isInStreakSaverMode, streakSaverSession, useStreakSaverMutation, refetchStreakStatus, completeStreakSaverSession]);
 
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
     if (gameOver || viewOnly) return;

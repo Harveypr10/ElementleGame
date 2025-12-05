@@ -25,6 +25,7 @@ import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 import type { UserBadgeWithDetails } from "@shared/schema";
@@ -72,7 +73,11 @@ export default function Home() {
   // Track pending play navigation (waiting for data to load)
   const [pendingPlayMode, setPendingPlayMode] = useState<'global' | 'local' | null>(null);
   // Track pending yesterday puzzle navigation (for streak saver)
-  const [pendingYesterdayPuzzle, setPendingYesterdayPuzzle] = useState<{ mode: 'global' | 'local', date: string } | null>(null);
+  // NOTE: pendingYesterdayPuzzle state has been removed - streak saver now fetches directly from API
+  // Track directly-fetched streak saver puzzle (for yesterday's puzzle navigation)
+  const [streakSaverPuzzle, setStreakSaverPuzzle] = useState<Puzzle | null>(null);
+  // Track if we're loading the streak saver puzzle
+  const [loadingStreakSaverPuzzle, setLoadingStreakSaverPuzzle] = useState(false);
   
   // Fetch BOTH global and local puzzles to avoid race conditions when switching modes
   const globalPuzzlesEndpoint = isAuthenticated ? '/api/puzzles' : '/api/puzzles/guest';
@@ -245,49 +250,9 @@ export default function Home() {
     setCurrentScreen("play");
   }, [pendingPlayMode, localPuzzlesLoading, globalPuzzlesLoading, loadingLocalAttempts, loadingGlobalAttempts, localPuzzles, globalPuzzles, localGameAttempts, globalGameAttempts, isAuthenticated]);
 
-  // Handle pending yesterday puzzle navigation (streak saver flow)
-  // Waits for BOTH puzzles AND attempts to load before navigating
-  useEffect(() => {
-    if (!pendingYesterdayPuzzle) return;
-    
-    const { mode, date } = pendingYesterdayPuzzle;
-    const modePuzzlesLoading = mode === 'local' ? localPuzzlesLoading : globalPuzzlesLoading;
-    const modeAttemptsLoading = mode === 'local' ? loadingLocalAttempts : loadingGlobalAttempts;
-    
-    // Derive "data ready" flags from loading states
-    // When loading is false, the query has completed and data is available (even if empty)
-    const puzzlesReady = !modePuzzlesLoading;
-    const attemptsReady = !isAuthenticated || !modeAttemptsLoading; // Guests don't need attempts
-    
-    // Wait for both puzzles AND attempts to finish loading
-    if (!puzzlesReady || !attemptsReady) {
-      console.log('[pendingYesterdayPuzzle] Still waiting for data to load for mode:', mode,
-        '- puzzlesReady:', puzzlesReady, 'attemptsReady:', attemptsReady);
-      return;
-    }
-    
-    // Data is ready - find the puzzle and navigate
-    console.log('[pendingYesterdayPuzzle] Puzzles loaded, proceeding with navigation for mode:', mode);
-    setPendingYesterdayPuzzle(null); // Clear pending state
-    
-    const modePuzzles = mode === 'local' ? localPuzzles : globalPuzzles;
-    const yesterdayPuzzle = modePuzzles.find(p => p.date === date);
-    
-    if (yesterdayPuzzle) {
-      setSelectedPuzzleId(yesterdayPuzzle.id.toString());
-      setShowCelebrationFirst(false);
-      setHasOpenedCelebration(false);
-      setHasExistingProgress(false);
-      setPreviousScreen("selection");
-      setCurrentScreen("play");
-    } else {
-      toast({
-        title: "Puzzle not available",
-        description: "Yesterday's puzzle could not be loaded. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [pendingYesterdayPuzzle, localPuzzlesLoading, globalPuzzlesLoading, loadingLocalAttempts, loadingGlobalAttempts, localPuzzles, globalPuzzles, localGameAttempts, globalGameAttempts, isAuthenticated, toast]);
+  // NOTE: The old pendingYesterdayPuzzle useEffect has been removed.
+  // Streak saver navigation now fetches yesterday's puzzle directly from the API
+  // in handlePlayYesterdaysPuzzle, which is more reliable than finding it in the cached list.
 
   // Helper to get today's date string
   const getTodayDateString = () => {
@@ -321,8 +286,11 @@ export default function Home() {
   };
 
   // Current puzzle for PlayPage - uses puzzleSourceMode to ensure correct mode's data
+  // Priority: 1. Streak saver puzzle (fetched directly), 2. Puzzle from list by ID, 3. Daily puzzle
   const currentPuzzle = selectedPuzzleId 
-    ? getPuzzleById(selectedPuzzleId, puzzleSourceMode) || getDailyPuzzle(puzzleSourceMode)
+    ? (streakSaverPuzzle && streakSaverPuzzle.id.toString() === selectedPuzzleId 
+        ? streakSaverPuzzle 
+        : getPuzzleById(selectedPuzzleId, puzzleSourceMode)) || getDailyPuzzle(puzzleSourceMode)
     : getDailyPuzzle(puzzleSourceMode);
 
   const handlePlayPuzzle = (puzzleId: string) => {
@@ -526,7 +494,7 @@ export default function Home() {
   };
   
   // Handle playing yesterday's puzzle for streak saver flow
-  const handlePlayYesterdaysPuzzle = (gameType: "region" | "user", puzzleDate: string) => {
+  const handlePlayYesterdaysPuzzle = async (gameType: "region" | "user", puzzleDate: string) => {
     // Determine the explicit mode from game type
     const mode = gameType === 'region' ? 'global' : 'local';
     
@@ -534,36 +502,44 @@ export default function Home() {
     setGameMode(mode);
     setPuzzleSourceMode(mode);
     
-    // Check if the mode's data is still loading (BOTH puzzles AND attempts)
-    const modePuzzlesLoading = mode === 'local' ? localPuzzlesLoading : globalPuzzlesLoading;
-    const modeAttemptsLoading = mode === 'local' ? loadingLocalAttempts : loadingGlobalAttempts;
+    console.log('[handlePlayYesterdaysPuzzle] Fetching puzzle for date:', puzzleDate, 'mode:', mode);
     
-    if (modePuzzlesLoading || modeAttemptsLoading) {
-      // Data still loading - set pending state and let useEffect handle navigation when ready
-      console.log('[handlePlayYesterdaysPuzzle] Data still loading, setting pending state');
-      setPendingYesterdayPuzzle({ mode, date: puzzleDate });
-      return;
-    }
+    // Show loading state
+    setLoadingStreakSaverPuzzle(true);
     
-    // Find yesterday's puzzle in the explicit mode's puzzle array (avoids race condition)
-    const modePuzzles = mode === 'local' ? localPuzzles : globalPuzzles;
-    const yesterdayPuzzle = modePuzzles.find(p => p.date === puzzleDate);
-    
-    if (yesterdayPuzzle) {
+    try {
+      // Fetch yesterday's puzzle directly from the API (it may not be in the normal puzzle list)
+      const endpoint = mode === 'local' 
+        ? `/api/user/puzzles/${puzzleDate}` 
+        : `/api/puzzles/${puzzleDate}`;
+      
+      const response = await apiRequest("GET", endpoint);
+      
+      if (!response.ok) {
+        throw new Error("Puzzle not found");
+      }
+      
+      const yesterdayPuzzle = await response.json() as Puzzle;
+      
+      console.log('[handlePlayYesterdaysPuzzle] Fetched puzzle:', yesterdayPuzzle.id, yesterdayPuzzle.eventTitle);
+      
+      // Store the fetched puzzle and navigate
+      setStreakSaverPuzzle(yesterdayPuzzle);
       setSelectedPuzzleId(yesterdayPuzzle.id.toString());
       setShowCelebrationFirst(false);
       setHasOpenedCelebration(false);
       setHasExistingProgress(false);
       setPreviousScreen("selection");
       setCurrentScreen("play");
-    } else {
-      // If puzzle not in current array, we may need to fetch it
-      // For now, show an error
+    } catch (error) {
+      console.error('[handlePlayYesterdaysPuzzle] Error fetching puzzle:', error);
       toast({
         title: "Puzzle not available",
         description: "Yesterday's puzzle could not be loaded. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setLoadingStreakSaverPuzzle(false);
     }
   };
   
@@ -799,7 +775,11 @@ export default function Home() {
               hasOpenedCelebration={hasOpenedCelebration}
               puzzleSourceMode={puzzleSourceMode}
               onSetHasOpenedCelebration={setHasOpenedCelebration}
-              onBack={() => setCurrentScreen(previousScreen === "archive" ? "archive" : "selection")}
+              onBack={() => {
+                // Clear streak saver puzzle state to prevent stale navigation
+                setStreakSaverPuzzle(null);
+                setCurrentScreen(previousScreen === "archive" ? "archive" : "selection");
+              }}
               onHomeFromCelebration={() => {
                 setShowCelebrationFirst(false);
                 setCurrentScreen("selection");

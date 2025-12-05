@@ -15,7 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **UI/UX**: Custom color palette, responsive mobile-first design, Lottie animations for loading, and game-specific visual feedback.
 - **Features**: Realtime UI updates via `useRealtimeSubscriptions`, navigation-based data refresh, intro screen for game info.
 - **Loading System**: `SpinnerProvider` with a hamster wheel animation, including timeout/retry logic and data validation before completion.
-- **Game Modes**: Supports Global and Local game modes with independent data handling. CRITICAL: Mode switching uses explicit `puzzleSourceMode` state to avoid race conditions with React's async state updates. The system fetches both global and local puzzles/attempts simultaneously and uses a pending navigation pattern (`pendingPlayMode`, `pendingYesterdayPuzzle`) to wait for data to load before navigating to PlayPage - ensuring `showCelebrationFirst` and `hasExistingProgress` are computed with correct data. See `handlePlayGlobal`/`handlePlayLocal` and `handlePlayYesterdaysPuzzle` in Home.tsx.
+- **Game Modes**: Supports Global and Local game modes with independent data handling. CRITICAL: Mode switching uses explicit `puzzleSourceMode` state to avoid race conditions with React's async state updates. The system fetches both global and local puzzles/attempts simultaneously and uses a pending navigation pattern (`pendingPlayMode`) to wait for data to load before navigating to PlayPage - ensuring `showCelebrationFirst` and `hasExistingProgress` are computed with correct data. See `handlePlayGlobal`/`handlePlayLocal` in Home.tsx.
 - **Subscription UI**: Dynamic display of subscription tiers, renewal options, and allowances for Pro and Standard users.
 - **Restriction System**: Cooldowns for location and category changes, managed by admin settings and implemented with React Query for robust client-side validation and UI feedback.
 - **Streak & Holiday Protection**: UI for managing streak savers and Pro-only holiday protection.
@@ -34,6 +34,10 @@ Preferred communication style: Simple, everyday language.
 - **Guest Mode**: Allows playing Global puzzles with restrictions on Personal mode and Archive, prompting registration.
 - **Admin Panel**: For configuring postcode/region/category change restrictions and demand scheduler cron jobs.
 - **Streak Saver System**: Allows users to protect streaks with tier-based allowances, with API for status and usage.
+  - **Navigation**: Fetches yesterday's puzzle directly from API (`/api/puzzles/:date` or `/api/user/puzzles/:date`) via `handlePlayYesterdaysPuzzle` in Home.tsx, storing in `streakSaverPuzzle` state.
+  - **Usage Tracking**: Streak saver is only consumed after puzzle played to conclusion (win or lose), not when popup clicked.
+  - **Exit Behavior**: Exiting without completion triggers warning popup; confirming resets streak to 0 via decline API but does NOT consume streak saver.
+  - **State Management**: `streakSaverPuzzle` cleared when navigating away from PlayPage to prevent stale navigation.
 - **Holiday Protection System**: Pro-only feature to pause Local mode puzzles.
 - **Badge System**: Achievement badges for milestones across three categories:
   - **Elementle In**: Awarded for winning in 1 or 2 guesses (checked immediately after each game)
