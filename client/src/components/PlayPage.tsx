@@ -247,20 +247,6 @@ export function PlayPage({
     onTimeout: handleGameLoadTimeout,
   });
   
-  // Spinner for intro screen image preloading
-  // Callback when intro spinner completes or image loaded quickly
-  const handleIntroPreloadComplete = useCallback(() => {
-    console.log('[PlayPage] Intro content preloaded - now showing IntroScreen');
-    setIntroContentPreloaded(true);
-    setShowIntroScreen(true);
-    introSpinnerRef.current = false;
-  }, []);
-  
-  const introSpinner = useSpinnerWithTimeout({
-    retryDelayMs: 10000, // Generous retry for image loading
-    timeoutMs: 15000, 
-    onFadeOutComplete: handleIntroPreloadComplete,
-  });
   
   // Check if game is loading based on actual data loading states
   // Show spinner when: format loading, attempts loading, or guesses being fetched
@@ -806,56 +792,40 @@ export function PlayPage({
   // Only show intro once when component mounts and conditions are met
   // Uses image.decode() for reliable image readiness before mounting
   useEffect(() => {
-    let cancelled = false;
-    
-    if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !introScreenReady) {
+    // Only proceed if all conditions are met and we haven't started preloading yet
+    if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !introScreenReady && !introSpinnerRef.current) {
       // Skip intro if parent tells us there's existing progress
       if (hasExistingProgress) {
         setIntroScreenReady(true); // Mark as ready but don't show
         return;
       }
       
-      // Mark intro as ready but don't show yet - need to preload image first
+      // Mark that we've started preloading (prevents duplicate preloads)
+      introSpinnerRef.current = true;
+      
+      // Mark intro as ready (tracks that we've handled the intro decision)
       setIntroScreenReady(true);
       
-      // Start preloading the intro screen image with spinner delay
-      if (!introSpinnerRef.current) {
-        introSpinnerRef.current = true;
-        
-        // Start spinner with 150ms delay (only shows if loading takes longer)
-        introSpinner.start(150);
-        
-        // Preload the hamster image using decode() for reliable readiness
-        const img = new Image();
-        img.src = welcomeHamsterGrey;
-        
-        // Use decode() for reliable "ready to display" detection
-        img.decode()
-          .then(() => {
-            if (!cancelled) {
-              console.log('[PlayPage] Intro hamster image decoded and ready');
-              // Image fully decoded - complete the spinner (handles fade out timing)
-              introSpinner.complete();
-            }
-          })
-          .catch(() => {
-            if (!cancelled) {
-              console.warn('[PlayPage] Failed to decode intro image, showing anyway');
-              introSpinner.complete();
-            }
-          });
-      }
+      // Preload the hamster image using decode() for reliable readiness
+      const img = new Image();
+      img.src = welcomeHamsterGrey;
+      
+      // Use decode() for reliable "ready to display" detection
+      img.decode()
+        .then(() => {
+          // Image fully decoded - now show the intro screen
+          setIntroContentPreloaded(true);
+          setShowIntroScreen(true);
+        })
+        .catch(() => {
+          // Show anyway even if decode failed
+          setIntroContentPreloaded(true);
+          setShowIntroScreen(true);
+        });
     }
-    
-    // Cleanup on unmount
-    return () => {
-      cancelled = true;
-      if (introSpinnerRef.current) {
-        introSpinner.cancel();
-        introSpinnerRef.current = false;
-      }
-    };
-  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady, hasExistingProgress, introSpinner]);
+    // NOTE: No cleanup needed - we want the decode to complete even if deps change
+    // The introSpinnerRef.current flag prevents duplicate preloads
+  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady, hasExistingProgress]);
 
   // Helper function to format date for intro display
   const formatDateForIntro = (dateCanonical: string): string => {
