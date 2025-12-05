@@ -177,6 +177,7 @@ export function PlayPage({
   const [lockedDigits, setLockedDigits] = useState<string | null>(null);
   const [digitsCheckComplete, setDigitsCheckComplete] = useState(false);
   const [showIntroScreen, setShowIntroScreen] = useState(false);
+  const [introExitingViaBack, setIntroExitingViaBack] = useState(false); // Track if IntroScreen is animating off via back button
   const introScreenChecked = useRef(false); // Track if we've already made the intro screen decision
   
   // Streak saver exit warning dialog state
@@ -1508,14 +1509,20 @@ export function PlayPage({
             locationName={undefined}
             onPlayClick={() => setShowIntroScreen(false)}
             onBack={handleBackButtonPress}
+            onExitStart={() => setIntroExitingViaBack(true)}
             formatDateForDisplay={formatDateForIntro}
           />
         )}
       </AnimatePresence>
       
-      {/* Main game content - hidden behind intro screen when showing */}
+      {/* Main game content - hidden when IntroScreen is exiting via back button */}
+      {/* When introExitingViaBack is true, we hide content so IntroScreen animates over solid background */}
       <div 
-        className="fixed inset-0 flex flex-col overflow-hidden bg-background touch-none"
+        className="fixed inset-0 flex flex-col overflow-hidden touch-none"
+        style={{ 
+          backgroundColor: '#FAFAFA',
+          visibility: introExitingViaBack ? 'hidden' : 'visible'
+        }}
       >
       {/* Fixed Header */}
       <div className="shrink-0 flex items-center justify-between px-4 pt-4">

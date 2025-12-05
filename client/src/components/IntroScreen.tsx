@@ -13,6 +13,7 @@ interface IntroScreenProps {
   locationName?: string;
   onPlayClick: () => void;
   onBack: () => void;
+  onExitStart?: () => void; // Called immediately when back is pressed, before animation starts
   formatDateForDisplay: (date: string) => string;
 }
 
@@ -25,6 +26,7 @@ export function IntroScreen({
   locationName,
   onPlayClick,
   onBack,
+  onExitStart,
   formatDateForDisplay,
 }: IntroScreenProps) {
   const [shouldRender, setShouldRender] = useState(false);
@@ -94,8 +96,10 @@ export function IntroScreen({
   }, [onPlayClick, triggerExit]);
   
   const handleBack = useCallback(() => {
+    // Call onExitStart immediately so parent can hide its content before we animate
+    onExitStart?.();
     triggerExit(onBack);
-  }, [onBack, triggerExit]);
+  }, [onBack, onExitStart, triggerExit]);
 
   // Delay initial render by 150ms to let spinner fully paint first
   useEffect(() => {
