@@ -562,14 +562,14 @@ export function GameSelectionPage({
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show region label title */}
           {isDesktop && isAuthenticated && (
-            <div className="text-center mb-4 h-10 flex items-center justify-center">
+            <div className="text-center mb-2 h-10 flex items-center justify-center">
               <h2 className="text-2xl font-bold text-foreground font-bold">{cachedRegionLabel}</h2>
             </div>
           )}
 
           {/* Desktop: Show only secondary message (no "Welcome back") */}
           {isDesktop && isAuthenticated && globalIntroMessage && (
-            <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-global">
+            <div className="text-center mb-2 h-16 flex flex-col justify-center" data-testid="intro-message-global">
               <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-global">
                 {globalIntroMessage.secondLine}
               </div>
@@ -777,14 +777,14 @@ export function GameSelectionPage({
         <div className="max-w-md mx-auto w-full">
           {/* Desktop: Show user name title */}
           {isDesktop && isAuthenticated && (
-            <div className="text-center mb-4 h-10 flex items-center justify-center">
+            <div className="text-center mb-2 h-10 flex items-center justify-center">
               <h2 className="text-2xl font-bold text-foreground font-bold">{cachedUserName}</h2>
             </div>
           )}
 
           {/* Desktop: Show only secondary message (no "Welcome back") */}
           {isDesktop && isAuthenticated && localIntroMessage && (
-            <div className="text-center mb-4 h-16 flex flex-col justify-center" data-testid="intro-message-local-desktop">
+            <div className="text-center mb-2 h-16 flex flex-col justify-center" data-testid="intro-message-local-desktop">
               <div className="text-base text-gray-600 dark:text-gray-400" data-testid="intro-second-line-local">
                 {localIntroMessage.secondLine}
               </div>
@@ -1024,7 +1024,7 @@ export function GameSelectionPage({
               )}
             </div>
 
-            <div className="flex justify-center mb-4">
+            <div className="flex justify-center mb-2">
               <div className="text-center">
                 <div className="text-2xl font-bold text-foreground">
                   {getGreeting()}
@@ -1072,7 +1072,7 @@ export function GameSelectionPage({
                   }}
                 >
                   <motion.button
-                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    className="flex-1 h-36 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                     style={{ backgroundColor: "#A4DB57" }}
                     onClick={() => {
                       if (!isAuthenticated) {
@@ -1098,7 +1098,7 @@ export function GameSelectionPage({
                   </motion.button>
 
                   <motion.button
-                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    className="flex-1 h-36 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                     style={{ backgroundColor: "#C4C9D4" }}
                     onClick={onOpenOptions}
                     data-testid="button-options-desktop"
@@ -1118,7 +1118,7 @@ export function GameSelectionPage({
                   </motion.button>
 
                   <motion.button
-                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    className="flex-1 h-36 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
                     style={{ backgroundColor: "#93cd78" }}
                     onClick={() => {
                       if (!isAuthenticated) {
