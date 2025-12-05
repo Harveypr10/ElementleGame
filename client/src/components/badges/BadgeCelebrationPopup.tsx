@@ -6,6 +6,8 @@ import { Target, Flame, Percent } from "lucide-react";
 import type { UserBadgeWithDetails } from "@shared/schema";
 import badgePlaceholder from "@assets/Signup-Hamster-Transparent.png";
 
+import Streak_Hamster_Black from "@assets/Streak-Hamster-Black.png";
+
 declare global {
   interface Window {
     lottie: {
@@ -162,7 +164,7 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
           />
           
           <img 
-            src={badgePlaceholder} 
+            src={Streak_Hamster_Black} 
             alt="Badge" 
             className="w-20 h-20 object-contain"
             data-testid="badge-image"
