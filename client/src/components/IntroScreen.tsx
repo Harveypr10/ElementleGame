@@ -167,7 +167,7 @@ export function IntroScreen({
   const backgroundColor = isStreakGame ? '#000000' : '#FAFAFA';
   const textColor = isStreakGame ? '#FFFFFF' : '#54524F';
   const categoryTextColor = isStreakGame ? '#FFD700' : '#1e3a8a';
-  const backButtonHoverBg = isStreakGame ? 'rgba(255, 255, 255, 0.1)' : 'hover:bg-gray-200';
+  const streakRedColor = '#DC2626'; // Same red as streak celebration popup (text-red-600)
   
   return (
     <motion.div
@@ -213,20 +213,24 @@ export function IntroScreen({
           >
             <div className="flex flex-col items-center justify-center w-full space-y-6 h-full">
               {isStreakGame && (
-                <div className="relative">
-                  <div className="h-32 w-32 flex items-center justify-center">
-                    <img
-                      src={streakHamsterBlack}
-                      alt="Streak"
-                      className="h-32 w-auto object-contain"
-                      data-testid="img-hamster-intro"
-                    />
-                  </div>
+                <div className="relative w-48 h-48 flex items-center justify-center">
+                  <img
+                    src={streakHamsterBlack}
+                    alt="Streak"
+                    className="w-full h-full object-contain"
+                    data-testid="img-hamster-intro"
+                  />
                   <div 
-                    className="absolute top-0 right-0 bg-yellow-400 rounded-full w-12 h-12 flex items-center justify-center font-bold text-black text-lg"
-                    style={{ transform: 'translate(25%, -25%)' }}
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ top: "50%" }}
                   >
-                    {currentStreak}
+                    <span
+                      className="font-bold drop-shadow-lg leading-none text-5xl"
+                      style={{ color: streakRedColor }}
+                      data-testid="text-intro-streak-number"
+                    >
+                      {currentStreak}
+                    </span>
                   </div>
                 </div>
               )}
@@ -271,13 +275,13 @@ export function IntroScreen({
                 Play
               </button>
 
-              <div className="flex-grow flex flex-col justify-between w-full items-center">
+              <div className="flex-grow flex flex-col justify-between w-full items-center gap-4">
                 <p className="text-sm" data-testid="text-intro-puzzle-date" style={{ color: isStreakGame ? 'rgba(255, 255, 255, 0.7)' : '#999' }}>
                   Puzzle date: {displayDate}
                 </p>
                 
                 {isStreakGame && (
-                  <p className="text-lg font-bold" style={{ color: '#FF6B6B' }} data-testid="text-intro-continue-streak">
+                  <p className="text-lg font-bold" style={{ color: streakRedColor }} data-testid="text-intro-continue-streak">
                     Continue your streak!
                   </p>
                 )}
