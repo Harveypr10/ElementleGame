@@ -16,7 +16,7 @@ import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
 import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
 import { useCategoryRestriction } from "@/hooks/useCategoryRestriction";
 import { useToast } from "@/hooks/use-toast";
-import { motion, useTransform } from "framer-motion";
+import { motion, useTransform, AnimatePresence } from "framer-motion";
 import { useSwipeable } from "react-swipeable";
 import { useModeController } from "@/hooks/useModeController";
 import { readLocal, writeLocal, CACHE_KEYS } from "@/lib/localCache";
@@ -106,6 +106,12 @@ export function GameSelectionPage({
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   const [showStreakSaverPopup, setShowStreakSaverPopup] = useState<'region' | 'user' | null>(null);
   const isLocalMode = gameMode === 'local';
+  
+  // Animation key - increments on each mount to force animation replay
+  const [animationKey, setAnimationKey] = useState(0);
+  useEffect(() => {
+    setAnimationKey(prev => prev + 1);
+  }, []);
 
   const {
     status: streakStatus,
@@ -1049,79 +1055,95 @@ export function GameSelectionPage({
 
             {/* Desktop: Bottom buttons - Options always visible, Stats visible for all */}
             <div className="flex-shrink-0 px-4 pb-24 mt-4">
-              <div className="max-w-[calc(2*28rem+0.5rem)] mx-auto flex gap-2">
-                <motion.button
-                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#A4DB57" }}
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      setShowGuestRestriction('personal');
-                      return;
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`desktop-buttons-${animationKey}`}
+                  className="max-w-[calc(2*28rem+0.5rem)] mx-auto flex gap-2"
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    hidden: {},
+                    visible: {
+                      transition: {
+                        staggerChildren: 0.08,
+                        delayChildren: 0.1
+                      }
                     }
-                    onViewStats();
                   }}
-                  data-testid="button-stats-desktop-global"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  layout
-                  transition={{ duration: 0.25, delay: 0.15, ease: "easeOut" }}
                 >
-                  <span className="text-xl font-bold text-gray-800 text-center">
-                    {cachedRegionLabel.split(' ')[0]} Stats
-                  </span>
-                  <img
-                    src={mathsHamsterGreen}
-                    alt="Global Stats"
-                    className="max-h-[72px] w-auto object-contain mt-4"
-                  />
-                </motion.button>
+                  <motion.button
+                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    style={{ backgroundColor: "#A4DB57" }}
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        setShowGuestRestriction('personal');
+                        return;
+                      }
+                      onViewStats();
+                    }}
+                    data-testid="button-stats-desktop-global"
+                    variants={{
+                      hidden: { opacity: 0, y: 20 },
+                      visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } }
+                    }}
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      {cachedRegionLabel.split(' ')[0]} Stats
+                    </span>
+                    <img
+                      src={mathsHamsterGreen}
+                      alt="Global Stats"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
 
-                <motion.button
-                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#C4C9D4" }}
-                  onClick={onOpenOptions}
-                  data-testid="button-options-desktop"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  layout
-                  transition={{ duration: 0.25, delay: 0.2, ease: "easeOut" }}
-                >
-                  <span className="text-xl font-bold text-gray-800 text-center">
-                    Options
-                  </span>
-                  <img
-                    src={mechanicHamsterGrey}
-                    alt="Options"
-                    className="max-h-[72px] w-auto object-contain mt-4"
-                  />
-                </motion.button>
+                  <motion.button
+                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    style={{ backgroundColor: "#C4C9D4" }}
+                    onClick={onOpenOptions}
+                    data-testid="button-options-desktop"
+                    variants={{
+                      hidden: { opacity: 0, y: 20 },
+                      visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } }
+                    }}
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      Options
+                    </span>
+                    <img
+                      src={mechanicHamsterGrey}
+                      alt="Options"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
 
-                <motion.button
-                  className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
-                  style={{ backgroundColor: "#93cd78" }}
-                  onClick={() => {
-                    if (!isAuthenticated) {
-                      setShowGuestRestriction('personal');
-                      return;
-                    }
-                    onViewStatsLocal?.();
-                  }}
-                  data-testid="button-stats-desktop-local"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  layout
-                  transition={{ duration: 0.25, delay: 0.25, ease: "easeOut" }}
-                >
-                  <span className="text-xl font-bold text-gray-800 text-center">
-                    Personal Stats
-                  </span>
-                  <img
-                    src={mathsHamsterLocal}
-                    alt="Local Stats"
-                    className="max-h-[72px] w-auto object-contain mt-4"
-                  />
-                </motion.button>
-              </div>
+                  <motion.button
+                    className="flex-1 h-40 flex flex-col items-center justify-center px-4 rounded-3xl shadow-sm hover:shadow-md"
+                    style={{ backgroundColor: "#93cd78" }}
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        setShowGuestRestriction('personal');
+                        return;
+                      }
+                      onViewStatsLocal?.();
+                    }}
+                    data-testid="button-stats-desktop-local"
+                    variants={{
+                      hidden: { opacity: 0, y: 20 },
+                      visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } }
+                    }}
+                  >
+                    <span className="text-xl font-bold text-gray-800 text-center">
+                      Personal Stats
+                    </span>
+                    <img
+                      src={mathsHamsterLocal}
+                      alt="Local Stats"
+                      className="max-h-[72px] w-auto object-contain mt-4"
+                    />
+                  </motion.button>
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
         ) : (
