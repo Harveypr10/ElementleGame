@@ -5,7 +5,8 @@ import { ProSubscriptionDialog } from "./ProSubscriptionDialog";
 import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
 import { useStreakSaver } from "@/contexts/StreakSaverContext";
 import { useToast } from "@/hooks/use-toast";
-import { Flame, Umbrella, X } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
+import { Flame, Umbrella } from "lucide-react";
 import hamsterStreakSaver from "@assets/Historian-Hamster-Blue.svg";
 
 import Streak_Hamster_Black from "@assets/Streak-Hamster-Black.svg";
@@ -28,6 +29,7 @@ export function StreakSaverPopup({
   onStreakLost 
 }: StreakSaverPopupProps) {
   const { toast } = useToast();
+  const { profile } = useProfile();
   const [showProDialog, setShowProDialog] = useState(false);
   const [showStreakSaverAfterPro, setShowStreakSaverAfterPro] = useState(false);
   const {
@@ -49,7 +51,18 @@ export function StreakSaverPopup({
   const hasStreakSaversLeft = streakSaversRemaining > 0;
   const canStartHoliday = isPro && holidaysRemaining > 0 && holidayDurationDays > 0;
   
-  const gameModeLabel = gameType === "region" ? "Global" : "Personal";
+  const regionDisplayNames: Record<string, string> = {
+    'UK': 'UK Edition',
+    'US': 'US Edition',
+    'EU': 'EU Edition',
+    'AU': 'AU Edition',
+    'CA': 'CA Edition',
+    'Global': 'Global',
+  };
+  
+  const gameModeLabel = gameType === "region" 
+    ? (regionDisplayNames[profile?.region || 'UK'] || `${profile?.region} Edition`)
+    : "Personal";
   
   // When returning from successful Pro subscription, refetch status and ensure popup is shown
   useEffect(() => {
@@ -195,6 +208,7 @@ export function StreakSaverPopup({
           className="max-w-sm" 
           data-testid="streak-saver-popup"
           style={{ backgroundColor: popupBackgroundColor }}
+          showCloseButton={false}
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl text-gray-800">
@@ -207,11 +221,13 @@ export function StreakSaverPopup({
           </DialogHeader>
 
           <div className="flex flex-col items-center gap-4 py-4">
-            <img 
-              src={Streak_Hamster_Black} 
-              alt="Hamster" 
-              className="w-24 h-24"
-            />
+            <div className="w-32 h-32 bg-black rounded-full flex items-center justify-center">
+              <img 
+                src={Streak_Hamster_Black} 
+                alt="Hamster" 
+                className="w-24 h-24"
+              />
+            </div>
             
             <div className="text-center">
               <p className="text-2xl font-bold text-gray-800">{currentStreak} Day Streak</p>
@@ -258,11 +274,9 @@ export function StreakSaverPopup({
               <Button
                 onClick={handleDecline}
                 disabled={isDeclining}
-                variant="ghost"
-                className="w-full text-muted-foreground bg-white text-[16px]"
+                className="w-full text-muted-foreground bg-white text-[16px] hover:bg-gray-100"
                 data-testid="button-decline-streak-saver"
               >
-                <X className="h-4 w-4 mr-2" />
                 {isDeclining ? "Resetting..." : "Let Streak Reset"}
               </Button>
             </div>
