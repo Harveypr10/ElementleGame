@@ -45,7 +45,9 @@ interface Puzzle {
 export default function Home() {
   const { isAuthenticated, isLoading, user, hasCompletedFirstLogin, markFirstLoginCompleted } = useAuth();
   const { profile } = useProfile();
-  const { gameAttempts, loadingAttempts } = useGameData();
+  // Fetch BOTH global and local game attempts to avoid race conditions when switching modes
+  const { gameAttempts: globalGameAttempts, loadingAttempts: loadingGlobalAttempts } = useGameData({ modeOverride: 'global' });
+  const { gameAttempts: localGameAttempts, loadingAttempts: loadingLocalAttempts } = useGameData({ modeOverride: 'local' });
   const { formatCanonicalDate } = useUserDateFormat();
   const { isLocalMode, setGameMode } = useGameMode();
   const { toast } = useToast();
@@ -67,16 +69,28 @@ export default function Home() {
   const [puzzleSourceMode, setPuzzleSourceMode] = useState<'global' | 'local'>('global');
   // Track newly awarded badge for animation on stats page
   const [newlyAwardedBadge, setNewlyAwardedBadge] = useState<UserBadgeWithDetails | null>(null);
+  // Track pending play navigation (waiting for data to load)
+  const [pendingPlayMode, setPendingPlayMode] = useState<'global' | 'local' | null>(null);
+  // Track pending yesterday puzzle navigation (for streak saver)
+  const [pendingYesterdayPuzzle, setPendingYesterdayPuzzle] = useState<{ mode: 'global' | 'local', date: string } | null>(null);
   
-  // Fetch puzzles from API (mode-aware, guest-aware)
-  // Guests use /api/puzzles/guest, authenticated users use mode-specific endpoints
-  const puzzlesEndpoint = isAuthenticated 
-    ? (isLocalMode ? '/api/user/puzzles' : '/api/puzzles')
-    : '/api/puzzles/guest';
-  const { data: puzzles = [], isLoading: puzzlesLoading, refetch: refetchPuzzles } = useQuery<Puzzle[]>({
-    queryKey: [puzzlesEndpoint],
-    // Endpoint includes authentication state in its path, no need for separate cache key
+  // Fetch BOTH global and local puzzles to avoid race conditions when switching modes
+  const globalPuzzlesEndpoint = isAuthenticated ? '/api/puzzles' : '/api/puzzles/guest';
+  const localPuzzlesEndpoint = '/api/user/puzzles';
+  
+  const { data: globalPuzzles = [], isLoading: globalPuzzlesLoading, refetch: refetchGlobalPuzzles } = useQuery<Puzzle[]>({
+    queryKey: [globalPuzzlesEndpoint],
   });
+  
+  const { data: localPuzzles = [], isLoading: localPuzzlesLoading, refetch: refetchLocalPuzzles } = useQuery<Puzzle[]>({
+    queryKey: [localPuzzlesEndpoint],
+    enabled: isAuthenticated, // Only fetch local puzzles for authenticated users
+  });
+  
+  // Use the current mode's puzzles for display (backward compatible)
+  const puzzles = isLocalMode ? localPuzzles : globalPuzzles;
+  const puzzlesLoading = isLocalMode ? localPuzzlesLoading : globalPuzzlesLoading;
+  const refetchPuzzles = isLocalMode ? refetchLocalPuzzles : refetchGlobalPuzzles;
   
   // Retry mechanism for missing puzzle data - handles case where realtime events were missed
   const puzzleRetryCountRef = useRef(0);
@@ -153,32 +167,173 @@ export default function Home() {
     window.scrollTo(0, 0);
   }, [currentScreen]);
 
-  const getDailyPuzzle = (): Puzzle | undefined => {
-    if (puzzles.length === 0) return undefined;
+  // Handle pending play navigation - waits for BOTH puzzles AND attempts to load before navigating
+  // This fixes the race condition where navigation happens before data is ready
+  useEffect(() => {
+    if (!pendingPlayMode) return;
     
-    // Get today's date in YYYY-MM-DD format
+    const modePuzzlesLoading = pendingPlayMode === 'local' ? localPuzzlesLoading : globalPuzzlesLoading;
+    const modeAttemptsLoading = pendingPlayMode === 'local' ? loadingLocalAttempts : loadingGlobalAttempts;
+    
+    // Derive "data ready" flags from loading states
+    // When loading is false, the query has completed and data is available (even if empty)
+    const puzzlesReady = !modePuzzlesLoading;
+    const attemptsReady = !isAuthenticated || !modeAttemptsLoading; // Guests don't need attempts
+    
+    // Wait for both puzzles AND attempts to finish loading
+    if (!puzzlesReady || !attemptsReady) {
+      console.log('[pendingPlayMode] Still waiting for data to load for mode:', pendingPlayMode, 
+        '- puzzlesReady:', puzzlesReady, 'attemptsReady:', attemptsReady);
+      return;
+    }
+    
+    // Data is ready - compute completion status and navigate
+    console.log('[pendingPlayMode] Data loaded, proceeding with navigation for mode:', pendingPlayMode);
+    const mode = pendingPlayMode;
+    setPendingPlayMode(null); // Clear pending state
+    
+    // Get today's puzzle from the correct mode's puzzle list
+    const modePuzzles = mode === 'local' ? localPuzzles : globalPuzzles;
+    const todayDate = getTodayDateString();
+    const todayPuzzle = modePuzzles.find(p => p.date === todayDate);
+    
+    let isCompleted = false;
+    let hasProgress = false;
+    
+    if (todayPuzzle) {
+      const modeGameAttempts = mode === 'local' ? localGameAttempts : globalGameAttempts;
+      
+      if (isAuthenticated && modeGameAttempts) {
+        const existingAttempt = modeGameAttempts.find(
+          attempt => attempt.puzzleId === todayPuzzle.id
+        );
+        if (existingAttempt) {
+          isCompleted = existingAttempt.result !== null && existingAttempt.result !== undefined;
+          hasProgress = isCompleted || (existingAttempt.numGuesses ?? 0) > 0;
+        }
+      } else if (!isAuthenticated) {
+        const storedStats = localStorage.getItem("elementle-stats");
+        if (storedStats) {
+          const stats = JSON.parse(storedStats);
+          const formattedAnswer = formatCanonicalDate(todayPuzzle.answerDateCanonical);
+          const completion = stats.puzzleCompletions?.[formattedAnswer];
+          isCompleted = !!(completion && completion.completed);
+          hasProgress = isCompleted;
+        }
+        const inProgressKey = `puzzle-progress-${formatCanonicalDate(todayPuzzle.answerDateCanonical)}`;
+        const savedProgress = localStorage.getItem(inProgressKey);
+        if (savedProgress) {
+          const progress = JSON.parse(savedProgress);
+          if (progress.guessRecords && progress.guessRecords.length > 0) {
+            hasProgress = true;
+          }
+        }
+      }
+    }
+    
+    if (isCompleted) {
+      setShowCelebrationFirst(true);
+      setHasOpenedCelebration(false);
+    } else {
+      setShowCelebrationFirst(false);
+      setHasOpenedCelebration(false);
+    }
+    
+    setHasExistingProgress(hasProgress);
+    setSelectedPuzzleId(null);
+    setPreviousScreen("selection");
+    setCurrentScreen("play");
+  }, [pendingPlayMode, localPuzzlesLoading, globalPuzzlesLoading, loadingLocalAttempts, loadingGlobalAttempts, localPuzzles, globalPuzzles, localGameAttempts, globalGameAttempts, isAuthenticated]);
+
+  // Handle pending yesterday puzzle navigation (streak saver flow)
+  // Waits for BOTH puzzles AND attempts to load before navigating
+  useEffect(() => {
+    if (!pendingYesterdayPuzzle) return;
+    
+    const { mode, date } = pendingYesterdayPuzzle;
+    const modePuzzlesLoading = mode === 'local' ? localPuzzlesLoading : globalPuzzlesLoading;
+    const modeAttemptsLoading = mode === 'local' ? loadingLocalAttempts : loadingGlobalAttempts;
+    
+    // Derive "data ready" flags from loading states
+    // When loading is false, the query has completed and data is available (even if empty)
+    const puzzlesReady = !modePuzzlesLoading;
+    const attemptsReady = !isAuthenticated || !modeAttemptsLoading; // Guests don't need attempts
+    
+    // Wait for both puzzles AND attempts to finish loading
+    if (!puzzlesReady || !attemptsReady) {
+      console.log('[pendingYesterdayPuzzle] Still waiting for data to load for mode:', mode,
+        '- puzzlesReady:', puzzlesReady, 'attemptsReady:', attemptsReady);
+      return;
+    }
+    
+    // Data is ready - find the puzzle and navigate
+    console.log('[pendingYesterdayPuzzle] Puzzles loaded, proceeding with navigation for mode:', mode);
+    setPendingYesterdayPuzzle(null); // Clear pending state
+    
+    const modePuzzles = mode === 'local' ? localPuzzles : globalPuzzles;
+    const yesterdayPuzzle = modePuzzles.find(p => p.date === date);
+    
+    if (yesterdayPuzzle) {
+      setSelectedPuzzleId(yesterdayPuzzle.id.toString());
+      setShowCelebrationFirst(false);
+      setHasOpenedCelebration(false);
+      setHasExistingProgress(false);
+      setPreviousScreen("selection");
+      setCurrentScreen("play");
+    } else {
+      toast({
+        title: "Puzzle not available",
+        description: "Yesterday's puzzle could not be loaded. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [pendingYesterdayPuzzle, localPuzzlesLoading, globalPuzzlesLoading, loadingLocalAttempts, loadingGlobalAttempts, localPuzzles, globalPuzzles, localGameAttempts, globalGameAttempts, isAuthenticated, toast]);
+
+  // Helper to get today's date string
+  const getTodayDateString = () => {
     const today = new Date();
     const year = today.getFullYear();
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
-    const todayDate = `${year}-${month}-${day}`;
+    return `${year}-${month}-${day}`;
+  };
+
+  // Get daily puzzle - uses context mode for display, explicit mode for game logic
+  const getDailyPuzzle = (mode?: 'global' | 'local'): Puzzle | undefined => {
+    // Use explicit mode if provided, otherwise fall back to context mode
+    const puzzleList = mode 
+      ? (mode === 'local' ? localPuzzles : globalPuzzles)
+      : puzzles;
+    
+    if (puzzleList.length === 0) return undefined;
+    
+    const todayDate = getTodayDateString();
     
     // Try to find today's puzzle - return undefined if no puzzle for today
     // This ensures the Play button is disabled when there's no puzzle available
-    return puzzles.find(p => p.date === todayDate);
+    return puzzleList.find(p => p.date === todayDate);
   };
 
+  // Get puzzle by ID from the appropriate mode's puzzle list
+  const getPuzzleById = (puzzleId: string, mode: 'global' | 'local'): Puzzle | undefined => {
+    const puzzleList = mode === 'local' ? localPuzzles : globalPuzzles;
+    return puzzleList.find(p => p.id.toString() === puzzleId);
+  };
+
+  // Current puzzle for PlayPage - uses puzzleSourceMode to ensure correct mode's data
   const currentPuzzle = selectedPuzzleId 
-    ? puzzles.find(p => p.id.toString() === selectedPuzzleId) || getDailyPuzzle()
-    : getDailyPuzzle();
+    ? getPuzzleById(selectedPuzzleId, puzzleSourceMode) || getDailyPuzzle(puzzleSourceMode)
+    : getDailyPuzzle(puzzleSourceMode);
 
   const handlePlayPuzzle = (puzzleId: string) => {
-    const puzzle = puzzles.find(p => p.id.toString() === puzzleId);
-    if (!puzzle) return;
-    
     // Capture the current mode when the puzzle is selected
     // This ensures PlayPage uses the correct mode for data fetching
     const mode = isLocalMode ? 'local' : 'global';
+    
+    // Use the explicit mode's puzzle list (not context mode - avoids race condition)
+    const puzzle = getPuzzleById(puzzleId, mode);
+    if (!puzzle) return;
+    
     console.log('[handlePlayPuzzle] Setting puzzleSourceMode:', mode, 'for puzzleId:', puzzleId);
     setPuzzleSourceMode(mode);
     
@@ -186,14 +341,18 @@ export default function Home() {
     let isCompleted = false;
     let hasProgress = false;
     
-    if (isAuthenticated && !loadingAttempts && gameAttempts) {
+    // Use the explicit mode's game attempts (based on captured mode)
+    const modeGameAttempts = mode === 'local' ? localGameAttempts : globalGameAttempts;
+    const modeLoadingAttempts = mode === 'local' ? loadingLocalAttempts : loadingGlobalAttempts;
+    
+    if (isAuthenticated && !modeLoadingAttempts && modeGameAttempts) {
       // For authenticated users, check Supabase data
       const numericPuzzleId = parseInt(puzzleId);
-      const existingAttempt = gameAttempts.find(
+      const existingAttempt = modeGameAttempts.find(
         attempt => attempt.puzzleId === numericPuzzleId
       );
       if (existingAttempt) {
-        isCompleted = existingAttempt.result !== null;
+        isCompleted = existingAttempt.result !== null && existingAttempt.result !== undefined;
         hasProgress = isCompleted || (existingAttempt.numGuesses ?? 0) > 0;
       }
     } else if (!isAuthenticated) {
@@ -236,24 +395,41 @@ export default function Home() {
   // Version of handlePlayToday that takes explicit mode to avoid race conditions
   // This is called by handlePlayGlobal/handlePlayLocal where mode is already set
   const handlePlayTodayWithMode = (mode: 'global' | 'local') => {
-    setSelectedPuzzleId(null);
-    setPreviousScreen("selection");
+    // Always set puzzleSourceMode explicitly
+    setPuzzleSourceMode(mode);
     
-    // Mode is already set by caller, no need to set puzzleSourceMode here
+    // Check if the mode's data is still loading
+    const modePuzzlesLoading = mode === 'local' ? localPuzzlesLoading : globalPuzzlesLoading;
+    const modeAttemptsLoading = mode === 'local' ? loadingLocalAttempts : loadingGlobalAttempts;
+    const dataLoading = modePuzzlesLoading || modeAttemptsLoading;
     
-    // Check if today's puzzle has any existing progress (completed or in-progress)
-    const todayPuzzle = getDailyPuzzle();
+    if (dataLoading) {
+      // Data still loading - set pending state and let useEffect handle navigation when ready
+      console.log('[handlePlayTodayWithMode] Data still loading, setting pending mode:', mode);
+      setPendingPlayMode(mode);
+      return;
+    }
+    
+    // Data is ready - compute completion status and navigate immediately
+    console.log('[handlePlayTodayWithMode] Data ready, computing completion for mode:', mode);
+    
+    // Get today's puzzle from the correct mode's puzzle list (using explicit mode)
+    const todayPuzzle = getDailyPuzzle(mode);
+    
     let isCompleted = false;
     let hasProgress = false;
     
     if (todayPuzzle) {
-      if (isAuthenticated && !loadingAttempts && gameAttempts) {
+      // Use the explicit mode's game attempts (not context mode - avoids race condition)
+      const modeGameAttempts = mode === 'local' ? localGameAttempts : globalGameAttempts;
+      
+      if (isAuthenticated && modeGameAttempts) {
         // For authenticated users, check Supabase data
-        const existingAttempt = gameAttempts.find(
+        const existingAttempt = modeGameAttempts.find(
           attempt => attempt.puzzleId === todayPuzzle.id
         );
         if (existingAttempt) {
-          isCompleted = existingAttempt.result !== null;
+          isCompleted = existingAttempt.result !== null && existingAttempt.result !== undefined;
           hasProgress = isCompleted || (existingAttempt.numGuesses ?? 0) > 0;
         }
       } else if (!isAuthenticated) {
@@ -277,21 +453,19 @@ export default function Home() {
           }
         }
       }
-      
-      if (isCompleted) {
-        // Show game screen first, then celebration
-        setShowCelebrationFirst(true);
-        setHasOpenedCelebration(false);
-      } else {
-        setShowCelebrationFirst(false);
-        setHasOpenedCelebration(false);
-      }
+    }
+    
+    if (isCompleted) {
+      setShowCelebrationFirst(true);
+      setHasOpenedCelebration(false);
     } else {
       setShowCelebrationFirst(false);
       setHasOpenedCelebration(false);
     }
     
     setHasExistingProgress(hasProgress);
+    setSelectedPuzzleId(null);
+    setPreviousScreen("selection");
     setCurrentScreen("play");
   };
   
@@ -353,12 +527,27 @@ export default function Home() {
   
   // Handle playing yesterday's puzzle for streak saver flow
   const handlePlayYesterdaysPuzzle = (gameType: "region" | "user", puzzleDate: string) => {
-    // Set the appropriate game mode
-    setGameMode(gameType === 'region' ? 'global' : 'local');
-    setPuzzleSourceMode(gameType === 'region' ? 'global' : 'local');
+    // Determine the explicit mode from game type
+    const mode = gameType === 'region' ? 'global' : 'local';
     
-    // Find yesterday's puzzle in the puzzles array
-    const yesterdayPuzzle = puzzles.find(p => p.date === puzzleDate);
+    // Set the appropriate game mode
+    setGameMode(mode);
+    setPuzzleSourceMode(mode);
+    
+    // Check if the mode's data is still loading (BOTH puzzles AND attempts)
+    const modePuzzlesLoading = mode === 'local' ? localPuzzlesLoading : globalPuzzlesLoading;
+    const modeAttemptsLoading = mode === 'local' ? loadingLocalAttempts : loadingGlobalAttempts;
+    
+    if (modePuzzlesLoading || modeAttemptsLoading) {
+      // Data still loading - set pending state and let useEffect handle navigation when ready
+      console.log('[handlePlayYesterdaysPuzzle] Data still loading, setting pending state');
+      setPendingYesterdayPuzzle({ mode, date: puzzleDate });
+      return;
+    }
+    
+    // Find yesterday's puzzle in the explicit mode's puzzle array (avoids race condition)
+    const modePuzzles = mode === 'local' ? localPuzzles : globalPuzzles;
+    const yesterdayPuzzle = modePuzzles.find(p => p.date === puzzleDate);
     
     if (yesterdayPuzzle) {
       setSelectedPuzzleId(yesterdayPuzzle.id.toString());
