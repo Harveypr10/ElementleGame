@@ -6,7 +6,7 @@ import { Target, Flame, Percent } from "lucide-react";
 import type { UserBadgeWithDetails } from "@shared/schema";
 import badgePlaceholder from "@assets/Signup-Hamster-Transparent.png";
 
-import Streak_Hamster_Black from "@assets/Streak-Hamster-Black.png";
+import Streak_Hamster_Black from "@assets/Streak-Hamster-Black.svg";
 
 declare global {
   interface Window {
@@ -143,7 +143,7 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black backdrop-blur-sm"
       onClick={onDismiss}
       data-testid="badge-celebration-overlay"
       initial={pageVariants.fadeIn.initial}
