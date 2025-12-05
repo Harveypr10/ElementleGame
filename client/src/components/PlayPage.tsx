@@ -177,7 +177,7 @@ export function PlayPage({
   const [lockedDigits, setLockedDigits] = useState<string | null>(null);
   const [digitsCheckComplete, setDigitsCheckComplete] = useState(false);
   const [showIntroScreen, setShowIntroScreen] = useState(false);
-  const [introScreenReady, setIntroScreenReady] = useState(false);
+  const introScreenChecked = useRef(false); // Track if we've already made the intro screen decision
   
   // Streak saver exit warning dialog state
   const [showStreakSaverExitWarning, setShowStreakSaverExitWarning] = useState(false);
@@ -340,7 +340,7 @@ export function PlayPage({
     setLockedDigits(null);
     setDigitsCheckComplete(false);
     setShowIntroScreen(false);
-    setIntroScreenReady(false);
+    introScreenChecked.current = false; // Reset so intro screen can show for new puzzle
     // Reset loading and ready states
     setGuessesLoading(false);
     setGuessesLoaded(false);
@@ -786,22 +786,22 @@ export function PlayPage({
   }, [viewOnly, formattedAnswer, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat, cacheMode]);
 
   // Check if we should show the intro screen (new game with no guesses)
-  // IntroScreen handles its own loading state internally, so we just need to decide when to mount it
+  // IntroScreen handles its own loading state internally, so we just set showIntroScreen to true
   useEffect(() => {
     // Only proceed if all conditions are met and we haven't decided yet
-    if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !introScreenReady) {
+    if (!viewOnly && !gameOver && guessRecords.length === 0 && digitsCheckComplete && !introScreenChecked.current) {
+      // Mark as checked so we don't re-run this logic
+      introScreenChecked.current = true;
+      
       // Skip intro if parent tells us there's existing progress
       if (hasExistingProgress) {
-        setIntroScreenReady(true); // Mark as handled but don't show
         return;
       }
       
-      // Mark as handled and show the intro screen
-      // IntroScreen handles its own loading spinner internally
-      setIntroScreenReady(true);
+      // Show the intro screen - it handles its own loading spinner internally
       setShowIntroScreen(true);
     }
-  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, introScreenReady, hasExistingProgress]);
+  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, hasExistingProgress]);
 
   // Helper function to format date for intro display
   const formatDateForIntro = (dateCanonical: string): string => {
@@ -1498,7 +1498,7 @@ export function PlayPage({
     <>
       {/* IntroScreen overlay - handles its own loading state internally */}
       <AnimatePresence>
-        {showIntroScreen && introScreenReady && (
+        {showIntroScreen && (
           <IntroScreen
             puzzleDateCanonical={puzzleDateToShow}
             eventTitle={eventTitle}

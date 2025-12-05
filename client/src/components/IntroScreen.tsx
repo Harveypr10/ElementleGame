@@ -17,6 +17,8 @@ interface IntroScreenProps {
 
 type IntroStatus = 'loading' | 'ready';
 
+const MINIMUM_SPINNER_DURATION = 300; // Ensure spinner is visible for at least 300ms
+
 export function IntroScreen({
   puzzleDateCanonical,
   eventTitle,
@@ -30,6 +32,7 @@ export function IntroScreen({
 }: IntroScreenProps) {
   const [status, setStatus] = useState<IntroStatus>('loading');
   const hasStartedLoading = useRef(false);
+  const mountTimeRef = useRef(Date.now());
   
   const displayDate = formatDateForDisplay(puzzleDateCanonical);
   
@@ -68,11 +71,16 @@ export function IntroScreen({
       img.decode().catch(() => {}),
       document.fonts?.ready || Promise.resolve(),
     ]).then(() => {
-      requestAnimationFrame(() => {
+      const elapsed = Date.now() - mountTimeRef.current;
+      const remainingDelay = Math.max(0, MINIMUM_SPINNER_DURATION - elapsed);
+      
+      setTimeout(() => {
         requestAnimationFrame(() => {
-          setStatus('ready');
+          requestAnimationFrame(() => {
+            setStatus('ready');
+          });
         });
-      });
+      }, remainingDelay);
     });
   }, []);
 
@@ -80,11 +88,25 @@ export function IntroScreen({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      exit={{ x: "-100%", opacity: 0 }}
+      transition={{ duration: 0.25, ease: "easeInOut" }}
       className="fixed inset-0 flex flex-col items-center justify-center p-4 z-50"
       style={{ backgroundColor: '#FAFAFA' }}
     >
+      {/* Back button - OUTSIDE AnimatePresence to prevent jumping */}
+      {status === 'ready' && (
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2, delay: 0.1 }}
+          onClick={onBack}
+          className="absolute top-4 left-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          data-testid="button-intro-back"
+        >
+          <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
+        </motion.button>
+      )}
+
       <AnimatePresence mode="wait">
         {status === 'loading' ? (
           <motion.div
@@ -100,19 +122,11 @@ export function IntroScreen({
         ) : (
           <motion.div
             key="content"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ duration: 0.25, ease: "easeOut" }}
             className="flex flex-col items-center justify-center max-w-md w-full"
           >
-            <button
-              onClick={onBack}
-              className="absolute top-4 left-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              data-testid="button-intro-back"
-            >
-              <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
-            </button>
-
             <div className="flex flex-col items-center justify-center space-y-6">
               <div className="h-32 w-32 flex items-center justify-center">
                 <img
