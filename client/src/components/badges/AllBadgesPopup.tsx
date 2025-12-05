@@ -232,7 +232,7 @@ export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPop
     >
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 z-10 p-2 text-muted-foreground hover:text-foreground transition-colors"
+        className="absolute top-4 right-4 z-30 p-2 text-muted-foreground hover:text-foreground transition-colors"
         data-testid="button-close-all-badges"
       >
         <X className="w-6 h-6" />
