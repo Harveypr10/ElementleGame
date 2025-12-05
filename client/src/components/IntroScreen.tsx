@@ -3,6 +3,7 @@ import { ChevronLeft } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
 import welcomeHamsterGrey from "@assets/Welcome-Hamster-Grey.svg";
+import streakHamsterBlack from "@assets/Streak-Hamster-Black.svg";
 
 interface IntroScreenProps {
   puzzleDateCanonical: string; // YYYY-MM-DD format
@@ -15,6 +16,8 @@ interface IntroScreenProps {
   onBack: () => void;
   onExitStart?: () => void; // Called immediately when back is pressed, before animation starts
   formatDateForDisplay: (date: string) => string;
+  currentStreak?: number; // Current streak for this game mode
+  isStreakGame?: boolean; // Whether this game can continue/add to the streak
 }
 
 export function IntroScreen({
@@ -28,6 +31,8 @@ export function IntroScreen({
   onBack,
   onExitStart,
   formatDateForDisplay,
+  currentStreak = 0,
+  isStreakGame = false,
 }: IntroScreenProps) {
   const [shouldRender, setShouldRender] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -158,6 +163,12 @@ export function IntroScreen({
     }
   }, [isPresent, spinner, safeToRemove]);
 
+  // Determine background color based on streak game status
+  const backgroundColor = isStreakGame ? '#000000' : '#FAFAFA';
+  const textColor = isStreakGame ? '#FFFFFF' : '#54524F';
+  const categoryTextColor = isStreakGame ? '#FFD700' : '#1e3a8a';
+  const backButtonHoverBg = isStreakGame ? 'rgba(255, 255, 255, 0.1)' : 'hover:bg-gray-200';
+  
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -170,7 +181,7 @@ export function IntroScreen({
         }
       }}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center"
-      style={{ backgroundColor: '#FAFAFA' }}
+      style={{ backgroundColor }}
     >
       {/* Only render content after 150ms delay to avoid flash behind spinner */}
       {shouldRender && (
@@ -181,11 +192,15 @@ export function IntroScreen({
             animate={{ opacity: isReady && !isExiting ? 1 : 0 }}
             transition={{ duration: 0.2 }}
             onClick={handleBack}
-            className="absolute top-4 left-4 w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            className="absolute top-4 left-4 w-14 h-14 flex items-center justify-center rounded-full transition-colors"
+            style={{
+              pointerEvents: isReady && !isExiting ? 'auto' : 'none',
+              backgroundColor: isStreakGame ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+              ...(isStreakGame && { borderRadius: '50%' })
+            }}
             data-testid="button-intro-back"
-            style={{ pointerEvents: isReady && !isExiting ? 'auto' : 'none' }}
           >
-            <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
+            <ChevronLeft className="h-9 w-9" style={{ color: isStreakGame ? '#FFFFFF' : '#54524F' }} />
           </motion.button>
 
           {/* Content - opacity controlled, layout always maintained */}
@@ -196,30 +211,51 @@ export function IntroScreen({
             className="flex flex-col items-center justify-center max-w-md w-full p-4"
             style={{ pointerEvents: isReady && !isExiting ? 'auto' : 'none' }}
           >
-            <div className="flex flex-col items-center justify-center w-full space-y-6">
-              <div className="h-32 w-32 flex items-center justify-center">
-                <img
-                  src={welcomeHamsterGrey}
-                  alt="Welcome"
-                  className="h-32 w-auto object-contain"
-                  data-testid="img-hamster-intro"
-                />
-              </div>
+            <div className="flex flex-col items-center justify-center w-full space-y-6 h-full">
+              {isStreakGame && (
+                <div className="relative">
+                  <div className="h-32 w-32 flex items-center justify-center">
+                    <img
+                      src={streakHamsterBlack}
+                      alt="Streak"
+                      className="h-32 w-auto object-contain"
+                      data-testid="img-hamster-intro"
+                    />
+                  </div>
+                  <div 
+                    className="absolute top-0 right-0 bg-yellow-400 rounded-full w-12 h-12 flex items-center justify-center font-bold text-black text-lg"
+                    style={{ transform: 'translate(25%, -25%)' }}
+                  >
+                    {currentStreak}
+                  </div>
+                </div>
+              )}
+              
+              {!isStreakGame && (
+                <div className="h-32 w-32 flex items-center justify-center">
+                  <img
+                    src={welcomeHamsterGrey}
+                    alt="Welcome"
+                    className="h-32 w-auto object-contain"
+                    data-testid="img-hamster-intro"
+                  />
+                </div>
+              )}
 
-              <div className="text-center space-y-4">
-                <p className="text-lg font-bold text-gray-700 dark:text-gray-500" data-testid="text-intro-clue-prompt" style={{ maxWidth: '280px', margin: '0 auto' }}>
+              <div className="text-center space-y-4 flex-grow flex flex-col justify-center">
+                <p className="font-bold text-lg" data-testid="text-intro-clue-prompt" style={{ maxWidth: '280px', margin: '0 auto', color: textColor }}>
                   {hasCluesEnabled ? promptText : "Take on the challenge of guessing a date in history!"}
                 </p>
                 
                 <div className="space-y-0">
                   {hasCluesEnabled && categoryOrLocationLabel && (
-                    <p className="text-xl font-bold dark:text-blue-400" style={{ color: '#1e3a8a' }} data-testid="text-intro-category-location">
+                    <p className="text-xl font-bold" data-testid="text-intro-category-location" style={{ color: categoryTextColor }}>
                       {categoryOrLocationLabel}
                     </p>
                   )}
                   
                   {hasCluesEnabled && (
-                    <p className="text-xl font-bold text-gray-600 dark:text-gray-400" data-testid="text-intro-event-title">
+                    <p className="text-xl font-bold" data-testid="text-intro-event-title" style={{ color: textColor }}>
                       {eventTitle}
                     </p>
                   )}
@@ -235,9 +271,17 @@ export function IntroScreen({
                 Play
               </button>
 
-              <p className="text-sm text-gray-500 dark:text-gray-500" data-testid="text-intro-puzzle-date">
-                Puzzle date: {displayDate}
-              </p>
+              <div className="flex-grow flex flex-col justify-between w-full items-center">
+                <p className="text-sm" data-testid="text-intro-puzzle-date" style={{ color: isStreakGame ? 'rgba(255, 255, 255, 0.7)' : '#999' }}>
+                  Puzzle date: {displayDate}
+                </p>
+                
+                {isStreakGame && (
+                  <p className="text-lg font-bold" style={{ color: '#FF6B6B' }} data-testid="text-intro-continue-streak">
+                    Continue your streak!
+                  </p>
+                )}
+              </div>
             </div>
           </motion.div>
         </>

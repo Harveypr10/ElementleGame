@@ -1495,6 +1495,32 @@ export function PlayPage({
   const today = new Date();
   const puzzleDateToShow = puzzleDate || `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
+  // Calculate streak info for intro screen
+  const todayDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const isPlayingToday = puzzleDateToShow === todayDate;
+  
+  // Check if there's an existing attempt for this puzzle
+  const hasExistingAttempt = isAuthenticated && gameAttempts && puzzleId 
+    ? gameAttempts.some(attempt => attempt.puzzleId === puzzleId && attempt.result !== null)
+    : false;
+  
+  // Get current streak from Supabase stats if authenticated, otherwise from localStorage
+  let currentStreakValue = 0;
+  if (isAuthenticated && supabaseStats) {
+    currentStreakValue = supabaseStats.currentStreak || 0;
+  } else {
+    const guestStats = localStorage.getItem("elementle-stats");
+    if (guestStats) {
+      try {
+        const stats = JSON.parse(guestStats);
+        currentStreakValue = stats.currentStreak || 0;
+      } catch (e) {}
+    }
+  }
+  
+  // This is a streak game if: playing today, no existing attempt, and has a streak to continue
+  const isStreakGame = isPlayingToday && !hasExistingAttempt && currentStreakValue > 0;
+
   return (
     <>
       {/* IntroScreen overlay - handles its own loading state internally */}
@@ -1511,6 +1537,8 @@ export function PlayPage({
             onBack={handleBackButtonPress}
             onExitStart={() => setIntroExitingViaBack(true)}
             formatDateForDisplay={formatDateForIntro}
+            currentStreak={currentStreakValue}
+            isStreakGame={isStreakGame}
           />
         )}
       </AnimatePresence>
