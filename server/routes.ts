@@ -169,15 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const selectedRegion = regions.find(r => r.code === finalRegion);
       const defaultDateFormat = selectedRegion?.defaultDateFormat ?? 'ddmmyy';
 
-      // Look up the Standard tier ID for the user's region
-      const standardTierId = await storage.getStandardTierId(finalRegion || 'UK');
-      if (!standardTierId) {
-        console.error(`[POST /api/auth/signup] No Standard tier found for region: ${finalRegion}`);
-      } else {
-        console.log(`[POST /api/auth/signup] Using Standard tier ID: ${standardTierId} for region: ${finalRegion}`);
-      }
-
-      // Create user profile with consent fields, region, and standard tier
+      // Create user profile with consent fields and region
       const profileData: any = {
         id: authData.user.id,
         email: authData.user.email!,
@@ -186,7 +178,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         region: finalRegion,
         acceptedTerms: acceptedTerms ?? false,
         adsConsent: adsConsent ?? false,
-        userTierId: standardTierId, // Set the Standard tier for the user's region
       };
 
       // Set timestamps for consents that were accepted
@@ -245,11 +236,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { firstName, lastName, email, region, postcode, acceptedTerms, adsConsent } = req.body;
 
       const existing = await storage.getUserProfile(userId);
-      console.log(`[PATCH /api/auth/profile] existing profile:`, existing ? { id: existing.id, userTierId: existing.userTierId, region: existing.region } : 'NULL');
       
       // If no profile exists, create a new one (upsert behavior for new signups)
       if (!existing) {
-        console.log("[PATCH /api/auth/profile] Profile not found, creating new profile for user:", userId);
+        console.log("Profile not found, creating new profile for user:", userId);
         const now = new Date();
         
         // Get the region's default date format
