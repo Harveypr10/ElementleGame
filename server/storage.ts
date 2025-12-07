@@ -3516,6 +3516,12 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
+      // If percentile is 100, user is not ranked (no games played) or at the bottom
+      // They should not qualify for any percentile badges
+      if (percentile >= 100) {
+        return null;
+      }
+
       // Percentile thresholds (lower is better for rankings)
       const percentileThresholds = [1, 5, 10, 20, 30, 40, 50];
       const userPercentileInt = Math.ceil(100 - percentile); // Convert to "top X%"
