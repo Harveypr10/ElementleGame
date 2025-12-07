@@ -245,10 +245,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { firstName, lastName, email, region, postcode, acceptedTerms, adsConsent } = req.body;
 
       const existing = await storage.getUserProfile(userId);
+      console.log(`[PATCH /api/auth/profile] existing profile:`, existing ? { id: existing.id, userTierId: existing.userTierId, region: existing.region } : 'NULL');
       
       // If no profile exists, create a new one (upsert behavior for new signups)
       if (!existing) {
-        console.log("Profile not found, creating new profile for user:", userId);
+        console.log("[PATCH /api/auth/profile] Profile not found, creating new profile for user:", userId);
         const now = new Date();
         
         // Get the region's default date format
