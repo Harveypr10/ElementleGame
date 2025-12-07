@@ -3507,56 +3507,24 @@ export class DatabaseStorage implements IStorage {
     region: string
   ): Promise<UserBadgeWithDetails | null> {
     try {
-      // Get user's current percentile using existing methods
-      const percentile = gameType === 'USER' 
-        ? await this.getUserPercentileRankingUser(userId)
-        : await this.getUserPercentileRankingRegion(userId, region);
+      // Percentile badges are allocated by a monthly Supabase cron RPC.
+      // This function only checks for pending (is_awarded=FALSE) percentile badges
+      // that have already been allocated to the user, and returns them for display.
+      // It does NOT calculate or allocate new percentile badges.
       
-      if (percentile === null) {
-        return null;
-      }
-
-      // If percentile is 100, user is not ranked (no games played) or at the bottom
-      // They should not qualify for any percentile badges
-      if (percentile >= 100) {
-        return null;
-      }
-
-      // Percentile thresholds (lower is better for rankings)
-      const percentileThresholds = [1, 5, 10, 20, 30, 40, 50];
-      const userPercentileInt = Math.ceil(100 - percentile); // Convert to "top X%"
+      // Get pending (unawarded) badges for this user
+      const pendingBadges = await this.getUserBadges(userId, gameType, region, true);
       
-      // Find the best threshold the user qualifies for
-      const qualifiedThreshold = percentileThresholds.find(t => userPercentileInt <= t);
+      // Find any pending percentile badge
+      const pendingPercentileBadge = pendingBadges.find(
+        ub => ub.badge.category.toLowerCase() === 'percentile' && !ub.isAwarded
+      );
       
-      if (!qualifiedThreshold) {
-        return null; // Not in top 50%
+      if (!pendingPercentileBadge) {
+        return null; // No pending percentile badges
       }
-
-      // Get the badge for this threshold (use exact category name from database)
-      const badge = await this.getBadgeByThreshold('Percentile', qualifiedThreshold);
-      if (!badge) {
-        console.log(`[checkAndAwardPercentileBadge] No Percentile badge found for threshold ${qualifiedThreshold}`);
-        return null;
-      }
-
-      // Check if user already has this badge
-      const existingBadges = await this.getUserBadges(userId, gameType, region, false);
-      const hasBadge = existingBadges.some(ub => ub.badge.id === badge.id);
       
-      if (hasBadge) {
-        return null; // Already has this badge
-      }
-
-      // Award the badge
-      const newBadge = await this.awardBadge(userId, badge.id, gameType, region);
-      if (newBadge) {
-        return {
-          ...newBadge,
-          badge,
-        };
-      }
-      return null;
+      return pendingPercentileBadge;
     } catch (error: any) {
       console.error('[checkAndAwardPercentileBadge] Error:', error);
       return null;
