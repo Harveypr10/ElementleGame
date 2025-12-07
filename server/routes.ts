@@ -169,7 +169,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const selectedRegion = regions.find(r => r.code === finalRegion);
       const defaultDateFormat = selectedRegion?.defaultDateFormat ?? 'ddmmyy';
 
-      // Create user profile with consent fields and region
+      // Look up the Standard tier ID for the user's region
+      const standardTierId = await storage.getStandardTierId(finalRegion || 'UK');
+      if (!standardTierId) {
+        console.error(`[POST /api/auth/signup] No Standard tier found for region: ${finalRegion}`);
+      } else {
+        console.log(`[POST /api/auth/signup] Using Standard tier ID: ${standardTierId} for region: ${finalRegion}`);
+      }
+
+      // Create user profile with consent fields, region, and standard tier
       const profileData: any = {
         id: authData.user.id,
         email: authData.user.email!,
@@ -178,6 +186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         region: finalRegion,
         acceptedTerms: acceptedTerms ?? false,
         adsConsent: adsConsent ?? false,
+        userTierId: standardTierId, // Set the Standard tier for the user's region
       };
 
       // Set timestamps for consents that were accepted
