@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -202,6 +202,35 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     
     return dayStatuses[puzzleDate] || null;
   };
+
+  // Compute the set of consecutive holiday dates going backwards from today (when holidayActive)
+  const activeHolidayDates = useMemo(() => {
+    const dates = new Set<string>();
+    if (!holidayActive) return dates;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Walk backwards from today, collecting consecutive holiday days
+    let currentDate = new Date(today);
+    while (true) {
+      const year = currentDate.getFullYear();
+      const monthStr = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(currentDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${monthStr}-${dayStr}`;
+      
+      const status = dayStatuses[dateStr];
+      if (status?.isHoliday) {
+        dates.add(dateStr);
+        // Move to previous day
+        currentDate.setDate(currentDate.getDate() - 1);
+      } else {
+        break; // Stop when we hit a non-holiday day
+      }
+    }
+    
+    return dates;
+  }, [holidayActive, dayStatuses]);
 
   const renderCalendarDays = (month: Date) => {
     const { daysInMonth, startingDayOfWeek } = getDaysInMonth(month);
