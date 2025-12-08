@@ -274,9 +274,9 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             // Default gray for playable days with no status (including unplayed holiday days)
             !status?.completed && !status?.inProgress && isPlayable && "bg-gray-100 dark:bg-gray-800",
             (!puzzle || isFuture) && "bg-background opacity-40",
-            // Ring/border styles - holiday dates get yellow border with offset to prevent color blending
-            isActiveHolidayDate && "ring-2 ring-yellow-500 dark:ring-yellow-400 ring-offset-1 ring-offset-background animate-pulse",
-            status?.isHoliday && !isActiveHolidayDate && "ring-2 ring-yellow-500 dark:ring-yellow-400 ring-offset-1 ring-offset-background",
+            // Ring/border styles - holiday dates get bright yellow border
+            isActiveHolidayDate && "ring-2 ring-yellow-300 dark:ring-yellow-300",
+            status?.isHoliday && !isActiveHolidayDate && "ring-2 ring-yellow-300 dark:ring-yellow-300",
             // Today ring only if not a holiday day
             isToday && !status?.isHoliday && !isActiveHolidayDate && "ring-2 ring-gray-500 dark:ring-gray-400"
           )}
