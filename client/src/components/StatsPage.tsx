@@ -309,11 +309,7 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
               {[1, 2, 3, 4, 5].map((guessNum) => {
                 const count = (stats.guessDistribution && stats.guessDistribution[guessNum]) || 0;
                 const percentage = maxGuesses > 0 ? (count / maxGuesses) * 100 : 0;
-                const barColor = guessNum <= 2 
-                  ? (gameType === 'USER' ? '#93cd78' : '#A4DB57')
-                  : guessNum <= 4
-                    ? (gameType === 'USER' ? '#c4e050' : '#c4e050')
-                    : (gameType === 'USER' ? '#fdab58' : '#FFD429');
+                const barColor = gameType === 'USER' ? '#93cd78' : '#A4DB57';
                 
                 return (
                   <div key={guessNum} className="flex items-center gap-2">
@@ -322,18 +318,18 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                       className="flex-1 mx-1 rounded-sm h-8 relative overflow-hidden"
                       style={{ backgroundColor: `${barColor}4D` }}
                     >
-                      <div
-                        className="h-full transition-all duration-300 flex items-center justify-end pr-2"
-                        style={{ 
-                          width: count > 0 ? `${Math.max(percentage, 10)}%` : '0%',
-                          backgroundColor: barColor
-                        }}
-                        data-testid={`dist-bar-${guessNum}`}
-                      >
-                        {count > 0 && (
+                      {count > 0 && (
+                        <div
+                          className="h-full transition-all duration-300 flex items-center justify-end pr-2"
+                          style={{ 
+                            width: `${Math.max(percentage, 10)}%`,
+                            backgroundColor: barColor
+                          }}
+                          data-testid={`dist-bar-${guessNum}`}
+                        >
                           <span className="text-sm font-medium text-white">{count}</span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -347,18 +343,18 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                   className="flex-1 mx-1 rounded-sm h-8 relative overflow-hidden"
                   style={{ backgroundColor: gameType === 'USER' ? '#fdab584D' : '#FFD4294D' }}
                 >
-                  <div
-                    className="h-full transition-all duration-300 flex items-center justify-end pr-2"
-                    style={{ 
-                      width: (stats.played - stats.won) > 0 ? `${Math.max(((stats.played - stats.won) / maxGuesses) * 100, 10)}%` : '0%',
-                      backgroundColor: gameType === 'USER' ? '#fdab58' : '#FFD429'
-                    }}
-                    data-testid="dist-bar-lost"
-                  >
-                    {(stats.played - stats.won) > 0 && (
+                  {(stats.played - stats.won) > 0 && (
+                    <div
+                      className="h-full transition-all duration-300 flex items-center justify-end pr-2"
+                      style={{ 
+                        width: `${Math.max(((stats.played - stats.won) / maxGuesses) * 100, 10)}%`,
+                        backgroundColor: gameType === 'USER' ? '#fdab58' : '#FFD429'
+                      }}
+                      data-testid="dist-bar-lost"
+                    >
                       <span className="text-sm font-medium text-white">{stats.played - stats.won}</span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
