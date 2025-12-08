@@ -50,7 +50,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   const { isLocalMode } = useGameMode();
   const queryClient = useQueryClient();
   const adBannerActive = useAdBannerActive();
-  const { holidayActive, holidayStartDate, holidayEndDate } = useStreakSaverStatus();
+  const { holidayActive } = useStreakSaverStatus();
   // Set up realtime subscriptions for automatic UI refresh when database changes occur
   useRealtimeSubscriptions({
     userId: user?.id,
@@ -201,21 +201,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     const puzzleDate = `${year}-${monthStr}-${dayStr}`;
     
     return dayStatuses[puzzleDate] || null;
-  };
-
-  // Check if a date falls within the active holiday period
-  const isInActiveHolidayPeriod = (day: number, month: Date): boolean => {
-    if (!holidayActive || !holidayStartDate) return false;
-    
-    const year = month.getFullYear();
-    const monthStr = String(month.getMonth() + 1).padStart(2, '0');
-    const dayStr = String(day).padStart(2, '0');
-    const dateStr = `${year}-${monthStr}-${dayStr}`;
-    
-    const startDate = holidayStartDate.split('T')[0]; // Get just the date part
-    const endDate = holidayEndDate ? holidayEndDate.split('T')[0] : new Date().toISOString().split('T')[0];
-    
-    return dateStr >= startDate && dateStr <= endDate;
   };
 
   const renderCalendarDays = (month: Date) => {
