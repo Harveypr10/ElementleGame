@@ -1759,14 +1759,14 @@ export function PlayPage({
           }
         }}
       >
-        <AlertDialogContent className="rounded-xl mx-4 max-w-[calc(100vw-2rem)] sm:max-w-md" data-testid="holiday-warning-dialog">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+        <AlertDialogContent className="rounded-xl mx-4 max-w-[calc(100vw-2rem)] sm:max-w-md fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" data-testid="holiday-warning-dialog">
+          <AlertDialogHeader className="text-center">
+            <AlertDialogTitle className="flex items-center justify-center gap-2">
               <Umbrella className="h-5 w-5 text-yellow-500" />
               Holiday Mode Active
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="text-left space-y-3 text-sm text-muted-foreground">
+              <div className="text-center space-y-3 text-sm text-muted-foreground">
                 <p>
                   Playing today won't extend your streak unless you exit holiday mode.
                 </p>
@@ -1785,7 +1785,7 @@ export function PlayPage({
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 justify-center items-center">
             <AlertDialogCancel 
               onClick={async () => {
                 // Exit holiday mode first, then allow normal play
