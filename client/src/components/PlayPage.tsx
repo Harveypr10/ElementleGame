@@ -383,17 +383,22 @@ export function PlayPage({
   
   // Show holiday warning popup when playing today's puzzle while holiday mode is active
   // Applies to both Global and Local puzzles since streaks work the same way
+  // Wait for spinner to finish, then delay 300ms before showing popup
   useEffect(() => {
     if (
       holidayActive &&
       isPlayingTodaysPuzzle() &&
       !gameOver &&
       !holidayWarningDismissed &&
-      !showHolidayWarning
+      !showHolidayWarning &&
+      !isGameLoading // Wait for spinner to finish
     ) {
-      setShowHolidayWarning(true);
+      const timer = setTimeout(() => {
+        setShowHolidayWarning(true);
+      }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [holidayActive, puzzleDate, gameOver, holidayWarningDismissed, showHolidayWarning]);
+  }, [holidayActive, puzzleDate, gameOver, holidayWarningDismissed, showHolidayWarning, isGameLoading]);
   
   // Delay showing grid data after guesses have loaded (smoother page transition)
   // Only applies to games with existing progress - triggers 0.6s after guesses load
@@ -1754,7 +1759,7 @@ export function PlayPage({
           }
         }}
       >
-        <AlertDialogContent data-testid="holiday-warning-dialog">
+        <AlertDialogContent className="rounded-xl mx-4 max-w-[calc(100vw-2rem)] sm:max-w-md" data-testid="holiday-warning-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Umbrella className="h-5 w-5 text-yellow-500" />
@@ -1793,7 +1798,7 @@ export function PlayPage({
                 setHolidayWarningDismissed(true);
                 setShowHolidayWarning(false);
               }}
-              className="w-full sm:w-auto"
+              className="w-3/4 sm:w-auto mx-auto"
               data-testid="button-holiday-exit-mode"
             >
               Exit Holiday Mode
@@ -1804,7 +1809,7 @@ export function PlayPage({
                 setHolidayWarningDismissed(true);
                 setShowHolidayWarning(false);
               }}
-              className="w-full sm:w-auto"
+              className="w-3/4 sm:w-auto mx-auto"
               data-testid="button-holiday-continue-playing"
             >
               Continue in Holiday Mode
