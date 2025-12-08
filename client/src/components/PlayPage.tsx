@@ -381,20 +381,19 @@ export function PlayPage({
     setShowHolidayWarning(false);
   }, [answerDateCanonical]);
   
-  // Show holiday warning popup when playing today's Global puzzle while holiday mode is active
-  // Holiday mode only applies to Global/Region puzzles (not Local mode)
+  // Show holiday warning popup when playing today's puzzle while holiday mode is active
+  // Applies to both Global and Local puzzles since streaks work the same way
   useEffect(() => {
-    const isTodayGlobalPuzzle = !isLocalMode && isPlayingTodaysPuzzle();
     if (
       holidayActive &&
-      isTodayGlobalPuzzle &&
+      isPlayingTodaysPuzzle() &&
       !gameOver &&
       !holidayWarningDismissed &&
       !showHolidayWarning
     ) {
       setShowHolidayWarning(true);
     }
-  }, [holidayActive, puzzleDate, gameOver, holidayWarningDismissed, showHolidayWarning, isLocalMode]);
+  }, [holidayActive, puzzleDate, gameOver, holidayWarningDismissed, showHolidayWarning]);
   
   // Delay showing grid data after guesses have loaded (smoother page transition)
   // Only applies to games with existing progress - triggers 0.6s after guesses load
@@ -1801,7 +1800,15 @@ export function PlayPage({
         onContinuePlaying={handleContinuePlaying}
       />
       
-      <AlertDialog open={showHolidayWarning} onOpenChange={setShowHolidayWarning}>
+      <AlertDialog 
+        open={showHolidayWarning} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setHolidayWarningDismissed(true);
+            setShowHolidayWarning(false);
+          }
+        }}
+      >
         <AlertDialogContent data-testid="holiday-warning-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
