@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { BadgeSlot } from "./BadgeSlot";
 import { AllBadgesPopup } from "./AllBadgesPopup";
 import { Card } from "@/components/ui/card";
-import { Trophy } from "lucide-react";
+import { Trophy, Loader2 } from "lucide-react";
 import type { UserBadgeWithDetails } from "@shared/schema";
 
 interface BadgesRowProps {
@@ -27,6 +27,7 @@ function normalizeCategory(category: string): 'elementle' | 'streak' | 'percenti
 export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: BadgesRowProps) {
   const { isAuthenticated } = useAuth();
   const [showAllBadges, setShowAllBadges] = useState(false);
+  const [badgesReady, setBadgesReady] = useState(false);
   
   const endpoint = gameType === 'USER' 
     ? '/api/user/badges/earned' 
@@ -35,28 +36,20 @@ export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: 
   const { data: badges, isLoading, isFetching } = useQuery<HighestBadges>({
     queryKey: [endpoint],
     enabled: isAuthenticated,
-    // Force refetch to get fresh data when navigating with newly awarded badge
     refetchOnMount: newlyAwardedBadge ? 'always' : true,
   });
 
+  useEffect(() => {
+    if (!isLoading && badges !== undefined) {
+      const timer = setTimeout(() => {
+        setBadgesReady(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, badges]);
+
   if (!isAuthenticated) {
     return null;
-  }
-
-  if (isLoading) {
-    return (
-      <Card className="p-4">
-        <div className="font-bold text-sm mb-2 flex items-center gap-2">
-          <Trophy className="h-5 w-5" />
-          Badges
-        </div>
-        <div className="flex justify-center gap-3">
-          <div className="w-24 h-32 bg-muted animate-pulse rounded" />
-          <div className="w-24 h-32 bg-muted animate-pulse rounded" />
-          <div className="w-24 h-32 bg-muted animate-pulse rounded" />
-        </div>
-      </Card>
-    );
   }
 
   // Determine which category should animate
@@ -92,25 +85,40 @@ export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: 
             See all
           </button>
         </div>
-        <div className="flex justify-center gap-3">
-          <BadgeSlot 
-            category="elementle" 
-            badge={badges?.elementle || null}
-            isAnimating={animatingCategory === 'elementle'}
-            onAnimationComplete={animatingCategory === 'elementle' ? onAnimationComplete : undefined}
-          />
-          <BadgeSlot 
-            category="streak" 
-            badge={badges?.streak || null}
-            isAnimating={animatingCategory === 'streak'}
-            onAnimationComplete={animatingCategory === 'streak' ? onAnimationComplete : undefined}
-          />
-          <BadgeSlot 
-            category="percentile" 
-            badge={badges?.percentile || null}
-            isAnimating={animatingCategory === 'percentile'}
-            onAnimationComplete={animatingCategory === 'percentile' ? onAnimationComplete : undefined}
-          />
+        {/* Fixed height container to prevent layout shift */}
+        <div className="relative h-[160px] flex items-center justify-center">
+          {/* Spinner - fades out when badges are ready */}
+          <div 
+            className="absolute inset-0 flex items-center justify-center transition-opacity duration-300"
+            style={{ opacity: badgesReady ? 0 : 1, pointerEvents: badgesReady ? 'none' : 'auto' }}
+          >
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+          
+          {/* Badges - fade in when ready */}
+          <div 
+            className="flex justify-center gap-3 transition-opacity duration-300"
+            style={{ opacity: badgesReady ? 1 : 0 }}
+          >
+            <BadgeSlot 
+              category="elementle" 
+              badge={badges?.elementle || null}
+              isAnimating={animatingCategory === 'elementle'}
+              onAnimationComplete={animatingCategory === 'elementle' ? onAnimationComplete : undefined}
+            />
+            <BadgeSlot 
+              category="streak" 
+              badge={badges?.streak || null}
+              isAnimating={animatingCategory === 'streak'}
+              onAnimationComplete={animatingCategory === 'streak' ? onAnimationComplete : undefined}
+            />
+            <BadgeSlot 
+              category="percentile" 
+              badge={badges?.percentile || null}
+              isAnimating={animatingCategory === 'percentile'}
+              onAnimationComplete={animatingCategory === 'percentile' ? onAnimationComplete : undefined}
+            />
+          </div>
         </div>
       </Card>
 
