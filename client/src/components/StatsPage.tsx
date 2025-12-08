@@ -309,16 +309,24 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
               {[1, 2, 3, 4, 5].map((guessNum) => {
                 const count = (stats.guessDistribution && stats.guessDistribution[guessNum]) || 0;
                 const percentage = maxGuesses > 0 ? (count / maxGuesses) * 100 : 0;
+                const barColor = guessNum <= 2 
+                  ? (gameType === 'USER' ? '#93cd78' : '#A4DB57')
+                  : guessNum <= 4
+                    ? (gameType === 'USER' ? '#c4e050' : '#c4e050')
+                    : (gameType === 'USER' ? '#fdab58' : '#FFD429');
                 
                 return (
                   <div key={guessNum} className="flex items-center gap-2">
                     <div className="w-4 text-sm font-medium">{guessNum}</div>
-                    <div className="flex-1 mx-1 bg-muted rounded-sm h-8 relative overflow-hidden">
+                    <div 
+                      className="flex-1 mx-1 rounded-sm h-8 relative overflow-hidden"
+                      style={{ backgroundColor: `${barColor}4D` }}
+                    >
                       <div
                         className="h-full transition-all duration-300 flex items-center justify-end pr-2"
                         style={{ 
-                          width: `${Math.max(percentage, count > 0 ? 10 : 0)}%`,
-                          backgroundColor: gameType === 'USER' ? '#93cd78' : '#A4DB57'
+                          width: count > 0 ? `${Math.max(percentage, 10)}%` : '0%',
+                          backgroundColor: barColor
                         }}
                         data-testid={`dist-bar-${guessNum}`}
                       >
@@ -335,11 +343,14 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                   <span aria-hidden="true" className="invisible">6</span>
                   <span className="absolute right-[-4px] whitespace-nowrap pointer-events-none">Lost</span>
                 </div>
-                <div className="flex-1 mx-1 bg-muted rounded-sm h-8 relative overflow-hidden">
+                <div 
+                  className="flex-1 mx-1 rounded-sm h-8 relative overflow-hidden"
+                  style={{ backgroundColor: gameType === 'USER' ? '#fdab584D' : '#FFD4294D' }}
+                >
                   <div
                     className="h-full transition-all duration-300 flex items-center justify-end pr-2"
                     style={{ 
-                      width: `${Math.max((stats.played - stats.won) > 0 ? ((stats.played - stats.won) / maxGuesses) * 100 : 0, (stats.played - stats.won) > 0 ? 10 : 0)}%`,
+                      width: (stats.played - stats.won) > 0 ? `${Math.max(((stats.played - stats.won) / maxGuesses) * 100, 10)}%` : '0%',
                       backgroundColor: gameType === 'USER' ? '#fdab58' : '#FFD429'
                     }}
                     data-testid="dist-bar-lost"
