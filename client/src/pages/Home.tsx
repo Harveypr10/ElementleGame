@@ -663,7 +663,7 @@ export default function Home() {
 
   return (
     <AdBannerContext.Provider value={shouldShowAd}>
-      <div className="relative w-full min-h-screen">
+      <div className="relative w-full min-h-screen bg-background">
         <AnimatePresence mode="popLayout">
         {currentScreen === "welcome" && (
           <motion.div key="welcome" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
