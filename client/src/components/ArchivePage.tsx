@@ -251,6 +251,13 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
       const isFuture = puzzleDate > today;
       const isToday = puzzleDate.getTime() === today.getTime();
       const isPlayable = puzzle && !isFuture;
+      
+      // Check if this date is in the active holiday period (consecutive from today)
+      const year = month.getFullYear();
+      const monthStr = String(month.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(day).padStart(2, '0');
+      const dateStr = `${year}-${monthStr}-${dayStr}`;
+      const isActiveHolidayDate = activeHolidayDates.has(dateStr);
 
       days.push(
         <div
@@ -262,10 +269,13 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             status?.completed && status.won && "bg-green-100 dark:bg-green-900/30",
             status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30",
             status?.inProgress && "bg-blue-100 dark:bg-blue-900/30",
-            status?.isHoliday && "bg-yellow-100 dark:bg-yellow-900/30 ring-2 ring-yellow-500 dark:ring-yellow-400",
-            !status?.completed && !status?.inProgress && !status?.isHoliday && isPlayable && "bg-gray-100 dark:bg-gray-800",
+            // Active holiday dates get glowing animation
+            isActiveHolidayDate && "bg-yellow-100 dark:bg-yellow-900/30 ring-2 ring-yellow-500 dark:ring-yellow-400 animate-pulse",
+            // Other holiday days get static yellow border (no glow)
+            status?.isHoliday && !isActiveHolidayDate && "bg-yellow-100 dark:bg-yellow-900/30 ring-2 ring-yellow-500 dark:ring-yellow-400",
+            !status?.completed && !status?.inProgress && !status?.isHoliday && !isActiveHolidayDate && isPlayable && "bg-gray-100 dark:bg-gray-800",
             (!puzzle || isFuture) && "bg-background opacity-40",
-            isToday && !status?.isHoliday && "ring-2 ring-gray-500 dark:ring-gray-400"
+            isToday && !status?.isHoliday && !isActiveHolidayDate && "ring-2 ring-gray-500 dark:ring-gray-400"
           )}
           onClick={() => isPlayable && onPlayPuzzle(puzzle.id.toString())}
           data-testid={`calendar-day-${day}`}
@@ -275,8 +285,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             status?.completed && status.won && "text-green-700 dark:text-green-300",
             status?.completed && !status.won && "text-red-700 dark:text-red-300",
             status?.inProgress && "text-blue-700 dark:text-blue-300",
-            status?.isHoliday && "text-yellow-700 dark:text-yellow-300",
-            !status?.completed && !status?.isHoliday && isPlayable && "text-foreground",
+            (status?.isHoliday || isActiveHolidayDate) && "text-yellow-700 dark:text-yellow-300",
+            !status?.completed && !status?.isHoliday && !isActiveHolidayDate && isPlayable && "text-foreground",
             (!puzzle || isFuture) && "text-muted-foreground"
           )}>
             {day}
@@ -291,7 +301,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
               {status.guessCount}
             </span>
           )}
-          {status?.isHoliday && (
+          {(status?.isHoliday || isActiveHolidayDate) && (
             <span className="text-xs mt-1 text-yellow-600 dark:text-yellow-400">
               H
             </span>

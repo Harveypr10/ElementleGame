@@ -11,6 +11,16 @@ import { BadgeCelebrationPopup } from "./badges";
 import { useBadgeChecker } from "@/hooks/useBadgeChecker";
 import type { UserBadgeWithDetails } from "@shared/schema";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ChevronLeft, Umbrella } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -182,6 +192,10 @@ export function PlayPage({
   
   // Streak saver exit warning dialog state
   const [showStreakSaverExitWarning, setShowStreakSaverExitWarning] = useState(false);
+  
+  // Holiday mode warning dialog state
+  const [showHolidayWarning, setShowHolidayWarning] = useState(false);
+  const [holidayWarningDismissed, setHolidayWarningDismissed] = useState(false);
   
   // Track when guesses are being fetched asynchronously
   const [guessesLoading, setGuessesLoading] = useState(false);
@@ -362,7 +376,25 @@ export function PlayPage({
     setGuessesLoading(false);
     setGuessesLoaded(false);
     setGridDataReady(false);
+    // Reset holiday warning state for new puzzle
+    setHolidayWarningDismissed(false);
+    setShowHolidayWarning(false);
   }, [answerDateCanonical]);
+  
+  // Show holiday warning popup when playing today's Global puzzle while holiday mode is active
+  // Holiday mode only applies to Global/Region puzzles (not Local mode)
+  useEffect(() => {
+    const isTodayGlobalPuzzle = !isLocalMode && isPlayingTodaysPuzzle();
+    if (
+      holidayActive &&
+      isTodayGlobalPuzzle &&
+      !gameOver &&
+      !holidayWarningDismissed &&
+      !showHolidayWarning
+    ) {
+      setShowHolidayWarning(true);
+    }
+  }, [holidayActive, puzzleDate, gameOver, holidayWarningDismissed, showHolidayWarning, isLocalMode]);
   
   // Delay showing grid data after guesses have loaded (smoother page transition)
   // Only applies to games with existing progress - triggers 0.6s after guesses load
@@ -1768,6 +1800,40 @@ export function PlayPage({
         onCancelAndLoseStreak={handleCancelStreakSaver}
         onContinuePlaying={handleContinuePlaying}
       />
+      
+      <AlertDialog open={showHolidayWarning} onOpenChange={setShowHolidayWarning}>
+        <AlertDialogContent data-testid="holiday-warning-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Umbrella className="h-5 w-5 text-yellow-500" />
+              Holiday Mode Active
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Playing today's puzzle will end your holiday protection. Your streak will no longer be protected for missed days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setShowHolidayWarning(false);
+                onBack();
+              }}
+              data-testid="button-holiday-exit"
+            >
+              Exit
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setHolidayWarningDismissed(true);
+                setShowHolidayWarning(false);
+              }}
+              data-testid="button-holiday-continue"
+            >
+              Continue Playing
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {showStreakCelebration && (
         <StreakCelebrationPopup

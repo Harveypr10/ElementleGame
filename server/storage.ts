@@ -1731,6 +1731,7 @@ export class DatabaseStorage implements IStorage {
         numGuesses: gameAttemptsRegion.numGuesses,
         completedAt: gameAttemptsRegion.completedAt,
         puzzleDate: questionsAllocatedRegion.puzzleDate,
+        streakDayStatus: gameAttemptsRegion.streakDayStatus,
       })
       .from(gameAttemptsRegion)
       .innerJoin(
@@ -1753,6 +1754,7 @@ export class DatabaseStorage implements IStorage {
         result: gameAttemptsRegion.result,
         puzzleDate: questionsAllocatedRegion.puzzleDate,
         completedAt: gameAttemptsRegion.completedAt,
+        streakDayStatus: gameAttemptsRegion.streakDayStatus,
       })
       .from(gameAttemptsRegion)
       .innerJoin(
@@ -1764,6 +1766,28 @@ export class DatabaseStorage implements IStorage {
           eq(gameAttemptsRegion.userId, userId),
           eq(questionsAllocatedRegion.region, targetRegion),
           eq(gameAttemptsRegion.result, 'lost')
+        )
+      );
+
+    // Get holiday days (streak_day_status = 0) for streak calculation
+    const holidayAttempts = await db
+      .select({
+        id: gameAttemptsRegion.id,
+        result: gameAttemptsRegion.result,
+        puzzleDate: questionsAllocatedRegion.puzzleDate,
+        completedAt: gameAttemptsRegion.completedAt,
+        streakDayStatus: gameAttemptsRegion.streakDayStatus,
+      })
+      .from(gameAttemptsRegion)
+      .innerJoin(
+        questionsAllocatedRegion,
+        eq(gameAttemptsRegion.allocatedRegionId, questionsAllocatedRegion.id)
+      )
+      .where(
+        and(
+          eq(gameAttemptsRegion.userId, userId),
+          eq(questionsAllocatedRegion.region, targetRegion),
+          eq(gameAttemptsRegion.streakDayStatus, 0)
         )
       );
 
@@ -1779,8 +1803,9 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Calculate current streak
-    const allCompletedAttempts = [...completedAttempts, ...lostAttempts].sort((a, b) => 
+    // Calculate current streak using streak_day_status
+    // streak_day_status: 0 = holiday (maintains continuity), 1 = played (increments), NULL = missed (breaks)
+    const allAttempts = [...completedAttempts, ...lostAttempts, ...holidayAttempts].sort((a, b) => 
       new Date(b.puzzleDate).getTime() - new Date(a.puzzleDate).getTime()
     );
 
@@ -1788,16 +1813,22 @@ export class DatabaseStorage implements IStorage {
     let maxStreak = 0;
     let tempStreak = 0;
     
-    const dateMap = new Map<string, string>();
-    for (const attempt of allCompletedAttempts) {
+    // Build a map of dates to { result, streakDayStatus }
+    const dateMap = new Map<string, { result: string | null; streakDayStatus: number | null }>();
+    for (const attempt of allAttempts) {
       const completedDate = new Date(attempt.completedAt || '');
       const puzzleDate = new Date(attempt.puzzleDate);
       
       completedDate.setHours(0, 0, 0, 0);
       puzzleDate.setHours(0, 0, 0, 0);
       
-      if (completedDate.getTime() === puzzleDate.getTime()) {
-        dateMap.set(attempt.puzzleDate, attempt.result || '');
+      // For holiday days (streakDayStatus=0), always include them (they may not have completedAt)
+      // For played days, only count if completed on the same day
+      if (attempt.streakDayStatus === 0 || completedDate.getTime() === puzzleDate.getTime()) {
+        dateMap.set(attempt.puzzleDate, { 
+          result: attempt.result, 
+          streakDayStatus: attempt.streakDayStatus 
+        });
       }
     }
 
@@ -1814,22 +1845,37 @@ export class DatabaseStorage implements IStorage {
     
     while (true) {
       const dateStr = checkDate.toISOString().split('T')[0];
-      const result = dateMap.get(dateStr);
+      const dayData = dateMap.get(dateStr);
       
-      if (!result) break;
-      if (result === 'won') {
+      if (!dayData) break; // No game played and not a holiday - streak broken
+      
+      if (dayData.streakDayStatus === 0) {
+        // Holiday day - maintains streak continuity (don't increment, don't break)
+        // Just continue to the previous day
+      } else if (dayData.result === 'won') {
+        // Played and won - increment streak
         currentStreak++;
       } else {
+        // Lost or other - streak broken
         break;
       }
       
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
+    // Calculate max streak considering holidays
     const sortedDates = Array.from(dateMap.keys()).sort();
     for (let i = 0; i < sortedDates.length; i++) {
-      const result = dateMap.get(sortedDates[i]);
-      if (result === 'won') {
+      const dayData = dateMap.get(sortedDates[i]);
+      if (!dayData) {
+        tempStreak = 0;
+        continue;
+      }
+      
+      if (dayData.streakDayStatus === 0) {
+        // Holiday - maintains streak but doesn't increment
+        // Keep tempStreak as is
+      } else if (dayData.result === 'won') {
         tempStreak++;
         maxStreak = Math.max(maxStreak, tempStreak);
       } else {
@@ -2530,6 +2576,7 @@ export class DatabaseStorage implements IStorage {
         numGuesses: gameAttemptsUser.numGuesses,
         completedAt: gameAttemptsUser.completedAt,
         puzzleDate: questionsAllocatedUser.puzzleDate,
+        streakDayStatus: gameAttemptsUser.streakDayStatus,
       })
       .from(gameAttemptsUser)
       .innerJoin(
@@ -2551,6 +2598,7 @@ export class DatabaseStorage implements IStorage {
         result: gameAttemptsUser.result,
         puzzleDate: questionsAllocatedUser.puzzleDate,
         completedAt: gameAttemptsUser.completedAt,
+        streakDayStatus: gameAttemptsUser.streakDayStatus,
       })
       .from(gameAttemptsUser)
       .innerJoin(
@@ -2561,6 +2609,27 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(gameAttemptsUser.userId, userId),
           eq(gameAttemptsUser.result, 'lost')
+        )
+      );
+
+    // Get holiday days (streak_day_status = 0) for streak calculation
+    const holidayAttempts = await db
+      .select({
+        id: gameAttemptsUser.id,
+        result: gameAttemptsUser.result,
+        puzzleDate: questionsAllocatedUser.puzzleDate,
+        completedAt: gameAttemptsUser.completedAt,
+        streakDayStatus: gameAttemptsUser.streakDayStatus,
+      })
+      .from(gameAttemptsUser)
+      .innerJoin(
+        questionsAllocatedUser,
+        eq(gameAttemptsUser.allocatedUserId, questionsAllocatedUser.id)
+      )
+      .where(
+        and(
+          eq(gameAttemptsUser.userId, userId),
+          eq(gameAttemptsUser.streakDayStatus, 0)
         )
       );
 
@@ -2576,8 +2645,9 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
-    // Calculate current streak
-    const allCompletedAttempts = [...completedAttempts, ...lostAttempts].sort((a, b) => 
+    // Calculate current streak using streak_day_status
+    // streak_day_status: 0 = holiday (maintains continuity), 1 = played (increments), NULL = missed (breaks)
+    const allAttempts = [...completedAttempts, ...lostAttempts, ...holidayAttempts].sort((a, b) => 
       new Date(b.puzzleDate).getTime() - new Date(a.puzzleDate).getTime()
     );
 
@@ -2585,16 +2655,22 @@ export class DatabaseStorage implements IStorage {
     let maxStreak = 0;
     let tempStreak = 0;
     
-    const dateMap = new Map<string, string>();
-    for (const attempt of allCompletedAttempts) {
+    // Build a map of dates to { result, streakDayStatus }
+    const dateMap = new Map<string, { result: string | null; streakDayStatus: number | null }>();
+    for (const attempt of allAttempts) {
       const completedDate = new Date(attempt.completedAt || '');
       const puzzleDate = new Date(attempt.puzzleDate);
       
       completedDate.setHours(0, 0, 0, 0);
       puzzleDate.setHours(0, 0, 0, 0);
       
-      if (completedDate.getTime() === puzzleDate.getTime()) {
-        dateMap.set(attempt.puzzleDate, attempt.result || '');
+      // For holiday days (streakDayStatus=0), always include them (they may not have completedAt)
+      // For played days, only count if completed on the same day
+      if (attempt.streakDayStatus === 0 || completedDate.getTime() === puzzleDate.getTime()) {
+        dateMap.set(attempt.puzzleDate, { 
+          result: attempt.result, 
+          streakDayStatus: attempt.streakDayStatus 
+        });
       }
     }
 
@@ -2611,22 +2687,37 @@ export class DatabaseStorage implements IStorage {
     
     while (true) {
       const dateStr = checkDate.toISOString().split('T')[0];
-      const result = dateMap.get(dateStr);
+      const dayData = dateMap.get(dateStr);
       
-      if (!result) break;
-      if (result === 'won') {
+      if (!dayData) break; // No game played and not a holiday - streak broken
+      
+      if (dayData.streakDayStatus === 0) {
+        // Holiday day - maintains streak continuity (don't increment, don't break)
+        // Just continue to the previous day
+      } else if (dayData.result === 'won') {
+        // Played and won - increment streak
         currentStreak++;
       } else {
+        // Lost or other - streak broken
         break;
       }
       
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
+    // Calculate max streak considering holidays
     const sortedDates = Array.from(dateMap.keys()).sort();
     for (let i = 0; i < sortedDates.length; i++) {
-      const result = dateMap.get(sortedDates[i]);
-      if (result === 'won') {
+      const dayData = dateMap.get(sortedDates[i]);
+      if (!dayData) {
+        tempStreak = 0;
+        continue;
+      }
+      
+      if (dayData.streakDayStatus === 0) {
+        // Holiday - maintains streak but doesn't increment
+        // Keep tempStreak as is
+      } else if (dayData.result === 'won') {
         tempStreak++;
         maxStreak = Math.max(maxStreak, tempStreak);
       } else {
