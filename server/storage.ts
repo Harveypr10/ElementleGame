@@ -524,12 +524,13 @@ export class DatabaseStorage implements IStorage {
   // Get the Standard tier ID for a region
   async getStandardTierId(region: string): Promise<string | null> {
     // Use ILIKE for case-insensitive matching (database stores 'standard' lowercase)
+    // Note: We don't filter on active here - the active field is for purchasable tiers shown in upgrade menus,
+    // not for whether the Standard tier should be assigned to new users
     const result = await db.execute(sql`
       SELECT id 
       FROM user_tier 
       WHERE LOWER(tier) = 'standard' 
         AND region = ${region}
-        AND active = true 
       LIMIT 1
     `);
     
