@@ -73,6 +73,24 @@ export function clearUserCache(): void {
   }
 }
 
+/**
+ * Clear all archive-related caches
+ * Call this after holiday mode activation/deactivation to ensure
+ * fresh data displays with correct holiday styling
+ */
+export function clearArchiveCache(): void {
+  try {
+    const allKeys = Object.keys(localStorage);
+    allKeys.forEach(key => {
+      if (key.startsWith('cached-archive-')) {
+        removeLocal(key);
+      }
+    });
+  } catch (error) {
+    console.error('Error clearing archive cache:', error);
+  }
+}
+
 // Cache key constants for consistency
 export const CACHE_KEYS = {
   SETTINGS: 'cached-settings',

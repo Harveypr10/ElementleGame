@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { clearArchiveCache } from "@/lib/localCache";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -152,6 +153,12 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     try {
       await startHoliday();
       
+      // Clear archive local cache and invalidate game attempts queries
+      // This ensures Archive page shows fresh data with holiday rows and yellow borders
+      clearArchiveCache();
+      queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/game-attempts/user'] });
+      
       // Fetch animation data as best-effort - don't fail the activation if this fails
       let showRegion = false;
       let showUser = false;
@@ -208,6 +215,12 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     setShowEndHolidayConfirm(false);
     try {
       await endHoliday(false);
+      
+      // Clear archive local cache and invalidate game attempts queries
+      clearArchiveCache();
+      queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/game-attempts/user'] });
+      
       toast({
         title: "Holiday mode ended",
         description: "Your streak protection has been deactivated.",

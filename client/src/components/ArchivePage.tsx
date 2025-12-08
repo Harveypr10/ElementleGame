@@ -125,9 +125,10 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           const isCompleted = attempt.result !== null;
           const isWon = attempt.result === "won";
           const isInProgress = attempt.result === null && (attempt.numGuesses ?? 0) > 0;
-          // Holiday day: streak_day_status=0, result=null, num_guesses=null or 0
+          // Holiday day: any row with streak_day_status=0 should have yellow border
+          // This applies to ALL historical holiday days, regardless of whether played
           const streakDayStatus = (attempt as any).streakDayStatus;
-          const isHoliday = streakDayStatus === 0 && attempt.result === null && (attempt.numGuesses === null || attempt.numGuesses === 0);
+          const isHoliday = streakDayStatus === 0;
           
           statusMap[puzzleDate] = {
             completed: isCompleted,
@@ -266,15 +267,19 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             "aspect-square p-2 flex flex-col items-center justify-center transition-all min-h-[48px] min-w-[48px] rounded-md",
             isPlayable && "cursor-pointer hover-elevate",
             !isPlayable && "cursor-not-allowed",
+            // Background colors - priority order: completed > in-progress > holiday (unplayed) > default
             status?.completed && status.won && "bg-green-100 dark:bg-green-900/30",
             status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30",
             status?.inProgress && "bg-blue-100 dark:bg-blue-900/30",
-            // Active holiday dates get glowing animation
-            isActiveHolidayDate && "bg-yellow-100 dark:bg-yellow-900/30 ring-2 ring-yellow-500 dark:ring-yellow-400 animate-pulse",
-            // Other holiday days get static yellow border (no glow)
-            status?.isHoliday && !isActiveHolidayDate && "bg-yellow-100 dark:bg-yellow-900/30 ring-2 ring-yellow-500 dark:ring-yellow-400",
+            // Holiday days that are NOT completed/in-progress get yellow background
+            (status?.isHoliday || isActiveHolidayDate) && !status?.completed && !status?.inProgress && "bg-yellow-100 dark:bg-yellow-900/30",
+            // Default gray for playable days with no status
             !status?.completed && !status?.inProgress && !status?.isHoliday && !isActiveHolidayDate && isPlayable && "bg-gray-100 dark:bg-gray-800",
             (!puzzle || isFuture) && "bg-background opacity-40",
+            // Ring/border styles - holiday dates ALWAYS get yellow ring (regardless of completion status)
+            isActiveHolidayDate && "ring-2 ring-yellow-500 dark:ring-yellow-400 animate-pulse",
+            status?.isHoliday && !isActiveHolidayDate && "ring-2 ring-yellow-500 dark:ring-yellow-400",
+            // Today ring only if not a holiday day
             isToday && !status?.isHoliday && !isActiveHolidayDate && "ring-2 ring-gray-500 dark:ring-gray-400"
           )}
           onClick={() => isPlayable && onPlayPuzzle(puzzle.id.toString())}
@@ -282,11 +287,13 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
         >
           <span className={cn(
             "text-sm font-semibold",
+            // Text color priority: completed > in-progress > holiday (unplayed) > default
             status?.completed && status.won && "text-green-700 dark:text-green-300",
             status?.completed && !status.won && "text-red-700 dark:text-red-300",
             status?.inProgress && "text-blue-700 dark:text-blue-300",
-            (status?.isHoliday || isActiveHolidayDate) && "text-yellow-700 dark:text-yellow-300",
-            !status?.completed && !status?.isHoliday && !isActiveHolidayDate && isPlayable && "text-foreground",
+            // Holiday days that are NOT completed/in-progress get yellow text
+            (status?.isHoliday || isActiveHolidayDate) && !status?.completed && !status?.inProgress && "text-yellow-700 dark:text-yellow-300",
+            !status?.completed && !status?.inProgress && !status?.isHoliday && !isActiveHolidayDate && isPlayable && "text-foreground",
             (!puzzle || isFuture) && "text-muted-foreground"
           )}>
             {day}

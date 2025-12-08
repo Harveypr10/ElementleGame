@@ -1,0 +1,31 @@
+Holiday Mode Archive Logic
+Context (Backend Logic Recap)
+•	When activate_holiday_mode is called:
+o	If the user is on a streak, hasn’t played today, and has a win within the last 7 days, Supabase backfills rows in game_attempts_user and game_attempts_region with streak_day_status = 0 from the day after the last win up to today.
+o	Otherwise, holiday mode starts today (holiday_start_date = today()).
+•	These rows (streak_day_status = 0) represent holiday days: they keep streak continuity but do not increment it.
+•	Supabase ensures all puzzle dates in both tables are correctly populated with streak_day_status = 0 when holiday mode is active.
+What Replit Needs to Implement:
+Update the Archive Popup Logic
+•	Ensure activate_holiday_mode has been called and has set holiday_active=TRUE in user_stats_user. When holiday_active=TRUE then proceed to:
+•	Step 1: Check today’s puzzle row.
+o	For each version of the game (user and region), look at today’s puzzle date in game_attempts_user and game_attempts_region.
+o	If streak_day_status = 0 for today’s puzzle date:
+	Run the Archive popup for that version of the game.
+o	If streak_day_status ≠ 0 (or no row exists for today):
+	Do not run the popup.
+•	Step 2: Consecutive holiday days.
+o	If the popup runs, look backwards from today() to find consecutive puzzle dates with streak_day_status = 0.
+o	Count how many consecutive days are found.
+o	Animate those days in the popup with the glowing yellow box effect.
+
+Archive Page Rendering
+•	For both game_attempts_user and game_attempts_region:
+o	Any puzzle date with streak_day_status = 0 must be rendered with a yellow border in the standard ArchivePage UI.
+o	This applies to all historical holiday days, not just today or the current holiday period, and doesn’t effect the existing rules that determine the fill colour of a box or the numbers/tick/cross shown in a box
+Explicit Instructions
+•	Do not calculate holiday rows client side. Supabase already inserts them via activate_holiday_mode and nightly scheduler.
+•	Always read streak_day_status from the tables.
+•	Popup trigger condition: only if today’s puzzle date has streak_day_status = 0.
+•	Popup animation (only if trigger condition is met): consecutive holiday days backwards from today.
+•	Archive rendering: yellow border for all streak_day_status = 0 rows. Ensure the archives are refreshed after holiday mode is enabled, ready for the user navigating in after having enabling holiday mode
