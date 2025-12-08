@@ -84,6 +84,11 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const [showHolidayOverlay, setShowHolidayOverlay] = useState(false);
   const [holidayOverlayMode, setHolidayOverlayMode] = useState<'region' | 'user'>('region');
   const [overlayPhase, setOverlayPhase] = useState<'fade-in' | 'glow' | 'fade-out'>('fade-in');
+  
+  // Holiday animation data - dates to highlight with yellow glow
+  const [regionHolidayDates, setRegionHolidayDates] = useState<string[]>([]);
+  const [userHolidayDates, setUserHolidayDates] = useState<string[]>([]);
+  const [showUserAfterRegion, setShowUserAfterRegion] = useState(false);
 
   // Sync local autoRenew state with subscription data when it loads/changes
   useEffect(() => {
@@ -146,10 +151,37 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     setShowStartHolidayConfirm(false);
     try {
       await startHoliday();
-      // Start the holiday overlay animation sequence
-      setHolidayOverlayMode('region');
-      setOverlayPhase('fade-in');
-      setShowHolidayOverlay(true);
+      
+      // Fetch animation data to determine which games should show the overlay
+      const response = await apiRequest("GET", "/api/holiday/animation-data");
+      const animationData = await response.json();
+      
+      // Check conditions for each game mode
+      const showRegion = animationData.region.hasStreak && animationData.region.todayStreakDayStatusZero;
+      const showUser = animationData.user.hasStreak && animationData.user.todayStreakDayStatusZero;
+      
+      if (showRegion) {
+        // Set region holiday dates and start with region mode
+        setRegionHolidayDates(animationData.region.holidayDates || []);
+        setUserHolidayDates(animationData.user.holidayDates || []);
+        setShowUserAfterRegion(showUser);
+        setHolidayOverlayMode('region');
+        setOverlayPhase('fade-in');
+        setShowHolidayOverlay(true);
+      } else if (showUser) {
+        // Skip region, go straight to user mode
+        setUserHolidayDates(animationData.user.holidayDates || []);
+        setShowUserAfterRegion(false);
+        setHolidayOverlayMode('user');
+        setOverlayPhase('fade-in');
+        setShowHolidayOverlay(true);
+      } else {
+        // No animation needed - just show toast
+        toast({
+          title: "Holiday mode activated",
+          description: `Your streak is now protected for the next ${effectiveHolidayDurationDays} days.`,
+        });
+      }
     } catch (error) {
       console.error("Failed to start holiday:", error);
       toast({
@@ -212,13 +244,14 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     } else if (overlayPhase === 'fade-out') {
       // 1 second fade out, then switch mode or close
       timer = setTimeout(() => {
-        if (holidayOverlayMode === 'region') {
-          // Switch to user mode
+        if (holidayOverlayMode === 'region' && showUserAfterRegion) {
+          // Switch to user mode only if conditions were met for user mode
           setHolidayOverlayMode('user');
           setOverlayPhase('fade-in');
         } else {
-          // Done with both, close overlay and show toast
+          // Done, close overlay and show toast
           setShowHolidayOverlay(false);
+          setShowUserAfterRegion(false);
           toast({
             title: "Holiday mode activated",
             description: `Your streak is now protected for the next ${effectiveHolidayDurationDays} days.`,
@@ -228,7 +261,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     }
     
     return () => clearTimeout(timer);
-  }, [showHolidayOverlay, overlayPhase, holidayOverlayMode, effectiveHolidayDurationDays, toast]);
+  }, [showHolidayOverlay, overlayPhase, holidayOverlayMode, showUserAfterRegion, effectiveHolidayDurationDays, toast]);
 
   // Get today's date for the calendar
   const today = new Date();
@@ -660,15 +693,20 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                     const day = i + 1;
                     const isToday = day === currentDay;
                     
+                    // Check if this day should be highlighted based on holidayDates
+                    const currentHolidayDates = holidayOverlayMode === 'region' ? regionHolidayDates : userHolidayDates;
+                    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isHolidayDate = currentHolidayDates.includes(dateStr);
+                    
                     return (
                       <div
                         key={day}
                         className={cn(
                           "aspect-square flex items-center justify-center text-xs rounded-md relative",
-                          isToday && "font-bold"
+                          (isToday || isHolidayDate) && "font-bold"
                         )}
                       >
-                        {isToday && overlayPhase === 'glow' && (
+                        {isHolidayDate && overlayPhase === 'glow' && (
                           <motion.div
                             className="absolute inset-0 rounded-md border-2 border-yellow-400"
                             initial={{ opacity: 0 }}
@@ -687,7 +725,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                             }}
                           />
                         )}
-                        <span className={cn(isToday && overlayPhase === 'glow' && "relative z-10")}>{day}</span>
+                        <span className={cn(isHolidayDate && overlayPhase === 'glow' && "relative z-10")}>{day}</span>
                       </div>
                     );
                   })}
