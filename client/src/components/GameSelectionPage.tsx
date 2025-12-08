@@ -1298,7 +1298,7 @@ export function GameSelectionPage({
             const gameType = pendingBadgeGameType;
             
             // Mark this badge as processed so we don't re-show it
-            setProcessedBadgeIds(prev => new Set([...prev, badge.id]));
+            setProcessedBadgeIds(prev => new Set(Array.from(prev).concat(badge.id)));
             setIsAwarding(true);
             
             // Mark the badge as awarded in the backend
