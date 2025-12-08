@@ -56,11 +56,19 @@
         width: 100%;
         display: flex;
         flex-direction: column;
+        background-color: #7DAAE8;
         /* Extend into safe areas on notched devices */
         padding-top: env(safe-area-inset-top);
         padding-bottom: env(safe-area-inset-bottom);
         padding-left: env(safe-area-inset-left);
         padding-right: env(safe-area-inset-right);
+      }
+      /* After splash is done, #root uses app background */
+      html.app-loaded #root {
+        background-color: hsl(0 0% 98%);
+      }
+      html.app-loaded.dark #root {
+        background-color: hsl(222 47% 11%);
       }
       #spinner {
         position: fixed;
@@ -92,11 +100,10 @@
         width: 160px;
         height: 160px;
         opacity: 0;
-        transition: opacity 400ms ease-in-out;
+        transition: opacity 500ms ease-in-out 200ms;
       }
       #spinner.fade-in #hamster {
         opacity: 1;
-        transition-delay: 150ms;
       }
       #spinner.fade-out #hamster {
         opacity: 0;
