@@ -267,6 +267,7 @@ export interface IStorage {
       holidayDaysTakenCurrentPeriod: number;
       holidayEnded: boolean;
       missedYesterdayFlag: boolean;
+      holidaysUsedYear: number;
     };
   } | null>;
   
@@ -2857,6 +2858,7 @@ export class DatabaseStorage implements IStorage {
       holidayDaysTakenCurrentPeriod: number;
       holidayEnded: boolean;
       missedYesterdayFlag: boolean;
+      holidaysUsedYear: number;
     };
   } | null> {
     try {
@@ -2887,7 +2889,8 @@ export class DatabaseStorage implements IStorage {
           holiday_end_date,
           holiday_days_taken_current_period,
           holiday_ended,
-          missed_yesterday_flag_user
+          missed_yesterday_flag_user,
+          holidays_used_year
         FROM user_stats_user
         WHERE user_id = ${userId}
       `);
@@ -3042,6 +3045,7 @@ export class DatabaseStorage implements IStorage {
           holidayDaysTakenCurrentPeriod: userRow.holiday_days_taken_current_period || 0,
           holidayEnded: userRow.holiday_ended || false,
           missedYesterdayFlag: userMissedFlag,
+          holidaysUsedYear: userRow.holidays_used_year || 0,
         }
       };
     } catch (error: any) {

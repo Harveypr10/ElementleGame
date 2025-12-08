@@ -1815,15 +1815,15 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         holidayDurationDays = 0;
       }
       
-      // Get holiday usage this year
-      const holidaysUsedThisYear = await storage.countHolidayEventsThisYear(userId);
+      // Get holiday usage this year from the status (stored in user_stats_user.holidays_used_year)
+      const holidaysUsedThisYear = status?.user?.holidaysUsedYear ?? 0;
       
       console.log('[streak-saver/status] Status:', { status, isPro, streakSaverAllowance, holidaysUsedThisYear });
       
       // Return safe defaults if status is null (new user without stats)
       const safeStatus = status || {
         region: { currentStreak: 0, streakSaversUsedMonth: 0, missedYesterdayFlag: false },
-        user: { currentStreak: 0, streakSaversUsedMonth: 0, holidayActive: false, holidayStartDate: null, holidayEndDate: null, missedYesterdayFlag: false }
+        user: { currentStreak: 0, streakSaversUsedMonth: 0, holidayActive: false, holidayStartDate: null, holidayEndDate: null, holidayDaysTakenCurrentPeriod: 0, holidayEnded: false, missedYesterdayFlag: false, holidaysUsedYear: 0 }
       };
       
       res.json({
@@ -1951,8 +1951,9 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         return res.status(403).json({ error: "Your tier does not include holidays" });
       }
       
-      // Check annual holiday usage
-      const holidaysUsedThisYear = await storage.countHolidayEventsThisYear(userId);
+      // Check annual holiday usage from user_stats_user.holidays_used_year
+      const status = await storage.getStreakSaverStatus(userId);
+      const holidaysUsedThisYear = status?.user?.holidaysUsedYear ?? 0;
       
       if (holidaysUsedThisYear >= holidayAllowance) {
         return res.status(400).json({ error: "No holidays remaining this year" });
