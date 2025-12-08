@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, Crown, Calendar, Flame, Umbrella, AlertTriangle } from "lucide-react";
+import { ChevronLeft, Crown, Calendar, Flame, Umbrella, AlertTriangle, Globe, User } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
 import { useAdBannerActive } from "@/components/AdBanner";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,6 +79,11 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStartHolidayConfirm, setShowStartHolidayConfirm] = useState(false);
   const [showEndHolidayConfirm, setShowEndHolidayConfirm] = useState(false);
+  
+  // Holiday activation overlay state
+  const [showHolidayOverlay, setShowHolidayOverlay] = useState(false);
+  const [holidayOverlayMode, setHolidayOverlayMode] = useState<'region' | 'user'>('region');
+  const [overlayPhase, setOverlayPhase] = useState<'fade-in' | 'glow' | 'fade-out'>('fade-in');
 
   // Sync local autoRenew state with subscription data when it loads/changes
   useEffect(() => {
@@ -139,10 +146,10 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     setShowStartHolidayConfirm(false);
     try {
       await startHoliday();
-      toast({
-        title: "Holiday mode activated",
-        description: `Your streak is now protected for the next ${effectiveHolidayDurationDays} days.`,
-      });
+      // Start the holiday overlay animation sequence
+      setHolidayOverlayMode('region');
+      setOverlayPhase('fade-in');
+      setShowHolidayOverlay(true);
     } catch (error) {
       console.error("Failed to start holiday:", error);
       toast({
@@ -156,7 +163,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const handleEndHoliday = async () => {
     setShowEndHolidayConfirm(false);
     try {
-      await endHoliday();
+      await endHoliday(false);
       toast({
         title: "Holiday mode ended",
         description: "Your streak protection has been deactivated.",
@@ -189,6 +196,48 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const holidaysRemainingValue = effectiveHolidaySavers - holidaysUsedThisYear;
 
   const isLifetime = tierType === 'lifetime';
+
+  // Holiday overlay animation effect
+  useEffect(() => {
+    if (!showHolidayOverlay) return;
+    
+    let timer: NodeJS.Timeout;
+    
+    if (overlayPhase === 'fade-in') {
+      // 1 second fade in, then start glow
+      timer = setTimeout(() => setOverlayPhase('glow'), 1000);
+    } else if (overlayPhase === 'glow') {
+      // 3 seconds of glow animation, then fade out
+      timer = setTimeout(() => setOverlayPhase('fade-out'), 3000);
+    } else if (overlayPhase === 'fade-out') {
+      // 1 second fade out, then switch mode or close
+      timer = setTimeout(() => {
+        if (holidayOverlayMode === 'region') {
+          // Switch to user mode
+          setHolidayOverlayMode('user');
+          setOverlayPhase('fade-in');
+        } else {
+          // Done with both, close overlay and show toast
+          setShowHolidayOverlay(false);
+          toast({
+            title: "Holiday mode activated",
+            description: `Your streak is now protected for the next ${effectiveHolidayDurationDays} days.`,
+          });
+        }
+      }, 1000);
+    }
+    
+    return () => clearTimeout(timer);
+  }, [showHolidayOverlay, overlayPhase, holidayOverlayMode, effectiveHolidayDurationDays, toast]);
+
+  // Get today's date for the calendar
+  const today = new Date();
+  const currentMonth = today.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const currentDay = today.getDate();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
+  // Adjust for Monday start (0 = Monday, 6 = Sunday)
+  const adjustedFirstDay = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
   return (
     <div className={`min-h-screen flex flex-col p-4 bg-background ${adBannerActive ? 'pb-[50px]' : ''}`}>
@@ -546,6 +595,108 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Holiday Activation Overlay */}
+      <AnimatePresence>
+        {showHolidayOverlay && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: overlayPhase === 'fade-out' ? 0 : 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+          >
+            <motion.div
+              className="bg-card rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: overlayPhase === 'fade-out' ? 0 : 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              {/* Header with mode icon */}
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className={cn(
+                  "p-2 rounded-full",
+                  holidayOverlayMode === 'region' 
+                    ? "bg-blue-100 dark:bg-blue-900/30" 
+                    : "bg-purple-100 dark:bg-purple-900/30"
+                )}>
+                  {holidayOverlayMode === 'region' ? (
+                    <Globe className="h-5 w-5 text-blue-500" />
+                  ) : (
+                    <User className="h-5 w-5 text-purple-500" />
+                  )}
+                </div>
+                <h3 className="text-lg font-semibold">
+                  {holidayOverlayMode === 'region' ? 'Global Game' : 'Personal Game'}
+                </h3>
+              </div>
+
+              <p className="text-center text-sm text-muted-foreground mb-4">
+                Holiday mode is now active
+              </p>
+
+              {/* Calendar Grid */}
+              <div className="bg-muted/50 rounded-lg p-4">
+                <p className="text-center text-sm font-medium mb-3">{currentMonth}</p>
+                
+                {/* Day headers */}
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+                    <div key={i} className="text-center text-xs text-muted-foreground font-medium">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Calendar days */}
+                <div className="grid grid-cols-7 gap-1">
+                  {/* Empty cells for days before the first of the month */}
+                  {Array.from({ length: adjustedFirstDay }).map((_, i) => (
+                    <div key={`empty-${i}`} className="aspect-square" />
+                  ))}
+                  
+                  {/* Days of the month */}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const day = i + 1;
+                    const isToday = day === currentDay;
+                    
+                    return (
+                      <div
+                        key={day}
+                        className={cn(
+                          "aspect-square flex items-center justify-center text-xs rounded-md relative",
+                          isToday && "font-bold"
+                        )}
+                      >
+                        {isToday && overlayPhase === 'glow' && (
+                          <motion.div
+                            className="absolute inset-0 rounded-md border-2 border-yellow-400"
+                            initial={{ opacity: 0 }}
+                            animate={{
+                              opacity: 1,
+                              boxShadow: [
+                                "0 0 5px 2px rgba(250, 204, 21, 0.4)",
+                                "0 0 15px 5px rgba(250, 204, 21, 0.7)",
+                                "0 0 5px 2px rgba(250, 204, 21, 0.4)",
+                              ],
+                            }}
+                            transition={{
+                              duration: 1.5,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                          />
+                        )}
+                        <span className={cn(isToday && overlayPhase === 'glow' && "relative z-10")}>{day}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
