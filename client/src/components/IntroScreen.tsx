@@ -64,6 +64,9 @@ export function IntroScreen({
     categoryOrLocationLabel = locationName || null;
   }
 
+  // Determine background color based on streak game status
+  const backgroundColor = isStreakGame ? '#000000' : '#FAFAFA';
+  
   // Use the global hamster spinner with onFadeOutComplete to sequence animations
   const spinner = useSpinnerWithTimeout({
     retryDelayMs: 4000,
@@ -81,6 +84,9 @@ export function IntroScreen({
       setIsReady(true);
     },
   });
+  
+  // Spinner background matches the IntroScreen background
+  const spinnerBackgroundColor = backgroundColor;
 
   // Handle exit animation completion
   const handleExitComplete = useCallback(() => {
@@ -122,10 +128,10 @@ export function IntroScreen({
     if (hasStartedLoading.current) return;
     hasStartedLoading.current = true;
     
-    // Show hamster spinner immediately
+    // Show hamster spinner immediately with matching background color
     if (!spinnerManagedRef.current) {
       console.log('[IntroScreen] Starting hamster spinner');
-      spinner.start(0);
+      spinner.start(0, spinnerBackgroundColor);
       spinnerManagedRef.current = true;
     }
 
@@ -163,8 +169,6 @@ export function IntroScreen({
     }
   }, [isPresent, spinner, safeToRemove]);
 
-  // Determine background color based on streak game status
-  const backgroundColor = isStreakGame ? '#000000' : '#FAFAFA';
   const textColor = isStreakGame ? '#FFFFFF' : '#54524F';
   const categoryTextColor = isStreakGame ? '#FFD700' : '#1e3a8a';
   const streakRedColor = '#DC2626'; // Same red as streak celebration popup (text-red-600)

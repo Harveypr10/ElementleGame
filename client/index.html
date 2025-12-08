@@ -66,7 +66,7 @@
         width: 100vw;
         height: 100vh;
         height: 100dvh;
-        background-color: white;
+        background-color: var(--spinner-bg, hsl(0 0% 98%));
         display: none;
         flex-direction: column;
         justify-content: center;
@@ -75,6 +75,9 @@
         z-index: 9999;
         opacity: 0;
         transition: opacity 300ms ease-in-out;
+      }
+      html.dark #spinner {
+        background-color: var(--spinner-bg, hsl(222 47% 11%));
       }
       #spinner.fade-in {
         opacity: 1;
@@ -85,6 +88,16 @@
       #hamster {
         width: 160px;
         height: 160px;
+        opacity: 0;
+        transition: opacity 400ms ease-in-out;
+      }
+      #spinner.fade-in #hamster {
+        opacity: 1;
+        transition-delay: 150ms;
+      }
+      #spinner.fade-out #hamster {
+        opacity: 0;
+        transition-delay: 0ms;
       }
       #spinner-text {
         margin-top: 16px;
@@ -92,6 +105,16 @@
         font-size: 18px;
         font-weight: 600;
         color: #6b7280;
+        opacity: 0;
+        transition: opacity 400ms ease-in-out;
+      }
+      #spinner.fade-in #spinner-text {
+        opacity: 1;
+        transition-delay: 150ms;
+      }
+      #spinner.fade-out #spinner-text {
+        opacity: 0;
+        transition-delay: 0ms;
       }
     </style>
   </head>

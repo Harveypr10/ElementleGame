@@ -18,7 +18,7 @@ declare global {
 
 interface SpinnerContextValue {
   isLoading: boolean;
-  showSpinner: (delay?: number) => void;
+  showSpinner: (delay?: number, backgroundColor?: string) => void;
   hideSpinner: () => void;
 }
 
@@ -70,7 +70,7 @@ export function SpinnerProvider({ children }: { children: ReactNode }) {
     }
   }, [performHide]);
 
-  const showSpinner = useCallback((delay: number = DEFAULT_DELAY_MS) => {
+  const showSpinner = useCallback((delay: number = DEFAULT_DELAY_MS, backgroundColor?: string) => {
     hideRequestedRef.current = false;
     setIsLoading(true);
     
@@ -82,6 +82,14 @@ export function SpinnerProvider({ children }: { children: ReactNode }) {
     }
     if (fadeOutTimeoutRef.current) {
       clearTimeout(fadeOutTimeoutRef.current);
+    }
+    
+    // Set custom background color if provided
+    const spinnerElement = document.getElementById('spinner');
+    if (spinnerElement && backgroundColor) {
+      spinnerElement.style.setProperty('--spinner-bg', backgroundColor);
+    } else if (spinnerElement) {
+      spinnerElement.style.removeProperty('--spinner-bg');
     }
     
     delayTimeoutRef.current = setTimeout(() => {
@@ -231,7 +239,7 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
     }
   }, []);
   
-  const start = useCallback((delay?: number) => {
+  const start = useCallback((delay?: number, backgroundColor?: string) => {
     if (isActiveRef.current) return;
     
     isActiveRef.current = true;
@@ -240,7 +248,7 @@ export function useSpinnerWithTimeout(options: SpinnerTimeoutOptions = {}) {
     spinnerVisibleTimeRef.current = 0;
     clearTimeouts();
     
-    showSpinner(delay ?? 0);
+    showSpinner(delay ?? 0, backgroundColor);
     
     const showDelay = delay ?? DEFAULT_DELAY_MS;
     spinnerVisibleTimeoutRef.current = setTimeout(() => {
