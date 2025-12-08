@@ -32,18 +32,21 @@
     <script src="https://unpkg.com/lottie-web@latest/build/player/lottie.min.js"></script>
 
     <style>
-      /* Root element styling */
+      /* Root element styling - starts with splash blue, reset by SplashScreen */
       html, body {
         margin: 0;
         padding: 0;
         min-height: 100%;
         min-height: 100dvh;
+        background-color: #7DAAE8;
+        color: hsl(0 0% 25%);
+      }
+      /* After splash is done (app-loaded class added), use app background colors */
+      html.app-loaded, html.app-loaded body {
         background-color: hsl(0 0% 98%);
         color: hsl(0 0% 25%);
       }
-      
-      /* Dark mode support - uses .dark class toggled by app, not system preference */
-      html.dark, html.dark body {
+      html.app-loaded.dark, html.app-loaded.dark body {
         background-color: hsl(222 47% 11%);
         color: hsl(0 0% 98%);
       }

@@ -17,6 +17,7 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
   const [finished, setFinished] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
 
+
   useEffect(() => {
     // Preload GameSelection screen images and auth/generating screens
     const imagesToPreload = [
@@ -46,12 +47,11 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Reset body background color after fade-in completes (1000ms fade + 100ms buffer)
+  // Add app-loaded class to html after fade-in completes to switch from splash blue to app background
   useEffect(() => {
     if (fadeIn) {
       const timer = setTimeout(() => {
-        document.body.style.backgroundColor = '';
-        document.documentElement.style.backgroundColor = '';
+        document.documentElement.classList.add('app-loaded');
       }, 1100);
       return () => clearTimeout(timer);
     }
