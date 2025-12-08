@@ -1485,6 +1485,7 @@ export class DatabaseStorage implements IStorage {
         digits: gameAttemptsRegion.digits,
         startedAt: gameAttemptsRegion.startedAt,
         completedAt: gameAttemptsRegion.completedAt,
+        streakDayStatus: gameAttemptsRegion.streakDayStatus,
         allocated_id: questionsAllocatedRegion.id,
         allocated_questionId: questionsAllocatedRegion.questionId,
         allocated_region: questionsAllocatedRegion.region,
@@ -1518,6 +1519,7 @@ export class DatabaseStorage implements IStorage {
       digits: result.digits,
       startedAt: result.startedAt,
       completedAt: result.completedAt,
+      streakDayStatus: result.streakDayStatus,
       allocatedQuestion: {
         id: result.allocated_id,
         questionId: result.allocated_questionId,
@@ -2344,6 +2346,7 @@ export class DatabaseStorage implements IStorage {
         digits: gameAttemptsUser.digits,
         startedAt: gameAttemptsUser.startedAt,
         completedAt: gameAttemptsUser.completedAt,
+        streakDayStatus: gameAttemptsUser.streakDayStatus,
         allocated_id: questionsAllocatedUser.id,
         allocated_questionId: questionsAllocatedUser.questionId,
         allocated_userId: questionsAllocatedUser.userId,
@@ -2389,6 +2392,7 @@ export class DatabaseStorage implements IStorage {
       digits: result.digits,
       startedAt: result.startedAt,
       completedAt: result.completedAt,
+      streakDayStatus: result.streakDayStatus,
       allocatedQuestion: {
         id: result.allocated_id,
         questionId: result.allocated_questionId,
