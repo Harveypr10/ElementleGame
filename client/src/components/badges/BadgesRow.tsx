@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { BadgeSlot } from "./BadgeSlot";
 import { AllBadgesPopup } from "./AllBadgesPopup";
 import { Card } from "@/components/ui/card";
-import { Trophy, Loader2 } from "lucide-react";
+import { Trophy, Loader2, ChevronRight } from "lucide-react";
 import type { UserBadgeWithDetails } from "@shared/schema";
 
 interface BadgesRowProps {
@@ -27,6 +27,7 @@ function normalizeCategory(category: string): 'elementle' | 'streak' | 'percenti
 export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: BadgesRowProps) {
   const { isAuthenticated } = useAuth();
   const [showAllBadges, setShowAllBadges] = useState(false);
+  const [initialCategory, setInitialCategory] = useState<'elementle' | 'streak' | 'percentile'>('elementle');
   const [badgesReady, setBadgesReady] = useState(false);
   
   const endpoint = gameType === 'USER' 
@@ -78,11 +79,15 @@ export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: 
             Badges
           </div>
           <button
-            onClick={() => setShowAllBadges(true)}
-            className="text-sm text-primary hover:underline font-normal"
+            onClick={() => {
+              setInitialCategory('elementle');
+              setShowAllBadges(true);
+            }}
+            className="text-sm text-primary hover:underline font-normal flex items-center gap-0.5"
             data-testid="button-see-all-badges"
           >
-            See all
+            View all
+            <ChevronRight className="h-4 w-4" />
           </button>
         </div>
         {/* Fixed height container to prevent layout shift */}
@@ -100,24 +105,48 @@ export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: 
             className="flex justify-center gap-3 transition-opacity duration-300"
             style={{ opacity: badgesReady ? 1 : 0 }}
           >
-            <BadgeSlot 
-              category="elementle" 
-              badge={badges?.elementle || null}
-              isAnimating={animatingCategory === 'elementle'}
-              onAnimationComplete={animatingCategory === 'elementle' ? onAnimationComplete : undefined}
-            />
-            <BadgeSlot 
-              category="streak" 
-              badge={badges?.streak || null}
-              isAnimating={animatingCategory === 'streak'}
-              onAnimationComplete={animatingCategory === 'streak' ? onAnimationComplete : undefined}
-            />
-            <BadgeSlot 
-              category="percentile" 
-              badge={badges?.percentile || null}
-              isAnimating={animatingCategory === 'percentile'}
-              onAnimationComplete={animatingCategory === 'percentile' ? onAnimationComplete : undefined}
-            />
+            <div 
+              className="cursor-pointer"
+              onClick={() => {
+                setInitialCategory('elementle');
+                setShowAllBadges(true);
+              }}
+            >
+              <BadgeSlot 
+                category="elementle" 
+                badge={badges?.elementle || null}
+                isAnimating={animatingCategory === 'elementle'}
+                onAnimationComplete={animatingCategory === 'elementle' ? onAnimationComplete : undefined}
+              />
+            </div>
+            <div 
+              className="cursor-pointer"
+              onClick={() => {
+                setInitialCategory('streak');
+                setShowAllBadges(true);
+              }}
+            >
+              <BadgeSlot 
+                category="streak" 
+                badge={badges?.streak || null}
+                isAnimating={animatingCategory === 'streak'}
+                onAnimationComplete={animatingCategory === 'streak' ? onAnimationComplete : undefined}
+              />
+            </div>
+            <div 
+              className="cursor-pointer"
+              onClick={() => {
+                setInitialCategory('percentile');
+                setShowAllBadges(true);
+              }}
+            >
+              <BadgeSlot 
+                category="percentile" 
+                badge={badges?.percentile || null}
+                isAnimating={animatingCategory === 'percentile'}
+                onAnimationComplete={animatingCategory === 'percentile' ? onAnimationComplete : undefined}
+              />
+            </div>
           </div>
         </div>
       </Card>
@@ -126,6 +155,7 @@ export function BadgesRow({ gameType, newlyAwardedBadge, onAnimationComplete }: 
         <AllBadgesPopup
           gameType={gameType}
           earnedBadges={badges}
+          initialCategory={initialCategory}
           onClose={() => setShowAllBadges(false)}
         />
       )}

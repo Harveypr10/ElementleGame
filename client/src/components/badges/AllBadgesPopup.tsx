@@ -13,6 +13,7 @@ type HighestBadges = Record<CategoryType, UserBadgeWithDetails | null>;
 interface AllBadgesPopupProps {
   gameType: 'USER' | 'REGION';
   earnedBadges?: HighestBadges | null;
+  initialCategory?: CategoryType;
   onClose: () => void;
 }
 
@@ -76,8 +77,9 @@ const categoryVariants = {
   }),
 };
 
-export function AllBadgesPopup({ gameType, earnedBadges, onClose }: AllBadgesPopupProps) {
-  const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
+export function AllBadgesPopup({ gameType, earnedBadges, initialCategory, onClose }: AllBadgesPopupProps) {
+  const initialIndex = initialCategory ? CATEGORIES.indexOf(initialCategory) : 0;
+  const [currentCategoryIndex, setCurrentCategoryIndex] = useState(initialIndex >= 0 ? initialIndex : 0);
   const [currentBadgeIndex, setCurrentBadgeIndex] = useState<Record<CategoryType, number>>({
     elementle: 0,
     streak: 0,
