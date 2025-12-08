@@ -1558,7 +1558,7 @@ export function PlayPage({
             <Button
               onClick={async () => {
                 try {
-                  await endHoliday();
+                  await endHoliday(false);
                   await refetchStreakStatus();
                 } catch (error) {
                   console.error('Failed to end holiday:', error);
@@ -1815,28 +1815,45 @@ export function PlayPage({
               <Umbrella className="h-5 w-5 text-yellow-500" />
               Holiday Mode Active
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              Playing today's puzzle will end your holiday protection. Your streak will no longer be protected for missed days.
+            <AlertDialogDescription asChild>
+              <div className="text-left space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Playing today won't extend your streak unless you exit holiday mode.
+                </p>
+                <p>
+                  Choose how you'd like to continue:
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
             <AlertDialogCancel 
-              onClick={() => {
-                setShowHolidayWarning(false);
-                onBack();
-              }}
-              data-testid="button-holiday-exit"
-            >
-              Exit
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => {
+              onClick={async () => {
+                // Exit holiday mode first, then allow normal play
+                try {
+                  await endHoliday(false);
+                  await refetchStreakStatus();
+                } catch (error) {
+                  console.error('[HolidayWarning] Failed to end holiday:', error);
+                }
                 setHolidayWarningDismissed(true);
                 setShowHolidayWarning(false);
               }}
-              data-testid="button-holiday-continue"
+              className="w-full sm:w-auto"
+              data-testid="button-holiday-exit-mode"
             >
-              Continue Playing
+              Exit Holiday Mode
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                // Continue playing in holiday mode - attempt will be recorded with streak_day_status = 0
+                setHolidayWarningDismissed(true);
+                setShowHolidayWarning(false);
+              }}
+              className="w-full sm:w-auto"
+              data-testid="button-holiday-continue-playing"
+            >
+              Continue in Holiday Mode
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
