@@ -1521,61 +1521,6 @@ export function PlayPage({
     );
   }
 
-  // Show holiday blocking overlay for Local mode when holiday is active
-  if (isAuthenticated && isLocalMode && holidayActive && !viewOnly && !fromArchive) {
-    const formattedEndDate = holidayEndDate 
-      ? new Date(holidayEndDate).toLocaleDateString('en-GB', { 
-          weekday: 'long', 
-          day: 'numeric', 
-          month: 'long' 
-        })
-      : 'unknown date';
-    
-    return (
-      <div className="h-dvh flex flex-col items-center justify-center p-4 bg-background overflow-hidden">
-        <div className="text-center max-w-sm">
-          <div className="mb-6">
-            <Umbrella className="h-24 w-24 mx-auto text-primary" />
-          </div>
-          <h2 className="text-3xl font-bold mb-4 text-foreground">You're on Holiday!</h2>
-          <p className="text-lg text-muted-foreground mb-2">
-            Your streak is protected until
-          </p>
-          <p className="text-xl font-semibold text-foreground mb-6">
-            {formattedEndDate}
-          </p>
-          <p className="text-sm text-muted-foreground mb-8">
-            Personal puzzles are paused while you're on holiday. You can still play Global puzzles!
-          </p>
-          <div className="space-y-3">
-            <Button
-              onClick={onBack}
-              className="w-full"
-              data-testid="button-back-from-holiday"
-            >
-              Back to Home
-            </Button>
-            <Button
-              onClick={async () => {
-                try {
-                  await endHoliday(false);
-                  await refetchStreakStatus();
-                } catch (error) {
-                  console.error('Failed to end holiday:', error);
-                }
-              }}
-              disabled={isEndingHoliday}
-              variant="outline"
-              className="w-full"
-              data-testid="button-end-holiday"
-            >
-              {isEndingHoliday ? 'Ending...' : 'End Holiday Early'}
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Calculate puzzle date for intro screen
   const today = new Date();
@@ -1820,6 +1765,15 @@ export function PlayPage({
                 <p>
                   Playing today won't extend your streak unless you exit holiday mode.
                 </p>
+                {holidayEndDate && (
+                  <p className="font-medium text-foreground">
+                    Holiday runs until {new Date(holidayEndDate).toLocaleDateString('en-GB', { 
+                      weekday: 'long', 
+                      day: 'numeric', 
+                      month: 'long' 
+                    })}
+                  </p>
+                )}
                 <p>
                   Choose how you'd like to continue:
                 </p>
