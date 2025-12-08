@@ -2014,6 +2014,20 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Get holiday animation data - determines which games should show the calendar animation
+  app.get("/api/holiday/animation-data", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log('[holiday/animation-data] Fetching for user:', userId);
+      
+      const data = await storage.getHolidayAnimationData(userId);
+      res.json(data);
+    } catch (error: any) {
+      console.error("Error fetching holiday animation data:", error);
+      res.status(500).json({ error: "Failed to fetch holiday animation data" });
+    }
+  });
+
   // Get all categories (excluding Local History - id 999)
   app.get("/api/categories", async (req, res) => {
     try {

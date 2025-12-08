@@ -285,6 +285,20 @@ export interface IStorage {
   
   // Insert a holiday event record
   insertHolidayEvent(userId: string, mode: 'region' | 'user', startedAt: Date, endedAt?: Date): Promise<void>;
+  
+  // Get holiday animation data - determines which games should show the animation
+  getHolidayAnimationData(userId: string): Promise<{
+    region: {
+      hasStreak: boolean;
+      todayStreakDayStatusZero: boolean;
+      holidayDates: string[]; // Consecutive dates backwards with streak_day_status=0
+    };
+    user: {
+      hasStreak: boolean;
+      todayStreakDayStatusZero: boolean;
+      holidayDates: string[]; // Consecutive dates backwards with streak_day_status=0
+    };
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3198,6 +3212,140 @@ export class DatabaseStorage implements IStorage {
         return;
       }
       throw error;
+    }
+  }
+
+  async getHolidayAnimationData(userId: string): Promise<{
+    region: {
+      hasStreak: boolean;
+      todayStreakDayStatusZero: boolean;
+      holidayDates: string[];
+    };
+    user: {
+      hasStreak: boolean;
+      todayStreakDayStatusZero: boolean;
+      holidayDates: string[];
+    };
+  }> {
+    try {
+      const today = new Date();
+      const todayStr = today.toISOString().split('T')[0];
+      
+      // Get region streak
+      const regionStatsResult = await db.execute(sql`
+        SELECT current_streak FROM user_stats_region WHERE user_id = ${userId}
+      `);
+      const regionRows = Array.isArray(regionStatsResult) ? regionStatsResult : (regionStatsResult as any).rows || [];
+      const regionStreak = regionRows[0]?.current_streak || 0;
+      
+      // Get user streak
+      const userStatsResult = await db.execute(sql`
+        SELECT current_streak FROM user_stats_user WHERE user_id = ${userId}
+      `);
+      const userRows = Array.isArray(userStatsResult) ? userStatsResult : (userStatsResult as any).rows || [];
+      const userStreak = userRows[0]?.current_streak || 0;
+      
+      // Check if today's region puzzle has streak_day_status = 0
+      const regionTodayResult = await db.execute(sql`
+        SELECT ga.streak_day_status, qar.puzzle_date
+        FROM game_attempts_region ga
+        INNER JOIN questions_allocated_region qar ON ga.allocated_region_id = qar.id
+        WHERE ga.user_id = ${userId} AND qar.puzzle_date = ${todayStr}
+        LIMIT 1
+      `);
+      const regionTodayRows = Array.isArray(regionTodayResult) ? regionTodayResult : (regionTodayResult as any).rows || [];
+      const regionTodayStatus = regionTodayRows[0]?.streak_day_status;
+      const regionTodayZero = regionTodayStatus === 0;
+      
+      // Check if today's user puzzle has streak_day_status = 0
+      const userTodayResult = await db.execute(sql`
+        SELECT ga.streak_day_status, qau.puzzle_date
+        FROM game_attempts_user ga
+        INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
+        WHERE ga.user_id = ${userId} AND qau.puzzle_date = ${todayStr}
+        LIMIT 1
+      `);
+      const userTodayRows = Array.isArray(userTodayResult) ? userTodayResult : (userTodayResult as any).rows || [];
+      const userTodayStatus = userTodayRows[0]?.streak_day_status;
+      const userTodayZero = userTodayStatus === 0;
+      
+      // Get consecutive dates backwards with streak_day_status = 0 for region
+      // This gets all dates with streak_day_status = 0, ordered by date descending
+      const regionHolidayDatesResult = await db.execute(sql`
+        SELECT DISTINCT qar.puzzle_date::text
+        FROM game_attempts_region ga
+        INNER JOIN questions_allocated_region qar ON ga.allocated_region_id = qar.id
+        WHERE ga.user_id = ${userId} 
+          AND ga.streak_day_status = 0
+          AND qar.puzzle_date <= ${todayStr}
+        ORDER BY qar.puzzle_date DESC
+      `);
+      const regionHolidayRows = Array.isArray(regionHolidayDatesResult) ? regionHolidayDatesResult : (regionHolidayDatesResult as any).rows || [];
+      
+      // Filter to only consecutive dates starting from today
+      const regionHolidayDates: string[] = [];
+      let expectedDate = new Date(today);
+      for (const row of regionHolidayRows) {
+        const puzzleDate = row.puzzle_date;
+        const expectedStr = expectedDate.toISOString().split('T')[0];
+        if (puzzleDate === expectedStr) {
+          regionHolidayDates.push(puzzleDate);
+          expectedDate.setDate(expectedDate.getDate() - 1);
+        } else {
+          break; // Not consecutive, stop
+        }
+      }
+      
+      // Get consecutive dates backwards with streak_day_status = 0 for user
+      const userHolidayDatesResult = await db.execute(sql`
+        SELECT DISTINCT qau.puzzle_date::text
+        FROM game_attempts_user ga
+        INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
+        WHERE ga.user_id = ${userId} 
+          AND ga.streak_day_status = 0
+          AND qau.puzzle_date <= ${todayStr}
+        ORDER BY qau.puzzle_date DESC
+      `);
+      const userHolidayRows = Array.isArray(userHolidayDatesResult) ? userHolidayDatesResult : (userHolidayDatesResult as any).rows || [];
+      
+      // Filter to only consecutive dates starting from today
+      const userHolidayDates: string[] = [];
+      expectedDate = new Date(today);
+      for (const row of userHolidayRows) {
+        const puzzleDate = row.puzzle_date;
+        const expectedStr = expectedDate.toISOString().split('T')[0];
+        if (puzzleDate === expectedStr) {
+          userHolidayDates.push(puzzleDate);
+          expectedDate.setDate(expectedDate.getDate() - 1);
+        } else {
+          break; // Not consecutive, stop
+        }
+      }
+      
+      console.log('[getHolidayAnimationData] Result:', {
+        region: { hasStreak: regionStreak > 0, todayStreakDayStatusZero: regionTodayZero, holidayDates: regionHolidayDates },
+        user: { hasStreak: userStreak > 0, todayStreakDayStatusZero: userTodayZero, holidayDates: userHolidayDates }
+      });
+      
+      return {
+        region: {
+          hasStreak: regionStreak > 0,
+          todayStreakDayStatusZero: regionTodayZero,
+          holidayDates: regionHolidayDates,
+        },
+        user: {
+          hasStreak: userStreak > 0,
+          todayStreakDayStatusZero: userTodayZero,
+          holidayDates: userHolidayDates,
+        },
+      };
+    } catch (error: any) {
+      console.error('[getHolidayAnimationData] Error:', error);
+      // Return safe defaults on error
+      return {
+        region: { hasStreak: false, todayStreakDayStatusZero: false, holidayDates: [] },
+        user: { hasStreak: false, todayStreakDayStatusZero: false, holidayDates: [] },
+      };
     }
   }
 
