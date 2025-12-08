@@ -16,36 +16,48 @@ interface SplashScreenProps {
 export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
   const [finished, setFinished] = useState(false);
   const [fadeIn, setFadeIn] = useState(false);
+  const [imageReady, setImageReady] = useState(false);
 
-
+  // Preload the welcome hamster image before showing anything
   useEffect(() => {
-    // Preload GameSelection screen images and auth/generating screens
+    const img = new Image();
+    img.onload = () => {
+      setImageReady(true);
+    };
+    img.src = welcomeHamster;
+
+    // Preload other GameSelection screen images in background
     const imagesToPreload = [
       historianHamsterBlue,
       librarianHamsterYellow,
       mathsHamsterGreen,
       mechanicHamsterGrey,
       whiteTickBlue,
-      questionHamsterBlue  // Preload GeneratingQuestionsScreen hamster
+      questionHamsterBlue
     ];
 
     imagesToPreload.forEach(src => {
-      const img = new Image();
-      img.src = src;
+      const preloadImg = new Image();
+      preloadImg.src = src;
     });
+  }, []);
+
+  // Only trigger fade-in and timer after image is ready
+  useEffect(() => {
+    if (!imageReady) return;
 
     // Trigger fade-in animation
     requestAnimationFrame(() => {
       setFadeIn(true);
     });
 
-    // Show splash screen for 3 seconds
+    // Show splash screen for 3 seconds after image loads
     const timer = setTimeout(() => {
       setFinished(true);
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [imageReady]);
 
   // Add app-loaded class to html after fade-in completes to switch from splash blue to app background
   useEffect(() => {
