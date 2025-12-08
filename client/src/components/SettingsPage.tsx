@@ -69,14 +69,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
     }
     
     if (isPro) {
-      if (categoryRestrictionLoading) {
-        return;
-      }
-      if (!categoryAllowed) {
-        setShowCategoryRestrictionPopup(true);
-      } else {
-        setShowManageSubscription(true);
-      }
+      setShowManageSubscription(true);
     } else {
       setShowProDialog(true);
     }
@@ -93,7 +86,7 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       testId: "button-subscription",
       highlight: !isPro,
       proItem: isPro,
-      disabled: isPro && categoryRestrictionLoading,
+      disabled: false,
     },
     ...(isPro ? [{
       icon: Grid,
