@@ -3272,13 +3272,13 @@ export class DatabaseStorage implements IStorage {
       // Get consecutive dates backwards with streak_day_status = 0 for region
       // This gets all dates with streak_day_status = 0, ordered by date descending
       const regionHolidayDatesResult = await db.execute(sql`
-        SELECT DISTINCT qar.puzzle_date::text
+        SELECT DISTINCT qar.puzzle_date::text AS puzzle_date
         FROM game_attempts_region ga
         INNER JOIN questions_allocated_region qar ON ga.allocated_region_id = qar.id
         WHERE ga.user_id = ${userId} 
           AND ga.streak_day_status = 0
           AND qar.puzzle_date <= ${todayStr}
-        ORDER BY qar.puzzle_date DESC
+        ORDER BY puzzle_date DESC
       `);
       const regionHolidayRows = Array.isArray(regionHolidayDatesResult) ? regionHolidayDatesResult : (regionHolidayDatesResult as any).rows || [];
       
@@ -3298,13 +3298,13 @@ export class DatabaseStorage implements IStorage {
       
       // Get consecutive dates backwards with streak_day_status = 0 for user
       const userHolidayDatesResult = await db.execute(sql`
-        SELECT DISTINCT qau.puzzle_date::text
+        SELECT DISTINCT qau.puzzle_date::text AS puzzle_date
         FROM game_attempts_user ga
         INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
         WHERE ga.user_id = ${userId} 
           AND ga.streak_day_status = 0
           AND qau.puzzle_date <= ${todayStr}
-        ORDER BY qau.puzzle_date DESC
+        ORDER BY puzzle_date DESC
       `);
       const userHolidayRows = Array.isArray(userHolidayDatesResult) ? userHolidayDatesResult : (userHolidayDatesResult as any).rows || [];
       
