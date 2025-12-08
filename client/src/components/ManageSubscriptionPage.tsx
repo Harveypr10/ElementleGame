@@ -453,7 +453,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                     </Button>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      You've used all your holiday allowances this year. They will reset on your subscription renewal date.
+                      You've used all your holiday allowances this year. Your allowance will reset one year after your initial subscription was activated.
                     </p>
                   )}
                 </div>
