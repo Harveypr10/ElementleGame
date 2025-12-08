@@ -267,18 +267,16 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             "aspect-square p-2 flex flex-col items-center justify-center transition-all min-h-[48px] min-w-[48px] rounded-md",
             isPlayable && "cursor-pointer hover-elevate",
             !isPlayable && "cursor-not-allowed",
-            // Background colors - priority order: completed > in-progress > holiday (unplayed) > default
+            // Background colors - priority order: completed > in-progress > default
             status?.completed && status.won && "bg-green-100 dark:bg-green-900/30",
             status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30",
             status?.inProgress && "bg-blue-100 dark:bg-blue-900/30",
-            // Holiday days that are NOT completed/in-progress get yellow background
-            (status?.isHoliday || isActiveHolidayDate) && !status?.completed && !status?.inProgress && "bg-yellow-100 dark:bg-yellow-900/30",
-            // Default gray for playable days with no status
-            !status?.completed && !status?.inProgress && !status?.isHoliday && !isActiveHolidayDate && isPlayable && "bg-gray-100 dark:bg-gray-800",
+            // Default gray for playable days with no status (including unplayed holiday days)
+            !status?.completed && !status?.inProgress && isPlayable && "bg-gray-100 dark:bg-gray-800",
             (!puzzle || isFuture) && "bg-background opacity-40",
-            // Ring/border styles - holiday dates ALWAYS get yellow ring (regardless of completion status)
-            isActiveHolidayDate && "ring-2 ring-yellow-500 dark:ring-yellow-400 animate-pulse",
-            status?.isHoliday && !isActiveHolidayDate && "ring-2 ring-yellow-500 dark:ring-yellow-400",
+            // Ring/border styles - holiday dates get yellow border with offset to prevent color blending
+            isActiveHolidayDate && "ring-2 ring-yellow-500 dark:ring-yellow-400 ring-offset-1 ring-offset-background animate-pulse",
+            status?.isHoliday && !isActiveHolidayDate && "ring-2 ring-yellow-500 dark:ring-yellow-400 ring-offset-1 ring-offset-background",
             // Today ring only if not a holiday day
             isToday && !status?.isHoliday && !isActiveHolidayDate && "ring-2 ring-gray-500 dark:ring-gray-400"
           )}
@@ -287,13 +285,11 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
         >
           <span className={cn(
             "text-sm font-semibold",
-            // Text color priority: completed > in-progress > holiday (unplayed) > default
+            // Text color priority: completed > in-progress > default
             status?.completed && status.won && "text-green-700 dark:text-green-300",
             status?.completed && !status.won && "text-red-700 dark:text-red-300",
             status?.inProgress && "text-blue-700 dark:text-blue-300",
-            // Holiday days that are NOT completed/in-progress get yellow text
-            (status?.isHoliday || isActiveHolidayDate) && !status?.completed && !status?.inProgress && "text-yellow-700 dark:text-yellow-300",
-            !status?.completed && !status?.inProgress && !status?.isHoliday && !isActiveHolidayDate && isPlayable && "text-foreground",
+            !status?.completed && !status?.inProgress && isPlayable && "text-foreground",
             (!puzzle || isFuture) && "text-muted-foreground"
           )}>
             {day}
@@ -306,11 +302,6 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           {status?.inProgress && (
             <span className="text-xs mt-1 opacity-70">
               {status.guessCount}
-            </span>
-          )}
-          {(status?.isHoliday || isActiveHolidayDate) && (
-            <span className="text-xs mt-1 text-yellow-600 dark:text-yellow-400">
-              H
             </span>
           )}
         </div>
