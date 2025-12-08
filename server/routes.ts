@@ -1973,13 +1973,14 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
-  // End a holiday early
+  // End a holiday early (or acknowledge auto-ended holiday)
   app.post("/api/holiday/end", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      console.log('[holiday/end] User:', userId);
+      const { acknowledge } = req.body || {};
+      console.log('[holiday/end] User:', userId, 'acknowledge:', acknowledge);
       
-      const result = await storage.endHoliday(userId);
+      const result = await storage.endHoliday(userId, acknowledge === true);
       
       if (!result.success) {
         return res.status(400).json({ error: result.error });

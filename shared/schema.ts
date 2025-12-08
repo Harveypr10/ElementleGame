@@ -382,6 +382,7 @@ export const gameAttemptsRegion = pgTable(
     result: varchar("result", { length: 10 }), // 'won' or 'lost' - null for in-progress
     numGuesses: integer("num_guesses").default(0),
     digits: varchar("digits", { length: 1 }), // '6' or '8' - locked on first guess
+    streakDayStatus: integer("streak_day_status"), // 0 = holiday (maintains streak), 1 = played (increments streak), NULL = missed (breaks streak)
     startedAt: timestamp("started_at").defaultNow(),
     completedAt: timestamp("completed_at"), // null for in-progress games
   },
@@ -513,6 +514,7 @@ export const gameAttemptsUser = pgTable(
     result: varchar("result", { length: 10 }), // 'won' or 'lost' - null for in-progress
     numGuesses: integer("num_guesses").default(0),
     digits: varchar("digits", { length: 1 }), // '6' or '8' - locked on first guess
+    streakDayStatus: integer("streak_day_status"), // 0 = holiday (maintains streak), 1 = played (increments streak), NULL = missed (breaks streak)
     startedAt: timestamp("started_at").defaultNow(),
     completedAt: timestamp("completed_at"), // null for in-progress games
   },
@@ -562,6 +564,10 @@ export const userStatsUser = pgTable("user_stats_user", {
   holidayActive: boolean("holiday_active").default(false),
   holidayStartDate: date("holiday_start_date"),
   holidayEndDate: date("holiday_end_date"),
+  holidayDaysTakenCurrentPeriod: integer("holiday_days_taken_current_period").default(0), // Days taken in current holiday period
+  holidayEnded: boolean("holiday_ended").default(false), // Set by cron when max days reached (auto-ended)
+  holidaysUsedYear: integer("holidays_used_year").default(0), // Number of holidays used this year
+  nextHolidayResetDate: date("next_holiday_reset_date"), // Date when holiday allowance resets
   missedYesterdayFlagUser: boolean("missed_yesterday_flag_user").default(false), // Tracks missed user puzzles
   // Cumulative monthly percentile score (updated by badge check logic)
   cumulativeMonthlyPercentile: integer("cumulative_monthly_percentile"),

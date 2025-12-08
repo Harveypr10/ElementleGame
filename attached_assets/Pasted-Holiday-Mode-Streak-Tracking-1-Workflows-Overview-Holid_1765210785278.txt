@@ -1,0 +1,141 @@
+Holiday Mode & Streak Tracking
+1. Workflows Overview
+Holiday Mode (already exists, but the workflow is being updated as follows)
+•	Users can enable holiday mode to protect their streak when they cannot play.
+•	When enabled:
+o	User_stats_user.holiday_active is set to TRUE
+o	For each day the user is “on holiday” Supabase inserts daily “holiday attempts” (result = NULL, num_guesses = NULL, streak_day_status = 0) into both game_attempts_user and game_attempts_region.
+o	These keep the streak continuous but do not increment it.
+•	Holiday mode ends automatically when:
+o	The maximum duration (from user_tier.holiday_duration_days) is reached, or
+o	The user disables it manually.
+•	When holiday mode ends after the maximum number of days has been reached (set in user_tier.holiday_duration_days for the user’s tier), holiday_ended = TRUE is set in user_stats_user. The UI must show a one time popup to inform the user, and then set holiday_ended=FALSE. If the user manually ends the holiday before the maximum allowed days then the workflows return to normal with just user_stats_user.holiday_active=FALSE being set
+Streak Calculation
+•	Streaks are continuous sequences of days with streak_day_status IN (0,1) within game_attempts_user and game_attempts_region.
+•	Only values of 1 in streak_day_status increments the streak count.
+•	Example: 1,1,1,0,0,1,1 → streak length = 5 (continuous, but 0s don’t add).
+•	Any NULL value in streak_day_status breaks the streak count
+2. What’s Already in Place (Supabase Backend)
+Tables & Fields
+•	user_stats_user
+o	holiday_active (bool)
+o	holiday_start_date, holiday_end_date
+o	holidays_used_year (int)
+o	holiday_days_taken_current_period (int)
+o	holiday_ended (bool)
+o	next_holiday_reset_date (date)
+•	user_stats_region
+o	Streak fields, streak savers, but no holiday fields (holiday mode applies globally).
+•	user_profiles
+o	user_tier_id → links to user_tier
+o	region
+o	date_first_subscription (new permanent anchor date from which all annual renewal dates will be set)
+•	user_tier
+o	holiday_savers (annual allowance count)
+o	holiday_duration_days (max days per holiday period)
+Admin Settings
+•	holiday_max_lookback_days (int, currently 7)
+RPC Functions
+•	add_user_holiday_attempt(p_user_id, p_puzzle_date)
+•	add_region_holiday_attempt(p_user_id, p_region, p_puzzle_date)
+•	activate_holiday_mode(p_user_id, p_start_date)
+•	end_holiday_mode(p_user_id, p_acknowledge)
+•	recalc_holiday_progress(p_user_id)
+•	reset_holiday_allowance_if_due(p_user_id)
+•	nightly_holiday_allowance_reset()
+Edge Function
+•	holiday-scheduler (runs nightly via cron)
+o	Inserts daily holiday attempts for active users.
+o	Calls recalc_holiday_progress.
+o	Auto ends holiday mode when duration reached.
+Cron Jobs
+•	Nightly holiday scheduler (00:00 UTC).
+•	Nightly allowance reset (02:00 UTC).
+3. What Replit Needs to Implement (Frontend/UI)
+Settings Page
+•	Add a Holiday Mode “Enable” button within “Pro Manage your subscription”, below “Your Allowances”.
+•	When enabled:
+o	Set holiday_active = TRUE  and call activate_holiday_mode(p_user_id). This RPC:
+	Sets holiday_active, holiday_start_date, holiday_end_date
+	Increments holidays_used_year
+	Backfills holiday rows using lookback logic
+	Updates holiday_days_taken_current_period
+o	Display at the bottom of the “Pro Manage your subscription” page:
+	Start date (holiday_start_date)
+	End date (holiday_end_date)
+	Days used (holiday_days_taken_current_period)
+	Days left (holiday_duration_days - holiday_days_taken_current_period)
+	Annual allowance used (holidays_used_year) vs. allowed (holiday_savers). – keep this where it is, but should update to decrement the number left by 1
+o	Then show an “End holiday mode” button to call end_holiday_mode(p_user_id, p_acknowledge := FALSE).
+Holiday End Popup (when the user has passed the maximum holiday days, not when they manualled “End holiday mode”)
+•	When holiday_ended = TRUE (this is set by the cron schedule already in place within Supabase):
+o	Show popup: “Your holiday period has ended.”
+o	On dismiss, call end_holiday_mode(p_user_id, p_acknowledge := TRUE) to reset the flag.
+Archive Page
+•	Adjust logic:
+o	If within game_attempts_user / game_attempts_region the  num_guesses IS NULL and result IS NULL but streak_day_status = 0 → show holiday day (yellow border).
+o	If num_guesses > 0 → show partially played (this might be how it already works, but previous to these changes there would never be a row in game_attempts_user / game_attempts_region with a num_guesses of 0, but there will be now. So make sure when the user clicks on a puzzle_date with a row in game_attempts_user / game_attempts_region and num_guesses=0 that it still shows the IntroScreen).
+o	If result = 'won'/'lost' → show normal outcome.
+•	Example logic (pseudo code):
+js
+// Example only
+if (attempt.streak_day_status === 0 && attempt.num_guesses === null && attempt.result === null) {
+  renderHolidayDay(); // yellow border
+} else if (attempt.num_guesses > 0) {
+  renderPartialPlay();
+} else if (attempt.result === 'won') {
+  renderWin();
+} else if (attempt.result === 'lost') {
+  renderLoss();
+}
+•	When the holiday mode is initially activated, from either the StreakSaver popup or manually from the settings menu, after the RPCs have run and the rows have been added to the game_attemps_user / game_attemps_region tables, take the user to the Archive pages (one at a time) and show them the puzzle_dates in the archive being given yellow borders (make them “glow” on and off to a thicker yellow border, before settling on a standard yellow border after 3 seconds). Disable the Archive screens as this is done, so the user can’t click on anything, and then after this has been shown for 5 seconds in total, per Archive screen, return to the screen you came from (either the settings screen or the GameSelectionScreen)
+
+Streak Display
+•	After a game is won/lost for today’s puzzle, update the current_streak (and max_streak as appropriate), by calculating the streak length using the new logic, taking into account “holiday days” as shown in streak_day_status within the game_attempts_user / game_attempts_region tables:
+o	Traverse attempts backwards until first NULL.
+o	Count only streak_day_status = 1.
+•	Example:
+js
+// Example only
+function calculateStreak(attempts) {
+  let streak = 0;
+  for (let i = attempts.length - 1; i >= 0; i--) {
+    const s = attempts[i].streak_day_status;
+    if (s === null) break; // streak broken
+    if (s === 1) streak++;
+    // s === 0 keeps continuity but doesn’t increment
+  }
+  return streak;
+}
+
+Workflow when user plays today’s puzzle while holiday mode is active
+•	When user clicks to play today’s puzzle and holiday_active = TRUE:
+o	Show popup: “Holiday mode is active. Playing today won’t extend your streak unless you exit holiday mode.”
+o	Options:
+1.	Exit holiday mode
+	Call end_holiday_mode(p_user_id, p_acknowledge := FALSE)
+	Record today’s attempt normally (streak_day_status = 1 if won).
+2.	Continue in holiday mode
+	Record today’s attempt with streak_day_status = 0.
+	Keeps streak continuous but does not increment it.
+Archive Rendering
+•	Holiday days are represented by attempts with:
+o	result = NULL
+o	num_guesses = NULL
+o	streak_day_status = 0
+•	Replit must render these with a yellow border to indicate holiday.
+
+4. Explicit Instructions to follow
+•	Do not recreate backend logic: All RPCs, Edge Functions, cron jobs, and fields already exist in Supabase.
+•	Use existing fields:
+o	holiday_active, holiday_start_date, holiday_end_date, holiday_days_taken_current_period, holiday_ended, holidays_used_year.
+•	Use existing RPCs:
+o	activate_holiday_mode, end_holiday_mode, recalc_holiday_progress.
+•	UI responsibilities:
+o	Add holiday mode button and status display.
+o	Handle popup when holiday_ended = TRUE.
+o	Adjust Archive rendering logic.
+o	Calculate streak length correctly with holiday days included but not incrementing.
+•	Annual allowance:
+o	Display holidays_used_year vs. holiday_savers from user_tier.
+o	Supabase resets allowance automatically; Replit just needs to show the values.

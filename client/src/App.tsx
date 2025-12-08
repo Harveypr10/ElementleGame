@@ -19,6 +19,7 @@ import { PlayPage } from "@/components/PlayPage";
 import { StatsPage } from "@/components/StatsPage";
 import { ArchivePage } from "@/components/ArchivePage";
 import { StreakCelebrationPopup } from "@/components/StreakCelebrationPopup";
+import { HolidayEndedPopup } from "@/components/HolidayEndedPopup";
 import { RoutePersistence } from "./lib/RoutePersistence";
 
 function Router() {
@@ -42,6 +43,7 @@ function App() {
                   <GuessCacheProvider>
                     <TooltipProvider>
                       <Toaster />
+                      <HolidayEndedPopup />
                       <RoutePersistence />
                       <Router />
                     </TooltipProvider>

@@ -264,6 +264,8 @@ export interface IStorage {
       holidayActive: boolean;
       holidayStartDate: string | null;
       holidayEndDate: string | null;
+      holidayDaysTakenCurrentPeriod: number;
+      holidayEnded: boolean;
       missedYesterdayFlag: boolean;
     };
   } | null>;
@@ -274,8 +276,8 @@ export interface IStorage {
   // Start a holiday (Pro users only)
   startHoliday(userId: string, holidayDurationDays: number): Promise<{ success: boolean; error?: string }>;
   
-  // End a holiday early
-  endHoliday(userId: string): Promise<{ success: boolean; error?: string }>;
+  // End a holiday early (acknowledge=true when auto-ended and user dismisses popup)
+  endHoliday(userId: string, acknowledge?: boolean): Promise<{ success: boolean; error?: string }>;
   
   // Count holiday events used this year
   countHolidayEventsThisYear(userId: string): Promise<number>;
@@ -2761,6 +2763,8 @@ export class DatabaseStorage implements IStorage {
       holidayActive: boolean;
       holidayStartDate: string | null;
       holidayEndDate: string | null;
+      holidayDaysTakenCurrentPeriod: number;
+      holidayEnded: boolean;
       missedYesterdayFlag: boolean;
     };
   } | null> {
@@ -2790,6 +2794,8 @@ export class DatabaseStorage implements IStorage {
           holiday_active,
           holiday_start_date,
           holiday_end_date,
+          holiday_days_taken_current_period,
+          holiday_ended,
           missed_yesterday_flag_user
         FROM user_stats_user
         WHERE user_id = ${userId}
@@ -2942,6 +2948,8 @@ export class DatabaseStorage implements IStorage {
           holidayActive: holidayActive,
           holidayStartDate: userRow.holiday_start_date || null,
           holidayEndDate: userRow.holiday_end_date || null,
+          holidayDaysTakenCurrentPeriod: userRow.holiday_days_taken_current_period || 0,
+          holidayEnded: userRow.holiday_ended || false,
           missedYesterdayFlag: userMissedFlag,
         }
       };
@@ -3004,42 +3012,23 @@ export class DatabaseStorage implements IStorage {
 
   async startHoliday(userId: string, holidayDurationDays: number): Promise<{ success: boolean; error?: string }> {
     try {
-      // Check if holiday is already active
+      // Call Supabase RPC to activate holiday mode
+      // The RPC handles all validation, updates, and holiday event creation
+      const startDate = new Date().toISOString().split('T')[0];
+      
       const result = await db.execute(sql`
-        SELECT holiday_active, holiday_start_date, holiday_end_date
-        FROM user_stats_user
-        WHERE user_id = ${userId}
+        SELECT activate_holiday_mode(${userId}::uuid, ${startDate}::date) as success
       `);
       
       const rows = Array.isArray(result) ? result : (result as any).rows || [];
-      if (rows.length === 0) {
-        return { success: false, error: 'Stats not found for user' };
+      const success = rows[0]?.success ?? false;
+      
+      if (!success) {
+        console.log(`[startHoliday] RPC returned false for user ${userId}`);
+        return { success: false, error: 'Could not activate holiday mode' };
       }
       
-      if (rows[0].holiday_active) {
-        return { success: false, error: 'Holiday already active' };
-      }
-      
-      // Calculate holiday dates
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + holidayDurationDays);
-      
-      // Start the holiday
-      await db.execute(sql`
-        UPDATE user_stats_user
-        SET 
-          holiday_active = true,
-          holiday_start_date = ${startDate.toISOString().split('T')[0]},
-          holiday_end_date = ${endDate.toISOString().split('T')[0]},
-          updated_at = NOW()
-        WHERE user_id = ${userId}
-      `);
-      
-      // Record holiday event
-      await this.insertHolidayEvent(userId, 'user', startDate);
-      
-      console.log(`[startHoliday] User ${userId} started holiday until ${endDate.toISOString().split('T')[0]}`);
+      console.log(`[startHoliday] User ${userId} started holiday via RPC`);
       return { success: true };
     } catch (error: any) {
       console.error('[startHoliday] Error:', error);
@@ -3047,47 +3036,25 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async endHoliday(userId: string): Promise<{ success: boolean; error?: string }> {
+  async endHoliday(userId: string, acknowledge?: boolean): Promise<{ success: boolean; error?: string }> {
     try {
-      // Check if holiday is active
+      // Call Supabase RPC to end holiday mode
+      // acknowledge=true is used when auto-ended by cron and user dismisses the popup
+      const ack = acknowledge ?? false;
+      
       const result = await db.execute(sql`
-        SELECT holiday_active, holiday_start_date
-        FROM user_stats_user
-        WHERE user_id = ${userId}
+        SELECT end_holiday_mode(${userId}::uuid, ${ack}::boolean) as success
       `);
       
       const rows = Array.isArray(result) ? result : (result as any).rows || [];
-      if (rows.length === 0) {
-        return { success: false, error: 'Stats not found for user' };
+      const success = rows[0]?.success ?? false;
+      
+      if (!success) {
+        console.log(`[endHoliday] RPC returned false for user ${userId}`);
+        return { success: false, error: 'Could not end holiday mode' };
       }
       
-      if (!rows[0].holiday_active) {
-        return { success: false, error: 'No active holiday to end' };
-      }
-      
-      // End the holiday
-      await db.execute(sql`
-        UPDATE user_stats_user
-        SET 
-          holiday_active = false,
-          holiday_start_date = NULL,
-          holiday_end_date = NULL,
-          updated_at = NOW()
-        WHERE user_id = ${userId}
-      `);
-      
-      // Update the holiday event with end date
-      const endDate = new Date();
-      await db.execute(sql`
-        UPDATE user_holiday_events
-        SET ended_at = ${endDate}
-        WHERE user_id = ${userId}
-          AND ended_at IS NULL
-        ORDER BY created_at DESC
-        LIMIT 1
-      `);
-      
-      console.log(`[endHoliday] User ${userId} ended holiday`);
+      console.log(`[endHoliday] User ${userId} ended holiday via RPC (acknowledge=${ack})`);
       return { success: true };
     } catch (error: any) {
       console.error('[endHoliday] Error:', error);

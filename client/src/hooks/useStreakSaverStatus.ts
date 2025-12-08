@@ -22,6 +22,8 @@ export interface StreakSaverStatus {
     holidayActive: boolean;
     holidayStartDate: string | null;
     holidayEndDate: string | null;
+    holidayDaysTakenCurrentPeriod: number;
+    holidayEnded: boolean;
     missedYesterdayFlag: boolean;
   } | null;
   allowances: StreakSaverAllowances | null;
@@ -73,8 +75,8 @@ export function useStreakSaverStatus() {
   });
 
   const endHolidayMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/holiday/end");
+    mutationFn: async (acknowledge?: boolean) => {
+      const response = await apiRequest("POST", "/api/holiday/end", { acknowledge: acknowledge ?? false });
       return await response.json();
     },
     onSuccess: () => {
@@ -89,6 +91,9 @@ export function useStreakSaverStatus() {
   
   const holidayActive = status?.user?.holidayActive ?? false;
   const holidayEndDate = status?.user?.holidayEndDate ?? null;
+  const holidayStartDate = status?.user?.holidayStartDate ?? null;
+  const holidayEnded = status?.user?.holidayEnded ?? false;
+  const holidayDaysTakenCurrentPeriod = status?.user?.holidayDaysTakenCurrentPeriod ?? 0;
   
   const regionStreakSaversRemaining = status?.allowances 
     ? status.allowances.streakSaversPerMonth - (status?.region?.streakSaversUsedMonth ?? 0)
@@ -109,7 +114,10 @@ export function useStreakSaverStatus() {
     hasMissedUser,
     hasMissedAny,
     holidayActive,
+    holidayStartDate,
     holidayEndDate,
+    holidayEnded,
+    holidayDaysTakenCurrentPeriod,
     regionStreakSaversRemaining,
     userStreakSaversRemaining,
     holidaysRemaining,
@@ -123,5 +131,7 @@ export function useStreakSaverStatus() {
     isStartingHoliday: startHolidayMutation.isPending,
     endHoliday: endHolidayMutation.mutateAsync,
     isEndingHoliday: endHolidayMutation.isPending,
+    acknowledgeHolidayEnd: () => endHolidayMutation.mutateAsync(true),
+    isAcknowledging: endHolidayMutation.isPending,
   };
 }

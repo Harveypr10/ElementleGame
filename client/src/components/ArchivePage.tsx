@@ -16,6 +16,7 @@ import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { useSwipeable } from "react-swipeable";
 import { useMotionValue, animate } from "framer-motion";
 import { useAdBannerActive } from "@/components/AdBanner";
+import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
 
 interface ArchivePageProps {
   onBack: () => void;
@@ -38,6 +39,7 @@ interface DayStatus {
   won: boolean;
   guessCount?: number;
   inProgress?: boolean;
+  isHoliday?: boolean;
 }
 
 export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMonthChange }: ArchivePageProps) {
@@ -48,6 +50,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
   const { isLocalMode } = useGameMode();
   const queryClient = useQueryClient();
   const adBannerActive = useAdBannerActive();
+  const { holidayActive, holidayStartDate, holidayEndDate } = useStreakSaverStatus();
   // Set up realtime subscriptions for automatic UI refresh when database changes occur
   useRealtimeSubscriptions({
     userId: user?.id,
@@ -122,12 +125,16 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           const isCompleted = attempt.result !== null;
           const isWon = attempt.result === "won";
           const isInProgress = attempt.result === null && (attempt.numGuesses ?? 0) > 0;
+          // Holiday day: streak_day_status=0, result=null, num_guesses=null or 0
+          const streakDayStatus = (attempt as any).streakDayStatus;
+          const isHoliday = streakDayStatus === 0 && attempt.result === null && (attempt.numGuesses === null || attempt.numGuesses === 0);
           
           statusMap[puzzleDate] = {
             completed: isCompleted,
             won: isWon,
             guessCount: attempt.numGuesses ?? 0,
             inProgress: isInProgress,
+            isHoliday: isHoliday,
           };
         }
       });
@@ -196,6 +203,21 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
     return dayStatuses[puzzleDate] || null;
   };
 
+  // Check if a date falls within the active holiday period
+  const isInActiveHolidayPeriod = (day: number, month: Date): boolean => {
+    if (!holidayActive || !holidayStartDate) return false;
+    
+    const year = month.getFullYear();
+    const monthStr = String(month.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(day).padStart(2, '0');
+    const dateStr = `${year}-${monthStr}-${dayStr}`;
+    
+    const startDate = holidayStartDate.split('T')[0]; // Get just the date part
+    const endDate = holidayEndDate ? holidayEndDate.split('T')[0] : new Date().toISOString().split('T')[0];
+    
+    return dateStr >= startDate && dateStr <= endDate;
+  };
+
   const renderCalendarDays = (month: Date) => {
     const { daysInMonth, startingDayOfWeek } = getDaysInMonth(month);
     const days = [];
@@ -226,9 +248,10 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             status?.completed && status.won && "bg-green-100 dark:bg-green-900/30",
             status?.completed && !status.won && "bg-red-100 dark:bg-red-900/30",
             status?.inProgress && "bg-blue-100 dark:bg-blue-900/30",
-            !status?.completed && !status?.inProgress && isPlayable && "bg-gray-100 dark:bg-gray-800",
+            status?.isHoliday && "bg-yellow-100 dark:bg-yellow-900/30 ring-2 ring-yellow-500 dark:ring-yellow-400",
+            !status?.completed && !status?.inProgress && !status?.isHoliday && isPlayable && "bg-gray-100 dark:bg-gray-800",
             (!puzzle || isFuture) && "bg-background opacity-40",
-            isToday && "ring-2 ring-gray-500 dark:ring-gray-400"
+            isToday && !status?.isHoliday && "ring-2 ring-gray-500 dark:ring-gray-400"
           )}
           onClick={() => isPlayable && onPlayPuzzle(puzzle.id.toString())}
           data-testid={`calendar-day-${day}`}
@@ -238,7 +261,8 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
             status?.completed && status.won && "text-green-700 dark:text-green-300",
             status?.completed && !status.won && "text-red-700 dark:text-red-300",
             status?.inProgress && "text-blue-700 dark:text-blue-300",
-            !status?.completed && isPlayable && "text-foreground",
+            status?.isHoliday && "text-yellow-700 dark:text-yellow-300",
+            !status?.completed && !status?.isHoliday && isPlayable && "text-foreground",
             (!puzzle || isFuture) && "text-muted-foreground"
           )}>
             {day}
@@ -251,6 +275,11 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
           {status?.inProgress && (
             <span className="text-xs mt-1 opacity-70">
               {status.guessCount}
+            </span>
+          )}
+          {status?.isHoliday && (
+            <span className="text-xs mt-1 text-yellow-600 dark:text-yellow-400">
+              H
             </span>
           )}
         </div>

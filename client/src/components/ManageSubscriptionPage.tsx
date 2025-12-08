@@ -57,6 +57,16 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const { 
     status,
     isLoading: statusLoading,
+    holidayActive,
+    holidayStartDate,
+    holidayEndDate,
+    holidayDaysTakenCurrentPeriod,
+    holidaysRemaining,
+    startHoliday,
+    isStartingHoliday,
+    endHoliday,
+    isEndingHoliday,
+    holidayDurationDays: hookHolidayDurationDays,
   } = useStreakSaverStatus();
   const adBannerActive = useAdBannerActive();
   const { toast } = useToast();
@@ -65,6 +75,8 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const [autoRenew, setAutoRenew] = useState<boolean | null>(null);
   const [showCancelWarning, setShowCancelWarning] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showStartHolidayConfirm, setShowStartHolidayConfirm] = useState(false);
+  const [showEndHolidayConfirm, setShowEndHolidayConfirm] = useState(false);
 
   // Sync local autoRenew state with subscription data when it loads/changes
   useEffect(() => {
@@ -121,6 +133,48 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const confirmCancelAutoRenew = async () => {
     setShowCancelWarning(false);
     await updateAutoRenew(false);
+  };
+
+  const handleStartHoliday = async () => {
+    setShowStartHolidayConfirm(false);
+    try {
+      await startHoliday();
+      toast({
+        title: "Holiday mode activated",
+        description: `Your streak is now protected for the next ${effectiveHolidayDurationDays} days.`,
+      });
+    } catch (error) {
+      console.error("Failed to start holiday:", error);
+      toast({
+        title: "Error",
+        description: "Failed to activate holiday mode. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEndHoliday = async () => {
+    setShowEndHolidayConfirm(false);
+    try {
+      await endHoliday();
+      toast({
+        title: "Holiday mode ended",
+        description: "Your streak protection has been deactivated.",
+      });
+    } catch (error) {
+      console.error("Failed to end holiday:", error);
+      toast({
+        title: "Error",
+        description: "Failed to end holiday mode. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatHolidayDate = (dateStr: string | null): string => {
+    if (!dateStr) return 'N/A';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const regionUsed = status?.region?.streakSaversUsedMonth ?? 0;
@@ -231,6 +285,72 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                   </p>
                 </div>
               </div>
+            </Card>
+
+            <Card className="p-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <Umbrella className="h-5 w-5 text-blue-500" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="font-semibold text-lg">Holiday Mode</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {holidayActive 
+                      ? "Your streak is currently protected"
+                      : "Pause your streak for up to " + effectiveHolidayDurationDays + " days"
+                    }
+                  </p>
+                </div>
+              </div>
+
+              {holidayActive ? (
+                <div className="space-y-3 pl-12">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Started</span>
+                    <span className="font-medium" data-testid="text-holiday-start-date">
+                      {formatHolidayDate(holidayStartDate)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Ends</span>
+                    <span className="font-medium" data-testid="text-holiday-end-date">
+                      {formatHolidayDate(holidayEndDate)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Days taken</span>
+                    <span className="font-medium" data-testid="text-holiday-days-taken">
+                      {holidayDaysTakenCurrentPeriod} of {effectiveHolidayDurationDays}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowEndHolidayConfirm(true)}
+                    disabled={isEndingHoliday}
+                    className="w-full mt-2"
+                    data-testid="button-end-holiday"
+                  >
+                    {isEndingHoliday ? "Ending..." : "End Holiday Early"}
+                  </Button>
+                </div>
+              ) : (
+                <div className="pl-12">
+                  {holidaysRemaining > 0 ? (
+                    <Button
+                      onClick={() => setShowStartHolidayConfirm(true)}
+                      disabled={isStartingHoliday}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                      data-testid="button-start-holiday"
+                    >
+                      {isStartingHoliday ? "Activating..." : "Start Holiday Mode"}
+                    </Button>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      You've used all your holiday allowances this year. They will reset on your subscription renewal date.
+                    </p>
+                  )}
+                </div>
+              )}
             </Card>
 
             {!isLifetime && (
@@ -350,6 +470,78 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
               data-testid="button-confirm-cancel-renewal"
             >
               Turn off auto-renew
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showStartHolidayConfirm} onOpenChange={setShowStartHolidayConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Umbrella className="h-5 w-5 text-blue-500" />
+              Start Holiday Mode?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-left space-y-3 text-sm text-muted-foreground">
+                <p>
+                  This will protect your streak for up to {effectiveHolidayDurationDays} days. During this time:
+                </p>
+                <ul className="list-disc pl-5 space-y-1 text-foreground">
+                  <li>Your streak will be preserved even if you don't play</li>
+                  <li>You can still play puzzles if you want</li>
+                  <li>Holiday days will be marked in your archive</li>
+                </ul>
+                <p>
+                  You have {holidaysRemaining} holiday allowance{holidaysRemaining !== 1 ? 's' : ''} remaining this year.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-start-holiday">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleStartHoliday}
+              className="bg-blue-500 text-white hover:bg-blue-600"
+              data-testid="button-confirm-start-holiday"
+            >
+              Start Holiday
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showEndHolidayConfirm} onOpenChange={setShowEndHolidayConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Umbrella className="h-5 w-5 text-blue-500" />
+              End Holiday Mode?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-left space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Are you sure you want to end your holiday early?
+                </p>
+                <p>
+                  You've used {holidayDaysTakenCurrentPeriod} of your {effectiveHolidayDurationDays} holiday days. 
+                  Ending early won't give you these days back.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-end-holiday">
+              Keep Holiday Active
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleEndHoliday}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-end-holiday"
+            >
+              End Holiday
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
