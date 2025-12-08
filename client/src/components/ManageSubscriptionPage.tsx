@@ -152,36 +152,48 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     try {
       await startHoliday();
       
-      // Fetch animation data to determine which games should show the overlay
-      const response = await apiRequest("GET", "/api/holiday/animation-data");
-      const animationData = await response.json();
+      // Fetch animation data as best-effort - don't fail the activation if this fails
+      let showRegion = false;
+      let showUser = false;
       
-      // Check conditions for each game mode
-      const showRegion = animationData.region.hasStreak && animationData.region.todayStreakDayStatusZero;
-      const showUser = animationData.user.hasStreak && animationData.user.todayStreakDayStatusZero;
-      
-      if (showRegion) {
-        // Set region holiday dates and start with region mode
-        setRegionHolidayDates(animationData.region.holidayDates || []);
-        setUserHolidayDates(animationData.user.holidayDates || []);
-        setShowUserAfterRegion(showUser);
-        setHolidayOverlayMode('region');
-        setOverlayPhase('fade-in');
-        setShowHolidayOverlay(true);
-      } else if (showUser) {
-        // Skip region, go straight to user mode
-        setUserHolidayDates(animationData.user.holidayDates || []);
-        setShowUserAfterRegion(false);
-        setHolidayOverlayMode('user');
-        setOverlayPhase('fade-in');
-        setShowHolidayOverlay(true);
-      } else {
-        // No animation needed - just show toast
-        toast({
-          title: "Holiday mode activated",
-          description: `Your streak is now protected for the next ${effectiveHolidayDurationDays} days.`,
-        });
+      try {
+        const response = await apiRequest("GET", "/api/holiday/animation-data");
+        if (response.ok) {
+          const animationData = await response.json();
+          
+          // Check conditions for each game mode with optional chaining
+          showRegion = !!(animationData?.region?.hasStreak && animationData?.region?.todayStreakDayStatusZero);
+          showUser = !!(animationData?.user?.hasStreak && animationData?.user?.todayStreakDayStatusZero);
+          
+          if (showRegion) {
+            // Set region holiday dates and start with region mode
+            setRegionHolidayDates(animationData?.region?.holidayDates || []);
+            setUserHolidayDates(animationData?.user?.holidayDates || []);
+            setShowUserAfterRegion(showUser);
+            setHolidayOverlayMode('region');
+            setOverlayPhase('fade-in');
+            setShowHolidayOverlay(true);
+            return; // Exit early, animation will show toast on completion
+          } else if (showUser) {
+            // Skip region, go straight to user mode
+            setUserHolidayDates(animationData?.user?.holidayDates || []);
+            setShowUserAfterRegion(false);
+            setHolidayOverlayMode('user');
+            setOverlayPhase('fade-in');
+            setShowHolidayOverlay(true);
+            return; // Exit early, animation will show toast on completion
+          }
+        }
+      } catch (animationError) {
+        // Log but don't fail - animation is non-critical
+        console.warn("Failed to fetch animation data:", animationError);
       }
+      
+      // No animation needed or animation fetch failed - just show toast
+      toast({
+        title: "Holiday mode activated",
+        description: `Your streak is now protected for the next ${effectiveHolidayDurationDays} days.`,
+      });
     } catch (error) {
       console.error("Failed to start holiday:", error);
       toast({
