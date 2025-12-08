@@ -85,8 +85,9 @@ export function IntroScreen({
     },
   });
   
-  // Spinner background matches the IntroScreen background
-  const spinnerBackgroundColor = backgroundColor;
+  // Spinner always uses default background - don't pass streak's black background
+  // For streak games, spinner uses default light bg, then IntroScreen fades in with black
+  const spinnerBackgroundColor = isStreakGame ? undefined : backgroundColor;
 
   // Handle exit animation completion
   const handleExitComplete = useCallback(() => {
