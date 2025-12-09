@@ -187,7 +187,6 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
 
         <div className="w-14" />
       </div>
-
       <div className="flex-1 flex items-start justify-center pb-8">
         <div className="w-full max-w-md space-y-6">
           <div className="grid grid-cols-2 gap-3">
@@ -242,7 +241,7 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground max-w-[50%]">Month to Date</span>
-                  <span className="text-lg font-bold" data-testid="stat-percentile-mtd">
+                  <span className="text-lg font-bold text-right" data-testid="stat-percentile-mtd">
                     {(() => {
                       const dayOfMonth = new Date().getDate();
                       const percentile = (supabaseStats as any)?.cumulativeMonthlyPercentile;
