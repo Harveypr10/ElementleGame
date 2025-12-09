@@ -2678,13 +2678,27 @@ export class DatabaseStorage implements IStorage {
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
-    // Calculate max streak using same algorithm
+    // Calculate max streak - must also check for consecutive dates (gaps break streak)
     const sortedDates = Array.from(dateMap.keys()).sort();
+    let prevDate: Date | null = null;
     for (let i = 0; i < sortedDates.length; i++) {
-      const dayData = dateMap.get(sortedDates[i]);
+      const currentDateStr = sortedDates[i];
+      const currentDate = new Date(currentDateStr);
+      const dayData = dateMap.get(currentDateStr);
+      
       if (!dayData) {
         tempStreak = 0;
+        prevDate = null;
         continue;
+      }
+      
+      // Check for date gap (more than 1 day between entries)
+      if (prevDate) {
+        const dayDiff = Math.round((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (dayDiff > 1) {
+          // Gap in dates - streak breaks
+          tempStreak = 0;
+        }
       }
       
       if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) {
@@ -2695,6 +2709,8 @@ export class DatabaseStorage implements IStorage {
         tempStreak += dayData.streakDayStatus;
         maxStreak = Math.max(maxStreak, tempStreak);
       }
+      
+      prevDate = currentDate;
     }
 
     return await this.upsertUserStatsUser({

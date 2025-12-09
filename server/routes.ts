@@ -2760,6 +2760,75 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Bulk recalculate stats for ALL users (admin only) - both Region and User modes
+  app.post("/api/admin/recalculate-all-stats", verifySupabaseAuth, requireAdmin, async (req, res) => {
+    try {
+      console.log("[POST /api/admin/recalculate-all-stats] Starting bulk recalculation...");
+      
+      // Get all unique user IDs from both game modes
+      const regionUsersResult = await db.execute(sql`
+        SELECT DISTINCT user_id FROM user_stats_region WHERE user_id IS NOT NULL
+      `);
+      const userModeUsersResult = await db.execute(sql`
+        SELECT DISTINCT user_id FROM user_stats_user WHERE user_id IS NOT NULL
+      `);
+      
+      const regionRows = Array.isArray(regionUsersResult) ? regionUsersResult : (regionUsersResult as any).rows || [];
+      const userRows = Array.isArray(userModeUsersResult) ? userModeUsersResult : (userModeUsersResult as any).rows || [];
+      
+      // Combine unique user IDs from both tables
+      const allUserIds = new Set<string>();
+      for (const row of regionRows) {
+        if (row.user_id) allUserIds.add(row.user_id);
+      }
+      for (const row of userRows) {
+        if (row.user_id) allUserIds.add(row.user_id);
+      }
+      
+      const userIdArray = Array.from(allUserIds);
+      console.log(`[POST /api/admin/recalculate-all-stats] Found ${userIdArray.length} unique users to recalculate`);
+      
+      const results: { userId: string; regionStats?: any; userStats?: any; error?: string }[] = [];
+      
+      for (const userId of userIdArray) {
+        try {
+          console.log(`[POST /api/admin/recalculate-all-stats] Recalculating for user: ${userId}`);
+          
+          // Recalculate Region mode stats
+          let regionStats = null;
+          try {
+            regionStats = await storage.recalculateUserStatsRegion(userId);
+          } catch (e) {
+            console.log(`[POST /api/admin/recalculate-all-stats] No region stats for user ${userId}`);
+          }
+          
+          // Recalculate User mode stats
+          let userStats = null;
+          try {
+            userStats = await storage.recalculateUserStatsUser(userId);
+          } catch (e) {
+            console.log(`[POST /api/admin/recalculate-all-stats] No user stats for user ${userId}`);
+          }
+          
+          results.push({ userId, regionStats, userStats });
+        } catch (error: any) {
+          console.error(`[POST /api/admin/recalculate-all-stats] Error for user ${userId}:`, error.message);
+          results.push({ userId, error: error.message });
+        }
+      }
+      
+      console.log(`[POST /api/admin/recalculate-all-stats] Completed. Processed ${results.length} users.`);
+      res.json({
+        success: true,
+        totalUsers: userIdArray.length,
+        results,
+      });
+    } catch (error: any) {
+      console.error("[POST /api/admin/recalculate-all-stats] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
