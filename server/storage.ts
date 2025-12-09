@@ -1739,9 +1739,9 @@ export class DatabaseStorage implements IStorage {
       targetRegion = profile?.region || "UK";
     }
     
-    // Get all completed game attempts for this user in this region
-    // Filter by region_code from questions_allocated_region
-    const completedAttempts = await db
+    // Get ALL game attempts for this user in this region in ONE query
+    // This ensures we capture all attempts regardless of result value
+    const allAttempts = await db
       .select({
         id: gameAttemptsRegion.id,
         result: gameAttemptsRegion.result,
@@ -1758,55 +1758,14 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(gameAttemptsRegion.userId, userId),
-          eq(questionsAllocatedRegion.region, targetRegion),
-          eq(gameAttemptsRegion.result, 'won')
+          eq(questionsAllocatedRegion.region, targetRegion)
         )
       )
       .orderBy(questionsAllocatedRegion.puzzleDate);
 
-    // Get lost games for this region
-    const lostAttempts = await db
-      .select({
-        id: gameAttemptsRegion.id,
-        result: gameAttemptsRegion.result,
-        puzzleDate: questionsAllocatedRegion.puzzleDate,
-        completedAt: gameAttemptsRegion.completedAt,
-        streakDayStatus: gameAttemptsRegion.streakDayStatus,
-      })
-      .from(gameAttemptsRegion)
-      .innerJoin(
-        questionsAllocatedRegion,
-        eq(gameAttemptsRegion.allocatedRegionId, questionsAllocatedRegion.id)
-      )
-      .where(
-        and(
-          eq(gameAttemptsRegion.userId, userId),
-          eq(questionsAllocatedRegion.region, targetRegion),
-          eq(gameAttemptsRegion.result, 'lost')
-        )
-      );
-
-    // Get holiday days (streak_day_status = 0) for streak calculation
-    const holidayAttempts = await db
-      .select({
-        id: gameAttemptsRegion.id,
-        result: gameAttemptsRegion.result,
-        puzzleDate: questionsAllocatedRegion.puzzleDate,
-        completedAt: gameAttemptsRegion.completedAt,
-        streakDayStatus: gameAttemptsRegion.streakDayStatus,
-      })
-      .from(gameAttemptsRegion)
-      .innerJoin(
-        questionsAllocatedRegion,
-        eq(gameAttemptsRegion.allocatedRegionId, questionsAllocatedRegion.id)
-      )
-      .where(
-        and(
-          eq(gameAttemptsRegion.userId, userId),
-          eq(questionsAllocatedRegion.region, targetRegion),
-          eq(gameAttemptsRegion.streakDayStatus, 0)
-        )
-      );
+    // Categorize attempts by result for counting
+    const completedAttempts = allAttempts.filter(a => a.result === 'won');
+    const lostAttempts = allAttempts.filter(a => a.result === 'lost');
 
     const gamesPlayed = completedAttempts.length + lostAttempts.length;
     const gamesWon = completedAttempts.length;
@@ -1822,7 +1781,8 @@ export class DatabaseStorage implements IStorage {
 
     // Calculate current streak using streak_day_status
     // streak_day_status: 0 = holiday (maintains continuity), 1 = played (increments), NULL = missed (breaks)
-    const allAttempts = [...completedAttempts, ...lostAttempts, ...holidayAttempts].sort((a, b) => 
+    // Sort allAttempts by date descending for streak calculation
+    const sortedAttempts = [...allAttempts].sort((a, b) => 
       new Date(b.puzzleDate).getTime() - new Date(a.puzzleDate).getTime()
     );
 
@@ -1830,9 +1790,9 @@ export class DatabaseStorage implements IStorage {
     let maxStreak = 0;
     let tempStreak = 0;
     
-    // Build a map of dates to { result, streakDayStatus }
+    // Build a map of dates to { result, streakDayStatus } from ALL attempts
     const dateMap = new Map<string, { result: string | null; streakDayStatus: number | null }>();
-    for (const attempt of allAttempts) {
+    for (const attempt of sortedAttempts) {
       // Always include attempts with valid streakDayStatus (0 for holiday, 1 for played)
       // Don't filter by completedAt date - this broke streaks for late-night players
       if (attempt.streakDayStatus !== null && attempt.streakDayStatus !== undefined) {
@@ -1852,9 +1812,9 @@ export class DatabaseStorage implements IStorage {
     
     // DEBUG: Log all attempts and dateMap for investigation
     console.log(`[recalculateUserStatsRegion] userId: ${userId}, region: ${targetRegion}`);
-    console.log(`[recalculateUserStatsRegion] completedAttempts count: ${completedAttempts.length}`);
+    console.log(`[recalculateUserStatsRegion] allAttempts count: ${allAttempts.length}`);
+    console.log(`[recalculateUserStatsRegion] completedAttempts (won) count: ${completedAttempts.length}`);
     console.log(`[recalculateUserStatsRegion] lostAttempts count: ${lostAttempts.length}`);
-    console.log(`[recalculateUserStatsRegion] holidayAttempts count: ${holidayAttempts.length}`);
     console.log(`[recalculateUserStatsRegion] dateMap entries (last 10):`, 
       Array.from(dateMap.entries()).slice(-10).map(([date, data]) => ({ date, ...data })));
 
@@ -2620,8 +2580,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async recalculateUserStatsUser(userId: string): Promise<UserStatsUser> {
-    // Get all completed game attempts for this user in user mode
-    const completedAttempts = await db
+    // Get ALL game attempts for this user in user mode in ONE query
+    // This ensures we capture all attempts regardless of result value
+    const allAttempts = await db
       .select({
         id: gameAttemptsUser.id,
         result: gameAttemptsUser.result,
@@ -2635,55 +2596,12 @@ export class DatabaseStorage implements IStorage {
         questionsAllocatedUser,
         eq(gameAttemptsUser.allocatedUserId, questionsAllocatedUser.id)
       )
-      .where(
-        and(
-          eq(gameAttemptsUser.userId, userId),
-          eq(gameAttemptsUser.result, 'won')
-        )
-      )
+      .where(eq(gameAttemptsUser.userId, userId))
       .orderBy(questionsAllocatedUser.puzzleDate);
 
-    // Get lost games
-    const lostAttempts = await db
-      .select({
-        id: gameAttemptsUser.id,
-        result: gameAttemptsUser.result,
-        puzzleDate: questionsAllocatedUser.puzzleDate,
-        completedAt: gameAttemptsUser.completedAt,
-        streakDayStatus: gameAttemptsUser.streakDayStatus,
-      })
-      .from(gameAttemptsUser)
-      .innerJoin(
-        questionsAllocatedUser,
-        eq(gameAttemptsUser.allocatedUserId, questionsAllocatedUser.id)
-      )
-      .where(
-        and(
-          eq(gameAttemptsUser.userId, userId),
-          eq(gameAttemptsUser.result, 'lost')
-        )
-      );
-
-    // Get holiday days (streak_day_status = 0) for streak calculation
-    const holidayAttempts = await db
-      .select({
-        id: gameAttemptsUser.id,
-        result: gameAttemptsUser.result,
-        puzzleDate: questionsAllocatedUser.puzzleDate,
-        completedAt: gameAttemptsUser.completedAt,
-        streakDayStatus: gameAttemptsUser.streakDayStatus,
-      })
-      .from(gameAttemptsUser)
-      .innerJoin(
-        questionsAllocatedUser,
-        eq(gameAttemptsUser.allocatedUserId, questionsAllocatedUser.id)
-      )
-      .where(
-        and(
-          eq(gameAttemptsUser.userId, userId),
-          eq(gameAttemptsUser.streakDayStatus, 0)
-        )
-      );
+    // Categorize attempts by result for counting
+    const completedAttempts = allAttempts.filter(a => a.result === 'won');
+    const lostAttempts = allAttempts.filter(a => a.result === 'lost');
 
     const gamesPlayed = completedAttempts.length + lostAttempts.length;
     const gamesWon = completedAttempts.length;
@@ -2699,7 +2617,8 @@ export class DatabaseStorage implements IStorage {
 
     // Calculate current streak using streak_day_status
     // streak_day_status: 0 = holiday (maintains continuity), 1 = played (increments), NULL = missed (breaks)
-    const allAttempts = [...completedAttempts, ...lostAttempts, ...holidayAttempts].sort((a, b) => 
+    // Sort allAttempts by date descending for streak calculation
+    const sortedAttempts = [...allAttempts].sort((a, b) => 
       new Date(b.puzzleDate).getTime() - new Date(a.puzzleDate).getTime()
     );
 
@@ -2707,24 +2626,31 @@ export class DatabaseStorage implements IStorage {
     let maxStreak = 0;
     let tempStreak = 0;
     
-    // Build a map of dates to { result, streakDayStatus }
+    // Build a map of dates to { result, streakDayStatus } from ALL attempts
     const dateMap = new Map<string, { result: string | null; streakDayStatus: number | null }>();
-    for (const attempt of allAttempts) {
-      const completedDate = new Date(attempt.completedAt || '');
-      const puzzleDate = new Date(attempt.puzzleDate);
-      
-      completedDate.setHours(0, 0, 0, 0);
-      puzzleDate.setHours(0, 0, 0, 0);
-      
-      // For holiday days (streakDayStatus=0), always include them (they may not have completedAt)
-      // For played days, only count if completed on the same day
-      if (attempt.streakDayStatus === 0 || completedDate.getTime() === puzzleDate.getTime()) {
+    for (const attempt of sortedAttempts) {
+      // Always include attempts with valid streakDayStatus (0 for holiday, 1 for played)
+      // Don't filter by completedAt date - this broke streaks for late-night players
+      if (attempt.streakDayStatus !== null && attempt.streakDayStatus !== undefined) {
         dateMap.set(attempt.puzzleDate, { 
           result: attempt.result, 
           streakDayStatus: attempt.streakDayStatus 
         });
+      } else if (attempt.result !== null) {
+        // Game was completed but streakDayStatus not set (legacy data)
+        // Include with NULL to properly break streak chain
+        dateMap.set(attempt.puzzleDate, { 
+          result: attempt.result, 
+          streakDayStatus: null 
+        });
       }
     }
+    
+    // DEBUG: Log for investigation
+    console.log(`[recalculateUserStatsUser] userId: ${userId}`);
+    console.log(`[recalculateUserStatsUser] allAttempts count: ${allAttempts.length}`);
+    console.log(`[recalculateUserStatsUser] dateMap entries (last 10):`, 
+      Array.from(dateMap.entries()).slice(-10).map(([date, data]) => ({ date, ...data })));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
