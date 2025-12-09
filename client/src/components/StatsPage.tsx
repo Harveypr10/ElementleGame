@@ -242,14 +242,21 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground max-w-[50%]">Month to Date</span>
-                  <span className="text-xl font-bold" data-testid="stat-percentile-mtd">
+                  <span className="text-lg font-bold" data-testid="stat-percentile-mtd">
                     {(() => {
                       const dayOfMonth = new Date().getDate();
                       const percentile = (supabaseStats as any)?.cumulativeMonthlyPercentile;
                       if (dayOfMonth < 5 || percentile === null || percentile === undefined || percentile <= 0) {
                         return "NA";
                       }
-                      const rounded = Math.floor(percentile / 5) * 5;
+                      // Tiered percentile display logic
+                      if (percentile <= 1) return "Top 1%";
+                      if (percentile <= 2) return "Top 2%";
+                      if (percentile <= 5) return "Top 5%";
+                      if (percentile <= 10) return "Top 10%";
+                      if (percentile <= 15) return "Top 20%";
+                      // Above 15%: round up to nearest 10%
+                      const rounded = Math.ceil(percentile / 10) * 10;
                       return `Top ${rounded}%`;
                     })()}
                   </span>
