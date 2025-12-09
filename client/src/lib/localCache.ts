@@ -32,6 +32,7 @@ export function removeLocal(key: string): void {
 
 export function clearUserCache(): void {
   // Clear all user-specific cached data on logout/login
+  // This must include ALL cache keys to prevent data leakage between users
   const userKeys = [
     'cached-profile',
     'cached-settings',
@@ -40,14 +41,16 @@ export function clearUserCache(): void {
     'cached-today-outcome',
     'cached-percentile',
     'cached-pro-categories',
+    'cached-categories-list',
     'cached-subscription',
+    'cached-regions',
     'elementle-stats',
     'cluesEnabled',
   ];
   
   userKeys.forEach(key => removeLocal(key));
   
-  // Clear dynamic keys: archive caches, puzzle progress, guess cache, format cache
+  // Clear dynamic keys: archive caches, puzzle progress, guess cache, format cache, and any other cached- prefixed keys
   try {
     const allKeys = Object.keys(localStorage);
     allKeys.forEach(key => {
@@ -65,6 +68,10 @@ export function clearUserCache(): void {
       }
       // Clear format cache (region/digit preferences)
       if (key.startsWith('elementle-format-')) {
+        removeLocal(key);
+      }
+      // Clear any other cached- prefixed data that might have been missed
+      if (key.startsWith('cached-') && !userKeys.includes(key)) {
         removeLocal(key);
       }
     });
