@@ -133,9 +133,16 @@ export function StatsPage({ onBack, gameType = 'REGION', newlyAwardedBadge, onBa
   const winPercentage = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
   const maxGuesses = Math.max(...Object.values(stats.guessDistribution || {}), 1);
   
-  const averageGuesses = stats.won > 0 && stats.guessDistribution
-    ? (Object.entries(stats.guessDistribution).reduce((sum, [guesses, count]) => 
-        sum + (parseInt(guesses) * count), 0) / stats.won).toFixed(1)
+  // Average guesses calculation includes lost games (counted as 6 guesses each)
+  // Formula: (sum of guesses from wins + 6 * losses) / total games played
+  const averageGuesses = stats.played > 0 && stats.guessDistribution
+    ? (() => {
+        const guessesFromWins = Object.entries(stats.guessDistribution).reduce((sum, [guesses, count]) => 
+          sum + (parseInt(guesses) * count), 0);
+        const losses = stats.played - stats.won;
+        const guessesFromLosses = losses * 6;
+        return ((guessesFromWins + guessesFromLosses) / stats.played).toFixed(1);
+      })()
     : "0";
 
   const getLast30DaysData = () => {
