@@ -120,6 +120,7 @@ export function GameSelectionPage({
     hasMissedUser,
     holidayActive,
     holidayEndDate,
+    clearHolidayMissedFlags,
   } = useStreakSaverStatus();
 
   const [hasShownRegionPopup, setHasShownRegionPopup] = useState(false);
@@ -167,9 +168,22 @@ export function GameSelectionPage({
     // No pending badges or all already processed - nothing to do
   }, [isAuthenticated, pendingGlobalBadges, pendingLocalBadges, pendingBadgeToShow, processedBadgeIds, isAwarding]);
 
+  // Track if we've already cleared holiday missed flags this session
+  const [hasClearedHolidayFlags, setHasClearedHolidayFlags] = useState(false);
+
   useEffect(() => {
     // Wait for authentication and status to load
     if (!isAuthenticated || streakStatusLoading || !streakStatus) return;
+    
+    // If in holiday mode and there are missed flags, clear them silently instead of showing popup
+    if (holidayActive && (hasMissedRegion || hasMissedUser) && !hasClearedHolidayFlags) {
+      setHasClearedHolidayFlags(true);
+      clearHolidayMissedFlags();
+      return;
+    }
+    
+    // Don't show popups if in holiday mode
+    if (holidayActive) return;
     
     // Show region popup if missed and not yet shown
     if (hasMissedRegion && !hasShownRegionPopup && !showStreakSaverPopup) {
@@ -181,7 +195,7 @@ export function GameSelectionPage({
       setShowStreakSaverPopup('user');
       setHasShownUserPopup(true);
     }
-  }, [isAuthenticated, streakStatusLoading, streakStatus, hasMissedRegion, hasMissedUser, hasShownRegionPopup, hasShownUserPopup, showStreakSaverPopup]);
+  }, [isAuthenticated, streakStatusLoading, streakStatus, hasMissedRegion, hasMissedUser, hasShownRegionPopup, hasShownUserPopup, showStreakSaverPopup, holidayActive, hasClearedHolidayFlags, clearHolidayMissedFlags]);
 
   // Cache user name and region label locally to prevent flicker
   const [cachedUserName, setCachedUserName] = useState<string>(() => {

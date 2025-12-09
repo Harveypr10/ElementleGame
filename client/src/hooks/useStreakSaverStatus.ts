@@ -85,6 +85,16 @@ export function useStreakSaverStatus() {
     },
   });
 
+  const clearHolidayMissedFlagsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/streak-saver/clear-holiday");
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/streak-saver/status"] });
+    },
+  });
+
   const hasMissedRegion = status?.region?.missedYesterdayFlag ?? false;
   const hasMissedUser = status?.user?.missedYesterdayFlag ?? false;
   const hasMissedAny = hasMissedRegion || hasMissedUser;
@@ -133,5 +143,7 @@ export function useStreakSaverStatus() {
     isEndingHoliday: endHolidayMutation.isPending,
     acknowledgeHolidayEnd: () => endHolidayMutation.mutateAsync(true),
     isAcknowledging: endHolidayMutation.isPending,
+    clearHolidayMissedFlags: clearHolidayMissedFlagsMutation.mutateAsync,
+    isClearingHolidayMissedFlags: clearHolidayMissedFlagsMutation.isPending,
   };
 }

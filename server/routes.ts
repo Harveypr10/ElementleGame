@@ -1962,6 +1962,33 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Clear missed_yesterday flags when user is in holiday mode (no streak reset)
+  app.post("/api/streak-saver/clear-holiday", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log('[streak-saver/clear-holiday] User:', userId);
+      
+      // Clear both missed_yesterday flags without resetting streaks
+      await db.execute(sql.raw(`
+        UPDATE user_stats_region
+        SET missed_yesterday_flag_region = false, updated_at = NOW()
+        WHERE user_id = '${userId}'
+      `));
+      
+      await db.execute(sql.raw(`
+        UPDATE user_stats_user
+        SET missed_yesterday_flag_user = false, updated_at = NOW()
+        WHERE user_id = '${userId}'
+      `));
+      
+      console.log('[streak-saver/clear-holiday] Cleared missed flags for holiday user');
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error clearing holiday missed flags:", error);
+      res.status(500).json({ error: "Failed to clear missed flags" });
+    }
+  });
+
   // Start a holiday (Pro users only)
   app.post("/api/holiday/start", verifySupabaseAuth, async (req: any, res) => {
     try {
