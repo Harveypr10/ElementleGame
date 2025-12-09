@@ -1,7 +1,14 @@
 import { motion, usePresence } from "framer-motion";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import welcomeHamsterGrey from "@assets/Welcome-Hamster-Grey.svg";
 import streakHamsterBlack from "@assets/Streak-Hamster-Black.svg";
 
@@ -18,6 +25,7 @@ interface IntroScreenProps {
   formatDateForDisplay: (date: string) => string;
   currentStreak?: number; // Current streak for this game mode
   isStreakGame?: boolean; // Whether this game can continue/add to the streak
+  isStreakSaverGame?: boolean; // Whether this is a streak saver game (playing yesterday's puzzle)
 }
 
 export function IntroScreen({
@@ -33,10 +41,13 @@ export function IntroScreen({
   formatDateForDisplay,
   currentStreak = 0,
   isStreakGame = false,
+  isStreakSaverGame = false,
 }: IntroScreenProps) {
   const [shouldRender, setShouldRender] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const [showStreakSaverInfo, setShowStreakSaverInfo] = useState(false);
+  const streakSaverInfoShown = useRef(false);
   const spinnerManagedRef = useRef(false);
   const hasStartedLoading = useRef(false);
   const exitCallbackRef = useRef<(() => void) | null>(null);
@@ -174,6 +185,14 @@ export function IntroScreen({
   const categoryTextColor = isStreakGame ? '#FFD700' : '#1e3a8a';
   const streakRedColor = '#DC2626'; // Same red as streak celebration popup (text-red-600)
   
+  // Show streak saver info popup when entering a streak saver game
+  useEffect(() => {
+    if (isStreakSaverGame && isReady && !streakSaverInfoShown.current) {
+      streakSaverInfoShown.current = true;
+      setShowStreakSaverInfo(true);
+    }
+  }, [isStreakSaverGame, isReady]);
+  
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -301,6 +320,27 @@ export function IntroScreen({
           </motion.div>
         </>
       )}
+      
+      {/* Streak Saver Info Popup */}
+      <AlertDialog open={showStreakSaverInfo} onOpenChange={setShowStreakSaverInfo}>
+        <AlertDialogContent className="rounded-xl max-w-[calc(100vw-2rem)] sm:max-w-md" data-testid="streak-saver-info-dialog">
+          <button
+            onClick={() => setShowStreakSaverInfo(false)}
+            className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            data-testid="button-close-streak-saver-info"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+          <AlertDialogHeader className="text-center pr-8">
+            <AlertDialogTitle className="text-lg font-semibold">
+              Streak Saver
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-sm text-muted-foreground mt-2">
+              To keep your streak going you must win this puzzle from yesterday. Exiting will reset your streak, without using your streak saver.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 }
