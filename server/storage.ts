@@ -1833,18 +1833,19 @@ export class DatabaseStorage implements IStorage {
     // Build a map of dates to { result, streakDayStatus }
     const dateMap = new Map<string, { result: string | null; streakDayStatus: number | null }>();
     for (const attempt of allAttempts) {
-      const completedDate = new Date(attempt.completedAt || '');
-      const puzzleDate = new Date(attempt.puzzleDate);
-      
-      completedDate.setHours(0, 0, 0, 0);
-      puzzleDate.setHours(0, 0, 0, 0);
-      
-      // For holiday days (streakDayStatus=0), always include them (they may not have completedAt)
-      // For played days, only count if completed on the same day
-      if (attempt.streakDayStatus === 0 || completedDate.getTime() === puzzleDate.getTime()) {
+      // Always include attempts with valid streakDayStatus (0 for holiday, 1 for played)
+      // Don't filter by completedAt date - this broke streaks for late-night players
+      if (attempt.streakDayStatus !== null && attempt.streakDayStatus !== undefined) {
         dateMap.set(attempt.puzzleDate, { 
           result: attempt.result, 
           streakDayStatus: attempt.streakDayStatus 
+        });
+      } else if (attempt.result !== null) {
+        // Game was completed but streakDayStatus not set (legacy data)
+        // Include with NULL to properly break streak chain
+        dateMap.set(attempt.puzzleDate, { 
+          result: attempt.result, 
+          streakDayStatus: null 
         });
       }
     }
@@ -1860,7 +1861,7 @@ export class DatabaseStorage implements IStorage {
       checkDate = new Date(yesterday);
     }
     
-    // New algorithm: sum of consecutive streak_day_status values (1 for played, 0 for holiday)
+    // Sum consecutive streak_day_status values (1 for played, 0 for holiday)
     // Break on NULL streakDayStatus or missing row
     while (true) {
       const dateStr = checkDate.toISOString().split('T')[0];
@@ -1875,13 +1876,27 @@ export class DatabaseStorage implements IStorage {
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
-    // Calculate max streak using same algorithm
+    // Calculate max streak - must also check for consecutive dates (gaps break streak)
     const sortedDates = Array.from(dateMap.keys()).sort();
+    let prevDate: Date | null = null;
     for (let i = 0; i < sortedDates.length; i++) {
-      const dayData = dateMap.get(sortedDates[i]);
+      const currentDateStr = sortedDates[i];
+      const currentDate = new Date(currentDateStr);
+      const dayData = dateMap.get(currentDateStr);
+      
       if (!dayData) {
         tempStreak = 0;
+        prevDate = null;
         continue;
+      }
+      
+      // Check for date gap (more than 1 day between entries)
+      if (prevDate) {
+        const dayDiff = Math.round((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (dayDiff > 1) {
+          // Gap in dates - streak breaks
+          tempStreak = 0;
+        }
       }
       
       if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) {
@@ -1892,6 +1907,8 @@ export class DatabaseStorage implements IStorage {
         tempStreak += dayData.streakDayStatus;
         maxStreak = Math.max(maxStreak, tempStreak);
       }
+      
+      prevDate = currentDate;
     }
 
     return await this.upsertUserStatsRegion({
