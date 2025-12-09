@@ -1575,6 +1575,7 @@ export function PlayPage({
             formatDateForDisplay={formatDateForIntro}
             currentStreak={currentStreakValue}
             isStreakGame={isStreakGame}
+            isStreakSaverGame={isInStreakSaverMode && !!streakSaverSession}
           />
         )}
       </AnimatePresence>

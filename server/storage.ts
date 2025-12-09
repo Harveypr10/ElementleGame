@@ -1860,27 +1860,22 @@ export class DatabaseStorage implements IStorage {
       checkDate = new Date(yesterday);
     }
     
+    // New algorithm: sum of consecutive streak_day_status values (1 for played, 0 for holiday)
+    // Break on NULL streakDayStatus or missing row
     while (true) {
       const dateStr = checkDate.toISOString().split('T')[0];
       const dayData = dateMap.get(dateStr);
       
-      if (!dayData) break; // No game played and not a holiday - streak broken
+      if (!dayData) break; // No row - streak broken
+      if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) break; // NULL breaks chain
       
-      if (dayData.streakDayStatus === 0) {
-        // Holiday day - maintains streak continuity (don't increment, don't break)
-        // Just continue to the previous day
-      } else if (dayData.result === 'won') {
-        // Played and won - increment streak
-        currentStreak++;
-      } else {
-        // Lost or other - streak broken
-        break;
-      }
+      // Add the streakDayStatus value (1 for played/won, 0 for holiday)
+      currentStreak += dayData.streakDayStatus;
       
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
-    // Calculate max streak considering holidays
+    // Calculate max streak using same algorithm
     const sortedDates = Array.from(dateMap.keys()).sort();
     for (let i = 0; i < sortedDates.length; i++) {
       const dayData = dateMap.get(sortedDates[i]);
@@ -1889,14 +1884,13 @@ export class DatabaseStorage implements IStorage {
         continue;
       }
       
-      if (dayData.streakDayStatus === 0) {
-        // Holiday - maintains streak but doesn't increment
-        // Keep tempStreak as is
-      } else if (dayData.result === 'won') {
-        tempStreak++;
-        maxStreak = Math.max(maxStreak, tempStreak);
-      } else {
+      if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) {
+        // NULL breaks the streak
         tempStreak = 0;
+      } else {
+        // Add the value (1 for played, 0 for holiday)
+        tempStreak += dayData.streakDayStatus;
+        maxStreak = Math.max(maxStreak, tempStreak);
       }
     }
 
@@ -2704,27 +2698,22 @@ export class DatabaseStorage implements IStorage {
       checkDate = new Date(yesterday);
     }
     
+    // New algorithm: sum of consecutive streak_day_status values (1 for played, 0 for holiday)
+    // Break on NULL streakDayStatus or missing row
     while (true) {
       const dateStr = checkDate.toISOString().split('T')[0];
       const dayData = dateMap.get(dateStr);
       
-      if (!dayData) break; // No game played and not a holiday - streak broken
+      if (!dayData) break; // No row - streak broken
+      if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) break; // NULL breaks chain
       
-      if (dayData.streakDayStatus === 0) {
-        // Holiday day - maintains streak continuity (don't increment, don't break)
-        // Just continue to the previous day
-      } else if (dayData.result === 'won') {
-        // Played and won - increment streak
-        currentStreak++;
-      } else {
-        // Lost or other - streak broken
-        break;
-      }
+      // Add the streakDayStatus value (1 for played/won, 0 for holiday)
+      currentStreak += dayData.streakDayStatus;
       
       checkDate.setDate(checkDate.getDate() - 1);
     }
 
-    // Calculate max streak considering holidays
+    // Calculate max streak using same algorithm
     const sortedDates = Array.from(dateMap.keys()).sort();
     for (let i = 0; i < sortedDates.length; i++) {
       const dayData = dateMap.get(sortedDates[i]);
@@ -2733,14 +2722,13 @@ export class DatabaseStorage implements IStorage {
         continue;
       }
       
-      if (dayData.streakDayStatus === 0) {
-        // Holiday - maintains streak but doesn't increment
-        // Keep tempStreak as is
-      } else if (dayData.result === 'won') {
-        tempStreak++;
-        maxStreak = Math.max(maxStreak, tempStreak);
-      } else {
+      if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) {
+        // NULL breaks the streak
         tempStreak = 0;
+      } else {
+        // Add the value (1 for played, 0 for holiday)
+        tempStreak += dayData.streakDayStatus;
+        maxStreak = Math.max(maxStreak, tempStreak);
       }
     }
 
