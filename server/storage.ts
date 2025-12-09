@@ -1849,32 +1849,54 @@ export class DatabaseStorage implements IStorage {
         });
       }
     }
+    
+    // DEBUG: Log all attempts and dateMap for investigation
+    console.log(`[recalculateUserStatsRegion] userId: ${userId}, region: ${targetRegion}`);
+    console.log(`[recalculateUserStatsRegion] completedAttempts count: ${completedAttempts.length}`);
+    console.log(`[recalculateUserStatsRegion] lostAttempts count: ${lostAttempts.length}`);
+    console.log(`[recalculateUserStatsRegion] holidayAttempts count: ${holidayAttempts.length}`);
+    console.log(`[recalculateUserStatsRegion] dateMap entries (last 10):`, 
+      Array.from(dateMap.entries()).slice(-10).map(([date, data]) => ({ date, ...data })));
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     let checkDate = new Date(today);
     
     const todayStr = today.toISOString().split('T')[0];
+    console.log(`[recalculateUserStatsRegion] todayStr: ${todayStr}, has today entry: ${dateMap.has(todayStr)}`);
     if (!dateMap.has(todayStr)) {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       checkDate = new Date(yesterday);
+      console.log(`[recalculateUserStatsRegion] No today entry, starting from yesterday: ${checkDate.toISOString().split('T')[0]}`);
     }
     
     // Sum consecutive streak_day_status values (1 for played, 0 for holiday)
     // Break on NULL streakDayStatus or missing row
+    console.log(`[recalculateUserStatsRegion] Starting streak calculation from: ${checkDate.toISOString().split('T')[0]}`);
     while (true) {
       const dateStr = checkDate.toISOString().split('T')[0];
       const dayData = dateMap.get(dateStr);
       
-      if (!dayData) break; // No row - streak broken
-      if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) break; // NULL breaks chain
+      console.log(`[recalculateUserStatsRegion] Checking ${dateStr}: dayData=${JSON.stringify(dayData)}, currentStreak=${currentStreak}`);
+      
+      if (!dayData) {
+        console.log(`[recalculateUserStatsRegion] Breaking: no row for ${dateStr}`);
+        break; // No row - streak broken
+      }
+      if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) {
+        console.log(`[recalculateUserStatsRegion] Breaking: NULL streakDayStatus for ${dateStr}`);
+        break; // NULL breaks chain
+      }
       
       // Add the streakDayStatus value (1 for played/won, 0 for holiday)
       currentStreak += dayData.streakDayStatus;
+      console.log(`[recalculateUserStatsRegion] Added ${dayData.streakDayStatus}, currentStreak now: ${currentStreak}`);
       
       checkDate.setDate(checkDate.getDate() - 1);
     }
+    
+    console.log(`[recalculateUserStatsRegion] Final currentStreak: ${currentStreak}`);
 
     // Calculate max streak - must also check for consecutive dates (gaps break streak)
     const sortedDates = Array.from(dateMap.keys()).sort();

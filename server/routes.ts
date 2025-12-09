@@ -2704,6 +2704,62 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Debug endpoint to check streak data
+  app.get("/api/admin/debug-streak/:userId", verifySupabaseAuth, requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      console.log("[GET /api/admin/debug-streak] Checking streak for user:", userId);
+      
+      // Get raw game attempts with streak_day_status for region mode
+      const regionAttempts = await db.execute(sql`
+        SELECT 
+          ga.id,
+          ga.result,
+          ga.streak_day_status,
+          ga.completed_at,
+          qa.puzzle_date,
+          qa.region
+        FROM game_attempts_region ga
+        INNER JOIN questions_allocated_region qa ON ga.allocated_region_id = qa.id
+        WHERE ga.user_id = ${userId}
+        ORDER BY qa.puzzle_date DESC
+        LIMIT 20
+      `);
+      
+      // Get user stats region
+      const regionStats = await db.execute(sql`
+        SELECT * FROM user_stats_region WHERE user_id = ${userId}
+      `);
+      
+      const regionRows = Array.isArray(regionAttempts) ? regionAttempts : (regionAttempts as any).rows || [];
+      const regionStatsRows = Array.isArray(regionStats) ? regionStats : (regionStats as any).rows || [];
+      
+      res.json({
+        userId,
+        regionGameAttempts: regionRows,
+        regionStats: regionStatsRows[0] || null,
+      });
+    } catch (error: any) {
+      console.error("[GET /api/admin/debug-streak] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Debug endpoint to trigger stats recalculation for any user (admin only)
+  app.post("/api/admin/recalculate-stats/:userId", verifySupabaseAuth, requireAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { region } = req.query;
+      console.log("[POST /api/admin/recalculate-stats] Recalculating for user:", userId, "region:", region);
+      
+      const stats = await storage.recalculateUserStatsRegion(userId, (region as string) || undefined);
+      res.json(stats);
+    } catch (error: any) {
+      console.error("[POST /api/admin/recalculate-stats] Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
