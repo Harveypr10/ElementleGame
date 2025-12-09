@@ -432,7 +432,9 @@ export const userStatsRegion = pgTable("user_stats_region", {
   // Streak saver fields (managed by nightly cron and API endpoints)
   streakSaversUsedMonth: integer("streak_savers_used_month").default(0),
   missedYesterdayFlagRegion: boolean("missed_yesterday_flag_region").default(false), // Tracks missed region puzzles
-  // Cumulative monthly percentile score (updated by badge check logic)
+  // Monthly stats (updated after each game completion)
+  gamesPlayedMonth: integer("games_played_month").default(0), // Count of games played in current month
+  // Cumulative monthly percentile score (updated after each game completion)
   cumulativeMonthlyPercentile: integer("cumulative_monthly_percentile"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -569,7 +571,9 @@ export const userStatsUser = pgTable("user_stats_user", {
   holidaysUsedYear: integer("holidays_used_year").default(0), // Number of holidays used this year
   nextHolidayResetDate: date("next_holiday_reset_date"), // Date when holiday allowance resets
   missedYesterdayFlagUser: boolean("missed_yesterday_flag_user").default(false), // Tracks missed user puzzles
-  // Cumulative monthly percentile score (updated by badge check logic)
+  // Monthly stats (updated after each game completion)
+  gamesPlayedMonth: integer("games_played_month").default(0), // Count of games played in current month
+  // Cumulative monthly percentile score (updated after each game completion)
   cumulativeMonthlyPercentile: integer("cumulative_monthly_percentile"),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

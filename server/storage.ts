@@ -1937,6 +1937,74 @@ export class DatabaseStorage implements IStorage {
     return Math.round(percentile * 10) / 10;
   }
 
+  // Update monthly stats after game completion (Region mode)
+  async updateMonthlyStatsRegion(userId: string, region?: string): Promise<void> {
+    try {
+      // Get user's current region if not provided
+      let targetRegion = region;
+      if (!targetRegion) {
+        const profile = await this.getUserProfile(userId);
+        targetRegion = profile?.region || "UK";
+      }
+
+      // Calculate games played in current month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      
+      const monthlyGamesResult = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM game_attempts_region gar
+        INNER JOIN questions_allocated_region qar ON gar.allocated_region_id = qar.id
+        WHERE gar.user_id = ${userId}
+          AND qar.region = ${targetRegion}
+          AND gar.result IS NOT NULL
+          AND gar.completed_at >= ${monthStart}::date
+      `);
+      
+      const rows = Array.isArray(monthlyGamesResult) ? monthlyGamesResult : (monthlyGamesResult as any).rows || [];
+      const gamesPlayedMonth = parseInt(rows[0]?.count || '0', 10);
+
+      // Calculate cumulative monthly percentile
+      // This ranks the user against all other users in the same region based on games won this month
+      const allUsersMonthlyResult = await db.execute(sql`
+        SELECT 
+          gar.user_id,
+          COUNT(*) FILTER (WHERE gar.result = 'won') as wins_month
+        FROM game_attempts_region gar
+        INNER JOIN questions_allocated_region qar ON gar.allocated_region_id = qar.id
+        WHERE qar.region = ${targetRegion}
+          AND gar.result IS NOT NULL
+          AND gar.completed_at >= ${monthStart}::date
+        GROUP BY gar.user_id
+        ORDER BY wins_month DESC
+      `);
+      
+      const allUsersRows = Array.isArray(allUsersMonthlyResult) ? allUsersMonthlyResult : (allUsersMonthlyResult as any).rows || [];
+      
+      let cumulativeMonthlyPercentile: number | null = null;
+      if (allUsersRows.length > 0) {
+        const userPosition = allUsersRows.findIndex((row: any) => row.user_id === userId);
+        if (userPosition !== -1) {
+          // Percentile: (position / total) * 100, lower is better (top 10% = 10)
+          cumulativeMonthlyPercentile = Math.round(((userPosition + 1) / allUsersRows.length) * 100);
+        }
+      }
+
+      // Update the stats table
+      await db.execute(sql`
+        UPDATE user_stats_region
+        SET games_played_month = ${gamesPlayedMonth},
+            cumulative_monthly_percentile = ${cumulativeMonthlyPercentile},
+            updated_at = NOW()
+        WHERE user_id = ${userId} AND region = ${targetRegion}
+      `);
+      
+      console.log(`[updateMonthlyStatsRegion] Updated: userId=${userId}, region=${targetRegion}, gamesPlayedMonth=${gamesPlayedMonth}, percentile=${cumulativeMonthlyPercentile}`);
+    } catch (error) {
+      console.error('[updateMonthlyStatsRegion] Error:', error);
+    }
+  }
+
   // ========================================================================
   // USER GAME MODE OPERATIONS
   // ========================================================================
@@ -2763,6 +2831,63 @@ export class DatabaseStorage implements IStorage {
 
     const percentile = ((userPosition + 1) / allUserStats.length) * 100;
     return Math.round(percentile * 10) / 10;
+  }
+
+  // Update monthly stats after game completion (User mode)
+  async updateMonthlyStatsUser(userId: string): Promise<void> {
+    try {
+      // Calculate games played in current month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      
+      const monthlyGamesResult = await db.execute(sql`
+        SELECT COUNT(*) as count
+        FROM game_attempts_user gau
+        WHERE gau.user_id = ${userId}
+          AND gau.result IS NOT NULL
+          AND gau.completed_at >= ${monthStart}::date
+      `);
+      
+      const rows = Array.isArray(monthlyGamesResult) ? monthlyGamesResult : (monthlyGamesResult as any).rows || [];
+      const gamesPlayedMonth = parseInt(rows[0]?.count || '0', 10);
+
+      // Calculate cumulative monthly percentile
+      // This ranks the user against all other users based on games won this month (User mode is global)
+      const allUsersMonthlyResult = await db.execute(sql`
+        SELECT 
+          gau.user_id,
+          COUNT(*) FILTER (WHERE gau.result = 'won') as wins_month
+        FROM game_attempts_user gau
+        WHERE gau.result IS NOT NULL
+          AND gau.completed_at >= ${monthStart}::date
+        GROUP BY gau.user_id
+        ORDER BY wins_month DESC
+      `);
+      
+      const allUsersRows = Array.isArray(allUsersMonthlyResult) ? allUsersMonthlyResult : (allUsersMonthlyResult as any).rows || [];
+      
+      let cumulativeMonthlyPercentile: number | null = null;
+      if (allUsersRows.length > 0) {
+        const userPosition = allUsersRows.findIndex((row: any) => row.user_id === userId);
+        if (userPosition !== -1) {
+          // Percentile: (position / total) * 100, lower is better (top 10% = 10)
+          cumulativeMonthlyPercentile = Math.round(((userPosition + 1) / allUsersRows.length) * 100);
+        }
+      }
+
+      // Update the stats table
+      await db.execute(sql`
+        UPDATE user_stats_user
+        SET games_played_month = ${gamesPlayedMonth},
+            cumulative_monthly_percentile = ${cumulativeMonthlyPercentile},
+            updated_at = NOW()
+        WHERE user_id = ${userId}
+      `);
+      
+      console.log(`[updateMonthlyStatsUser] Updated: userId=${userId}, gamesPlayedMonth=${gamesPlayedMonth}, percentile=${cumulativeMonthlyPercentile}`);
+    } catch (error) {
+      console.error('[updateMonthlyStatsUser] Error:', error);
+    }
   }
 
   // ========================================================================
