@@ -33,7 +33,7 @@ import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 import { useInterstitialAd } from "@/components/InterstitialAd";
 import type { UserBadgeWithDetails } from "@shared/schema";
 
-type Screen = "splash" | "welcome" | "onboarding" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions" | "personalise";
+type Screen = "splash" | "welcome" | "onboarding" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions" | "personalise" | "signing-out";
 
 interface Puzzle {
   id: number;
@@ -653,6 +653,36 @@ export default function Home() {
     onTimeout: handlePuzzleTimeout,
   });
   
+  // Sign out spinner - shows hamster animation during sign out
+  const signOutSpinner = useSpinnerWithTimeout({
+    retryDelayMs: 10000, // Long retry since we don't need retries
+    timeoutMs: 10000, // Long timeout since we control completion
+    onFadeOutComplete: () => {
+      // After spinner fades out, navigate to onboarding
+      setShowAuthButtons(true);
+      setCurrentScreen("onboarding");
+    },
+  });
+  
+  // Track sign out spinner state
+  const signOutSpinnerShownRef = useRef(false);
+  
+  // Manage sign out spinner
+  useEffect(() => {
+    if (currentScreen === "signing-out" && !signOutSpinnerShownRef.current) {
+      signOutSpinner.start(0); // No delay, show immediately
+      signOutSpinnerShownRef.current = true;
+      
+      // After minimum display time, complete the spinner
+      const timer = setTimeout(() => {
+        signOutSpinner.complete();
+        signOutSpinnerShownRef.current = false;
+      }, 1500); // Show spinner for 1.5 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentScreen, signOutSpinner]);
+  
   // Show spinner during auth loading - with 150ms delay to avoid flash on fast loads
   useEffect(() => {
     if (isLoading && !authSpinnerShownRef.current) {
@@ -696,7 +726,7 @@ export default function Home() {
   }
 
   // Screens where ad banner should never appear (splash, welcome, onboarding, play/intro, login, signup, forgot-password, generating-questions)
-  const hideAdOnScreens: Screen[] = ["splash", "welcome", "onboarding", "play", "login", "signup", "forgot-password", "generating-questions"];
+  const hideAdOnScreens: Screen[] = ["splash", "welcome", "onboarding", "play", "login", "signup", "forgot-password", "generating-questions", "signing-out", "personalise"];
   const shouldShowAd = !hideAdOnScreens.includes(currentScreen);
 
   return (
@@ -841,6 +871,10 @@ export default function Home() {
           </motion.div>
         )}
 
+        {currentScreen === "signing-out" && (
+          <div key="signing-out" className="min-h-screen" data-testid="signing-out-screen" />
+        )}
+
         {currentScreen === "selection" && (
           <motion.div key="selection" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
             <GameSelectionPage 
@@ -965,8 +999,8 @@ export default function Home() {
               onTerms={() => setCurrentScreen("terms")}
               onAbout={() => setCurrentScreen("about")}
               onSignOut={() => {
-                setShowAuthButtons(true);
-                setCurrentScreen("onboarding");
+                // Show hamster spinner during sign out
+                setCurrentScreen("signing-out");
               }}
               onLogin={() => setCurrentScreen("login")}
               onRegister={() => setCurrentScreen("signup")}
