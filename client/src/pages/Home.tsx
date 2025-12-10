@@ -11,6 +11,7 @@ import { OptionsPage } from "@/components/OptionsPage";
 import { SplashScreen } from "@/components/SplashScreen";
 import { OnboardingScreen } from "@/components/OnboardingScreen";
 import AuthPage from "@/components/AuthPage";
+import LoginPage from "@/components/LoginPage";
 import ForgotPasswordPage from "@/components/ForgotPasswordPage";
 import AccountInfoPage from "@/components/AccountInfoPage";
 import { PrivacyPage } from "@/components/PrivacyPage";
@@ -79,6 +80,8 @@ export default function Home() {
   const [streakSaverPuzzle, setStreakSaverPuzzle] = useState<Puzzle | null>(null);
   // Track if we're loading the streak saver puzzle
   const [loadingStreakSaverPuzzle, setLoadingStreakSaverPuzzle] = useState(false);
+  // Track if we should skip the intro screen (e.g., when coming from OnboardingScreen)
+  const [skipIntroForGuest, setSkipIntroForGuest] = useState(false);
   
   // Fetch BOTH global and local puzzles to avoid race conditions when switching modes
   const globalPuzzlesEndpoint = isAuthenticated ? '/api/puzzles' : '/api/puzzles/guest';
@@ -439,12 +442,17 @@ export default function Home() {
   };
   
   // Global mode handlers (always use region data)
-  const handlePlayGlobal = () => {
+  const handlePlayGlobal = (skipIntroFromOnboarding?: boolean) => {
     console.log('[handlePlayGlobal] Setting mode to global explicitly');
     setGameMode('global');
     // CRITICAL: Explicitly set puzzleSourceMode to 'global' BEFORE calling handlePlayToday
     // This avoids race condition where isLocalMode still has old value from context
     setPuzzleSourceMode('global');
+    // Only set skipIntro if explicitly requested (from onboarding)
+    // Reset to false for normal plays from GameSelectionPage
+    if (!skipIntroFromOnboarding) {
+      setSkipIntroForGuest(false);
+    }
     handlePlayTodayWithMode('global');
   };
 
@@ -473,6 +481,8 @@ export default function Home() {
     // CRITICAL: Explicitly set puzzleSourceMode to 'local' BEFORE calling handlePlayToday
     // This avoids race condition where isLocalMode still has old value from context
     setPuzzleSourceMode('local');
+    // Reset skipIntro flag for local mode plays (onboarding only supports global)
+    setSkipIntroForGuest(false);
     handlePlayTodayWithMode('local');
   };
 
@@ -546,6 +556,8 @@ export default function Home() {
   
   // Handle login success - check if user needs first login setup
   const handleLoginSuccess = () => {
+    // Reset skip intro flag when logging in
+    setSkipIntroForGuest(false);
     if (isAuthenticated && !hasCompletedFirstLogin() && !hasShownGeneratingScreen) {
       // User hasn't completed first login - show GeneratingQuestionsScreen
       setNeedsFirstLoginSetup(true);
@@ -691,23 +703,29 @@ export default function Home() {
               onPlay={() => {
                 // Guest user wants to play - use the same flow as handlePlayGlobal
                 // which properly waits for data to load before navigating
-                handlePlayGlobal();
+                // Also skip the intro screen since they just saw puzzle info on onboarding
+                setSkipIntroForGuest(true);
+                handlePlayGlobal(true); // Pass true to indicate skipIntro from onboarding
               }}
-              onLogin={() => setCurrentScreen("login")}
-              onSubscribe={() => setCurrentScreen("signup")}
+              onLogin={() => {
+                setSkipIntroForGuest(false); // Reset skip flag when not going to play
+                setCurrentScreen("login");
+              }}
+              onSubscribe={() => {
+                setSkipIntroForGuest(false); // Reset skip flag when not going to play
+                setCurrentScreen("signup");
+              }}
             />
           </motion.div>
         )}
 
         {currentScreen === "login" && (
           <motion.div key="login" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
-            <AuthPage 
-              mode="login"
+            <LoginPage 
               onSuccess={handleLoginSuccess}
-              onSwitchMode={() => setCurrentScreen("signup")}
               onBack={() => setCurrentScreen("onboarding")}
+              onSignup={() => setCurrentScreen("signup")}
               onForgotPassword={() => setCurrentScreen("forgot-password")}
-              onContinueAsGuest={() => setCurrentScreen("selection")}
             />
           </motion.div>
         )}
@@ -785,6 +803,7 @@ export default function Home() {
               maxGuesses={5}
               fromArchive={previousScreen === "archive"}
               hasExistingProgress={hasExistingProgress}
+              skipIntro={skipIntroForGuest}
               showCelebrationFirst={showCelebrationFirst}
               hasOpenedCelebration={hasOpenedCelebration}
               puzzleSourceMode={puzzleSourceMode}
@@ -792,6 +811,8 @@ export default function Home() {
               onBack={() => {
                 // Clear streak saver puzzle state to prevent stale navigation
                 setStreakSaverPuzzle(null);
+                // Reset skipIntro flag when leaving play screen
+                setSkipIntroForGuest(false);
                 setCurrentScreen(previousScreen === "archive" ? "archive" : "selection");
               }}
               onHomeFromCelebration={() => {

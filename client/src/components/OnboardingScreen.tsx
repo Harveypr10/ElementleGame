@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 import welcomeHamsterGrey from "@assets/Welcome-Hamster-Grey.svg";
-import { useUserDateFormat } from "@/hooks/useUserDateFormat";
+import { formatCanonicalDateWithOrdinal } from "@/lib/dateFormat";
 
 interface OnboardingScreenProps {
   eventTitle: string;
@@ -19,9 +19,9 @@ export function OnboardingScreen({
   onSubscribe,
 }: OnboardingScreenProps) {
   const [fadeIn, setFadeIn] = useState(false);
-  const { formatCanonicalDate } = useUserDateFormat();
   
-  const displayDate = formatCanonicalDate(puzzleDateCanonical);
+  // Format date as "10th December 2025"
+  const displayDate = formatCanonicalDateWithOrdinal(puzzleDateCanonical);
   
   const [isDarkMode, setIsDarkMode] = useState(() => 
     document.documentElement.classList.contains('dark')

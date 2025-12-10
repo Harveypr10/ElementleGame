@@ -209,6 +209,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check if user exists and their auth method (for login page)
+  app.get("/api/auth/check-user", async (req, res) => {
+    try {
+      const email = req.query.email as string;
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+
+      // Check if user profile exists in our database first (fast lookup)
+      const { data: profiles, error: profileError } = await supabaseAdmin
+        .from("user_profiles")
+        .select("id, email")
+        .eq("email", email.toLowerCase())
+        .limit(1);
+
+      if (profileError) {
+        console.error("[GET /api/auth/check-user] Profile lookup error:", profileError);
+      }
+
+      // If no profile found in our database, user hasn't signed up through our app
+      if (!profiles || profiles.length === 0) {
+        console.log("[GET /api/auth/check-user] User not found in profiles:", email);
+        return res.json({ exists: false, hasPassword: false, hasMagicLink: false });
+      }
+
+      // User exists in our database - they signed up with password (our only signup method)
+      // All users who signed up have passwords since we don't have magic-link-only signup
+      res.json({ 
+        exists: true, 
+        hasPassword: true, // All existing users have passwords (signup requires password)
+        hasMagicLink: true // Magic link is available for all email users
+      });
+    } catch (error: any) {
+      console.error("[GET /api/auth/check-user] Error:", error);
+      res.status(500).json({ error: "Failed to check user" });
+    }
+  });
+
   // Auth routes - Supabase handles these client-side mostly,
   // but we need profile endpoints
   app.get("/api/auth/profile", verifySupabaseAuth, async (req: any, res) => {

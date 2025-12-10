@@ -56,6 +56,7 @@ interface PlayPageProps {
   puzzleDate?: string; // The date this puzzle should be played (YYYY-MM-DD format)
   fromArchive?: boolean;
   hasExistingProgress?: boolean; // Whether the game has any existing guesses or is completed
+  skipIntro?: boolean; // Whether to skip the intro screen (e.g., when coming from OnboardingScreen)
   showCelebrationFirst?: boolean;
   hasOpenedCelebration?: boolean;
   puzzleSourceMode?: 'global' | 'local'; // Explicit mode from parent - overrides context when set
@@ -94,6 +95,7 @@ export function PlayPage({
   puzzleDate,
   fromArchive = false,
   hasExistingProgress = false,
+  skipIntro = false,
   showCelebrationFirst = false,
   hasOpenedCelebration = false,
   puzzleSourceMode,
@@ -880,15 +882,15 @@ export function PlayPage({
       // Mark as checked so we don't re-run this logic
       introScreenChecked.current = true;
       
-      // Skip intro if parent tells us there's existing progress
-      if (hasExistingProgress) {
+      // Skip intro if parent tells us there's existing progress or skipIntro is true
+      if (hasExistingProgress || skipIntro) {
         return;
       }
       
       // Show the intro screen - it handles its own loading spinner internally
       setShowIntroScreen(true);
     }
-  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, hasExistingProgress]);
+  }, [guessRecords.length, digitsCheckComplete, gameOver, viewOnly, hasExistingProgress, skipIntro]);
 
   // Helper function to format date for intro display
   const formatDateForIntro = (dateCanonical: string): string => {
