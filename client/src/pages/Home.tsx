@@ -32,7 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 import type { UserBadgeWithDetails } from "@shared/schema";
 
-type Screen = "splash" | "welcome" | "onboarding" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
+type Screen = "splash" | "welcome" | "onboarding" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions" | "personalise";
 
 interface Puzzle {
   id: number;
@@ -82,6 +82,8 @@ export default function Home() {
   const [loadingStreakSaverPuzzle, setLoadingStreakSaverPuzzle] = useState(false);
   // Track if we should skip the intro screen (e.g., when coming from OnboardingScreen)
   const [skipIntroForGuest, setSkipIntroForGuest] = useState(false);
+  // Track email used for signup from LoginPage (for personalise flow)
+  const [personaliseEmail, setPersonaliseEmail] = useState<string | null>(null);
   
   // Fetch BOTH global and local puzzles to avoid race conditions when switching modes
   const globalPuzzlesEndpoint = isAuthenticated ? '/api/puzzles' : '/api/puzzles/guest';
@@ -726,6 +728,10 @@ export default function Home() {
               onBack={() => setCurrentScreen("onboarding")}
               onSignup={() => setCurrentScreen("signup")}
               onForgotPassword={() => setCurrentScreen("forgot-password")}
+              onPersonalise={(email) => {
+                setPersonaliseEmail(email);
+                setCurrentScreen("personalise");
+              }}
             />
           </motion.div>
         )}
@@ -738,6 +744,21 @@ export default function Home() {
               onSwitchMode={() => setCurrentScreen("login")}
               onBack={() => setCurrentScreen("onboarding")}
               onContinueAsGuest={() => setCurrentScreen("selection")}
+            />
+          </motion.div>
+        )}
+
+        {currentScreen === "personalise" && (
+          <motion.div key="personalise" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
+            <AuthPage 
+              mode="personalise"
+              prefilledEmail={personaliseEmail || undefined}
+              onSuccess={() => {
+                setPersonaliseEmail(null);
+                setCurrentScreen("generating-questions");
+              }}
+              onSwitchMode={() => setCurrentScreen("login")}
+              onBack={() => setCurrentScreen("login")}
             />
           </motion.div>
         )}

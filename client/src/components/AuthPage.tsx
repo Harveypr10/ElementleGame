@@ -27,15 +27,16 @@ import type { Region } from "@shared/schema";
 import { useAdBannerActive } from "@/components/AdBanner";
 
 interface AuthPageProps {
-  mode: "login" | "signup" | "forgot-password";
+  mode: "login" | "signup" | "forgot-password" | "personalise";
   onSuccess: () => void;
   onSwitchMode: () => void;
   onBack: () => void;
   onForgotPassword?: () => void;
   onContinueAsGuest?: () => void;
+  prefilledEmail?: string;
 }
 
-export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword, onContinueAsGuest }: AuthPageProps) {
+export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword, onContinueAsGuest, prefilledEmail }: AuthPageProps) {
   const { signIn } = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
@@ -49,7 +50,7 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
   // Fetch available regions
   const { data: regions, isLoading: regionsLoading } = useQuery<Region[]>({
     queryKey: ['/api/regions'],
-    enabled: mode === 'signup',
+    enabled: mode === 'signup' || mode === 'personalise',
   });
 
   const [formData, setFormData] = useState({
@@ -119,6 +120,89 @@ export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForg
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+
+  // Handle personalise mode - user is already authenticated, just need to save profile
+  if (mode === "personalise") {
+    // Check if postcode is blank and show warning
+    if (!formData.postcode.trim()) {
+      setShowPostcodeWarning(true);
+      return;
+    }
+
+    setLoading(true);
+
+    // Validate postcode exists in the location-based postcode database
+    try {
+      const validateResponse = await fetch(`/api/postcodes/validate?postcode=${encodeURIComponent(formData.postcode.trim())}`);
+      const validateResult = await validateResponse.json();
+      
+      if (!validateResult.valid) {
+        setLoading(false);
+        setShowPostcodeInvalidDialog(true);
+        return;
+      }
+
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Session expired",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Create user profile - acceptedTerms is true since they agreed when creating account in LoginPage
+      const profileResponse = await fetch("/api/auth/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: prefilledEmail || session.user.email,
+          region: formData.region,
+          postcode: formData.postcode || null,
+          acceptedTerms: true, // Already accepted when creating account
+          adsConsent: formData.adsConsent,
+          tier: "standard",
+        }),
+      });
+
+      if (!profileResponse.ok) {
+        throw new Error("Failed to create profile");
+      }
+
+      // Create initial user settings
+      const settingsResponse = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          useRegionDefault: true,
+          digitPreference: "8",
+        }),
+      });
+
+      setGameMode('global');
+      onSuccess();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save profile",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+    return;
+  }
 
   // Validate password for signup
   if (mode === "signup") {
@@ -296,17 +380,23 @@ const handleSubmit = async (e: React.FormEvent) => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl text-center">
-            {mode === "signup" ? "Create an account" : "Welcome back"}
+            {mode === "personalise" 
+              ? "Personalise your game" 
+              : mode === "signup" 
+                ? "Create an account" 
+                : "Welcome back"}
           </CardTitle>
           <CardDescription className="text-center">
-            {mode === "signup" 
-              ? "Enter your details to create your account" 
-              : "Enter your email and password to sign in"}
+            {mode === "personalise"
+              ? "Set up your profile to get personalised puzzles"
+              : mode === "signup" 
+                ? "Enter your details to create your account" 
+                : "Enter your email and password to sign in"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "signup" && (
+            {(mode === "signup" || mode === "personalise") && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName" data-testid="label-firstname">First Name</Label>
@@ -336,7 +426,11 @@ const handleSubmit = async (e: React.FormEvent) => {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && formData.lastName) {
                         e.preventDefault();
-                        emailRef.current?.focus();
+                        if (mode === "personalise") {
+                          postcodeRef.current?.focus();
+                        } else {
+                          emailRef.current?.focus();
+                        }
                       }
                     }}
                     required
@@ -345,7 +439,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             )}
             
-            {mode === "signup" && (
+            {(mode === "signup" || mode === "personalise") && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
                   <Label htmlFor="region" data-testid="label-region">Region</Label>
@@ -382,7 +476,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             )}
 
-            {mode === "signup" && (
+            {(mode === "signup" || mode === "personalise") && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
                   <Label htmlFor="postcode" data-testid="label-postcode">Postcode</Label>
@@ -401,6 +495,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             )}
             
+            {mode !== "personalise" && (
             <div className="space-y-2">
               <Label htmlFor="email" data-testid="label-email">Email</Label>
               <Input
@@ -419,7 +514,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                 required
               />
             </div>
+            )}
             
+            {mode !== "personalise" && (
             <div className="space-y-2">
               <Label htmlFor="password" data-testid="label-password">Password</Label>
               <PasswordInput
@@ -453,6 +550,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </button>
               )}
             </div>
+            )}
 
             {mode === "signup" && (
               <div className="space-y-2">
@@ -506,34 +604,52 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
             )}
             
+            {mode === "personalise" && (
+              <div className="flex items-start space-x-2">
+                <input
+                  id="adsConsent"
+                  type="checkbox"
+                  checked={formData.adsConsent}
+                  onChange={(e) =>
+                    setFormData({ ...formData, adsConsent: e.target.checked })
+                  }
+                  className="mt-1"
+                />
+                <label htmlFor="adsConsent" className="text-sm">
+                  I agree to receive tailored ads and promotional content (optional).
+                </label>
+              </div>
+            )}
+            
             <Button 
               type="submit" 
               className={`w-full ${
-                mode === "signup" && 
+                (mode === "signup" || mode === "personalise") && 
                 !loading && 
                 formData.firstName.trim() && 
-                formData.email.trim() && 
-                formData.password && 
-                formData.acceptedTerms
+                (mode === "personalise" || formData.email.trim()) && 
+                (mode === "personalise" || formData.password) && 
+                (mode === "personalise" || formData.acceptedTerms)
                   ? "bg-blue-700 hover:bg-blue-800"
                   : ""
               }`}
               disabled={
                 loading || (
-                  mode === "signup" && (
+                  (mode === "signup" || mode === "personalise") && (
                     !formData.firstName.trim() ||
-                    !formData.email.trim() ||
-                    !formData.password ||
-                    !formData.acceptedTerms
+                    (mode !== "personalise" && !formData.email.trim()) ||
+                    (mode !== "personalise" && !formData.password) ||
+                    (mode !== "personalise" && !formData.acceptedTerms)
                   )
                 )
               }
               data-testid="button-submit"
             >
-              {loading ? "Please wait..." : mode === "signup" ? "Sign Up" : "Sign In"}
+              {loading ? "Please wait..." : mode === "personalise" ? "Generate Questions" : mode === "signup" ? "Sign Up" : "Sign In"}
             </Button>
           </form>
 
+          {mode !== "personalise" && (
           <div className="mt-4 text-center text-sm">
             <button
               type="button"
@@ -546,8 +662,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                 : "Don't have an account? Sign up"}
             </button>
           </div>
+          )}
 
-          {onContinueAsGuest && (
+          {onContinueAsGuest && mode !== "personalise" && (
             <div className="mt-4 text-center">
               <button
                 type="button"

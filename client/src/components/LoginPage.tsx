@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,15 +8,17 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { SiGoogle, SiApple } from "react-icons/si";
+import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 
 interface LoginPageProps {
   onSuccess: () => void;
   onBack: () => void;
   onSignup: () => void;
   onForgotPassword?: () => void;
+  onPersonalise?: (email: string, password?: string) => void;
 }
 
-type LoginStep = "email" | "password" | "magic-link";
+type LoginStep = "email" | "password" | "magic-link" | "create-account";
 
 interface UserAuthInfo {
   exists: boolean;
@@ -24,19 +26,26 @@ interface UserAuthInfo {
   hasMagicLink: boolean;
 }
 
-export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPassword }: LoginPageProps) {
+const MAGIC_LINK_COOLDOWN_SECONDS = 60;
+
+export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPassword, onPersonalise }: LoginPageProps) {
   const { signIn } = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [step, setStep] = useState<LoginStep>("email");
   const [loading, setLoading] = useState(false);
   const [sendingMagicLink, setSendingMagicLink] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [magicLinkCooldown, setMagicLinkCooldown] = useState(0);
   const [userAuthInfo, setUserAuthInfo] = useState<UserAuthInfo | null>(null);
   const [fadeIn, setFadeIn] = useState(false);
+  const [creatingAccount, setCreatingAccount] = useState(false);
+
+  const cooldownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isDarkMode, setIsDarkMode] = useState(() => 
     document.documentElement.classList.contains('dark')
@@ -53,6 +62,14 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
     
     observer.observe(document.documentElement, { attributes: true });
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (cooldownIntervalRef.current) {
+        clearInterval(cooldownIntervalRef.current);
+      }
+    };
   }, []);
   
   const backgroundColor = useMemo(() => {
@@ -72,6 +89,27 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
       setFadeIn(true);
     });
   }, []);
+
+  const startCooldown = () => {
+    setMagicLinkCooldown(MAGIC_LINK_COOLDOWN_SECONDS);
+    
+    if (cooldownIntervalRef.current) {
+      clearInterval(cooldownIntervalRef.current);
+    }
+    
+    cooldownIntervalRef.current = setInterval(() => {
+      setMagicLinkCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownIntervalRef.current) {
+            clearInterval(cooldownIntervalRef.current);
+            cooldownIntervalRef.current = null;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const handleEmailContinue = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,11 +137,7 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
           setStep("magic-link");
         }
       } else {
-        toast({
-          title: "Account not found",
-          description: "No account exists with this email. Would you like to create one?",
-          variant: "destructive",
-        });
+        setStep("create-account");
       }
     } catch (error) {
       console.error("[LoginPage] Error checking user:", error);
@@ -160,7 +194,7 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
     }
   };
 
-  const handleSendMagicLink = async () => {
+  const handleSendMagicLink = async (isNewAccount: boolean = false) => {
     setSendingMagicLink(true);
     
     try {
@@ -168,6 +202,7 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
         email: email.trim(),
         options: {
           emailRedirectTo: window.location.origin,
+          shouldCreateUser: isNewAccount,
         },
       });
 
@@ -189,6 +224,7 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
       }
 
       setMagicLinkSent(true);
+      startCooldown();
       toast({
         title: "Link sent!",
         description: "Check your inbox for a secure login link. It expires in 5 minutes.",
@@ -204,11 +240,108 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
     }
   };
 
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!password || !confirmPassword) {
+      toast({
+        title: "Password required",
+        description: "Please enter and confirm your password.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure both passwords are the same.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const validation = validatePassword(password);
+    if (!validation.valid) {
+      toast({
+        title: "Invalid Password",
+        description: validation.errors.join(", "),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingAccount(true);
+    
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: {
+            first_login_completed: false,
+          },
+        },
+      });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.user) {
+        let session = data.session;
+        
+        if (!session) {
+          const signInResult = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+          
+          if (signInResult.error) {
+            toast({
+              title: "Account created!",
+              description: "Please check your email to confirm your account, then log in.",
+            });
+            setStep("email");
+            return;
+          }
+          
+          session = signInResult.data.session;
+        }
+
+        if (onPersonalise) {
+          onPersonalise(email.trim(), password);
+        } else {
+          onSuccess();
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
+
   const handleEditEmail = () => {
     setStep("email");
     setPassword("");
+    setConfirmPassword("");
     setUserAuthInfo(null);
     setMagicLinkSent(false);
+    setMagicLinkCooldown(0);
+    if (cooldownIntervalRef.current) {
+      clearInterval(cooldownIntervalRef.current);
+      cooldownIntervalRef.current = null;
+    }
   };
 
   const handleGoogleLogin = () => {
@@ -223,6 +356,13 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
       title: "Coming soon",
       description: "Apple login will be available soon.",
     });
+  };
+
+  const getMagicLinkButtonText = () => {
+    if (sendingMagicLink) return "Sending...";
+    if (magicLinkCooldown > 0) return `Resend in ${magicLinkCooldown}s`;
+    if (magicLinkSent) return "Resend link";
+    return "Email me a one-time sign in link";
   };
 
   return (
@@ -341,18 +481,6 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                   Continue with Apple
                 </Button>
               </div>
-
-              <div className="mt-6 text-center">
-                <button
-                  type="button"
-                  onClick={onSignup}
-                  className="text-sm underline"
-                  style={{ color: textColor }}
-                  data-testid="button-signup"
-                >
-                  Don't have an account? Sign up
-                </button>
-              </div>
             </motion.div>
           )}
 
@@ -453,11 +581,11 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                   type="button"
                   variant="outline"
                   className="w-full py-6 text-base font-medium border-2"
-                  onClick={handleSendMagicLink}
-                  disabled={sendingMagicLink || magicLinkSent}
+                  onClick={() => handleSendMagicLink(false)}
+                  disabled={sendingMagicLink || magicLinkCooldown > 0}
                   data-testid="button-magic-link"
                 >
-                  {sendingMagicLink ? "Sending..." : magicLinkSent ? "Link sent! Check your inbox" : "Email me a one-time sign in link"}
+                  {getMagicLinkButtonText()}
                 </Button>
               </form>
 
@@ -534,11 +662,11 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                 <Button
                   type="button"
                   className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-6 text-lg font-semibold"
-                  onClick={handleSendMagicLink}
-                  disabled={sendingMagicLink || magicLinkSent}
+                  onClick={() => handleSendMagicLink(false)}
+                  disabled={sendingMagicLink || magicLinkCooldown > 0}
                   data-testid="button-send-magic-link"
                 >
-                  {sendingMagicLink ? "Sending..." : magicLinkSent ? "Link sent!" : "Email me a one-time sign in link"}
+                  {getMagicLinkButtonText()}
                 </Button>
 
                 {magicLinkSent && (
@@ -555,6 +683,165 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                     Check your inbox for a secure login link. It expires in 5 minutes.
                   </motion.p>
                 )}
+              </div>
+            </motion.div>
+          )}
+
+          {step === "create-account" && (
+            <motion.div
+              key="create-account-step"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <motion.h2 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                className="text-2xl font-bold text-center mb-8"
+                style={{ color: textColor }}
+                data-testid="text-heading"
+              >
+                Create your free account
+              </motion.h2>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label 
+                    htmlFor="email-display" 
+                    className="text-sm font-medium"
+                    style={{ color: textColor }}
+                  >
+                    Email address
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="email-display"
+                      type="email"
+                      value={email}
+                      disabled
+                      className="w-full pr-16 bg-muted"
+                      data-testid="input-email-display"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleEditEmail}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
+                      style={{ color: textColor }}
+                      data-testid="button-edit-email"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full py-6 text-base font-medium border-2"
+                    onClick={() => handleSendMagicLink(true)}
+                    disabled={sendingMagicLink || magicLinkCooldown > 0}
+                    data-testid="button-magic-link-signup"
+                  >
+                    {getMagicLinkButtonText()}
+                  </Button>
+                </motion.div>
+
+                {magicLinkSent && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-sm text-center p-3 rounded-lg"
+                    style={{ 
+                      backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
+                      color: isDarkMode ? '#86efac' : '#166534'
+                    }}
+                    data-testid="text-magic-link-success"
+                  >
+                    Check your inbox for a secure sign up link. It expires in 5 minutes.
+                  </motion.p>
+                )}
+
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, delay: 0.2 }}
+                  className="flex items-center my-2"
+                >
+                  <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
+                  <span className="px-4 text-sm" style={{ color: secondaryTextColor }}>or</span>
+                  <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
+                </motion.div>
+
+                <motion.form
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.3 }}
+                  onSubmit={handleCreateAccount}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <label 
+                      htmlFor="new-password" 
+                      className="text-sm font-medium"
+                      style={{ color: textColor }}
+                    >
+                      Password
+                    </label>
+                    <PasswordInput
+                      id="new-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Create a password"
+                      className="w-full"
+                      data-testid="input-password"
+                    />
+                    <p className="text-xs" style={{ color: secondaryTextColor }}>
+                      {getPasswordRequirementsText()}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label 
+                      htmlFor="confirm-password" 
+                      className="text-sm font-medium"
+                      style={{ color: textColor }}
+                    >
+                      Confirm Password
+                    </label>
+                    <PasswordInput
+                      id="confirm-password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm your password"
+                      className="w-full"
+                      data-testid="input-confirm-password"
+                    />
+                  </div>
+
+                  <p className="text-xs text-center" style={{ color: secondaryTextColor }}>
+                    By creating an account, you agree to the{" "}
+                    <a href="/terms" className="underline">Terms of Sale</a>,{" "}
+                    <a href="/terms" className="underline">Terms of Service</a>, and{" "}
+                    <a href="/privacy" className="underline">Privacy Policy</a>.
+                  </p>
+
+                  <Button
+                    type="submit"
+                    className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-6 text-lg font-semibold"
+                    disabled={creatingAccount || !password || !confirmPassword}
+                    data-testid="button-create-account"
+                  >
+                    {creatingAccount ? "Creating account..." : "Create account"}
+                  </Button>
+                </motion.form>
               </div>
             </motion.div>
           )}
