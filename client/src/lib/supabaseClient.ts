@@ -22,9 +22,15 @@ export async function getSupabaseClient(): Promise<SupabaseClient> {
     }
 
     const config = await response.json();
-    supabaseInstance = createClient(config.url, config.anonKey);
+    supabaseInstance = createClient(config.url, config.anonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true, // Critical for consuming magic link tokens from URL fragment
+      },
+    });
 
-    // 🔑 TEMP: log the current session’s access token for testing
+    // 🔑 TEMP: log the current session's access token for testing
     try {
       const { data: { session }, error } = await supabaseInstance.auth.getSession();
       if (error) {
