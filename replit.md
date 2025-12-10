@@ -27,7 +27,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Features
 - **Game Logic**: Client-side puzzle validation, feedback calculation, LocalStorage-based statistics, 5-attempt limit with hints.
-- **Authentication**: Direct email/password signup via Supabase, OTP for email changes, first login tracking.
+- **Authentication**: Direct email/password signup via Supabase, OTP for email changes, first login tracking (`first_login_completed` in user_metadata).
 - **Pro Subscription**: Dynamic, database-driven subscription tiers with regional pricing, including API endpoints for status, tier display, checkout, auto-renew, and downgrade. Uses `user_profiles.user_tier_id` and `subscription_end_date` for fast lookup.
 - **Question Regeneration**: Triggers an Edge Function to reset and reallocate questions based on user changes (postcode/category), with idempotency guards and timestamp updates upon completion.
 - **Advertising**: `AdBanner` and `InterstitialAd` (Google AdMob), disabled for Pro subscribers.
@@ -40,6 +40,15 @@ Preferred communication style: Simple, everyday language.
   - For new users: "Create your free account" with magic link option, password creation fields, and terms acceptance.
   - After account creation via password or magic link, redirects to "Personalise your game" screen (AuthPage in personalise mode) to set name/region/postcode before generating questions.
   - Uses `/api/auth/check-user` endpoint to verify user existence. Magic link uses `supabase.auth.signInWithOtp()` with 5-minute expiry message.
+- **Mandatory Personalise Screen**: Users CANNOT bypass the "Personalise your game" screen until they complete it and click "Generate Questions":
+  - CRITICAL: `handleSplashComplete` checks `hasCompletedFirstLogin()` and redirects users without completed first login directly to "personalise" screen
+  - A navigation guard in Home.tsx prevents access to protected screens (selection, play, stats, archive, settings, options, account-info) until `first_login_completed` is true in user_metadata
+  - Guard includes a session-aware bypass: if `needsFirstLoginSetup=false && hasShownGeneratingScreen=true`, user just completed setup this session and shouldn't be redirected (handles async metadata update timing)
+  - `markFirstLoginCompleted()` updates Supabase user_metadata after GeneratingQuestionsScreen completes
+- **Sign-Out Flow**: Signing out navigates to OnboardingScreen and clears all cache:
+  - `clearUserCache()` clears game progress, stats, puzzle-progress-*, guess-cache-*, Supabase session tokens (sb-*-auth-token), first-login tracking, and demand call keys
+  - React Query cache is also cleared to prevent data leaks between users
+  - User will NOT be automatically logged back in on reload
 - **Admin Panel**: For configuring postcode/region/category change restrictions and demand scheduler cron jobs.
 - **Streak Saver System**: Allows users to protect streaks with tier-based allowances, with API for status and usage.
   - **Navigation**: Fetches yesterday's puzzle directly from API (`/api/puzzles/:date` or `/api/user/puzzles/:date`) via `handlePlayYesterdaysPuzzle` in Home.tsx, storing in `streakSaverPuzzle` state.
