@@ -32,6 +32,7 @@ Preferred communication style: Simple, everyday language.
 - **Question Regeneration**: Triggers an Edge Function to reset and reallocate questions based on user changes (postcode/category), with idempotency guards and timestamp updates upon completion.
 - **Advertising**: `AdBanner` and `InterstitialAd` (Google AdMob), disabled for Pro subscribers.
 - **Guest Mode**: Allows playing Global puzzles with restrictions on Personal mode and Archive, prompting registration.
+- **Onboarding Flow**: New users see OnboardingScreen after SplashScreen with Play/Login/Subscribe buttons. Play takes guests directly to today's Global puzzle using handlePlayGlobal (waits for data to load). Authenticated users see WelcomePage → GameSelectionPage.
 - **Admin Panel**: For configuring postcode/region/category change restrictions and demand scheduler cron jobs.
 - **Streak Saver System**: Allows users to protect streaks with tier-based allowances, with API for status and usage.
   - **Navigation**: Fetches yesterday's puzzle directly from API (`/api/puzzles/:date` or `/api/user/puzzles/:date`) via `handlePlayYesterdaysPuzzle` in Home.tsx, storing in `streakSaverPuzzle` state.
