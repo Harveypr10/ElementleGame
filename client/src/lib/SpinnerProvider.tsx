@@ -1,17 +1,28 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
 
+interface LottieAnimation {
+  destroy: () => void;
+  play: () => void;
+  stop: () => void;
+  pause: () => void;
+  setSpeed: (speed: number) => void;
+  goToAndStop: (value: number, isFrame: boolean) => void;
+  goToAndPlay: (value: number, isFrame: boolean) => void;
+  getDuration: (inFrames?: boolean) => number;
+  addEventListener: (event: string, cb: () => void) => void;
+  removeEventListener: (event: string, cb: () => void) => void;
+}
+
 declare global {
   interface Window {
     lottie: {
       loadAnimation: (options: {
         container: HTMLElement | null;
         renderer: string;
-        loop: boolean;
+        loop: boolean | number;
         autoplay: boolean;
         path: string;
-      }) => {
-        destroy: () => void;
-      };
+      }) => LottieAnimation;
     };
   }
 }

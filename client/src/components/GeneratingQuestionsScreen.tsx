@@ -702,10 +702,10 @@ if (!supabaseUrl) {
 
       return (
         <div
-          className="h-screen flex flex-col p-4 overflow-hidden"
+          className="h-screen flex flex-col p-4"
           style={{ backgroundColor: "#7DAAE8" }}
         >
-          {/* Hamster Image - smaller on mobile to give more room for event titles */}
+          {/* Hamster Image */}
           <div className="mb-4 sm:mb-8 flex justify-center flex-shrink-0">
             <img
               src={HamsterImageUrl}
@@ -714,8 +714,8 @@ if (!supabaseUrl) {
             />
           </div>
 
-          {/* Animated Text Blocks (constrained area between hamster and footer) */}
-          <div ref={containerRef} className="relative w-full flex-1 min-h-0">
+          {/* Animated Text Blocks - flex-1 ensures it fills remaining space but shrinks if needed */}
+          <div ref={containerRef} className="relative w-full flex-1 min-h-0 overflow-hidden">
             {textBlocks.map((block) => (
               <div
                 key={block.id}
@@ -726,7 +726,6 @@ if (!supabaseUrl) {
                   opacity: block.opacity,
                   transform: "translate(-50%, -50%)",
                   maxWidth: "160px",
-                  width: "auto",
                   textAlign: "center",
                   whiteSpace: "normal",
                   wordBreak: "break-word",
@@ -743,14 +742,14 @@ if (!supabaseUrl) {
             ))}
           </div>
 
-          {/* Footer Text - always visible at bottom */}
+          {/* Footer Text - always pinned at bottom */}
           <div className="flex-shrink-0 py-4 text-center max-w-md mx-auto">
             <p className="text-white font-medium text-lg sm:text-xl leading-snug">
               One moment please, Hammie is cooking up your personalised questions...
             </p>
           </div>
-
         </div>
+
       );
     }
 

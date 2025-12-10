@@ -8,22 +8,6 @@ import badgePlaceholder from "@assets/Signup-Hamster-Transparent.png";
 
 import Streak_Hamster_Black from "@assets/Streak-Hamster-Black.svg";
 
-declare global {
-  interface Window {
-    lottie: {
-      loadAnimation: (options: {
-        container: HTMLElement | null;
-        renderer: string;
-        loop: boolean;
-        autoplay: boolean;
-        path: string;
-      }) => {
-        destroy: () => void;
-      };
-    };
-  }
-}
-
 interface BadgeCelebrationPopupProps {
   badge: UserBadgeWithDetails;
   onDismiss: () => void;
@@ -35,20 +19,30 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
 
   useEffect(() => {
     soundManager.playStreak();
-    
+
     if (containerRef.current && window.lottie) {
-      animationRef.current = window.lottie.loadAnimation({
+      const animation = window.lottie.loadAnimation({
         container: containerRef.current,
-        renderer: 'svg',
-        loop: true,
+        renderer: "svg",
+        loop: 2,          // loop exactly twice
         autoplay: true,
-        path: '/assets/Trophy.json',
+        path: "/assets/Trophy.json",
+      });
+
+      // store reference
+      animationRef.current = animation;
+
+      // freeze on last frame when finished
+      animation.addEventListener("complete", () => {
+        const lastFrame = animation.getDuration(true); // total frames
+        animation.goToAndStop(lastFrame, true);
       });
     }
 
+    // increase the timeout (8s instead of 5s)
     const timer = setTimeout(() => {
       onDismiss();
-    }, 5000);
+    }, 8000);
 
     return () => {
       clearTimeout(timer);
@@ -111,9 +105,9 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
           ? "You guessed correctly on your first try!" 
           : "You guessed correctly in just 2 attempts!";
       case 'streak':
-        return `You've played ${threshold} days in a row!`;
+        return `You've won ${threshold} days in a row!`;
       case 'percentile':
-        return `You're in the top ${threshold}% of players!`;
+        return `You're in the top ${threshold}% of players this month!`;
       default:
         return "Congratulations on your achievement!";
     }

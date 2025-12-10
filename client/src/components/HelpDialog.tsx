@@ -14,7 +14,7 @@ interface HelpDialogProps {
 export function HelpDialog({ isOpen, onClose }: HelpDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg top-4 translate-y-0 max-h-[calc(100vh-2rem)] overflow-y-auto" data-testid="help-dialog">
+      <DialogContent className="sm:max-w-lg top-4 translate-y-0 max-h-[calc(100vh-2rem)] overflow-y-auto pb-24" data-testid="help-dialog">
         <DialogHeader>
           <DialogTitle className="text-4xl">How to Play</DialogTitle>
         </DialogHeader>

@@ -266,8 +266,8 @@ export function StreakSaverPopup({
                   className="w-full bg-[#7DAAE8] text-white text-[16px] border-blue-400 hover:bg-blue-400"
                   data-testid="button-start-holiday"
                 >
-                  <Umbrella className="h-4 w-4 mr-2" />
-                  {isStartingHoliday ? "Starting..." : `Go on Holiday (${holidayDurationDays} days)`}
+                  
+                  {isStartingHoliday ? "Starting..." : `Go on Holiday (up to ${holidayDurationDays} days)`}
                 </Button>
               )}
 
