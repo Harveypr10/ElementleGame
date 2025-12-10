@@ -653,35 +653,51 @@ export default function Home() {
     onTimeout: handlePuzzleTimeout,
   });
   
+  // Sign out spinner callbacks - must be stable across renders
+  const handleSignOutComplete = useCallback(() => {
+    console.log('[Home] Sign out complete - navigating to onboarding');
+    setShowAuthButtons(true);
+    setCurrentScreen("onboarding");
+  }, []);
+  
+  const handleSignOutTimeout = useCallback(() => {
+    console.log('[Home] Sign out timeout - forcing navigation to splash');
+    setShowAuthButtons(true);
+    setCurrentScreen("splash");
+  }, []);
+  
   // Sign out spinner - shows hamster animation during sign out
+  // Use refs to store the spinner methods to avoid effect dependency issues
+  const signOutSpinnerRef = useRef<{ start: (delay?: number) => void; complete: () => void; cancel: () => void } | null>(null);
+  
   const signOutSpinner = useSpinnerWithTimeout({
     retryDelayMs: 10000, // Long retry since we don't need retries
-    timeoutMs: 10000, // Long timeout since we control completion
-    onFadeOutComplete: () => {
-      // After spinner fades out, navigate to onboarding
-      setShowAuthButtons(true);
-      setCurrentScreen("onboarding");
-    },
+    timeoutMs: 8000, // Timeout after 8 seconds as safety net
+    onFadeOutComplete: handleSignOutComplete,
+    onTimeout: handleSignOutTimeout,
   });
+  
+  // Keep ref updated with latest spinner methods
+  signOutSpinnerRef.current = signOutSpinner;
   
   // Track sign out spinner state
   const signOutSpinnerShownRef = useRef(false);
   
-  // Manage sign out spinner
+  // Manage sign out spinner - use ref to avoid dependency on signOutSpinner object
   useEffect(() => {
     if (currentScreen === "signing-out" && !signOutSpinnerShownRef.current) {
-      signOutSpinner.start(0); // No delay, show immediately
       signOutSpinnerShownRef.current = true;
+      signOutSpinnerRef.current?.start(0); // No delay, show immediately
       
       // After minimum display time, complete the spinner
       const timer = setTimeout(() => {
-        signOutSpinner.complete();
+        signOutSpinnerRef.current?.complete();
         signOutSpinnerShownRef.current = false;
       }, 1500); // Show spinner for 1.5 seconds
       
       return () => clearTimeout(timer);
     }
-  }, [currentScreen, signOutSpinner]);
+  }, [currentScreen]);
   
   // Show spinner during auth loading - with 150ms delay to avoid flash on fast loads
   useEffect(() => {
