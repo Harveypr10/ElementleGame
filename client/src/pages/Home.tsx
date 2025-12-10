@@ -855,7 +855,12 @@ export default function Home() {
                 setStreakSaverPuzzle(null);
                 // Reset skipIntro flag when leaving play screen
                 setSkipIntroForGuest(false);
-                setCurrentScreen(previousScreen === "archive" ? "archive" : "selection");
+                // Guests should return to onboarding screen, authenticated users to selection/archive
+                if (!isAuthenticated) {
+                  setCurrentScreen("onboarding");
+                } else {
+                  setCurrentScreen(previousScreen === "archive" ? "archive" : "selection");
+                }
               }}
               onHomeFromCelebration={() => {
                 setShowCelebrationFirst(false);
