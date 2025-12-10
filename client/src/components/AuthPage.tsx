@@ -424,7 +424,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     value={formData.lastName}
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && formData.lastName) {
+                      if (e.key === 'Enter') {
                         e.preventDefault();
                         if (mode === "personalise") {
                           postcodeRef.current?.focus();
@@ -433,7 +433,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         }
                       }
                     }}
-                    required
+                    required={mode !== "personalise"}
                   />
                 </div>
               </div>
@@ -699,9 +699,57 @@ const handleSubmit = async (e: React.FormEvent) => {
             <AlertDialogAction 
               onClick={async () => {
                 setShowPostcodeWarning(false);
-                // Continue with signup without postcode
                 setLoading(true);
                 try {
+                  // Handle personalise mode - user already authenticated
+                  if (mode === "personalise") {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) {
+                      toast({
+                        title: "Session expired",
+                        description: "Please log in again.",
+                        variant: "destructive",
+                      });
+                      setLoading(false);
+                      return;
+                    }
+
+                    // Save profile without postcode
+                    const profileResponse = await fetch("/api/auth/profile", {
+                      method: "PATCH",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${session.access_token}`,
+                      },
+                      body: JSON.stringify({
+                        firstName: formData.firstName,
+                        lastName: formData.lastName,
+                        email: prefilledEmail || session.user.email,
+                        region: formData.region,
+                        postcode: null,
+                        acceptedTerms: true,
+                        adsConsent: formData.adsConsent,
+                        tier: "standard",
+                      }),
+                    });
+                    if (!profileResponse.ok) throw new Error("Failed to create profile");
+
+                    // Create initial settings
+                    await fetch("/api/settings", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${session.access_token}`,
+                      },
+                      body: JSON.stringify({ useRegionDefault: true, digitPreference: "8" }),
+                    });
+
+                    setGameMode('global');
+                    onSuccess({ postcode: "", region: formData.region });
+                    return;
+                  }
+
+                  // Handle signup mode - create new account without postcode
                   const { data, error } = await supabase.auth.signUp({
                     email: formData.email,
                     password: formData.password,
