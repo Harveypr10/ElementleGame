@@ -340,7 +340,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const restrictionDays = restrictionSetting ? parseInt(restrictionSetting.value, 10) : 14;
         
         // Check if user can change (only if restriction > 0)
-        if (restrictionDays > 0 && existing.postcodeLastChangedAt) {
+        // Skip restriction if user has no postcode - allow them to add one without restriction
+        const hasExistingPostcode = existing.postcode && existing.postcode.trim() !== '';
+        if (restrictionDays > 0 && existing.postcodeLastChangedAt && hasExistingPostcode) {
           const lastChanged = new Date(existing.postcodeLastChangedAt);
           const allowedAfter = new Date(lastChanged);
           allowedAfter.setDate(allowedAfter.getDate() + restrictionDays);
@@ -2374,15 +2376,18 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       let updated = false;
       
       if (regenerationType === 'first_login') {
-        // Initial signup flow: set postcode_last_changed_at only if NULL (one-time)
-        if (!profile.postcodeLastChangedAt) {
+        // Initial signup flow: only set postcode_last_changed_at if user has a postcode
+        // If postcode is empty, leave it NULL so user can add one later without restriction
+        if (!profile.postcodeLastChangedAt && profile.postcode) {
           await storage.upsertUserProfile({
             id: userId,
             email: profile.email,
             postcodeLastChangedAt: now,
           });
-          console.log(`[POST /api/generation-complete] Set postcodeLastChangedAt to ${now} for first_login (was NULL)`);
+          console.log(`[POST /api/generation-complete] Set postcodeLastChangedAt to ${now} for first_login (has postcode)`);
           updated = true;
+        } else if (!profile.postcode) {
+          console.log(`[POST /api/generation-complete] No postcode set, leaving postcodeLastChangedAt NULL for first_login`);
         } else {
           console.log(`[POST /api/generation-complete] postcodeLastChangedAt already set, skipping for first_login`);
         }
