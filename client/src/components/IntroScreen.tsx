@@ -357,21 +357,21 @@ export function IntroScreen({
       {/* Streak Saver Info Popup */}
       <AlertDialog open={showStreakSaverInfo} onOpenChange={setShowStreakSaverInfo}>
         <AlertDialogContent data-testid="streak-saver-info-dialog">
-          <AlertDialogHeader className="text-center pr-8">
-            <AlertDialogTitle className="text-lg font-semibold">
+          <AlertDialogHeader className="text-center">
+            <AlertDialogTitle className="text-xl font-bold text-gray-800 dark:text-gray-100">
               Streak Saver
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-center text-sm text-muted-foreground mt-2">
+            <AlertDialogDescription className="text-sm mt-2 text-gray-600 dark:text-gray-300">
               To keep your streak going you must win this puzzle from yesterday.
               Exiting will reset your streak, without using your streak saver.
             </AlertDialogDescription>
           </AlertDialogHeader>
-      
-          <div className="mt-6 flex justify-center">
+
+          <div className="flex flex-col items-center gap-4 py-4">
             <Button
               onClick={() => setShowStreakSaverInfo(false)}
-              className="w-2/3 text-white font-bold text-lg py-3 rounded-full hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: buttonColor }}
+              className="w-full bg-[#7DAAE8] text-white text-[16px] border-blue-400 hover:bg-blue-400"
+              variant="outline"
               data-testid="button-ok-streak-saver-info"
             >
               Ok
