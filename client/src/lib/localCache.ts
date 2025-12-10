@@ -74,6 +74,18 @@ export function clearUserCache(): void {
       if (key.startsWith('cached-') && !userKeys.includes(key)) {
         removeLocal(key);
       }
+      // Clear Supabase session tokens to ensure full sign out
+      if (key.startsWith('sb-') && key.includes('-auth-token')) {
+        removeLocal(key);
+      }
+      // Clear first login tracking
+      if (key === 'elementle-first-login-completed') {
+        removeLocal(key);
+      }
+      // Clear demand call idempotency keys
+      if (key.startsWith('elementle_demand_call_')) {
+        removeLocal(key);
+      }
     });
   } catch (error) {
     console.error('Error clearing user caches:', error);

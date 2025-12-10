@@ -937,7 +937,7 @@ export default function Home() {
               onAbout={() => setCurrentScreen("about")}
               onSignOut={() => {
                 setShowAuthButtons(true);
-                setCurrentScreen("welcome");
+                setCurrentScreen("onboarding");
               }}
               onLogin={() => setCurrentScreen("login")}
               onRegister={() => setCurrentScreen("signup")}
