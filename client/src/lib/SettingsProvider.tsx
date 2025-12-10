@@ -37,8 +37,8 @@ function applySettingsToDOM(settings: CachedSettings) {
   const darkMode = settings.darkMode ?? false;
   document.documentElement.classList.toggle('dark', darkMode);
 
-  // Apply sound setting
-  const soundsEnabled = settings.soundsEnabled ?? true;
+  // Apply sound setting (default to OFF for new users)
+  const soundsEnabled = settings.soundsEnabled ?? false;
   soundManager.setEnabled(soundsEnabled);
 }
 
@@ -59,7 +59,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
         textSize: (localStorage.getItem('textSize') as 'small' | 'medium' | 'large') || 'medium',
         soundsEnabled: localStorage.getItem('soundsEnabled') !== null 
           ? localStorage.getItem('soundsEnabled') === 'true' 
-          : true,
+          : false,
         darkMode: localStorage.getItem('theme') === 'dark',
         cluesEnabled: localStorage.getItem('cluesEnabled') !== null
           ? localStorage.getItem('cluesEnabled') === 'true'
@@ -77,7 +77,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       
       const freshSettings: CachedSettings = {
         textSize: (settings.textSize as 'small' | 'medium' | 'large') || 'medium',
-        soundsEnabled: settings.soundsEnabled ?? true,
+        soundsEnabled: settings.soundsEnabled ?? false,
         darkMode: settings.darkMode ?? false,
         cluesEnabled: settings.cluesEnabled ?? true,
       };
