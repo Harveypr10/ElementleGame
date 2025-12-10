@@ -1319,6 +1319,10 @@ export function GameSelectionPage({
             setHolidayOverlayData(data);
             setShowHolidayOverlay(true);
           }}
+          onShowCategorySelection={() => {
+            setShowStreakSaverPopup(null);
+            setShowCategorySelection(true);
+          }}
         />
       )}
 

@@ -742,10 +742,10 @@ if (!supabaseUrl) {
             ))}
           </div>
 
-          {/* Footer Text - always pinned at bottom with safe margins */}
-          <div className="flex-shrink-0 pt-2 pb-8 px-6 text-center max-w-sm mx-auto">
+          {/* Footer Text - always pinned at bottom */}
+          <div className="flex-shrink-0 py-4 text-center max-w-md mx-auto">
             <p className="text-white font-medium text-lg sm:text-xl leading-snug">
-              One moment please, Hammie is cooking up your personalised questions...
+              Hold tight, Hammie is cooking up your personalised questions...
             </p>
           </div>
         </div>

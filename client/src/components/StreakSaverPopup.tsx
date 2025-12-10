@@ -29,6 +29,7 @@ interface StreakSaverPopupProps {
   onPlayYesterdaysPuzzle?: (gameType: "region" | "user", puzzleDate: string) => void;
   onStreakLost?: () => void;
   onStartHolidayWithAnimation?: (data: HolidayAnimationData) => void;
+  onShowCategorySelection?: () => void;
 }
 
 export function StreakSaverPopup({ 
@@ -39,6 +40,7 @@ export function StreakSaverPopup({
   onPlayYesterdaysPuzzle,
   onStreakLost,
   onStartHolidayWithAnimation,
+  onShowCategorySelection,
 }: StreakSaverPopupProps) {
   const { toast } = useToast();
   const { profile } = useProfile();
@@ -200,13 +202,18 @@ export function StreakSaverPopup({
     // Refetch streak saver status to get updated allowances
     await refetch();
     setShowProDialog(false);
-    // Flag that we should show the streak saver popup with updated data
-    setShowStreakSaverAfterPro(true);
     
     toast({
       title: "Welcome to Pro!",
       description: "You now have more streak savers available.",
     });
+    
+    // After successful Pro subscription, show CategorySelectionScreen
+    // Close the streak saver popup first, then open category selection
+    onClose();
+    if (onShowCategorySelection) {
+      onShowCategorySelection();
+    }
   };
 
   const handleStreakLost = async () => {

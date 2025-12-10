@@ -304,7 +304,11 @@ export function SettingsPage({ onBack, onOpenOptions, onAccountInfo, onBugReport
       <ProSubscriptionDialog
         isOpen={showProDialog}
         onClose={() => setShowProDialog(false)}
-        onSuccess={() => setShowProDialog(false)}
+        onSuccess={() => {
+          setShowProDialog(false);
+          // After successful Pro subscription, show CategorySelectionScreen
+          setShowCategorySelection(true);
+        }}
       />
       
       {/* Category Selection Screen (for Pro users) */}
