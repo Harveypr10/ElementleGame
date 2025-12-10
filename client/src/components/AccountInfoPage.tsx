@@ -17,7 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Key, Mail, Link2, Check, Plus, Loader2 } from "lucide-react";
+import { SiGoogle, SiApple } from "react-icons/si";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -221,14 +222,35 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   // Track if user has a password (authenticated with password vs magic link only)
   const [hasPassword, setHasPassword] = useState<boolean | null>(null);
   
-  // Check if user has a password by looking at their authentication methods
+  // Connected accounts state
+  const [sendingMagicLink, setSendingMagicLink] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [magicLinkCooldown, setMagicLinkCooldown] = useState(0);
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  
+  // Magic link cooldown timer
+  useEffect(() => {
+    if (magicLinkCooldown > 0) {
+      const timer = setTimeout(() => setMagicLinkCooldown(magicLinkCooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (magicLinkCooldown === 0 && magicLinkSent) {
+      setMagicLinkSent(false);
+    }
+  }, [magicLinkCooldown, magicLinkSent]);
+  
+  // Check if user has a password - prefer profile.passwordCreated, fallback to AMR check
   useEffect(() => {
     const checkHasPassword = async () => {
       try {
+        // First check if profile has passwordCreated field
+        if (profile?.passwordCreated !== undefined && profile.passwordCreated !== null) {
+          setHasPassword(profile.passwordCreated);
+          return;
+        }
+        
+        // Fallback: Check AMR (Authentication Methods Reference) from session
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          // Check the AMR (Authentication Methods Reference) claim
-          // If user has ever authenticated with password, 'password' will be in amr
           const amr = (session as any).user?.amr || [];
           const hasPasswordAuth = amr.some((method: any) => method.method === 'password');
           setHasPassword(hasPasswordAuth);
@@ -241,7 +263,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
       }
     };
     checkHasPassword();
-  }, [supabase]);
+  }, [supabase, profile?.passwordCreated]);
 
   const handleRegionChange = (newRegion: string) => {
     // Only show confirmation if region actually changed from profile's current region
@@ -574,6 +596,40 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     });
   };
 
+  // Send magic link for passwordless login
+  const handleSendMagicLink = async () => {
+    if (!user?.email || sendingMagicLink || magicLinkCooldown > 0) return;
+    
+    setSendingMagicLink(true);
+    
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: user.email,
+        options: {
+          shouldCreateUser: false, // Don't create a new user, just send login link
+        },
+      });
+      
+      if (error) throw error;
+      
+      setMagicLinkSent(true);
+      setMagicLinkCooldown(60); // 60 second cooldown
+      
+      toast({
+        title: "Magic link sent!",
+        description: `Check your email at ${user.email}. The link expires in 5 minutes.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to send magic link",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingMagicLink(false);
+    }
+  };
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -622,6 +678,28 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
 
       // Update hasPassword state since they now have a password
       setHasPassword(true);
+      
+      // Update passwordCreated in database
+      try {
+        const session = (await supabase.auth.getSession()).data.session;
+        if (session?.access_token) {
+          await fetch('/api/auth/profile/password-created', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          });
+          // Invalidate profile cache to reflect the change
+          qc.invalidateQueries({ queryKey: ['/api/auth/profile'] });
+        }
+      } catch (dbError) {
+        console.error('Failed to update passwordCreated in database:', dbError);
+        // Non-critical error - password was still updated in Supabase Auth
+      }
+      
+      // Hide password section after successful creation
+      setShowPasswordSection(false);
 
       toast({
         title: hasPassword ? "Password changed!" : "Password created!",
@@ -826,97 +904,199 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
             </CardContent>
           </Card>
 
-          {/* Change Password / Create Password */}
+          {/* Connected Accounts */}
           <Card>
             <CardHeader>
-              <CardTitle>{hasPassword ? "Change Password" : "Create Password"}</CardTitle>
-              <CardDescription>
-                {hasPassword 
-                  ? getPasswordRequirementsText()
-                  : "You signed in with a magic link. Create a password to log in with email and password."}
-              </CardDescription>
+              <CardTitle>Connected Accounts</CardTitle>
+              <CardDescription>Manage your login methods</CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleChangePassword} className="space-y-4">
-                {hasPassword && (
-                  <div className="space-y-2">
-                    <Label htmlFor="currentPassword" data-testid="label-current-password">
-                      Current Password
-                    </Label>
-                    <PasswordInput
-                      id="currentPassword"
-                      data-testid="input-current-password"
-                      value={passwordData.currentPassword}
-                      onChange={(e) =>
-                        setPasswordData({ ...passwordData, currentPassword: e.target.value })
-                      }
-                      required
-                    />
+            <CardContent className="space-y-4">
+              {/* Password Login Method */}
+              <div className="flex items-center justify-between p-3 rounded-lg border" data-testid="connected-account-password">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Key className="w-5 h-5 text-primary" />
                   </div>
-                )}
-                
-                {!hasPassword && hasPassword !== null && (
-                  <div className="space-y-2">
-                    <Label htmlFor="currentPassword" className="text-muted-foreground" data-testid="label-current-password">
-                      Current Password
-                    </Label>
-                    <PasswordInput
-                      id="currentPassword"
-                      data-testid="input-current-password"
-                      value=""
-                      disabled
-                      className="bg-muted cursor-not-allowed opacity-50"
-                      placeholder="No password set"
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword" data-testid="label-new-password">
-                    {hasPassword ? "New Password" : "Password"}
-                  </Label>
-                  <PasswordInput
-                    id="newPassword"
-                    data-testid="input-new-password"
-                    value={passwordData.newPassword}
-                    onChange={(e) =>
-                      setPasswordData({ ...passwordData, newPassword: e.target.value })
-                    }
-                    required
-                  />
-                  {!hasPassword && (
-                    <p className="text-xs text-muted-foreground">
-                      {getPasswordRequirementsText()}
+                  <div>
+                    <p className="font-medium">Password</p>
+                    <p className="text-sm text-muted-foreground">
+                      {hasPassword ? "Password set" : "No password set"}
                     </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {hasPassword && (
+                    <Check className="w-5 h-5 text-green-500" />
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowPasswordSection(!showPasswordSection)}
+                    data-testid="button-toggle-password-section"
+                  >
+                    {hasPassword ? "Change" : "Create"}
+                  </Button>
                 </div>
+              </div>
+              
+              {/* Password Form (collapsible) */}
+              {showPasswordSection && (
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                    {hasPassword && (
+                      <div className="space-y-2">
+                        <Label htmlFor="currentPassword" data-testid="label-current-password">
+                          Current Password
+                        </Label>
+                        <PasswordInput
+                          id="currentPassword"
+                          data-testid="input-current-password"
+                          value={passwordData.currentPassword}
+                          onChange={(e) =>
+                            setPasswordData({ ...passwordData, currentPassword: e.target.value })
+                          }
+                          required
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword" data-testid="label-new-password">
+                        {hasPassword ? "New Password" : "Password"}
+                      </Label>
+                      <PasswordInput
+                        id="newPassword"
+                        data-testid="input-new-password"
+                        value={passwordData.newPassword}
+                        onChange={(e) =>
+                          setPasswordData({ ...passwordData, newPassword: e.target.value })
+                        }
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {getPasswordRequirementsText()}
+                      </p>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword" data-testid="label-confirm-password">
-                    {hasPassword ? "Confirm New Password" : "Confirm Password"}
-                  </Label>
-                  <PasswordInput
-                    id="confirmPassword"
-                    data-testid="input-confirm-password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) =>
-                      setPasswordData({ ...passwordData, confirmPassword: e.target.value })
-                    }
-                    required
-                  />
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword" data-testid="label-confirm-password">
+                        {hasPassword ? "Confirm New Password" : "Confirm Password"}
+                      </Label>
+                      <PasswordInput
+                        id="confirmPassword"
+                        data-testid="input-confirm-password"
+                        value={passwordData.confirmPassword}
+                        onChange={(e) =>
+                          setPasswordData({ ...passwordData, confirmPassword: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setShowPasswordSection(false);
+                          setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                        }}
+                        data-testid="button-cancel-password"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={loading || hasPassword === null}
+                        data-testid="button-save-password"
+                      >
+                        {loading 
+                          ? (hasPassword ? "Saving..." : "Creating...") 
+                          : (hasPassword ? "Save Password" : "Create Password")}
+                      </Button>
+                    </div>
+                  </form>
                 </div>
+              )}
 
+              {/* Magic Link Login Method */}
+              <div className="flex items-center justify-between p-3 rounded-lg border" data-testid="connected-account-magic-link">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Magic Link</p>
+                    <p className="text-sm text-muted-foreground">
+                      Login via email link
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Check className="w-5 h-5 text-green-500" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSendMagicLink}
+                    disabled={sendingMagicLink || magicLinkCooldown > 0}
+                    data-testid="button-send-magic-link"
+                  >
+                    {sendingMagicLink ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : magicLinkCooldown > 0 ? (
+                      `Sent (${magicLinkCooldown}s)`
+                    ) : magicLinkSent ? (
+                      "Resend"
+                    ) : (
+                      "Send Link"
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Google Login Method (Coming Soon) */}
+              <div className="flex items-center justify-between p-3 rounded-lg border opacity-60" data-testid="connected-account-google">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
+                    <SiGoogle className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Google</p>
+                    <p className="text-sm text-muted-foreground">Coming soon</p>
+                  </div>
+                </div>
                 <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={loading || hasPassword === null}
-                  data-testid="button-change-password"
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  data-testid="button-connect-google"
                 >
-                  {loading 
-                    ? (hasPassword ? "Changing..." : "Creating...") 
-                    : (hasPassword ? "Change Password" : "Create Password")}
+                  <Plus className="w-4 h-4 mr-1" />
+                  Connect
                 </Button>
-              </form>
+              </div>
+
+              {/* Apple Login Method (Coming Soon) */}
+              <div className="flex items-center justify-between p-3 rounded-lg border opacity-60" data-testid="connected-account-apple">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-800/10 dark:bg-gray-200/10 flex items-center justify-center">
+                    <SiApple className="w-5 h-5 text-gray-800 dark:text-gray-200" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Apple</p>
+                    <p className="text-sm text-muted-foreground">Coming soon</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  data-testid="button-connect-apple"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Connect
+                </Button>
+              </div>
             </CardContent>
           </Card>
       </div>
