@@ -424,12 +424,14 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                       {formatHolidayDate(holidayEndDate)}
                     </span>
                   </div>
+                  {/* 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Days taken</span>
                     <span className="font-medium" data-testid="text-holiday-days-taken">
                       {holidayDaysTakenCurrentPeriod} of {effectiveHolidayDurationDays}
                     </span>
                   </div>
+                  */}
                   <Button
                     variant="outline"
                     onClick={() => setShowEndHolidayConfirm(true)}

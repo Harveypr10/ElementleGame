@@ -32,7 +32,7 @@ import { useStreakSaver } from "@/contexts/StreakSaverContext";
 import { useGuessCache } from "@/contexts/GuessCacheContext";
 import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
-import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
+import { useSpinner, useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
 import { useToast } from "@/hooks/use-toast";
 import { parseUserDateWithContext, formatCanonicalDate as formatCanonicalDateUtil } from "@/lib/dateFormat";
 import greyHelpIcon from "@assets/Grey-Help-Grey_1760979822771.png";
@@ -261,11 +261,17 @@ export function PlayPage({
     }
   }, [isCurrentStreakSaverGame, onBack]);
   
+  // Spinner for cancel streak saver operation
+  const { showSpinner, hideSpinner } = useSpinner();
+  
   // Handle cancel streak saver and lose streak
   // This is called when user confirms they want to exit without completing the puzzle
   // The streak is reset to 0 but the streak saver is NOT consumed
   const handleCancelStreakSaver = useCallback(async () => {
     setShowStreakSaverExitWarning(false);
+    
+    // Show spinner during async operations
+    showSpinner();
     
     // Reset streak via decline API (does NOT use a streak saver)
     if (streakSaverSession) {
@@ -281,12 +287,17 @@ export function PlayPage({
     
     // Clear the session context
     cancelStreakSaverSession();
+    
+    // Hide spinner before navigating back
+    hideSpinner();
     onBack();
-  }, [streakSaverSession, declineStreakSaver, refetchStreakStatus, cancelStreakSaverSession, onBack]);
+  }, [streakSaverSession, declineStreakSaver, refetchStreakStatus, cancelStreakSaverSession, onBack, showSpinner, hideSpinner]);
   
-  // Handle continue playing
+  // Handle continue playing - reset exit animation state and close dialog
   const handleContinuePlaying = useCallback(() => {
     setShowStreakSaverExitWarning(false);
+    // Reset the exit animation state so the IntroScreen content is visible again
+    setIntroExitingViaBack(false);
   }, []);
   
   // Spinner with timeout for game loading

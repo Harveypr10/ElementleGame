@@ -2,6 +2,7 @@ import { motion, usePresence } from "framer-motion";
 import { ChevronLeft, X } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -355,24 +356,30 @@ export function IntroScreen({
       
       {/* Streak Saver Info Popup */}
       <AlertDialog open={showStreakSaverInfo} onOpenChange={setShowStreakSaverInfo}>
-        <AlertDialogContent className="rounded-xl max-w-[calc(100vw-2rem)] sm:max-w-md" data-testid="streak-saver-info-dialog">
-          <button
-            onClick={() => setShowStreakSaverInfo(false)}
-            className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            data-testid="button-close-streak-saver-info"
-          >
-            <X className="h-5 w-5 text-gray-500" />
-          </button>
+        <AlertDialogContent data-testid="streak-saver-info-dialog">
           <AlertDialogHeader className="text-center pr-8">
             <AlertDialogTitle className="text-lg font-semibold">
               Streak Saver
             </AlertDialogTitle>
             <AlertDialogDescription className="text-center text-sm text-muted-foreground mt-2">
-              To keep your streak going you must win this puzzle from yesterday. Exiting will reset your streak, without using your streak saver.
+              To keep your streak going you must win this puzzle from yesterday.
+              Exiting will reset your streak, without using your streak saver.
             </AlertDialogDescription>
           </AlertDialogHeader>
+      
+          <div className="mt-6 flex justify-center">
+            <Button
+              onClick={() => setShowStreakSaverInfo(false)}
+              className="w-2/3 text-white font-bold text-lg py-3 rounded-full hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: buttonColor }}
+              data-testid="button-ok-streak-saver-info"
+            >
+              Ok
+            </Button>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
+
     </motion.div>
   );
 }
