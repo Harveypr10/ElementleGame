@@ -217,6 +217,31 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     newPassword: "",
     confirmPassword: "",
   });
+  
+  // Track if user has a password (authenticated with password vs magic link only)
+  const [hasPassword, setHasPassword] = useState<boolean | null>(null);
+  
+  // Check if user has a password by looking at their authentication methods
+  useEffect(() => {
+    const checkHasPassword = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Check the AMR (Authentication Methods Reference) claim
+          // If user has ever authenticated with password, 'password' will be in amr
+          const amr = (session as any).user?.amr || [];
+          const hasPasswordAuth = amr.some((method: any) => method.method === 'password');
+          setHasPassword(hasPasswordAuth);
+        } else {
+          setHasPassword(false);
+        }
+      } catch (error) {
+        console.error('Error checking password status:', error);
+        setHasPassword(false);
+      }
+    };
+    checkHasPassword();
+  }, [supabase]);
 
   const handleRegionChange = (newRegion: string) => {
     // Only show confirmation if region actually changed from profile's current region
@@ -576,26 +601,33 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     setLoading(true);
 
     try {
-      // Verify current password by attempting to sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user?.email || "",
-        password: passwordData.currentPassword,
-      });
+      // If user has a password, verify current password first
+      if (hasPassword) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: user?.email || "",
+          password: passwordData.currentPassword,
+        });
 
-      if (signInError) {
-        throw new Error("Current password is incorrect");
+        if (signInError) {
+          throw new Error("Current password is incorrect");
+        }
       }
 
-      // Update password
+      // Update/create password
       const { error: updateError } = await supabase.auth.updateUser({
         password: passwordData.newPassword,
       });
 
       if (updateError) throw updateError;
 
+      // Update hasPassword state since they now have a password
+      setHasPassword(true);
+
       toast({
-        title: "Password changed!",
-        description: "Your password has been updated successfully.",
+        title: hasPassword ? "Password changed!" : "Password created!",
+        description: hasPassword 
+          ? "Your password has been updated successfully."
+          : "Your password has been created. You can now log in with email and password.",
       });
 
       // Clear password fields
@@ -711,7 +743,6 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                       onChange={(e) =>
                         setProfileData({ ...profileData, lastName: e.target.value })
                       }
-                      required
                     />
                   </div>
                 </div>
@@ -795,34 +826,54 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
             </CardContent>
           </Card>
 
-          {/* Change Password */}
+          {/* Change Password / Create Password */}
           <Card>
             <CardHeader>
-              <CardTitle>Change Password</CardTitle>
+              <CardTitle>{hasPassword ? "Change Password" : "Create Password"}</CardTitle>
               <CardDescription>
-                {getPasswordRequirementsText()}
+                {hasPassword 
+                  ? getPasswordRequirementsText()
+                  : "You signed in with a magic link. Create a password to log in with email and password."}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleChangePassword} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="currentPassword" data-testid="label-current-password">
-                    Current Password
-                  </Label>
-                  <PasswordInput
-                    id="currentPassword"
-                    data-testid="input-current-password"
-                    value={passwordData.currentPassword}
-                    onChange={(e) =>
-                      setPasswordData({ ...passwordData, currentPassword: e.target.value })
-                    }
-                    required
-                  />
-                </div>
+                {hasPassword && (
+                  <div className="space-y-2">
+                    <Label htmlFor="currentPassword" data-testid="label-current-password">
+                      Current Password
+                    </Label>
+                    <PasswordInput
+                      id="currentPassword"
+                      data-testid="input-current-password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) =>
+                        setPasswordData({ ...passwordData, currentPassword: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                )}
+                
+                {!hasPassword && hasPassword !== null && (
+                  <div className="space-y-2">
+                    <Label htmlFor="currentPassword" className="text-muted-foreground" data-testid="label-current-password">
+                      Current Password
+                    </Label>
+                    <PasswordInput
+                      id="currentPassword"
+                      data-testid="input-current-password"
+                      value=""
+                      disabled
+                      className="bg-muted cursor-not-allowed opacity-50"
+                      placeholder="No password set"
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="newPassword" data-testid="label-new-password">
-                    New Password
+                    {hasPassword ? "New Password" : "Password"}
                   </Label>
                   <PasswordInput
                     id="newPassword"
@@ -833,11 +884,16 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                     }
                     required
                   />
+                  {!hasPassword && (
+                    <p className="text-xs text-muted-foreground">
+                      {getPasswordRequirementsText()}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword" data-testid="label-confirm-password">
-                    Confirm New Password
+                    {hasPassword ? "Confirm New Password" : "Confirm Password"}
                   </Label>
                   <PasswordInput
                     id="confirmPassword"
@@ -853,10 +909,12 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={loading}
+                  disabled={loading || hasPassword === null}
                   data-testid="button-change-password"
                 >
-                  {loading ? "Changing..." : "Change Password"}
+                  {loading 
+                    ? (hasPassword ? "Changing..." : "Creating...") 
+                    : (hasPassword ? "Change Password" : "Create Password")}
                 </Button>
               </form>
             </CardContent>
