@@ -32,7 +32,8 @@ Preferred communication style: Simple, everyday language.
 - **Question Regeneration**: Triggers an Edge Function to reset and reallocate questions based on user changes (postcode/category), with idempotency guards and timestamp updates upon completion.
 - **Advertising**: `AdBanner` and `InterstitialAd` (Google AdMob), disabled for Pro subscribers.
 - **Guest Mode**: Allows playing Global puzzles with restrictions on Personal mode and Archive, prompting registration.
-- **Onboarding Flow**: New users see OnboardingScreen after SplashScreen with Play/Login/Subscribe buttons. Play takes guests directly to today's Global puzzle using handlePlayGlobal (waits for data to load, skips IntroScreen). Authenticated users see WelcomePage → GameSelectionPage.
+- **Onboarding Flow**: New users see OnboardingScreen after SplashScreen with Play/Login/Subscribe buttons. Play shows interstitial ad first, then takes guests directly to today's Global puzzle using handlePlayGlobal (waits for data to load, skips IntroScreen). Authenticated users see WelcomePage → GameSelectionPage.
+- **Guest Game Flow**: Guests play in 8-digit mode by default. After game ends, EndGameModal shows single "Continue" button (blue with white text) instead of Stats/Home/Archive. Clicking Continue goes to LoginPage with subtitle: "Sign up to track your stats, play personalised games and discover endless history in the archives."
 - **Login Page**: New LoginPage component with dynamic email detection. Shows "Log in or create an account" initially, then:
   - For existing users: "Welcome back" with password field and magic link option (60s cooldown for resend).
   - For new users: "Create your free account" with magic link option, password creation fields, and terms acceptance.

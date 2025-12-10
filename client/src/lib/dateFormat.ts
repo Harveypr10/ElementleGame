@@ -37,8 +37,8 @@ export function getEffectiveDateFormat(
     baseFormat = (dateFormatPreference || 'ddmmyy').startsWith('dd') ? 'ddmm' : 'mmdd';
   }
   
-  // Apply digit preference
-  const digits = digitPreference === '8' ? 'yyyy' : 'yy';
+  // Apply digit preference - default to 8 digits if not specified
+  const digits = digitPreference === '6' ? 'yy' : 'yyyy';
   return `${baseFormat}${digits}` as DateFormatPreference;
 }
 

@@ -16,6 +16,7 @@ interface LoginPageProps {
   onSignup: () => void;
   onForgotPassword?: () => void;
   onPersonalise?: (email: string, password?: string) => void;
+  subtitle?: string; // Optional subtitle to show below the main title
 }
 
 type LoginStep = "email" | "password" | "magic-link" | "create-account";
@@ -28,7 +29,7 @@ interface UserAuthInfo {
 
 const MAGIC_LINK_COOLDOWN_SECONDS = 60;
 
-export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPassword, onPersonalise }: LoginPageProps) {
+export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPassword, onPersonalise, subtitle }: LoginPageProps) {
   const { signIn } = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
@@ -413,6 +414,16 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
               >
                 Log in or create an account
               </h2>
+
+              {subtitle && (
+                <p 
+                  className="text-center text-sm mb-4"
+                  style={{ color: secondaryTextColor }}
+                  data-testid="text-subtitle"
+                >
+                  {subtitle}
+                </p>
+              )}
 
               <form onSubmit={handleEmailContinue} className="space-y-4">
                 <div className="space-y-2">

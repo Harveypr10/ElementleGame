@@ -30,6 +30,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AdBanner, AdBannerContext } from "@/components/AdBanner";
+import { useInterstitialAd } from "@/components/InterstitialAd";
 import type { UserBadgeWithDetails } from "@shared/schema";
 
 type Screen = "splash" | "welcome" | "onboarding" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions" | "personalise";
@@ -82,6 +83,10 @@ export default function Home() {
   const [loadingStreakSaverPuzzle, setLoadingStreakSaverPuzzle] = useState(false);
   // Track if we should skip the intro screen (e.g., when coming from OnboardingScreen)
   const [skipIntroForGuest, setSkipIntroForGuest] = useState(false);
+  // Track if guest is coming from EndGameModal (to show login subtitle)
+  const [showLoginSubtitle, setShowLoginSubtitle] = useState(false);
+  // Interstitial ad hook for guest play
+  const { showAd: showGuestAd, triggerAd: triggerGuestAd, handleClose: closeGuestAd, InterstitialAdComponent: GuestInterstitialAd } = useInterstitialAd();
   // Track email used for signup from LoginPage (for personalise flow)
   const [personaliseEmail, setPersonaliseEmail] = useState<string | null>(null);
   
@@ -703,14 +708,16 @@ export default function Home() {
               eventTitle={getDailyPuzzle('global')?.eventTitle || "Loading..."}
               puzzleDateCanonical={getDailyPuzzle('global')?.date || getTodayDateString()}
               onPlay={() => {
-                // Guest user wants to play - use the same flow as handlePlayGlobal
-                // which properly waits for data to load before navigating
+                // Guest user wants to play - show interstitial ad first, then proceed
                 // Also skip the intro screen since they just saw puzzle info on onboarding
-                setSkipIntroForGuest(true);
-                handlePlayGlobal(true); // Pass true to indicate skipIntro from onboarding
+                triggerGuestAd(() => {
+                  setSkipIntroForGuest(true);
+                  handlePlayGlobal(true); // Pass true to indicate skipIntro from onboarding
+                });
               }}
               onLogin={() => {
                 setSkipIntroForGuest(false); // Reset skip flag when not going to play
+                setShowLoginSubtitle(false);
                 setCurrentScreen("login");
               }}
               onSubscribe={() => {
@@ -724,14 +731,28 @@ export default function Home() {
         {currentScreen === "login" && (
           <motion.div key="login" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
             <LoginPage 
-              onSuccess={handleLoginSuccess}
-              onBack={() => setCurrentScreen("onboarding")}
-              onSignup={() => setCurrentScreen("signup")}
-              onForgotPassword={() => setCurrentScreen("forgot-password")}
+              onSuccess={() => {
+                setShowLoginSubtitle(false);
+                handleLoginSuccess();
+              }}
+              onBack={() => {
+                setShowLoginSubtitle(false);
+                setCurrentScreen("onboarding");
+              }}
+              onSignup={() => {
+                setShowLoginSubtitle(false);
+                setCurrentScreen("signup");
+              }}
+              onForgotPassword={() => {
+                setShowLoginSubtitle(false);
+                setCurrentScreen("forgot-password");
+              }}
               onPersonalise={(email) => {
+                setShowLoginSubtitle(false);
                 setPersonaliseEmail(email);
                 setCurrentScreen("personalise");
               }}
+              subtitle={showLoginSubtitle ? "Sign up to track your stats, play personalised games and discover endless history in the archives." : undefined}
             />
           </motion.div>
         )}
@@ -845,6 +866,11 @@ export default function Home() {
                 setCurrentScreen("stats");
               }}
               onViewArchive={() => setCurrentScreen("archive")}
+              onContinueToLogin={() => {
+                // Guest completed game - go to login with subtitle
+                setShowLoginSubtitle(true);
+                setCurrentScreen("login");
+              }}
             />
           </motion.div>
         )}
@@ -954,6 +980,7 @@ export default function Home() {
       </AnimatePresence>
       </div>
       <AdBanner />
+      <GuestInterstitialAd />
     </AdBannerContext.Provider>
   );
 }

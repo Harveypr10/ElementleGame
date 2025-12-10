@@ -65,6 +65,7 @@ interface PlayPageProps {
   onSetHasOpenedCelebration?: (value: boolean) => void;
   onViewStats?: () => void;
   onViewArchive?: () => void;
+  onContinueToLogin?: () => void; // For guest users after game ends
 }
 
 interface GuessRecord {
@@ -104,6 +105,7 @@ export function PlayPage({
   onSetHasOpenedCelebration,
   onViewStats,
   onViewArchive,
+  onContinueToLogin,
 }: PlayPageProps) {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -1776,6 +1778,8 @@ export function PlayPage({
         onViewStats={onViewStats}
         onViewArchive={onViewArchive}
         isLocalMode={isLocalMode}
+        isGuest={!isAuthenticated}
+        onContinueToLogin={onContinueToLogin}
       />
 
       <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />

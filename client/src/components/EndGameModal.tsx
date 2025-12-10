@@ -32,6 +32,8 @@ interface EndGameModalProps {
   onViewStats?: () => void;
   onViewArchive?: () => void;
   isLocalMode?: boolean;
+  isGuest?: boolean;
+  onContinueToLogin?: () => void;
 }
 
 export function EndGameModal({
@@ -47,6 +49,8 @@ export function EndGameModal({
   onViewStats,
   onViewArchive,
   isLocalMode = false,
+  isGuest = false,
+  onContinueToLogin,
 }: EndGameModalProps) {
   const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
@@ -171,62 +175,74 @@ export function EndGameModal({
             )}
           </div>
 
-          <div className="space-y-3">
-            {/* Stats button: full width, color based on mode */}
-            <button
-              className="w-full h-16 sm:h-20 md:h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
-              style={{ backgroundColor: statsColor }}
-              onClick={onViewStats}
-              data-testid="button-stats"
-            >
-              <span className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800">Stats</span>
-              <div className="flex-shrink-0 flex items-center">
-                <img
-                  src={mathsHamster}
-                  alt="Stats"
-                  className="h-14 sm:h-16 md:h-20 w-auto object-contain"
-                />
-              </div>
-            </button>
-
-            <div className="flex gap-3">
-              {/* Home button: half width, color based on mode */}
-              <button
-                className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm hover:shadow-md"
-                style={{ backgroundColor: homeColor }}
-                onClick={onHome}
-                data-testid="button-home"
+          {isGuest && onContinueToLogin ? (
+            <div className="space-y-3">
+              <Button
+                className="w-full h-16 sm:h-20 md:h-24 text-lg sm:text-xl md:text-2xl font-bold bg-blue-500 hover:bg-blue-600 text-white"
+                onClick={onContinueToLogin}
+                data-testid="button-continue-to-login"
               >
-                <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Home</span>
-                <div className="flex-shrink-0 flex items-center">
-                  <img
-                    src={historianHamster}
-                    alt="Home"
-                    className="h-14 sm:h-16 md:h-20 w-auto object-contain"
-                  />
-                </div>
-              </button>
-
-              {/* Archive button: half width, color based on mode */}
-              <button
-                className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm hover:shadow-md"
-                style={{ backgroundColor: archiveColor }}
-                onClick={onViewArchive}
-                data-testid="button-archive"
-              >
-                <div className="flex flex-col items-start flex-1">
-                  <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Archive</span>
-                </div>
-                <div className="flex-shrink-0 flex items-center">
-                  <img
-                    src={librarianHamster}
-                    alt="Archive"
-                    className="h-14 sm:h-16 md:h-20 w-auto object-contain"
-                  />
-                </div>
-              </button>
+                Continue
+              </Button>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Stats button: full width, color based on mode */}
+              <button
+                className="w-full h-16 sm:h-20 md:h-24 flex items-center justify-between px-6 rounded-3xl shadow-sm hover:shadow-md"
+                style={{ backgroundColor: statsColor }}
+                onClick={onViewStats}
+                data-testid="button-stats"
+              >
+                <span className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800">Stats</span>
+                <div className="flex-shrink-0 flex items-center">
+                  <img
+                    src={mathsHamster}
+                    alt="Stats"
+                    className="h-14 sm:h-16 md:h-20 w-auto object-contain"
+                  />
+                </div>
+              </button>
+
+              <div className="flex gap-3">
+                {/* Home button: half width, color based on mode */}
+                <button
+                  className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm hover:shadow-md"
+                  style={{ backgroundColor: homeColor }}
+                  onClick={onHome}
+                  data-testid="button-home"
+                >
+                  <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Home</span>
+                  <div className="flex-shrink-0 flex items-center">
+                    <img
+                      src={historianHamster}
+                      alt="Home"
+                      className="h-14 sm:h-16 md:h-20 w-auto object-contain"
+                    />
+                  </div>
+                </button>
+
+                {/* Archive button: half width, color based on mode */}
+                <button
+                  className="flex-1 h-16 sm:h-20 md:h-24 flex items-center justify-between px-4 rounded-3xl shadow-sm hover:shadow-md"
+                  style={{ backgroundColor: archiveColor }}
+                  onClick={onViewArchive}
+                  data-testid="button-archive"
+                >
+                  <div className="flex flex-col items-start flex-1">
+                    <span className="text-base sm:text-lg md:text-xl font-bold text-gray-800">Archive</span>
+                  </div>
+                  <div className="flex-shrink-0 flex items-center">
+                    <img
+                      src={librarianHamster}
+                      alt="Archive"
+                      className="h-14 sm:h-16 md:h-20 w-auto object-contain"
+                    />
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
 
 
 
