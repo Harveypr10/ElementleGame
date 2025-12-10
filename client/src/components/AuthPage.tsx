@@ -149,24 +149,30 @@ const handleSubmit = async (e: React.FormEvent) => {
       return;
     }
 
+    // Show loading state immediately before async postcode validation
+    setLoading(true);
+
     // Validate postcode exists in the location-based postcode database
     try {
       const validateResponse = await fetch(`/api/postcodes/validate?postcode=${encodeURIComponent(formData.postcode.trim())}`);
       const validateResult = await validateResponse.json();
       
       if (!validateResult.valid) {
+        setLoading(false);
         setShowPostcodeInvalidDialog(true);
         return;
       }
     } catch (error) {
       console.error("[AUTH] Postcode validation error:", error);
       // On validation error, still show the dialog to be safe
+      setLoading(false);
       setShowPostcodeInvalidDialog(true);
       return;
     }
+  } else {
+    // For login/forgot-password, set loading here
+    setLoading(true);
   }
-
-  setLoading(true);
 
   try {
     if (mode === "signup") {
