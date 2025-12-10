@@ -91,6 +91,8 @@ export default function Home() {
   const [personaliseEmail, setPersonaliseEmail] = useState<string | null>(null);
   // Track postcode and region from personalise step (for GeneratingQuestionsScreen)
   const [personaliseData, setPersonaliseData] = useState<{ postcode?: string; region?: string } | null>(null);
+  // Track prefilled email for login screen (when returning from personalise)
+  const [loginPrefilledEmail, setLoginPrefilledEmail] = useState<string | null>(null);
   
   // Fetch BOTH global and local puzzles to avoid race conditions when switching modes
   const globalPuzzlesEndpoint = isAuthenticated ? '/api/puzzles' : '/api/puzzles/guest';
@@ -752,14 +754,17 @@ export default function Home() {
             <LoginPage 
               onSuccess={() => {
                 setShowLoginSubtitle(false);
+                setLoginPrefilledEmail(null);
                 handleLoginSuccess();
               }}
               onBack={() => {
                 setShowLoginSubtitle(false);
+                setLoginPrefilledEmail(null);
                 setCurrentScreen("onboarding");
               }}
               onSignup={() => {
                 setShowLoginSubtitle(false);
+                setLoginPrefilledEmail(null);
                 setCurrentScreen("signup");
               }}
               onForgotPassword={() => {
@@ -768,10 +773,12 @@ export default function Home() {
               }}
               onPersonalise={(email) => {
                 setShowLoginSubtitle(false);
+                setLoginPrefilledEmail(null);
                 setPersonaliseEmail(email);
                 setCurrentScreen("personalise");
               }}
               subtitle={showLoginSubtitle ? "Sign up to track your stats, play personalised games and discover endless history in the archives." : undefined}
+              prefilledEmail={loginPrefilledEmail || undefined}
             />
           </motion.div>
         )}
@@ -802,6 +809,11 @@ export default function Home() {
               }}
               onSwitchMode={() => setCurrentScreen("login")}
               onBack={() => setCurrentScreen("login")}
+              onReturnToLogin={() => {
+                // Keep the email for login screen prefill
+                setLoginPrefilledEmail(personaliseEmail);
+                setCurrentScreen("login");
+              }}
             />
           </motion.div>
         )}

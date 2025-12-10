@@ -34,9 +34,10 @@ interface AuthPageProps {
   onForgotPassword?: () => void;
   onContinueAsGuest?: () => void;
   prefilledEmail?: string;
+  onReturnToLogin?: () => void;
 }
 
-export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword, onContinueAsGuest, prefilledEmail }: AuthPageProps) {
+export default function AuthPage({ mode, onSuccess, onSwitchMode, onBack, onForgotPassword, onContinueAsGuest, prefilledEmail, onReturnToLogin }: AuthPageProps) {
   const { signIn } = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
@@ -396,6 +397,14 @@ const handleSubmit = async (e: React.FormEvent) => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === "personalise" && prefilledEmail && (
+              <div className="mb-4">
+                <p className="text-sm text-muted-foreground" data-testid="text-personalise-email">
+                  {prefilledEmail}
+                </p>
+              </div>
+            )}
+            
             {(mode === "signup" || mode === "personalise") && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -671,6 +680,19 @@ const handleSubmit = async (e: React.FormEvent) => {
                 data-testid="button-continue-guest"
               >
                 Continue without logging in
+              </button>
+            </div>
+          )}
+          
+          {mode === "personalise" && onReturnToLogin && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={onReturnToLogin}
+                className="text-sm text-primary hover:underline"
+                data-testid="button-return-to-login"
+              >
+                Return to log in
               </button>
             </div>
           )}

@@ -17,6 +17,7 @@ interface LoginPageProps {
   onForgotPassword?: () => void;
   onPersonalise?: (email: string, password?: string) => void;
   subtitle?: string; // Optional subtitle to show below the main title
+  prefilledEmail?: string; // Pre-fill email field when returning from personalise
 }
 
 type LoginStep = "email" | "password" | "magic-link" | "create-account";
@@ -29,12 +30,12 @@ interface UserAuthInfo {
 
 const MAGIC_LINK_COOLDOWN_SECONDS = 60;
 
-export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPassword, onPersonalise, subtitle }: LoginPageProps) {
+export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPassword, onPersonalise, subtitle, prefilledEmail }: LoginPageProps) {
   const { signIn } = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
   
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(prefilledEmail || "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [step, setStep] = useState<LoginStep>("email");
