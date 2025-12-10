@@ -97,6 +97,8 @@ export interface IStorage {
   // User profile operations
   getUserProfile(id: string): Promise<UserProfile | undefined>;
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
+  updateSignupMethod(userId: string, signupMethod: string, passwordCreated: boolean): Promise<UserProfile>;
+  updatePasswordCreated(userId: string, passwordCreated: boolean): Promise<UserProfile>;
 
   // User tier operations (new subscription system)
   // LEGACY - kept for backward compatibility, use getSubscriptionData instead
@@ -342,6 +344,37 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     console.log('[upsertUserProfile] Returned profile userTierId:', profile.userTierId);
+    return profile;
+  }
+  
+  async updateSignupMethod(userId: string, signupMethod: string, passwordCreated: boolean): Promise<UserProfile> {
+    console.log(`[updateSignupMethod] userId: ${userId}, signupMethod: ${signupMethod}, passwordCreated: ${passwordCreated}`);
+    
+    const [profile] = await db
+      .update(userProfiles)
+      .set({
+        signupMethod: signupMethod,
+        passwordCreated: passwordCreated,
+        updatedAt: new Date(),
+      })
+      .where(eq(userProfiles.id, userId))
+      .returning();
+    
+    return profile;
+  }
+  
+  async updatePasswordCreated(userId: string, passwordCreated: boolean): Promise<UserProfile> {
+    console.log(`[updatePasswordCreated] userId: ${userId}, passwordCreated: ${passwordCreated}`);
+    
+    const [profile] = await db
+      .update(userProfiles)
+      .set({
+        passwordCreated: passwordCreated,
+        updatedAt: new Date(),
+      })
+      .where(eq(userProfiles.id, userId))
+      .returning();
+    
     return profile;
   }
 

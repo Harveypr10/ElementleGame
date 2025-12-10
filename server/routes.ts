@@ -451,6 +451,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Set signup method and password_created on first login (only sets if not already set)
+  app.post("/api/auth/profile/signup-method", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { signupMethod, passwordCreated } = req.body;
+      
+      console.log(`[POST /api/auth/profile/signup-method] userId: ${userId}, signupMethod: ${signupMethod}, passwordCreated: ${passwordCreated}`);
+      
+      const existing = await storage.getUserProfile(userId);
+      if (!existing) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      // Only set signup_method if not already set (first time only)
+      if (existing.signupMethod) {
+        console.log(`[POST /api/auth/profile/signup-method] Signup method already set to: ${existing.signupMethod}, skipping`);
+        return res.json({ 
+          signupMethod: existing.signupMethod, 
+          passwordCreated: existing.passwordCreated,
+          alreadySet: true 
+        });
+      }
+      
+      // Update profile with signup method and password_created
+      const updatedProfile = await storage.updateSignupMethod(userId, signupMethod, passwordCreated);
+      
+      res.json({ 
+        signupMethod: updatedProfile.signupMethod, 
+        passwordCreated: updatedProfile.passwordCreated,
+        alreadySet: false 
+      });
+    } catch (error: any) {
+      console.error("Error setting signup method:", error);
+      res.status(500).json({ error: "Failed to set signup method" });
+    }
+  });
+  
+  // Update password_created status (called when user creates a password)
+  app.post("/api/auth/profile/password-created", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      console.log(`[POST /api/auth/profile/password-created] userId: ${userId}`);
+      
+      const existing = await storage.getUserProfile(userId);
+      if (!existing) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      // Update password_created to true
+      const updatedProfile = await storage.updatePasswordCreated(userId, true);
+      
+      res.json({ passwordCreated: updatedProfile.passwordCreated });
+    } catch (error: any) {
+      console.error("Error updating password_created:", error);
+      res.status(500).json({ error: "Failed to update password status" });
+    }
+  });
 
   // Puzzle routes - REGION MODE (requires authentication for region context)
   app.get("/api/puzzles", verifySupabaseAuth, async (req: any, res) => {

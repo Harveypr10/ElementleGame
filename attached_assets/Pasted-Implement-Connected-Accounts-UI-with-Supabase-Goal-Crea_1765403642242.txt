@@ -1,0 +1,38 @@
+Implement Connected Accounts UI with Supabase
+Goal: Create a “Connected Accounts” section, within the Account Info section in the Settings menu, that shows which authentication methods a user has linked (magic link, password, Google, Apple), incorporating the existing Create Password section, as covered below. Use Supabase’s user.identities array for linked providers, and the signup_method column in user_profiles to distinguish between password vs magic link for email users.
+Requirements
+1.	Extend our Supabase auth integration so that when a user signs in for the first time, we record their signup method (password vs magic_link) in the user_profiles table, and if they sign-up with a password the set user_profiles.password_created=TRUE. Requirements:
+•	Detect which auth method was used on first sign-up (could base this on the function called ? e.g. signInWithPassword vs signInWithOtp?
+•	On successful first login, insert/update the signup_method field in user_profiles for that user’s id and update user_profiles.password_created to TRUE/FALSE dependent on whether a password was created.
+•	Ensure this only sets the signup_method field once (first sign in), not on every login.
+•	If user_profiles.password_created=TRUE render UI with “Change password”.
+•	If user_profiles.password_created=FALSE, render UI with “Create password”. If the user does create a password then update to user_profiles.password_created=TRUE
+•	Keep the logic for signup_method modular so we can extend later for Google/Apple OAuth (values like google, apple are already allowed in signup_method).
+2.	Supabase Data Sources
+o	Use supabase.auth.getUser() to retrieve the current user object.
+o	Read user.identities array to determine linked providers (email, google, apple).
+o	Query user_profiles.signup_method to distinguish between password and magic_link. And user_profiles.password_created to determine if a password has been created
+3.	UI Section: “Connected Accounts”
+o	Within Account Info, below Profile Information, incorporate the existing “Password” section into a “Connect Accounts” section as follows.
+o	Display a list of providers with status and actions:
+	Email (Password) – Show the existing “Password” section first, as it is now
+	If user_profiles.password_created = TRUE then enable the Current Password box, and show the button text as “Update Password”
+	If user_profiles.password_created = FALSE, show the existing “Create Password section, with the disabled Current Password box, and the button saying “Create Password”
+	Email (Magic Link)
+	If signup_method = 'magic_link' → show “Signed up with magic link” + “Resend magic link” option.
+	Otherwise show “Send magic link to authenticate without entering a password” + “Send magic link” option
+	Google
+	If google exists in user.identities → show “Google account linked” + button “Unlink”.
+	Else → show “Link Google account” button.
+	Apple
+	Same logic as Google.
+o	Style the section to match Elementle theme (rounded cards, consistent typography and button styles).
+4.	Actions
+o	Change password → call supabase.auth.updateUser({ password: newPassword }).
+o	Create password → call supabase.auth.updateUser({ password: newPassword }).
+o	Resend magic link → call supabase.auth.signInWithOtp({ email }).
+o	Link Google/Apple → call supabase.auth.signInWithOAuth({ provider: 'google' }) or provider: 'apple'.
+o	Unlink provider → update user.identities via Supabase API (requires supabase.auth.admin or custom backend function).
+5.	Session Handling
+o	Ensure supabase.auth.onAuthStateChange is already wired so UI updates when accounts are linked/unlinked.
+o	Persist session with persistSession: true and detectSessionInUrl: true.

@@ -137,6 +137,12 @@ export const userProfiles = pgTable("user_profiles", {
   // Archive puzzle sync count
   archiveSyncedCount: integer("archive_synced_count").default(0),
   
+  // Authentication method tracking
+  // signup_method: how user first signed up ('password', 'magic_link', 'google', 'apple')
+  signupMethod: text("signup_method"), // null until first login recorded
+  // password_created: whether user has created a password (true if signed up with password or created one later)
+  passwordCreated: boolean("password_created").default(false),
+  
   // Foreign key to user_tier table (managed by Supabase trigger)
   userTierId: uuid("user_tier_id").references(() => userTier.id),
   

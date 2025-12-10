@@ -46,9 +46,46 @@ export function useAuth() {
     return user.user_metadata?.first_login_completed === true;
   }, [user]);
   
-  // Mark first login as completed (stores in user_metadata)
+  // Detect signup method from session AMR (Authentication Methods Reference)
+  const detectSignupMethod = useCallback(async (): Promise<{ signupMethod: string; passwordCreated: boolean }> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Check the AMR claim to see what auth methods were used
+        const amr = (session as any).user?.amr || [];
+        const hasPasswordAuth = amr.some((method: any) => method.method === 'password');
+        const hasOtpAuth = amr.some((method: any) => method.method === 'otp');
+        
+        // Also check identities for OAuth providers
+        const identities = session.user?.identities || [];
+        const hasGoogleIdentity = identities.some((id: any) => id.provider === 'google');
+        const hasAppleIdentity = identities.some((id: any) => id.provider === 'apple');
+        
+        if (hasGoogleIdentity) {
+          return { signupMethod: 'google', passwordCreated: hasPasswordAuth };
+        } else if (hasAppleIdentity) {
+          return { signupMethod: 'apple', passwordCreated: hasPasswordAuth };
+        } else if (hasPasswordAuth) {
+          return { signupMethod: 'password', passwordCreated: true };
+        } else if (hasOtpAuth) {
+          return { signupMethod: 'magic_link', passwordCreated: false };
+        }
+      }
+      return { signupMethod: 'magic_link', passwordCreated: false };
+    } catch (error) {
+      console.error('Error detecting signup method:', error);
+      return { signupMethod: 'magic_link', passwordCreated: false };
+    }
+  }, [supabase]);
+  
+  // Mark first login as completed (stores in user_metadata and updates profile)
   const markFirstLoginCompleted = useCallback(async (): Promise<boolean> => {
     try {
+      // Detect and record signup method
+      const { signupMethod, passwordCreated } = await detectSignupMethod();
+      console.log('[useAuth] Detected signup method:', signupMethod, 'passwordCreated:', passwordCreated);
+      
+      // Update user metadata
       const { error } = await supabase.auth.updateUser({
         data: { first_login_completed: true }
       });
@@ -56,6 +93,25 @@ export function useAuth() {
         console.error("Failed to mark first login completed:", error);
         return false;
       }
+      
+      // Update profile with signup method (only if not already set)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch('/api/auth/profile/signup-method', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ signupMethod, passwordCreated }),
+          });
+        }
+      } catch (profileError) {
+        console.error("Failed to update profile signup method:", profileError);
+        // Don't fail the overall operation if profile update fails
+      }
+      
       // Refresh the user to get updated metadata
       const { data } = await supabase.auth.getUser();
       if (data.user) {
@@ -66,7 +122,7 @@ export function useAuth() {
       console.error("Error marking first login completed:", error);
       return false;
     }
-  }, [supabase]);
+  }, [supabase, detectSignupMethod]);
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string) => {
     // Clear any guest game data before signing up to prevent conflicts
