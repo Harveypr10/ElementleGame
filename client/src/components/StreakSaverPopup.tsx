@@ -7,9 +7,19 @@ import { useStreakSaver } from "@/contexts/StreakSaverContext";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
 import { Flame, Umbrella } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { clearArchiveCache } from "@/lib/localCache";
+import { useQueryClient } from "@tanstack/react-query";
 import hamsterStreakSaver from "@assets/Historian-Hamster-Blue.svg";
 
 import Streak_Hamster_Black from "@assets/Streak-Hamster-Black.svg";
+
+interface HolidayAnimationData {
+  regionHolidayDates: string[];
+  userHolidayDates: string[];
+  showUserAfterRegion: boolean;
+  holidayDurationDays: number;
+}
 
 interface StreakSaverPopupProps {
   open: boolean;
@@ -17,7 +27,8 @@ interface StreakSaverPopupProps {
   gameType: "region" | "user";
   currentStreak: number;
   onPlayYesterdaysPuzzle?: (gameType: "region" | "user", puzzleDate: string) => void;
-  onStreakLost?: () => void; // Called when user confirms losing their streak
+  onStreakLost?: () => void;
+  onStartHolidayWithAnimation?: (data: HolidayAnimationData) => void;
 }
 
 export function StreakSaverPopup({ 
@@ -26,10 +37,12 @@ export function StreakSaverPopup({
   gameType, 
   currentStreak, 
   onPlayYesterdaysPuzzle,
-  onStreakLost 
+  onStreakLost,
+  onStartHolidayWithAnimation,
 }: StreakSaverPopupProps) {
   const { toast } = useToast();
   const { profile } = useProfile();
+  const queryClient = useQueryClient();
   const [showProDialog, setShowProDialog] = useState(false);
   const [showStreakSaverAfterPro, setShowStreakSaverAfterPro] = useState(false);
   const {
@@ -121,6 +134,43 @@ export function StreakSaverPopup({
   const handleStartHoliday = async () => {
     try {
       await startHoliday();
+      
+      // Clear archive local cache and invalidate game attempts queries
+      clearArchiveCache();
+      queryClient.invalidateQueries({ queryKey: ['/api/game-attempts/user'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/game-attempts/user'] });
+      
+      // Fetch animation data as best-effort - don't fail the activation if this fails
+      let showRegion = false;
+      let showUser = false;
+      
+      try {
+        const response = await apiRequest("GET", "/api/holiday/animation-data");
+        if (response.ok) {
+          const animationData = await response.json();
+          
+          // Check conditions for each game mode with optional chaining
+          showRegion = !!(animationData?.region?.hasStreak && animationData?.region?.todayStreakDayStatusZero);
+          showUser = !!(animationData?.user?.hasStreak && animationData?.user?.todayStreakDayStatusZero);
+          
+          if ((showRegion || showUser) && onStartHolidayWithAnimation) {
+            // Close popup and trigger animation overlay
+            onClose();
+            onStartHolidayWithAnimation({
+              regionHolidayDates: showRegion ? (animationData?.region?.holidayDates || []) : [],
+              userHolidayDates: showUser ? (animationData?.user?.holidayDates || []) : [],
+              showUserAfterRegion: showRegion && showUser,
+              holidayDurationDays: holidayDurationDays ?? 14,
+            });
+            return; // Exit early, animation will show toast on completion
+          }
+        }
+      } catch (animationError) {
+        // Log but don't fail - animation is non-critical
+        console.warn("Failed to fetch animation data:", animationError);
+      }
+      
+      // No animation needed or animation fetch failed - just show toast
       toast({
         title: "Holiday Started!",
         description: `You're on holiday for ${holidayDurationDays} days. Your streak is protected.`,
@@ -203,13 +253,19 @@ export function StreakSaverPopup({
 
   return (
     <>
-      <Dialog open={showMainPopup} onOpenChange={handleDialogOpenChange}>
-        <DialogContent 
-          className="max-w-sm" 
+      <Dialog
+        open={showMainPopup}
+        onOpenChange={handleDialogOpenChange}
+      >
+        <DialogContent
+          className="max-w-sm rounded-2xl"
           data-testid="streak-saver-popup"
           style={{ backgroundColor: popupBackgroundColor }}
-          showCloseButton={false}
+          // 👇 prevent closing via Escape or backdrop click
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
         >
+          {/* 👇 no close button will be rendered because we don't include <DialogClose /> */}
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl text-gray-800">
               <Flame className="h-6 w-6 text-orange-500" />

@@ -8,6 +8,7 @@ import { GuestRestrictionPopup } from "./GuestRestrictionPopup";
 import { CategorySelectionScreen } from "./CategorySelectionScreen";
 import { StreakSaverPopup } from "./StreakSaverPopup";
 import { BadgeCelebrationPopup } from "./badges/BadgeCelebrationPopup";
+import { HolidayActivationOverlay } from "./HolidayActivationOverlay";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
@@ -106,6 +107,20 @@ export function GameSelectionPage({
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   const [showStreakSaverPopup, setShowStreakSaverPopup] = useState<'region' | 'user' | null>(null);
   const isLocalMode = gameMode === 'local';
+  
+  // Holiday activation overlay state (triggered from StreakSaverPopup)
+  const [showHolidayOverlay, setShowHolidayOverlay] = useState(false);
+  const [holidayOverlayData, setHolidayOverlayData] = useState<{
+    regionHolidayDates: string[];
+    userHolidayDates: string[];
+    showUserAfterRegion: boolean;
+    holidayDurationDays: number;
+  }>({
+    regionHolidayDates: [],
+    userHolidayDates: [],
+    showUserAfterRegion: false,
+    holidayDurationDays: 0,
+  });
   
   // Animation key - increments on each mount to force animation replay
   const [animationKey, setAnimationKey] = useState(0);
@@ -1300,8 +1315,28 @@ export function GameSelectionPage({
               : streakStatus.user?.currentStreak || 0
           }
           onPlayYesterdaysPuzzle={onPlayYesterdaysPuzzle}
+          onStartHolidayWithAnimation={(data) => {
+            setHolidayOverlayData(data);
+            setShowHolidayOverlay(true);
+          }}
         />
       )}
+
+      {/* Holiday Activation Overlay */}
+      <HolidayActivationOverlay
+        show={showHolidayOverlay}
+        regionHolidayDates={holidayOverlayData.regionHolidayDates}
+        userHolidayDates={holidayOverlayData.userHolidayDates}
+        showUserAfterRegion={holidayOverlayData.showUserAfterRegion}
+        holidayDurationDays={holidayOverlayData.holidayDurationDays}
+        onComplete={() => {
+          setShowHolidayOverlay(false);
+          toast({
+            title: "Holiday mode activated",
+            description: `Your streak is now protected for the next ${holidayOverlayData.holidayDurationDays} days.`,
+          });
+        }}
+      />
 
       {/* Pending Badge Celebration Popup */}
       {pendingBadgeToShow && (

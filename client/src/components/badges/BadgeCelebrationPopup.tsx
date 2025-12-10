@@ -8,6 +8,34 @@ import badgePlaceholder from "@assets/Signup-Hamster-Transparent.png";
 
 import Streak_Hamster_Black from "@assets/Streak-Hamster-Black.svg";
 
+interface LottieAnimation {
+  destroy: () => void;
+  play: () => void;
+  stop: () => void;
+  pause: () => void;
+  setSpeed: (speed: number) => void;
+  goToAndStop: (value: number, isFrame: boolean) => void;
+  goToAndPlay: (value: number, isFrame: boolean) => void;
+  getDuration: (inFrames?: boolean) => number;
+  addEventListener: (event: string, cb: () => void) => void;
+  removeEventListener: (event: string, cb: () => void) => void;
+}
+
+declare global {
+  interface Window {
+    lottie: {
+      loadAnimation: (options: {
+        container: HTMLElement | null;
+        renderer: string;
+        loop: boolean | number;
+        autoplay: boolean;
+        path: string;
+      }) => LottieAnimation;
+    };
+  }
+}
+
+
 interface BadgeCelebrationPopupProps {
   badge: UserBadgeWithDetails;
   onDismiss: () => void;
@@ -24,8 +52,8 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
       const animation = window.lottie.loadAnimation({
         container: containerRef.current,
         renderer: "svg",
-        loop: 2,          // loop exactly twice
-        autoplay: true,
+        loop: 1,          // loop exactly twice
+        autoplay: false,
         path: "/assets/Trophy.json",
       });
 
@@ -37,6 +65,10 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
         const lastFrame = animation.getDuration(true); // total frames
         animation.goToAndStop(lastFrame, true);
       });
+      // 👇 start after 500ms
+      setTimeout(() => {
+        animation.play();
+      }, 500);
     }
 
     // increase the timeout (8s instead of 5s)
