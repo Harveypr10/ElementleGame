@@ -149,9 +149,12 @@ export function StreakSaverPopup({
         if (response.ok) {
           const animationData = await response.json();
           
-          // Check conditions for each game mode with optional chaining
-          showRegion = !!(animationData?.region?.hasStreak && animationData?.region?.todayStreakDayStatusZero);
-          showUser = !!(animationData?.user?.hasStreak && animationData?.user?.todayStreakDayStatusZero);
+          // Check conditions for each game mode - show animation if there are holiday dates to display
+          // Show region if today's status is 0 (holiday) and there are dates to highlight
+          const regionDates = animationData?.region?.holidayDates || [];
+          const userDates = animationData?.user?.holidayDates || [];
+          showRegion = animationData?.region?.todayStreakDayStatusZero && regionDates.length > 0;
+          showUser = animationData?.user?.todayStreakDayStatusZero && userDates.length > 0;
           
           if ((showRegion || showUser) && onStartHolidayWithAnimation) {
             // Close popup and trigger animation overlay
