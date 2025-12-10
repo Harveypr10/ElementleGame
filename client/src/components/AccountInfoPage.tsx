@@ -764,18 +764,16 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                       <SelectValue placeholder={regionsLoading ? "Loading regions..." : "Select your region"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {regions?.map((region) => {
-                        const formatDisplay = region.defaultDateFormat === 'ddmmyy' ? 'DD/MM/YY' : 'MM/DD/YY';
-                        return (
+                      {regions?.map((region) => (
                           <SelectItem 
                             key={region.code} 
                             value={region.code} 
                             data-testid={`option-region-${region.code.toLowerCase()}-account`}
                           >
-                            {region.name} ({formatDisplay})
+                            {region.name}
                           </SelectItem>
-                        );
-                      })}
+                        )
+                      )}
                     </SelectContent>
                   </Select>
                   {profile?.postcodeLastChangedAt && (

@@ -147,13 +147,21 @@ export default function Home() {
   const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
     if (isAuthenticated) {
-      // Authenticated users go to welcome page, then auto-navigate to selection
-      setCurrentScreen("welcome");
+      // Check if user has completed first login setup
+      if (!hasCompletedFirstLogin()) {
+        // User hasn't completed personalise screen - send them there
+        setNeedsFirstLoginSetup(true);
+        setHasShownGeneratingScreen(true);
+        setCurrentScreen("personalise");
+      } else {
+        // Authenticated users with completed setup go to welcome page, then auto-navigate to selection
+        setCurrentScreen("welcome");
+      }
     } else {
       // Non-authenticated users go to onboarding screen
       setCurrentScreen("onboarding");
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, hasCompletedFirstLogin]);
   
   // Auto-navigate from welcome to selection after a brief display (2 seconds)
   // Only auto-navigate if we're not showing auth buttons (after sign-out, we show buttons)
@@ -167,18 +175,27 @@ export default function Home() {
     }
   }, [currentScreen, hasAutoNavigated, showAuthButtons]);
   
-  // Check for first login when user becomes authenticated and is on selection screen
-  // This catches cases where onSuccess callback ran before auth state was fully updated
-  // hasShownGeneratingScreen prevents the screen from showing twice in the same session
+  // Guard: Redirect authenticated users without first login to personalise screen
+  // This catches ALL navigation attempts and ensures users can't bypass personalise
+  // Protected screens include: selection, play, stats, archive, settings, options, account-info
+  // Skip guard if needsFirstLoginSetup is false (means user just completed setup in this session)
+  const protectedScreens: Screen[] = ["selection", "play", "stats", "archive", "settings", "options", "account-info"];
   useEffect(() => {
-    if (currentScreen === "selection" && isAuthenticated && user && !needsFirstLoginSetup && !hasShownGeneratingScreen) {
+    // Don't redirect if we're in the middle of setup or just completed it this session
+    // needsFirstLoginSetup=false after handleGeneratingQuestionsComplete runs means user finished setup
+    if (needsFirstLoginSetup === false && hasShownGeneratingScreen) {
+      // User completed setup this session - don't redirect even if metadata update is pending
+      return;
+    }
+    if (isAuthenticated && user && protectedScreens.includes(currentScreen)) {
       if (!hasCompletedFirstLogin()) {
+        console.log('[Home] Guard: Redirecting to personalise - first login not completed');
         setNeedsFirstLoginSetup(true);
         setHasShownGeneratingScreen(true);
-        setCurrentScreen("generating-questions");
+        setCurrentScreen("personalise");
       }
     }
-  }, [currentScreen, isAuthenticated, user, needsFirstLoginSetup, hasCompletedFirstLogin, hasShownGeneratingScreen]);
+  }, [currentScreen, isAuthenticated, user, hasCompletedFirstLogin, needsFirstLoginSetup, hasShownGeneratingScreen]);
 
   // Scroll to top when screen changes
   useEffect(() => {
