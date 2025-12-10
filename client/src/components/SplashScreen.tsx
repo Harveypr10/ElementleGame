@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { WelcomePage } from "./WelcomePage";
 import welcomeHamster from "@assets/Welcome-Hamster-Blue.svg";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
@@ -9,12 +8,10 @@ import whiteTickBlue from "@assets/Win-Hamster-Blue.svg";
 import questionHamsterBlue from "@assets/Question-Hamster-Blue.svg";
 
 interface SplashScreenProps {
-  onLogin: () => void;
-  onSignup: () => void;
+  onComplete: () => void;
 }
 
-export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
-  const [finished, setFinished] = useState(false);
+export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [fadeIn, setFadeIn] = useState(false);
   const [imageReady, setImageReady] = useState(false);
 
@@ -51,13 +48,13 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
       setFadeIn(true);
     });
 
-    // Show splash screen for 3 seconds after image loads
+    // Show splash screen for 3 seconds after image loads, then notify parent
     const timer = setTimeout(() => {
-      setFinished(true);
+      onComplete();
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [imageReady]);
+  }, [imageReady, onComplete]);
 
   // Add app-loaded class to html after fade-in completes to switch from splash blue to app background
   useEffect(() => {
@@ -68,10 +65,6 @@ export function SplashScreen({ onLogin, onSignup }: SplashScreenProps) {
       return () => clearTimeout(timer);
     }
   }, [fadeIn]);
-
-  if (finished) {
-    return <WelcomePage onLogin={onSignup} onSignup={onSignup} />;
-  }
 
   return (
     <div

@@ -9,6 +9,7 @@ import { ArchivePage } from "@/components/ArchivePage";
 import { SettingsPage } from "@/components/SettingsPage";
 import { OptionsPage } from "@/components/OptionsPage";
 import { SplashScreen } from "@/components/SplashScreen";
+import { OnboardingScreen } from "@/components/OnboardingScreen";
 import AuthPage from "@/components/AuthPage";
 import ForgotPasswordPage from "@/components/ForgotPasswordPage";
 import AccountInfoPage from "@/components/AccountInfoPage";
@@ -30,7 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 import type { UserBadgeWithDetails } from "@shared/schema";
 
-type Screen = "splash" | "welcome" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
+type Screen = "splash" | "welcome" | "onboarding" | "login" | "signup" | "forgot-password" | "selection" | "play" | "stats" | "archive" | "settings" | "options" | "account-info" | "privacy" | "terms" | "about" | "bug-report" | "feedback" | "generating-questions";
 
 interface Puzzle {
   id: number;
@@ -130,17 +131,17 @@ export default function Home() {
   // Track if we've shown welcome page and auto-navigated to selection
   const [hasAutoNavigated, setHasAutoNavigated] = useState(false);
   
-  useEffect(() => {
-    if (isLoading) return;
-    
-    if (showSplash) {
-      // Show splash, then welcome page briefly, then auto-navigate to selection
-      setTimeout(() => {
-        setShowSplash(false);
-        setCurrentScreen("welcome");
-      }, 3000);
+  // Handle splash screen completion - route based on authentication status
+  const handleSplashComplete = useCallback(() => {
+    setShowSplash(false);
+    if (isAuthenticated) {
+      // Authenticated users go to welcome page, then auto-navigate to selection
+      setCurrentScreen("welcome");
+    } else {
+      // Non-authenticated users go to onboarding screen
+      setCurrentScreen("onboarding");
     }
-  }, [isLoading, showSplash]);
+  }, [isAuthenticated]);
   
   // Auto-navigate from welcome to selection after a brief display (2 seconds)
   // Only auto-navigate if we're not showing auth buttons (after sign-out, we show buttons)
@@ -649,16 +650,13 @@ export default function Home() {
   if (showSplash) {
     return (
       <AdBannerContext.Provider value={false}>
-        <SplashScreen 
-          onLogin={() => setCurrentScreen("login")}
-          onSignup={() => setCurrentScreen("signup")}
-        />
+        <SplashScreen onComplete={handleSplashComplete} />
       </AdBannerContext.Provider>
     );
   }
 
-  // Screens where ad banner should never appear (splash, welcome, play/intro, login, signup, forgot-password, generating-questions)
-  const hideAdOnScreens: Screen[] = ["splash", "welcome", "play", "login", "signup", "forgot-password", "generating-questions"];
+  // Screens where ad banner should never appear (splash, welcome, onboarding, play/intro, login, signup, forgot-password, generating-questions)
+  const hideAdOnScreens: Screen[] = ["splash", "welcome", "onboarding", "play", "login", "signup", "forgot-password", "generating-questions"];
   const shouldShowAd = !hideAdOnScreens.includes(currentScreen);
 
   return (
@@ -685,13 +683,29 @@ export default function Home() {
           </motion.div>
         )}
 
+        {currentScreen === "onboarding" && (
+          <motion.div key="onboarding" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
+            <OnboardingScreen
+              eventTitle={getDailyPuzzle('global')?.eventTitle || "Loading..."}
+              puzzleDateCanonical={getDailyPuzzle('global')?.date || getTodayDateString()}
+              onPlay={() => {
+                // Guest user wants to play - use the same flow as handlePlayGlobal
+                // which properly waits for data to load before navigating
+                handlePlayGlobal();
+              }}
+              onLogin={() => setCurrentScreen("login")}
+              onSubscribe={() => setCurrentScreen("signup")}
+            />
+          </motion.div>
+        )}
+
         {currentScreen === "login" && (
           <motion.div key="login" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
             <AuthPage 
               mode="login"
               onSuccess={handleLoginSuccess}
               onSwitchMode={() => setCurrentScreen("signup")}
-              onBack={() => setCurrentScreen("welcome")}
+              onBack={() => setCurrentScreen("onboarding")}
               onForgotPassword={() => setCurrentScreen("forgot-password")}
               onContinueAsGuest={() => setCurrentScreen("selection")}
             />
@@ -704,7 +718,7 @@ export default function Home() {
               mode="signup"
               onSuccess={() => setCurrentScreen("selection")}
               onSwitchMode={() => setCurrentScreen("login")}
-              onBack={() => setCurrentScreen("welcome")}
+              onBack={() => setCurrentScreen("onboarding")}
               onContinueAsGuest={() => setCurrentScreen("selection")}
             />
           </motion.div>
