@@ -89,6 +89,8 @@ export default function Home() {
   const { showAd: showGuestAd, triggerAd: triggerGuestAd, handleClose: closeGuestAd, InterstitialAdComponent: GuestInterstitialAd } = useInterstitialAd();
   // Track email used for signup from LoginPage (for personalise flow)
   const [personaliseEmail, setPersonaliseEmail] = useState<string | null>(null);
+  // Track postcode and region from personalise step (for GeneratingQuestionsScreen)
+  const [personaliseData, setPersonaliseData] = useState<{ postcode?: string; region?: string } | null>(null);
   
   // Fetch BOTH global and local puzzles to avoid race conditions when switching modes
   const globalPuzzlesEndpoint = isAuthenticated ? '/api/puzzles' : '/api/puzzles/guest';
@@ -774,8 +776,11 @@ export default function Home() {
             <AuthPage 
               mode="personalise"
               prefilledEmail={personaliseEmail || undefined}
-              onSuccess={() => {
+              onSuccess={(data) => {
                 setPersonaliseEmail(null);
+                if (data) {
+                  setPersonaliseData(data);
+                }
                 setCurrentScreen("generating-questions");
               }}
               onSwitchMode={() => setCurrentScreen("login")}
@@ -796,9 +801,12 @@ export default function Home() {
           <motion.div key="generating-questions" className="w-full" {...pageVariants.fadeIn} transition={pageTransition}>
             <GeneratingQuestionsScreen
               userId={user.id}
-              region={profile?.region || "GB"}
-              postcode={profile?.postcode || ""}
-              onComplete={handleGeneratingQuestionsComplete}
+              region={personaliseData?.region || profile?.region || "GB"}
+              postcode={personaliseData?.postcode || profile?.postcode || ""}
+              onComplete={() => {
+                setPersonaliseData(null);
+                handleGeneratingQuestionsComplete();
+              }}
               regenerationType="first_login"
             />
           </motion.div>

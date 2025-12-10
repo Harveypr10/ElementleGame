@@ -28,7 +28,7 @@ import { useAdBannerActive } from "@/components/AdBanner";
 
 interface AuthPageProps {
   mode: "login" | "signup" | "forgot-password" | "personalise";
-  onSuccess: () => void;
+  onSuccess: (data?: { postcode?: string; region?: string }) => void;
   onSwitchMode: () => void;
   onBack: () => void;
   onForgotPassword?: () => void;
@@ -191,7 +191,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       });
 
       setGameMode('global');
-      onSuccess();
+      onSuccess({ postcode: formData.postcode, region: formData.region });
     } catch (error: any) {
       toast({
         title: "Error",
