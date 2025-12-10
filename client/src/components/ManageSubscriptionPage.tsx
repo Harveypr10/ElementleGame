@@ -404,7 +404,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                   <p className="text-sm text-muted-foreground">
                     {holidayActive 
                       ? "Your streak is currently protected"
-                      : "Pause your streak for up to " + effectiveHolidayDurationDays + " days"
+                      : "Protect your streak for up to " + effectiveHolidayDurationDays + " days"
                     }
                   </p>
                 </div>
@@ -558,7 +558,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                   <li><strong>Ad-free experience</strong> - No more banner or interstitial ads</li>
                   <li><strong>Custom categories</strong> - Choose your preferred puzzle categories</li>
                   <li><strong>{effectiveStreakSavers} streak savers per month</strong> - Instead of just 1</li>
-                  <li><strong>{effectiveHolidaySavers} holiday breaks per year</strong> - Pause your streak for up to {effectiveHolidayDurationDays} days each</li>
+                  <li><strong>{effectiveHolidaySavers} holiday breaks per year</strong> - Protect your streak for up to {effectiveHolidayDurationDays} days each</li>
                   <li><strong>Personal mode puzzles</strong> - Puzzles tailored to your location</li>
                 </ul>
                 <p className="text-muted-foreground">

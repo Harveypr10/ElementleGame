@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from "react";
 import { InputGrid, type CellFeedback } from "./InputGrid";
 import { NumericKeyboard, type KeyState } from "./NumericKeyboard";
 import { EndGameModal } from "./EndGameModal";
@@ -208,6 +208,29 @@ export function PlayPage({
   
   // Track spinner state for game loading
   const gameLoadingSpinnerRef = useRef(false);
+  
+  // Track dark mode state for background color
+  const [isDarkMode, setIsDarkMode] = useState(() => 
+    document.documentElement.classList.contains('dark')
+  );
+  
+  // Listen for dark mode changes
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          setIsDarkMode(document.documentElement.classList.contains('dark'));
+        }
+      });
+    });
+    
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect();
+  }, []);
+  
+  // Background color that adapts to dark mode
+  // Light mode: #FAFAFA (near white), Dark mode: hsl(222, 47%, 11%) = dark blue
+  const pageBackgroundColor = isDarkMode ? 'hsl(222, 47%, 11%)' : '#FAFAFA';
   
   // Spinner timeout callbacks for game loading
   const handleGameLoadRetry = useCallback(() => {
@@ -1585,7 +1608,7 @@ export function PlayPage({
       <div 
         className="fixed inset-0 flex flex-col overflow-hidden touch-none"
         style={{ 
-          backgroundColor: '#FAFAFA',
+          backgroundColor: pageBackgroundColor,
           opacity: introExitingViaBack ? 0 : 1,
           transition: 'opacity 150ms ease-out',
           pointerEvents: introExitingViaBack ? 'none' : 'auto'
@@ -1598,10 +1621,10 @@ export function PlayPage({
           data-testid="button-back"
           className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <ChevronLeft className="h-10 w-10 text-gray-700" />
+          <ChevronLeft className="h-10 w-10 text-gray-700 dark:text-gray-200" />
         </button>
 
-        <h2 className="text-4xl font-bold">
+        <h2 className="text-4xl font-bold text-foreground">
           {viewOnly ? "View Puzzle" : "Elementle"}
         </h2>
 

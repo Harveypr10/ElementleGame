@@ -1,6 +1,6 @@
 import { motion, usePresence } from "framer-motion";
 import { ChevronLeft, X } from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
 import {
   AlertDialog,
@@ -75,8 +75,31 @@ export function IntroScreen({
     categoryOrLocationLabel = locationName || null;
   }
 
-  // Determine background color based on streak game status
-  const backgroundColor = isStreakGame ? '#000000' : '#FAFAFA';
+  // Track dark mode state
+  const [isDarkMode, setIsDarkMode] = useState(() => 
+    document.documentElement.classList.contains('dark')
+  );
+  
+  // Listen for dark mode changes
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          setIsDarkMode(document.documentElement.classList.contains('dark'));
+        }
+      });
+    });
+    
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect();
+  }, []);
+  
+  // Determine background color based on streak game status and dark mode
+  // Light mode: #FAFAFA (near white), Dark mode: hsl(222, 47%, 11%) = #0f172a (dark blue)
+  const backgroundColor = useMemo(() => {
+    if (isStreakGame) return '#000000';
+    return isDarkMode ? 'hsl(222, 47%, 11%)' : '#FAFAFA';
+  }, [isStreakGame, isDarkMode]);
   
   // Use the global hamster spinner with onFadeOutComplete to sequence animations
   const spinner = useSpinnerWithTimeout({
@@ -181,8 +204,17 @@ export function IntroScreen({
     }
   }, [isPresent, spinner, safeToRemove]);
 
-  const textColor = isStreakGame ? '#FFFFFF' : '#54524F';
-  const categoryTextColor = isStreakGame ? '#FFD700' : '#1e3a8a';
+  // Text colors that adapt to dark mode
+  const textColor = useMemo(() => {
+    if (isStreakGame) return '#FFFFFF';
+    return isDarkMode ? '#FAFAFA' : '#54524F';
+  }, [isStreakGame, isDarkMode]);
+  
+  const categoryTextColor = useMemo(() => {
+    if (isStreakGame) return '#FFD700';
+    return isDarkMode ? '#7DAAE8' : '#1e3a8a'; // Lighter blue in dark mode
+  }, [isStreakGame, isDarkMode]);
+  
   const streakRedColor = '#DC2626'; // Same red as streak celebration popup (text-red-600)
   
   // Show streak saver info popup when entering a streak saver game
@@ -232,7 +264,7 @@ export function IntroScreen({
             }}
             data-testid="button-intro-back"
           >
-            <ChevronLeft className="h-9 w-9" style={{ color: isStreakGame ? '#FFFFFF' : '#54524F' }} />
+            <ChevronLeft className="h-9 w-9" style={{ color: isStreakGame ? '#FFFFFF' : (isDarkMode ? '#FAFAFA' : '#54524F') }} />
           </motion.button>
 
           {/* Content - opacity controlled, layout always maintained */}
@@ -313,7 +345,7 @@ export function IntroScreen({
                 Play
               </button>
 
-              <p className="text-sm" data-testid="text-intro-puzzle-date" style={{ color: isStreakGame ? 'rgba(255, 255, 255, 0.7)' : '#999' }}>
+              <p className="text-sm" data-testid="text-intro-puzzle-date" style={{ color: isStreakGame ? 'rgba(255, 255, 255, 0.7)' : (isDarkMode ? 'rgba(255, 255, 255, 0.6)' : '#999') }}>
                 Puzzle date: {displayDate}
               </p>
             </div>
