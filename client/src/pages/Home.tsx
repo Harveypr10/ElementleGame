@@ -65,6 +65,7 @@ export default function Home() {
   const [showSplash, setShowSplash] = useState(true);
   const [previousScreen, setPreviousScreen] = useState<Screen>("selection");
   const [statsReturnScreen, setStatsReturnScreen] = useState<Screen>("selection");
+  const [archiveReturnScreen, setArchiveReturnScreen] = useState<Screen>("selection");
   const [statsGameType, setStatsGameType] = useState<'REGION' | 'USER'>('REGION');
   const [showCelebrationFirst, setShowCelebrationFirst] = useState(false);
   const [hasOpenedCelebration, setHasOpenedCelebration] = useState(false);
@@ -497,6 +498,7 @@ export default function Home() {
 
   const handleArchiveGlobal = () => {
     setGameMode('global');
+    setArchiveReturnScreen("selection");
     setCurrentScreen("archive");
   };
 
@@ -527,6 +529,7 @@ export default function Home() {
 
   const handleArchiveLocal = () => {
     setGameMode('local');
+    setArchiveReturnScreen("selection");
     setCurrentScreen("archive");
   };
 
@@ -1001,7 +1004,10 @@ export default function Home() {
                 setStatsReturnScreen("play");
                 setCurrentScreen("stats");
               }}
-              onViewArchive={() => setCurrentScreen("archive")}
+              onViewArchive={() => {
+                setArchiveReturnScreen("play");
+                setCurrentScreen("archive");
+              }}
               onContinueToLogin={() => {
                 // Guest completed game - go to login with subtitle
                 setShowLoginSubtitle(true);
@@ -1034,7 +1040,7 @@ export default function Home() {
             <ArchivePage 
               onBack={() => {
                 setArchiveMonthContext(null);
-                setCurrentScreen("selection");
+                setCurrentScreen(archiveReturnScreen);
               }}
               onPlayPuzzle={handlePlayPuzzle}
               puzzles={puzzles as any[]}
