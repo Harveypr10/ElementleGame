@@ -62,12 +62,13 @@ Preferred communication style: Simple, everyday language.
   - Guard includes a session-aware bypass: if `needsFirstLoginSetup=false && hasShownGeneratingScreen=true`, user just completed setup this session and shouldn't be redirected (handles async metadata update timing)
   - `markFirstLoginCompleted()` updates Supabase user_metadata after GeneratingQuestionsScreen completes
 - **Session Persistence**: useAuth hook handles session persistence with:
-  - Visibility change handler refreshes session when tab resumes focus (prevents stale sessions)
-  - Auth state change listener updates user state on sign-in/sign-out events
+  - Visibility change handler only refreshes session when token is close to expiry (within 5 minutes) - prevents unnecessary session refreshes
+  - Auth state change listener (single source in useAuth) updates user state on sign-in/sign-out events
   - Auth guard in Home.tsx redirects to OnboardingScreen if user is signed out while on protected screens
   - **Debounced Auth Guard**: Uses 2-second timeout before redirecting to prevent false positives during session refresh
   - Also checks localStorage for session tokens (`sb-*-auth-token`) before confirming sign-out to avoid race conditions
   - PreloadProvider passes auth tokens to authenticated endpoints (stats, game-attempts) to prevent 401 errors during preload
+  - **Google OAuth Fix**: Removed redundant auth state listener from SupabaseProvider that was causing database updates on every SIGNED_IN event (fires on token refresh, visibility change, etc.) - Google signup_method is now handled server-side during profile creation
 - **Sign-Out Flow**: Signing out navigates to OnboardingScreen and clears all cache:
   - `clearUserCache()` clears game progress, stats, puzzle-progress-*, guess-cache-*, Supabase session tokens (sb-*-auth-token), first-login tracking, and demand call keys
   - React Query cache is also cleared to prevent data leaks between users

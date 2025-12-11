@@ -53,22 +53,44 @@ export function useAuth() {
           }
           
           if (session) {
-            // Session exists - try to refresh it to ensure it's valid
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-            if (refreshError) {
-              console.warn("[useAuth] Error refreshing session:", refreshError);
-              // If refresh fails, the session may be invalid - update state
-              setUser(null);
-            } else if (refreshData.session) {
-              console.log("[useAuth] Session refreshed successfully");
-              setUser(refreshData.session.user);
+            // Session exists and is valid - only refresh if token is close to expiry
+            // Check if token expires within next 5 minutes
+            const expiresAt = session.expires_at;
+            const fiveMinutesFromNow = Math.floor(Date.now() / 1000) + 300;
+            
+            if (expiresAt && expiresAt < fiveMinutesFromNow) {
+              // Token expires soon - refresh it
+              console.log("[useAuth] Token expiring soon, refreshing...");
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+              if (refreshError) {
+                console.warn("[useAuth] Error refreshing session:", refreshError);
+                // Don't set user to null on refresh error - keep existing session
+                // The onAuthStateChange will handle actual sign-outs
+              } else if (refreshData.session) {
+                console.log("[useAuth] Session refreshed successfully");
+                setUser(refreshData.session.user);
+              }
+            } else {
+              // Token is still valid - no need to refresh
+              console.log("[useAuth] Session still valid, no refresh needed");
             }
           } else {
-            console.log("[useAuth] No session found on visibility change");
-            setUser(null);
+            // No session found - but don't immediately set null
+            // Check localStorage for session tokens before declaring signed out
+            const hasLocalTokens = Object.keys(localStorage).some(key => 
+              key.startsWith('sb-') && key.includes('-auth-token')
+            );
+            
+            if (!hasLocalTokens) {
+              console.log("[useAuth] No session found on visibility change");
+              setUser(null);
+            } else {
+              console.log("[useAuth] No session but local tokens exist - waiting for auth state change");
+            }
           }
         } catch (err) {
           console.warn("[useAuth] Error in visibility change handler:", err);
+          // Don't set user to null on errors - keep existing state
         }
       }
     };
