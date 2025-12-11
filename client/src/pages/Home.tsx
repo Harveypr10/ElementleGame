@@ -209,18 +209,60 @@ export default function Home() {
   // Guard: Redirect unauthenticated users on protected screens to OnboardingScreen
   // This catches cases where the user is signed out while viewing a protected screen
   // (e.g., session expired, signed out in another tab, etc.)
+  // Uses a debounce to avoid reacting to brief auth state changes during session refresh
+  const authGuardTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
-    // Only check after initial loading is complete
-    if (isLoading) return;
+    // Always clear any pending timeout when effect re-runs or unmounts
+    // This MUST happen before any early returns to prevent stale timers
+    const clearPendingTimeout = () => {
+      if (authGuardTimeoutRef.current) {
+        console.log('[Home] Guard: Clearing pending timeout due to auth state change');
+        clearTimeout(authGuardTimeoutRef.current);
+        authGuardTimeoutRef.current = null;
+      }
+    };
     
-    // If user is not authenticated but is on a protected screen, redirect to onboarding
-    if (!isAuthenticated && protectedScreens.includes(currentScreen)) {
-      console.log('[Home] Guard: User signed out on protected screen, redirecting to onboarding');
-      // Clear any local state that might cause issues
-      clearUserCache();
-      sharedQueryClient.clear();
-      setCurrentScreen("onboarding");
+    // Clear any pending timeout first
+    clearPendingTimeout();
+    
+    // Only check after initial loading is complete
+    if (isLoading) {
+      return clearPendingTimeout;
     }
+    
+    // If user is authenticated, no action needed - just return cleanup
+    if (isAuthenticated) {
+      return clearPendingTimeout;
+    }
+    
+    // If user is not authenticated but is on a protected screen, wait a moment
+    // before redirecting to allow session refresh to complete
+    if (protectedScreens.includes(currentScreen)) {
+      console.log('[Home] Guard: User appears signed out on protected screen, waiting to confirm...');
+      
+      authGuardTimeoutRef.current = setTimeout(() => {
+        // Double-check auth state hasn't changed during the delay
+        // We can't access the latest isAuthenticated here due to closure,
+        // so we check if there's a session token in localStorage as a backup
+        const hasSessionToken = Object.keys(localStorage).some(key => 
+          key.startsWith('sb-') && key.includes('-auth-token')
+        );
+        
+        if (hasSessionToken) {
+          console.log('[Home] Guard: Found session token, not redirecting');
+          return;
+        }
+        
+        console.log('[Home] Guard: User confirmed signed out, redirecting to onboarding');
+        // Clear any local state that might cause issues
+        clearUserCache();
+        sharedQueryClient.clear();
+        setCurrentScreen("onboarding");
+      }, 2000); // Wait 2 seconds before redirecting
+    }
+    
+    return clearPendingTimeout;
   }, [isAuthenticated, isLoading, currentScreen]);
 
   // Scroll to top when screen changes

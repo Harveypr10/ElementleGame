@@ -123,31 +123,39 @@ export function PreloadProvider({ children }: PreloadProviderProps) {
             staleTime: 30 * 60 * 1000, // Cache for 30 mins since regions rarely change
           }).then(data => ({ key: 'regions', data })).catch(() => ({ key: 'regions', data: null })),
 
-          // Prefetch stats
-          queryClient.fetchQuery({
+          // Prefetch stats (requires auth)
+          authToken ? queryClient.fetchQuery({
             queryKey: ['/api/stats'],
             queryFn: async () => {
               const response = await fetch('/api/stats', {
                 credentials: 'include',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                },
               });
               if (!response.ok) throw new Error('Failed to fetch stats');
               return response.json();
             },
             staleTime: 5 * 60 * 1000,
-          }).then(data => ({ key: 'stats', data })).catch(() => ({ key: 'stats', data: null })),
+          }).then(data => ({ key: 'stats', data })).catch(() => ({ key: 'stats', data: null }))
+          : Promise.resolve({ key: 'stats', data: null }),
 
-          // Prefetch game attempts
-          queryClient.fetchQuery({
+          // Prefetch game attempts (requires auth)
+          authToken ? queryClient.fetchQuery({
             queryKey: ['/api/game-attempts/user'],
             queryFn: async () => {
               const response = await fetch('/api/game-attempts/user', {
                 credentials: 'include',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                },
               });
               if (!response.ok) throw new Error('Failed to fetch attempts');
               return response.json();
             },
             staleTime: 5 * 60 * 1000,
-          }).then(data => ({ key: 'attempts', data })).catch(() => ({ key: 'attempts', data: null })),
+          }).then(data => ({ key: 'attempts', data })).catch(() => ({ key: 'attempts', data: null }))
+          : Promise.resolve({ key: 'attempts', data: null }),
 
           // Prefetch user pro-categories (requires auth)
           authToken ? queryClient.fetchQuery({

@@ -65,6 +65,9 @@ Preferred communication style: Simple, everyday language.
   - Visibility change handler refreshes session when tab resumes focus (prevents stale sessions)
   - Auth state change listener updates user state on sign-in/sign-out events
   - Auth guard in Home.tsx redirects to OnboardingScreen if user is signed out while on protected screens
+  - **Debounced Auth Guard**: Uses 2-second timeout before redirecting to prevent false positives during session refresh
+  - Also checks localStorage for session tokens (`sb-*-auth-token`) before confirming sign-out to avoid race conditions
+  - PreloadProvider passes auth tokens to authenticated endpoints (stats, game-attempts) to prevent 401 errors during preload
 - **Sign-Out Flow**: Signing out navigates to OnboardingScreen and clears all cache:
   - `clearUserCache()` clears game progress, stats, puzzle-progress-*, guess-cache-*, Supabase session tokens (sb-*-auth-token), first-login tracking, and demand call keys
   - React Query cache is also cleared to prevent data leaks between users
