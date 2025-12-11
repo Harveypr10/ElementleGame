@@ -1415,17 +1415,23 @@ export function PlayPage({
     if (!isAuthenticated) return;
 
     try {
+      // Determine if this is a streak saver play (accessed via streak saver popup, not archive)
+      const isStreakSaverPlay = isInStreakSaverMode && !!streakSaverSession;
+      
       console.log('[completeGameAttempt] Completing attempt:', {
         gameAttemptId,
         won,
-        numGuesses
+        numGuesses,
+        isStreakSaverPlay
       });
       
       // Update the game attempt with result and completion time
+      // Pass isStreakSaverPlay to server so it knows whether to update streak_day_status
       const patchEndpoint = isLocalMode ? `/api/user/game-attempts/${gameAttemptId}` : `/api/game-attempts/${gameAttemptId}`;
       const patchRes = await apiRequest("PATCH", patchEndpoint, {
         result: won ? "won" : "lost",
-        numGuesses
+        numGuesses,
+        isStreakSaverPlay
       });
       
       if (!patchRes.ok) {

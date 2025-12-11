@@ -86,6 +86,7 @@ Preferred communication style: Simple, everyday language.
     - Today's puzzle: Win sets streak_day_status=1, Loss sets streak_day_status=NULL (breaks streak), Not played keeps streak_day_status=0
   - **StreakSaver Popup Prevention**: Popup won't trigger if yesterday's puzzle has streak_day_status=0 (holiday) or 1 (played)
   - **Holiday Mode Activation from Popup**: When holiday mode is activated from first StreakSaver popup, second popup for other game mode is suppressed via `holidayJustActivated` flag
+  - **Archive vs Streak Saver Play**: CRITICAL - streak_day_status is ONLY updated when playing yesterday's puzzle via streak saver popup (isStreakSaverPlay=true). Archive plays of yesterday's puzzle do NOT change streak_day_status, preserving any holiday protection (=0) or other status.
 - **Badge System**: Achievement badges for milestones across three categories:
   - **Elementle In**: Awarded for winning in 1 or 2 guesses (checked immediately after each game)
   - **Streak**: Awarded for streak milestones (7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000 days) (checked immediately after each game)

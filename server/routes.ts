@@ -863,17 +863,27 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
     }
 
     // Handle streak_day_status for today's puzzle or streak saver (yesterday's puzzle)
+    // IMPORTANT: Only update streak_day_status for yesterday's puzzle if isStreakSaverPlay is true
+    // Archive plays should NOT update streak_day_status (preserve holiday protection, etc.)
     const puzzleDate = ownedAttempt.allocatedQuestion?.puzzleDate;
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     const isTodaysPuzzle = puzzleDate === today;
-    const isStreakSaverGame = puzzleDate === yesterday;
+    const isYesterdaysPuzzle = puzzleDate === yesterday;
+    const isStreakSaverPlay = req.body.isStreakSaverPlay === true;
     
-    if (updates.result === "won" && (isTodaysPuzzle || isStreakSaverGame)) {
-      // Global/Region mode has no holiday protection - always set streak_day_status on win
+    // Remove isStreakSaverPlay from updates as it's not a database column
+    delete updates.isStreakSaverPlay;
+    
+    if (updates.result === "won" && isTodaysPuzzle) {
+      // Today's puzzle win - always set streak_day_status = 1
       updates.streakDayStatus = 1;
-      console.log(`[PATCH /api/game-attempts/:id] Setting streak_day_status = 1 (${isStreakSaverGame ? 'streak saver' : 'today'})`);
-    } else if (updates.result === "lost" && isStreakSaverGame) {
+      console.log('[PATCH /api/game-attempts/:id] Setting streak_day_status = 1 (today)');
+    } else if (updates.result === "won" && isYesterdaysPuzzle && isStreakSaverPlay) {
+      // Streak saver win (yesterday's puzzle via streak saver popup) - set streak_day_status = 1
+      updates.streakDayStatus = 1;
+      console.log('[PATCH /api/game-attempts/:id] Setting streak_day_status = 1 (streak saver)');
+    } else if (updates.result === "lost" && isYesterdaysPuzzle && isStreakSaverPlay) {
       // Streak saver loss: leave streak_day_status as NULL, reset streak to 0
       // streak_day_status stays NULL (don't set to 0) so streak calculation breaks
       console.log('[PATCH /api/game-attempts/:id] Streak saver lost - streak_day_status stays NULL, streak resets');
@@ -885,6 +895,9 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
         updates.streakDayStatus = null;
         console.log('[PATCH /api/game-attempts/:id] Today puzzle lost after holiday - setting streak_day_status = NULL to break streak');
       }
+    } else if (isYesterdaysPuzzle && !isStreakSaverPlay) {
+      // Archive play of yesterday's puzzle - do NOT change streak_day_status
+      console.log('[PATCH /api/game-attempts/:id] Archive play of yesterday - streak_day_status preserved');
     }
 
     const gameAttempt = await storage.updateGameAttemptRegion(id, updates);
@@ -1458,24 +1471,34 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       }
 
       // Handle streak_day_status for today's puzzle or streak saver (yesterday's puzzle)
+      // IMPORTANT: Only update streak_day_status for yesterday's puzzle if isStreakSaverPlay is true
+      // Archive plays should NOT update streak_day_status (preserve holiday protection, etc.)
       const puzzleDate = ownedAttempt.allocatedQuestion?.puzzleDate;
       const today = new Date().toISOString().split('T')[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
       const isTodaysPuzzle = puzzleDate === today;
-      const isStreakSaverGame = puzzleDate === yesterday;
+      const isYesterdaysPuzzle = puzzleDate === yesterday;
+      const isStreakSaverPlay = req.body.isStreakSaverPlay === true;
       
-      if (updates.result === "won" && (isTodaysPuzzle || isStreakSaverGame)) {
-        // Check if holiday mode is active (only relevant for today's puzzle, not streak saver)
+      // Remove isStreakSaverPlay from updates as it's not a database column
+      delete updates.isStreakSaverPlay;
+      
+      if (updates.result === "won" && isTodaysPuzzle) {
+        // Check if holiday mode is active for today's puzzle
         const streakStatus = await storage.getStreakSaverStatus(userId);
         const holidayActive = streakStatus?.user?.holidayActive ?? false;
         
-        if (!holidayActive || isStreakSaverGame) {
+        if (!holidayActive) {
           updates.streakDayStatus = 1;
-          console.log(`[PATCH /api/user/game-attempts/:id] Setting streak_day_status = 1 (${isStreakSaverGame ? 'streak saver' : 'today'})`);
+          console.log('[PATCH /api/user/game-attempts/:id] Setting streak_day_status = 1 (today)');
         } else {
           console.log('[PATCH /api/user/game-attempts/:id] Holiday active, streak_day_status remains as-is');
         }
-      } else if (updates.result === "lost" && isStreakSaverGame) {
+      } else if (updates.result === "won" && isYesterdaysPuzzle && isStreakSaverPlay) {
+        // Streak saver win (yesterday's puzzle via streak saver popup) - set streak_day_status = 1
+        updates.streakDayStatus = 1;
+        console.log('[PATCH /api/user/game-attempts/:id] Setting streak_day_status = 1 (streak saver)');
+      } else if (updates.result === "lost" && isYesterdaysPuzzle && isStreakSaverPlay) {
         // Streak saver loss: leave streak_day_status as NULL, reset streak to 0
         // streak_day_status stays NULL (don't set to 0) so streak calculation breaks
         console.log('[PATCH /api/user/game-attempts/:id] Streak saver lost - streak_day_status stays NULL, streak resets');
@@ -1487,6 +1510,9 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
           updates.streakDayStatus = null;
           console.log('[PATCH /api/user/game-attempts/:id] Today puzzle lost after holiday - setting streak_day_status = NULL to break streak');
         }
+      } else if (isYesterdaysPuzzle && !isStreakSaverPlay) {
+        // Archive play of yesterday's puzzle - do NOT change streak_day_status
+        console.log('[PATCH /api/user/game-attempts/:id] Archive play of yesterday - streak_day_status preserved');
       }
 
       const gameAttempt = await storage.updateGameAttemptUser(id, updates);
