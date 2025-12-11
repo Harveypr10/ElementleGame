@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Smartphone, ArrowRight, Check } from 'lucide-react';
+import { Smartphone, ArrowRight, Check, Loader2 } from 'lucide-react';
 import { storeMagicLinkTokenInCookie } from '@/lib/pwaContext';
 
 export function MagicLinkHandoff() {
   const [tokenStored, setTokenStored] = useState(false);
   const [showContinueSafari, setShowContinueSafari] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const tokenDataRef = useRef<{ tokenHash: string; type: string } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -14,37 +16,55 @@ export function MagicLinkHandoff() {
     const type = params.get('type');
 
     if (tokenHash && type === 'magiclink') {
+      // Store token data for Safari fallback
+      tokenDataRef.current = { tokenHash, type };
+      // Store in cookie for PWA handoff
       storeMagicLinkTokenInCookie(tokenHash, type);
       setTokenStored(true);
+      // Clean URL but keep token data in ref for Safari option
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
   const handleContinueInSafari = async () => {
-    const params = new URLSearchParams(window.location.search);
-    const tokenHash = params.get('token_hash');
-    const type = params.get('type');
+    const tokenData = tokenDataRef.current;
     
-    if (tokenHash && type) {
-      try {
-        const response = await fetch('/api/supabase-config');
-        const config = await response.json();
-        const { createClient } = await import('@supabase/supabase-js');
-        const supabase = createClient(config.url, config.anonKey, {
-          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
-        });
-        
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: 'magiclink',
-        });
-        
-        if (!error) {
-          window.location.href = window.location.origin;
-        }
-      } catch (e) {
-        console.error('Safari auth failed:', e);
+    if (!tokenData) {
+      console.error('[MagicLinkHandoff] No token data available for Safari auth');
+      return;
+    }
+
+    setIsAuthenticating(true);
+    
+    try {
+      const response = await fetch('/api/supabase-config');
+      const config = await response.json();
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(config.url, config.anonKey, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+      });
+      
+      console.log('[MagicLinkHandoff] Verifying token in Safari...');
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: tokenData.tokenHash,
+        type: 'magiclink',
+      });
+      
+      if (error) {
+        console.error('[MagicLinkHandoff] Safari auth error:', error);
+        setIsAuthenticating(false);
+        return;
       }
+      
+      if (data.session) {
+        console.log('[MagicLinkHandoff] Safari auth successful, redirecting...');
+        // Clear the cookie since we consumed the token in Safari
+        document.cookie = 'elementle_magic_link_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        window.location.href = window.location.origin;
+      }
+    } catch (e) {
+      console.error('[MagicLinkHandoff] Safari auth failed:', e);
+      setIsAuthenticating(false);
     }
   };
 
@@ -113,9 +133,19 @@ export function MagicLinkHandoff() {
                   className="w-full"
                   data-testid="button-continue-safari"
                   onClick={handleContinueInSafari}
+                  disabled={isAuthenticating}
                 >
-                  <ArrowRight className="w-3 h-3 mr-2" />
-                  Continue in Safari
+                  {isAuthenticating ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="w-3 h-3 mr-2" />
+                      Continue in Safari
+                    </>
+                  )}
                 </Button>
               </div>
             )}

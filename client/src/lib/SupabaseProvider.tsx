@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabaseClient';
 import { isPwaContext, markPwaInstalled, shouldShowMagicLinkHandoff, getMagicLinkTokenFromCookie, clearMagicLinkCookie } from './pwaContext';
@@ -11,6 +11,42 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showHandoff, setShowHandoff] = useState(false);
+
+  // Function to check for and verify magic link token from cookie
+  const checkForCookieToken = useCallback(async (client: SupabaseClient) => {
+    if (!isPwaContext()) return false;
+    
+    const cookieToken = getMagicLinkTokenFromCookie();
+    if (!cookieToken) return false;
+    
+    console.log('[SupabaseProvider] Found magic link token in cookie (PWA handoff)');
+    
+    try {
+      const { data, error: verifyError } = await client.auth.verifyOtp({
+        token_hash: cookieToken.tokenHash,
+        type: cookieToken.type as 'magiclink',
+      });
+      
+      clearMagicLinkCookie();
+      
+      if (verifyError) {
+        console.error('[SupabaseProvider] Error verifying cookie token:', verifyError);
+        return false;
+      }
+      
+      if (data.session) {
+        console.log('[SupabaseProvider] Successfully authenticated from cookie token for:', data.session.user.email);
+        // Force reload to ensure app state is refreshed with new session
+        window.location.reload();
+        return true;
+      }
+    } catch (e) {
+      console.error('[SupabaseProvider] Cookie token verification failed:', e);
+      clearMagicLinkCookie();
+    }
+    
+    return false;
+  }, []);
 
   useEffect(() => {
     // Mark PWA as installed when running in PWA context
@@ -42,12 +78,9 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
         
         // In PWA context, also check for token stored in cookie (from Safari handoff)
         if (isPwaContext() && !tokenHash) {
-          const cookieToken = getMagicLinkTokenFromCookie();
-          if (cookieToken) {
-            console.log('[SupabaseProvider] Found magic link token in cookie (PWA handoff)');
-            tokenHash = cookieToken.tokenHash;
-            type = cookieToken.type;
-            clearMagicLinkCookie();
+          const authenticated = await checkForCookieToken(client);
+          if (authenticated) {
+            return; // Page will reload
           }
         }
         
@@ -133,7 +166,25 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     }
 
     initSupabase();
-  }, []);
+  }, [checkForCookieToken]);
+
+  // Set up visibility change listener to check for cookie token when PWA is brought back to foreground
+  useEffect(() => {
+    if (!supabase || !isPwaContext()) return;
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[SupabaseProvider] PWA became visible - checking for cookie token');
+        await checkForCookieToken(supabase);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [supabase, checkForCookieToken]);
 
   // Show handoff screen for iOS Safari users with magic link token
   if (showHandoff) {
