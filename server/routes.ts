@@ -1136,6 +1136,23 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Get ALL user's earned badges for Region game mode (for AllBadgesPopup - exact badge ID matching)
+  app.get("/api/badges/earned/all", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const profile = await storage.getUserProfile(userId);
+      const region = profile?.region || "UK";
+      
+      console.log(`[GET /api/badges/earned/all] userId: ${userId}, region: ${region}, gameType: REGION`);
+      
+      const allEarnedBadges = await storage.getUserBadges(userId, 'REGION', region, true);
+      res.json(allEarnedBadges);
+    } catch (error) {
+      console.error("[GET /api/badges/earned/all] Error:", error);
+      res.status(500).json({ error: "Failed to fetch all earned badges" });
+    }
+  });
+
   // Get pending badges for Region game mode (for popup animation)
   app.get("/api/badges/pending", verifySupabaseAuth, async (req: any, res) => {
     try {
@@ -1716,6 +1733,21 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     } catch (error) {
       console.error("[GET /api/user/badges/earned] Error:", error);
       res.status(500).json({ error: "Failed to fetch earned badges" });
+    }
+  });
+
+  // Get ALL user's earned badges for User game mode (for AllBadgesPopup - exact badge ID matching)
+  app.get("/api/user/badges/earned/all", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      console.log(`[GET /api/user/badges/earned/all] userId: ${userId}, gameType: USER, region: GLOBAL`);
+      
+      const allEarnedBadges = await storage.getUserBadges(userId, 'USER', 'GLOBAL', true);
+      res.json(allEarnedBadges);
+    } catch (error) {
+      console.error("[GET /api/user/badges/earned/all] Error:", error);
+      res.status(500).json({ error: "Failed to fetch all earned badges" });
     }
   });
 

@@ -90,9 +90,10 @@ Preferred communication style: Simple, everyday language.
   - **Holiday Mode Activation from Popup**: When holiday mode is activated from first StreakSaver popup, second popup for other game mode is suppressed via `holidayJustActivated` flag
   - **Archive vs Streak Saver Play**: CRITICAL - streak_day_status is ONLY updated when playing yesterday's puzzle via streak saver popup (isStreakSaverPlay=true). Archive plays of yesterday's puzzle do NOT change streak_day_status, preserving any holiday protection (=0) or other status.
 - **Badge System**: Achievement badges for milestones across three categories:
-  - **Elementle In**: Awarded for winning in 1 or 2 guesses (checked immediately after each game)
-  - **Streak**: Awarded for streak milestones (7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000 days) (checked immediately after each game)
-  - **Percentile (TOP %)**: Region-scoped rankings (Top 50%, 40%, 30%, 20%, 15%, 10%, 5%, 3%, 2%, 1%) - **Monthly cron job only**
+  - **Elementle In**: Awarded for winning in 1 or 2 guesses (checked immediately after each game). INDEPENDENT badges - having one doesn't imply the other.
+  - **Streak**: Awarded for streak milestones (7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000 days) (checked immediately after each game). CASCADE behavior - higher streaks imply lower ones.
+  - **Percentile (TOP %)**: Region-scoped rankings (Top 50%, 40%, 30%, 20%, 15%, 10%, 5%, 3%, 2%, 1%) - **Monthly cron job only**. CASCADE behavior - lower percentile implies higher ones.
+  - **AllBadgesPopup**: Uses `/api/badges/earned/all` and `/api/user/badges/earned/all` endpoints to fetch ALL earned badges for exact ID matching (elementle) vs cascade logic (streak/percentile).
     - A Supabase scheduled function runs monthly to calculate rankings and insert pending badges (is_awarded=false)
     - NOT checked after each game - only processed when GameSelectionPage loads
   - Badge celebration popup with Trophy.json Lottie animation after streak celebration

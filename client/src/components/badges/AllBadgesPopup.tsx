@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useMotionValue, animate, PanInfo } from "framer-motion";
 import { X, ChevronUp, ChevronDown } from "lucide-react";
@@ -105,6 +105,21 @@ export function AllBadgesPopup({ gameType, earnedBadges, initialCategory, onClos
     queryKey: ['/api/badges'],
   });
 
+  // Fetch ALL earned badges (not just highest) for exact ID matching
+  const allEarnedEndpoint = gameType === 'USER' 
+    ? '/api/user/badges/earned/all' 
+    : '/api/badges/earned/all';
+  
+  const { data: allEarnedBadges } = useQuery<UserBadgeWithDetails[]>({
+    queryKey: [allEarnedEndpoint],
+  });
+
+  // Create a set of earned badge IDs for O(1) lookup
+  const earnedBadgeIds = useMemo(() => {
+    if (!allEarnedBadges) return new Set<number>();
+    return new Set(allEarnedBadges.map(ub => ub.badge.id));
+  }, [allEarnedBadges]);
+
   const currentCategory = CATEGORIES[currentCategoryIndex];
   const config = CATEGORY_CONFIG[currentCategory];
 
@@ -118,13 +133,30 @@ export function AllBadgesPopup({ gameType, earnedBadges, initialCategory, onClos
     const earnedBadge = earnedBadges?.[category];
     const earnedThreshold = earnedBadge?.badge?.threshold ?? -1;
 
-    return categoryBadges.map(badge => ({
-      badge,
-      isEarned: category === 'percentile' 
-        ? (earnedThreshold !== -1 && badge.threshold >= earnedThreshold)
-        : (earnedThreshold !== -1 && badge.threshold <= earnedThreshold),
-      userBadge: earnedBadge?.badge?.id === badge.id ? earnedBadge : undefined,
-    }));
+    return categoryBadges.map(badge => {
+      let isEarned: boolean;
+      
+      if (category === 'elementle') {
+        // Elementle badges are INDEPENDENT - check exact badge ID match
+        // A user can have "Elementle in 1", "Elementle in 2", both, or neither
+        isEarned = earnedBadgeIds.has(badge.id);
+      } else if (category === 'percentile') {
+        // Percentile badges cascade: lower is better (Top 1% implies Top 5%, 10%, etc.)
+        isEarned = earnedThreshold !== -1 && badge.threshold >= earnedThreshold;
+      } else {
+        // Streak badges cascade: higher is better (30-day streak implies 7-day, 14-day)
+        isEarned = earnedThreshold !== -1 && badge.threshold <= earnedThreshold;
+      }
+      
+      // Find the matching user badge for this specific badge if earned
+      const matchingUserBadge = allEarnedBadges?.find(ub => ub.badge.id === badge.id);
+      
+      return {
+        badge,
+        isEarned,
+        userBadge: matchingUserBadge,
+      };
+    });
   };
 
   const categoryBadges = getBadgesForCategory(currentCategory);
