@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabaseClient';
+import { isPwaContext, markPwaInstalled, shouldShowMagicLinkHandoff } from './pwaContext';
+import { MagicLinkHandoff } from '@/components/MagicLinkHandoff';
 
 const SupabaseContext = createContext<SupabaseClient | null>(null);
 
@@ -8,8 +10,23 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showHandoff, setShowHandoff] = useState(false);
 
   useEffect(() => {
+    // Mark PWA as installed when running in PWA context
+    if (isPwaContext()) {
+      console.log('[SupabaseProvider] Running in PWA context - marking as installed');
+      markPwaInstalled();
+    }
+
+    // Check if we should show the handoff screen (iOS Safari with magic link token + PWA installed)
+    if (shouldShowMagicLinkHandoff()) {
+      console.log('[SupabaseProvider] iOS Safari detected with magic link token and PWA installed - showing handoff screen');
+      setShowHandoff(true);
+      setLoading(false);
+      return;
+    }
+
     async function initSupabase() {
       try {
         // Use the unified singleton client
@@ -19,7 +36,7 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
         const hash = window.location.hash;
         const searchParams = new URLSearchParams(window.location.search);
         
-        // Check for token_hash in URL query params (PKCE flow - works cross-browser/device)
+        // Check for token_hash in URL query params (PKCE flow)
         const tokenHash = searchParams.get('token_hash');
         const type = searchParams.get('type');
         
@@ -106,6 +123,11 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
 
     initSupabase();
   }, []);
+
+  // Show handoff screen for iOS Safari users with magic link token (when PWA is installed)
+  if (showHandoff) {
+    return <MagicLinkHandoff />;
+  }
 
   if (loading) {
     return (

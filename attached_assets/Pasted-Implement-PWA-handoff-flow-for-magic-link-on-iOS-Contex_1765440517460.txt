@@ -1,0 +1,62 @@
+Implement PWA handoff flow for magic link on iOS
+Context
+
+iOS opens magic links in Safari or an in‑app browser. Safari and the PWA have separate storage contexts, so sessions created in Safari don’t persist in the PWA.
+
+The email template already includes token_hash (format: {{ .SiteURL }}?token_hash={{ .TokenHash }}&type=magiclink).
+
+Goal
+
+Implement a handoff flow so that if the magic link opens in Safari, the user can tap “Open in Elementle App” to route the same URL (with token_hash) into the installed PWA. Inside the PWA, verify the token and persist the session.
+
+Requirements
+
+Add PWA context utilities:
+
+Implement isPwaContext, markPwaInstalled, and hasPwaInstalledFlag in client/src/lib/pwaContext.ts.
+
+On app mount, call markPwaInstalled() when in PWA context.
+
+Handoff screen:
+
+Create client/src/components/MagicLinkHandoff.tsx.
+
+It should:
+
+Read token_hash and type=magiclink from window.location.search.
+
+Render a button linking to ${window.location.origin}/?token_hash=...&type=magiclink.
+
+Provide brief guidance text.
+
+Routing logic:
+
+In App.tsx (or SupabaseProvider.tsx pre-render gate), if token_hash exists and not in PWA context, render MagicLinkHandoff instead of the normal app.
+
+If in PWA context and token_hash exists, proceed to verification (below).
+
+Token verification in PWA:
+
+In SupabaseProvider.tsx, on mount, detect token_hash + type=magiclink in the query.
+
+Call supabase.auth.verifyOtp({ type: "magiclink", token_hash }).
+
+On success, call window.history.replaceState({}, document.title, window.location.pathname) to clear the query.
+
+Ensure session state updates via supabase.auth.onAuthStateChange.
+
+Supabase client config:
+
+Confirm persistSession: true, autoRefreshToken: true, and detectSessionInUrl: true remain enabled in supabaseClient.ts.
+
+Deliverables
+
+client/src/lib/pwaContext.ts with detection and flag helpers.
+
+client/src/components/MagicLinkHandoff.tsx handoff component.
+
+Updated App.tsx (or SupabaseProvider.tsx) to render the handoff when in Safari context with a token present.
+
+Verified SupabaseProvider.tsx token verification logic and URL cleanup.
+
+Basic styling aligned with Elementle’s theme (rounded corners, blue action button #7DAAE8).
