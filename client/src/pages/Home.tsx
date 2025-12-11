@@ -586,11 +586,13 @@ export default function Home() {
   const handleLoginSuccess = () => {
     // Reset skip intro flag when logging in
     setSkipIntroForGuest(false);
-    if (isAuthenticated && !hasCompletedFirstLogin() && !hasShownGeneratingScreen) {
-      // User hasn't completed first login - show GeneratingQuestionsScreen
+    if (isAuthenticated && !hasCompletedFirstLogin()) {
+      // User hasn't completed first login - redirect to personalise screen
+      // They must complete the personalise flow before accessing the app
+      console.log('[handleLoginSuccess] Redirecting to personalise - first login not completed');
       setNeedsFirstLoginSetup(true);
       setHasShownGeneratingScreen(true);
-      setCurrentScreen("generating-questions");
+      setCurrentScreen("personalise");
     } else {
       setCurrentScreen("selection");
     }
@@ -656,6 +658,9 @@ export default function Home() {
   // Sign out spinner callbacks - must be stable across renders
   const handleSignOutComplete = useCallback(() => {
     console.log('[Home] Sign out complete - navigating to onboarding');
+    // Reset first login tracking flags on sign out to prevent bypass
+    setNeedsFirstLoginSetup(false);
+    setHasShownGeneratingScreen(false);
     setShowAuthButtons(true);
     setCurrentScreen("onboarding");
   }, []);

@@ -357,93 +357,36 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
     }
   };
 
-  // Handle setting password for returning users who don't have one (iOS PWA flow)
-  const handleSetPassword = async (e: React.FormEvent) => {
+  // Handle sending password reset for iOS PWA users who need to create a password
+  const handleSendPasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!password || !confirmPassword) {
-      toast({
-        title: "Password required",
-        description: "Please enter and confirm your password.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure both passwords are the same.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const validation = validatePassword(password);
-    if (!validation.valid) {
-      toast({
-        title: "Invalid Password",
-        description: validation.errors.join(", "),
-        variant: "destructive",
-      });
-      return;
-    }
-
     setSettingPassword(true);
     
     try {
-      // First, sign in with magic link to get a session, then update password
-      // Actually, we need to update the user's password in Supabase Auth
-      // For an existing user without a password, we need to use updateUser
-      // But we need to be authenticated first - so we'll use a different approach
-      
-      // Use Supabase admin API via our backend to set the password
-      const response = await fetch('/api/auth/set-password', {
+      const response = await fetch('/api/auth/send-password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim() }),
       });
+      
+      const data = await response.json();
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to set password');
+        throw new Error(data.error || 'Failed to send reset email');
       }
       
-      // Now sign in with the new password
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
+      toast({
+        title: "Email sent",
+        description: "Check your email for a link to set your password. After setting it, return to this app to log in.",
       });
-
-      if (error) {
-        toast({
-          title: "Login failed",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (data.session) {
-        // Update password_created flag in user_profiles
-        try {
-          await fetch('/api/auth/profile/password-created', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${data.session.access_token}`,
-            },
-          });
-        } catch (profileError) {
-          console.error('[LoginPage] Error updating password_created:', profileError);
-        }
-        
-        onSuccess();
-      }
+      
+      // Stay on this screen so user knows what to do next
+      setMagicLinkSent(true);
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to set password",
+        description: error.message || "Failed to send reset email",
         variant: "destructive",
       });
     } finally {
@@ -821,22 +764,22 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                 style={{ color: textColor }}
                 data-testid="text-heading"
               >
-                Create a password
+                Set up a password
               </h2>
               <p 
                 className="text-center mb-6"
                 style={{ color: secondaryTextColor }}
               >
-                To sign in via the app you need to create a password.
+                To sign in via the app, you need to set up a password.
               </p>
               <p 
                 className="text-center text-xs mb-8"
                 style={{ color: secondaryTextColor }}
               >
-                You can continue to use the one-time sign in link through the web browser.
+                We'll send you an email with a link to create your password. After setting it, return here to sign in.
               </p>
 
-              <form onSubmit={handleSetPassword} className="space-y-4">
+              <form onSubmit={handleSendPasswordReset} className="space-y-4">
                 <div className="space-y-2">
                   <label 
                     htmlFor="email-display" 
@@ -866,54 +809,41 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="new-password" 
-                    className="text-sm font-medium"
-                    style={{ color: textColor }}
-                  >
-                    Password
-                  </label>
-                  <PasswordInput
-                    id="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Create a password"
-                    className="w-full"
-                    data-testid="input-password"
-                    autoFocus
-                  />
-                  <p className="text-xs" style={{ color: secondaryTextColor }}>
-                    {getPasswordRequirementsText()}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="confirm-password" 
-                    className="text-sm font-medium"
-                    style={{ color: textColor }}
-                  >
-                    Confirm Password
-                  </label>
-                  <PasswordInput
-                    id="confirm-password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm your password"
-                    className="w-full"
-                    data-testid="input-confirm-password"
-                  />
-                </div>
-
                 <Button
                   type="submit"
                   className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-6 text-lg font-semibold"
-                  disabled={settingPassword || !password || !confirmPassword}
-                  data-testid="button-set-password"
+                  disabled={settingPassword || magicLinkSent}
+                  data-testid="button-send-password-reset"
                 >
-                  {settingPassword ? "Setting password..." : "Continue"}
+                  {settingPassword ? "Sending..." : magicLinkSent ? "Email sent" : "Send password setup email"}
                 </Button>
+
+                {magicLinkSent && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-sm text-center p-3 rounded-lg space-y-2"
+                    style={{ 
+                      backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
+                      color: isDarkMode ? '#86efac' : '#166534'
+                    }}
+                  >
+                    <p>Check your email and click the link to set your password.</p>
+                    <p>After setting your password, return here and enter it to sign in.</p>
+                  </motion.div>
+                )}
+
+                {magicLinkSent && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full py-6 text-base font-medium border-2"
+                    onClick={handleEditEmail}
+                    data-testid="button-back-to-login"
+                  >
+                    Back to sign in
+                  </Button>
+                )}
               </form>
             </motion.div>
           )}

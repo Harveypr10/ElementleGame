@@ -39,7 +39,13 @@ Preferred communication style: Simple, everyday language.
   - For existing users: "Welcome back" with password field and magic link option (60s cooldown for resend).
   - For new users: "Create your free account" with magic link option, password creation fields, and terms acceptance.
   - After account creation via password or magic link, redirects to "Personalise your game" screen (AuthPage in personalise mode) to set name/region/postcode before generating questions.
-  - Uses `/api/auth/check-user` endpoint to verify user existence. Magic link uses `supabase.auth.signInWithOtp()` with 5-minute expiry message.
+  - Uses `/api/auth/check-user` endpoint to verify user existence and password_created status. Magic link uses `supabase.auth.signInWithOtp()` with 5-minute expiry message.
+- **iOS PWA Authentication**: iOS PWA has isolated storage from Safari, so magic links don't work in PWA context.
+  - `isIosPwa()` helper in pwaContext.ts detects iOS PWA context (standalone mode + iOS user agent)
+  - Magic link options are hidden for iOS PWA users in LoginPage (both login and signup flows)
+  - Returning iOS PWA users without a password see "Set up a password" step that sends a password reset email via `/api/auth/send-password-reset` (secure - uses Supabase's built-in reset flow)
+  - User sets password in Safari via reset link, then returns to PWA to log in with password
+  - `/api/auth/set-password` requires authentication (verifySupabaseAuth) - only authenticated users can set their own password
 - **Mandatory Personalise Screen**: Users CANNOT bypass the "Personalise your game" screen until they complete it and click "Generate Questions":
   - CRITICAL: `handleSplashComplete` checks `hasCompletedFirstLogin()` and redirects users without completed first login directly to "personalise" screen
   - A navigation guard in Home.tsx prevents access to protected screens (selection, play, stats, archive, settings, options, account-info) until `first_login_completed` is true in user_metadata
@@ -48,6 +54,7 @@ Preferred communication style: Simple, everyday language.
 - **Sign-Out Flow**: Signing out navigates to OnboardingScreen and clears all cache:
   - `clearUserCache()` clears game progress, stats, puzzle-progress-*, guess-cache-*, Supabase session tokens (sb-*-auth-token), first-login tracking, and demand call keys
   - React Query cache is also cleared to prevent data leaks between users
+  - `handleSignOutComplete` resets `needsFirstLoginSetup` and `hasShownGeneratingScreen` flags to prevent personalisation bypass
   - User will NOT be automatically logged back in on reload
 - **Admin Panel**: For configuring postcode/region/category change restrictions and demand scheduler cron jobs.
 - **Streak Saver System**: Allows users to protect streaks with tier-based allowances, with API for status and usage.

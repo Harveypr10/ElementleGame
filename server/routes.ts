@@ -513,34 +513,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Set password for existing user (used for iOS PWA flow where magic links don't work)
-  app.post("/api/auth/set-password", async (req, res) => {
+  // Send password reset email for iOS PWA users who need to set a password
+  // This is a secure alternative to directly setting passwords
+  app.post("/api/auth/send-password-reset", async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { email } = req.body;
       
-      if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required" });
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
       }
       
-      console.log(`[POST /api/auth/set-password] Setting password for: ${email}`);
+      console.log(`[POST /api/auth/send-password-reset] Sending reset email to: ${email}`);
       
-      // First, get the user by email
-      const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      // Use Supabase's built-in password reset which sends a secure email
+      const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+        redirectTo: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.replit.app` : 'http://localhost:5000'}/reset-password`,
+      });
       
-      if (listError) {
-        console.error("[POST /api/auth/set-password] Error listing users:", listError);
-        return res.status(500).json({ error: "Failed to find user" });
+      if (error) {
+        console.error("[POST /api/auth/send-password-reset] Error:", error);
+        // Don't reveal if email exists or not for security
+        return res.json({ success: true, message: "If an account exists, a password reset email has been sent." });
       }
       
-      const user = users.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      console.log(`[POST /api/auth/send-password-reset] Reset email sent to: ${email}`);
+      res.json({ success: true, message: "Password reset email sent. Check your inbox." });
+    } catch (error: any) {
+      console.error("[POST /api/auth/send-password-reset] Error:", error);
+      res.status(500).json({ error: "Failed to send reset email" });
+    }
+  });
+  
+  // Set password for authenticated user only (requires valid session)
+  app.post("/api/auth/set-password", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { password } = req.body;
       
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
+      if (!password) {
+        return res.status(400).json({ error: "Password is required" });
       }
+      
+      console.log(`[POST /api/auth/set-password] Setting password for authenticated user: ${userId}`);
       
       // Update the user's password using admin API
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        user.id,
+        userId,
         { password }
       );
       
@@ -550,9 +568,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Update password_created in user_profiles
-      await storage.updatePasswordCreated(user.id, true);
+      await storage.updatePasswordCreated(userId, true);
       
-      console.log(`[POST /api/auth/set-password] Password set successfully for: ${email}`);
+      console.log(`[POST /api/auth/set-password] Password set successfully for: ${userId}`);
       res.json({ success: true });
     } catch (error: any) {
       console.error("[POST /api/auth/set-password] Error:", error);
