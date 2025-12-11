@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +11,11 @@ import { useSupabase } from "@/lib/SupabaseProvider";
 import { SiGoogle, SiApple } from "react-icons/si";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
 import { isIosPwa } from "@/lib/pwaContext";
+
+const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email.trim());
+};
 
 interface LoginPageProps {
   onSuccess: () => void;
@@ -460,6 +466,18 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
     return "Email me a one-time sign in link";
   };
 
+  // Get the step title for the header
+  const getStepTitle = () => {
+    switch (step) {
+      case "email": return "Log in";
+      case "password": return "Welcome back";
+      case "magic-link": return "Welcome back";
+      case "create-account": return "Create account";
+      case "set-password": return "Set password";
+      default: return "Log in";
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -470,27 +488,31 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
       style={{ backgroundColor }}
       data-testid="login-page"
     >
-      <div className="sticky top-0 z-10 flex items-center justify-between p-4" style={{ backgroundColor }}>
+      {/* Header - matching AccountInfoPage style */}
+      <div className="flex items-center justify-between p-4 mb-2" style={{ backgroundColor }}>
         <button
-          onClick={onBack}
-          className="flex items-center gap-1 text-sm hover:opacity-70 transition-opacity"
-          style={{ color: textColor }}
+          onClick={step === "email" ? onBack : handleEditEmail}
           data-testid="button-back"
+          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          <ChevronLeft className="w-5 h-5" />
-          Back
+          <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
         </button>
-        <h1 
-          className="text-xl font-bold absolute left-1/2 transform -translate-x-1/2"
-          style={{ color: textColor }}
-          data-testid="text-title"
-        >
-          Elementle
-        </h1>
-        <div className="w-12" />
+
+        <div className="flex flex-col items-center">
+          <h1 
+            className="text-4xl font-bold"
+            style={{ color: textColor }}
+            data-testid="text-title"
+          >
+            {getStepTitle()}
+          </h1>
+        </div>
+
+        {/* Spacer to balance layout */}
+        <div className="w-14" />
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-6 pt-8 pb-12 max-w-md mx-auto w-full">
+      <div className="flex-1 flex flex-col items-center px-4 pb-12 max-w-md mx-auto w-full">
         <AnimatePresence mode="wait">
           {step === "email" && (
             <motion.div
@@ -501,91 +523,90 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
               transition={{ duration: 0.3 }}
               className="w-full"
             >
-              <h2 
-                className="text-2xl font-bold text-center mb-8"
-                style={{ color: textColor }}
-                data-testid="text-heading"
-              >
-                Log in or create an account
-              </h2>
+              <Card className="w-full">
+                <CardContent className="pt-6 space-y-4">
+                  {subtitle && (
+                    <p 
+                      className="text-center text-sm text-muted-foreground"
+                      data-testid="text-subtitle"
+                    >
+                      {subtitle}
+                    </p>
+                  )}
 
-              {subtitle && (
-                <p 
-                  className="text-center text-sm mb-4"
-                  style={{ color: secondaryTextColor }}
-                  data-testid="text-subtitle"
-                >
-                  {subtitle}
-                </p>
-              )}
+                  <form onSubmit={handleEmailContinue} className="space-y-4">
+                    <div className="space-y-2">
+                      <label 
+                        htmlFor="email" 
+                        className="text-sm font-medium"
+                        style={{ color: textColor }}
+                      >
+                        Email address
+                      </label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        className="w-full"
+                        data-testid="input-email"
+                        autoFocus
+                      />
+                    </div>
 
-              <form onSubmit={handleEmailContinue} className="space-y-4">
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="email" 
-                    className="text-sm font-medium"
-                    style={{ color: textColor }}
-                  >
-                    Email address
-                  </label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="w-full"
-                    data-testid="input-email"
-                    autoFocus
-                  />
-                </div>
+                    <Button
+                      type="submit"
+                      className={`w-full py-6 text-lg font-semibold ${
+                        isValidEmail(email) && !loading
+                          ? "bg-blue-700 hover:bg-blue-800 text-white"
+                          : "bg-muted text-muted-foreground cursor-not-allowed"
+                      }`}
+                      disabled={loading || !isValidEmail(email)}
+                      data-testid="button-continue"
+                    >
+                      {loading ? "Checking..." : "Continue"}
+                    </Button>
+                  </form>
 
-                <Button
-                  type="submit"
-                  className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-6 text-lg font-semibold"
-                  disabled={loading}
-                  data-testid="button-continue"
-                >
-                  {loading ? "Checking..." : "Continue"}
-                </Button>
-              </form>
+                  <div className="flex items-center my-2">
+                    <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
+                    <span className="px-4 text-sm" style={{ color: secondaryTextColor }}>or</span>
+                    <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
+                  </div>
 
-              <div className="flex items-center my-6">
-                <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
-                <span className="px-4 text-sm" style={{ color: secondaryTextColor }}>or</span>
-                <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
-              </div>
+                  <div className="space-y-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full py-6 text-base font-medium border-2"
+                      onClick={handleGoogleLogin}
+                      data-testid="button-google"
+                    >
+                      <SiGoogle className="w-5 h-5 mr-3" />
+                      Continue with Google
+                    </Button>
 
-              <p className="text-xs text-center mb-4" style={{ color: secondaryTextColor }}>
-                By continuing, you agree to the{" "}
-                <a href="/terms" className="underline">Terms of Sale</a>,{" "}
-                <a href="/terms" className="underline">Terms of Service</a>, and{" "}
-                <a href="/privacy" className="underline">Privacy Policy</a>.
-              </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full py-6 text-base font-medium border-2"
+                      onClick={handleAppleLogin}
+                      data-testid="button-apple"
+                    >
+                      <SiApple className="w-5 h-5 mr-3" />
+                      Continue with Apple
+                    </Button>
+                  </div>
 
-              <div className="space-y-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full py-6 text-base font-medium border-2"
-                  onClick={handleGoogleLogin}
-                  data-testid="button-google"
-                >
-                  <SiGoogle className="w-5 h-5 mr-3" />
-                  Continue with Google
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full py-6 text-base font-medium border-2"
-                  onClick={handleAppleLogin}
-                  data-testid="button-apple"
-                >
-                  <SiApple className="w-5 h-5 mr-3" />
-                  Continue with Apple
-                </Button>
-              </div>
+                  <p className="text-xs text-center text-muted-foreground">
+                    By continuing, you agree to the{" "}
+                    <a href="/terms" className="underline">Terms of Sale</a>,{" "}
+                    <a href="/terms" className="underline">Terms of Service</a>, and{" "}
+                    <a href="/privacy" className="underline">Privacy Policy</a>.
+                  </p>
+                </CardContent>
+              </Card>
             </motion.div>
           )}
 
@@ -598,150 +619,146 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
               transition={{ duration: 0.3 }}
               className="w-full"
             >
-              <h2 
-                className="text-2xl font-bold text-center mb-2"
-                style={{ color: textColor }}
-                data-testid="text-heading"
-              >
-                Welcome back
-              </h2>
-              <p 
-                className="text-center mb-8"
-                style={{ color: secondaryTextColor }}
-              >
-                Enter your password to log in.
-              </p>
+              <Card className="w-full">
+                <CardContent className="pt-6 space-y-4">
+                  <p className="text-center text-muted-foreground">
+                    Enter your password to log in.
+                  </p>
 
-              <form onSubmit={handlePasswordLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="email-display" 
-                    className="text-sm font-medium"
-                    style={{ color: textColor }}
-                  >
-                    Email address
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="email-display"
-                      type="email"
-                      value={email}
-                      disabled
-                      className="w-full pr-16 bg-muted"
-                      data-testid="input-email-display"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleEditEmail}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                      style={{ color: textColor }}
-                      data-testid="button-edit-email"
+                  <form onSubmit={handlePasswordLogin} className="space-y-4">
+                    <div className="space-y-2">
+                      <label 
+                        htmlFor="email-display" 
+                        className="text-sm font-medium"
+                        style={{ color: textColor }}
+                      >
+                        Email address
+                      </label>
+                      <div className="relative">
+                        <Input
+                          id="email-display"
+                          type="email"
+                          value={email}
+                          disabled
+                          className="w-full pr-16 bg-muted"
+                          data-testid="input-email-display"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleEditEmail}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600 dark:text-blue-400"
+                          data-testid="button-edit-email"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label 
+                        htmlFor="password" 
+                        className="text-sm font-medium"
+                        style={{ color: textColor }}
+                      >
+                        Password
+                      </label>
+                      <PasswordInput
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        className="w-full"
+                        data-testid="input-password"
+                        autoFocus
+                      />
+                    </div>
+
+                    {onForgotPassword && (
+                      <button
+                        type="button"
+                        onClick={onForgotPassword}
+                        className="text-sm underline text-blue-600 dark:text-blue-400"
+                        data-testid="button-forgot-password"
+                      >
+                        Forgot your password?
+                      </button>
+                    )}
+
+                    <Button
+                      type="submit"
+                      className={`w-full py-6 text-lg font-semibold ${
+                        password && !loading
+                          ? "bg-blue-700 hover:bg-blue-800 text-white"
+                          : "bg-muted text-muted-foreground cursor-not-allowed"
+                      }`}
+                      disabled={loading || !password}
+                      data-testid="button-login"
                     >
-                      Edit
-                    </button>
+                      {loading ? "Logging in..." : "Log in"}
+                    </Button>
+                  </form>
+
+                  {/* Other login options - show based on what user has activated */}
+                  <div className="space-y-3">
+                    {/* Magic link - always available (except iOS PWA) */}
+                    {!isInIosPwa && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full py-6 text-base font-medium border-2"
+                        onClick={() => handleSendMagicLink(false)}
+                        disabled={sendingMagicLink || magicLinkCooldown > 0}
+                        data-testid="button-magic-link"
+                      >
+                        {getMagicLinkButtonText()}
+                      </Button>
+                    )}
+
+                    {/* Google - only show if user has linked Google */}
+                    {userAuthInfo?.googleLinked && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full py-6 text-base font-medium border-2"
+                        onClick={handleGoogleLogin}
+                        data-testid="button-google-login"
+                      >
+                        <SiGoogle className="w-5 h-5 mr-3" />
+                        Continue with Google
+                      </Button>
+                    )}
+
+                    {/* Apple - only show if user has linked Apple */}
+                    {userAuthInfo?.appleLinked && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full py-6 text-base font-medium border-2"
+                        onClick={handleAppleLogin}
+                        data-testid="button-apple-login"
+                      >
+                        <SiApple className="w-5 h-5 mr-3" />
+                        Continue with Apple
+                      </Button>
+                    )}
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="password" 
-                    className="text-sm font-medium"
-                    style={{ color: textColor }}
-                  >
-                    Password
-                  </label>
-                  <PasswordInput
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full"
-                    data-testid="input-password"
-                    autoFocus
-                  />
-                </div>
-
-                {onForgotPassword && (
-                  <button
-                    type="button"
-                    onClick={onForgotPassword}
-                    className="text-sm underline"
-                    style={{ color: textColor }}
-                    data-testid="button-forgot-password"
-                  >
-                    Forgot your password?
-                  </button>
-                )}
-
-                <Button
-                  type="submit"
-                  className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-6 text-lg font-semibold"
-                  disabled={loading}
-                  data-testid="button-login"
-                >
-                  {loading ? "Logging in..." : "Log in"}
-                </Button>
-              </form>
-
-              {/* Other login options - show based on what user has activated */}
-              <div className="space-y-3 mt-4">
-                {/* Magic link - always available (except iOS PWA) */}
-                {!isInIosPwa && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full py-6 text-base font-medium border-2"
-                    onClick={() => handleSendMagicLink(false)}
-                    disabled={sendingMagicLink || magicLinkCooldown > 0}
-                    data-testid="button-magic-link"
-                  >
-                    {getMagicLinkButtonText()}
-                  </Button>
-                )}
-
-                {/* Google - only show if user has linked Google */}
-                {userAuthInfo?.googleLinked && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full py-6 text-base font-medium border-2"
-                    onClick={handleGoogleLogin}
-                    data-testid="button-google-login"
-                  >
-                    <SiGoogle className="w-5 h-5 mr-3" />
-                    Continue with Google
-                  </Button>
-                )}
-
-                {/* Apple - only show if user has linked Apple */}
-                {userAuthInfo?.appleLinked && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full py-6 text-base font-medium border-2"
-                    onClick={handleAppleLogin}
-                    data-testid="button-apple-login"
-                  >
-                    <SiApple className="w-5 h-5 mr-3" />
-                    Continue with Apple
-                  </Button>
-                )}
-              </div>
-
-              {magicLinkSent && !isInIosPwa && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-sm text-center mt-4 p-3 rounded-lg"
-                  style={{ 
-                    backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
-                    color: isDarkMode ? '#86efac' : '#166534'
-                  }}
-                  data-testid="text-magic-link-success"
-                >
-                  Check your inbox for a secure login link. It expires in 5 minutes.
-                </motion.p>
-              )}
+                  {magicLinkSent && !isInIosPwa && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-sm text-center p-3 rounded-lg"
+                      style={{ 
+                        backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
+                        color: isDarkMode ? '#86efac' : '#166534'
+                      }}
+                      data-testid="text-magic-link-success"
+                    >
+                      Check your inbox for a secure login link. It expires in 5 minutes.
+                    </motion.p>
+                  )}
+                </CardContent>
+              </Card>
             </motion.div>
           )}
 
@@ -754,272 +771,77 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
               transition={{ duration: 0.3 }}
               className="w-full"
             >
-              <h2 
-                className="text-2xl font-bold text-center mb-2"
-                style={{ color: textColor }}
-                data-testid="text-heading"
-              >
-                Welcome back
-              </h2>
-              <p 
-                className="text-center mb-8"
-                style={{ color: secondaryTextColor }}
-              >
-                We'll send you a secure login link.
-              </p>
+              <Card className="w-full">
+                <CardContent className="pt-6 space-y-4">
+                  <p className="text-center text-muted-foreground">
+                    We'll send you a secure login link.
+                  </p>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="email-display" 
-                    className="text-sm font-medium"
-                    style={{ color: textColor }}
-                  >
-                    Email address
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="email-display"
-                      type="email"
-                      value={email}
-                      disabled
-                      className="w-full pr-16 bg-muted"
-                      data-testid="input-email-display"
-                    />
-                    <button
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label 
+                        htmlFor="email-display" 
+                        className="text-sm font-medium"
+                        style={{ color: textColor }}
+                      >
+                        Email address
+                      </label>
+                      <div className="relative">
+                        <Input
+                          id="email-display"
+                          type="email"
+                          value={email}
+                          disabled
+                          className="w-full pr-16 bg-muted"
+                          data-testid="input-email-display"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleEditEmail}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600 dark:text-blue-400"
+                          data-testid="button-edit-email"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+
+                    <Button
                       type="button"
-                      onClick={handleEditEmail}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                      style={{ color: textColor }}
-                      data-testid="button-edit-email"
+                      className="w-full bg-blue-700 hover:bg-blue-800 text-white py-6 text-lg font-semibold"
+                      onClick={() => handleSendMagicLink(false)}
+                      disabled={sendingMagicLink || magicLinkCooldown > 0}
+                      data-testid="button-send-magic-link"
                     >
-                      Edit
-                    </button>
-                  </div>
-                </div>
+                      {getMagicLinkButtonText()}
+                    </Button>
 
-                <Button
-                  type="button"
-                  className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-6 text-lg font-semibold"
-                  onClick={() => handleSendMagicLink(false)}
-                  disabled={sendingMagicLink || magicLinkCooldown > 0}
-                  data-testid="button-send-magic-link"
-                >
-                  {getMagicLinkButtonText()}
-                </Button>
-
-                {/* OAuth options - show if user has linked them */}
-                {userAuthInfo?.googleLinked && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full py-6 text-base font-medium border-2"
-                    onClick={handleGoogleLogin}
-                    data-testid="button-google-login"
-                  >
-                    <SiGoogle className="w-5 h-5 mr-3" />
-                    Continue with Google
-                  </Button>
-                )}
-
-                {userAuthInfo?.appleLinked && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full py-6 text-base font-medium border-2"
-                    onClick={handleAppleLogin}
-                    data-testid="button-apple-login"
-                  >
-                    <SiApple className="w-5 h-5 mr-3" />
-                    Continue with Apple
-                  </Button>
-                )}
-
-                {magicLinkSent && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-sm text-center mt-4 p-3 rounded-lg"
-                    style={{ 
-                      backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
-                      color: isDarkMode ? '#86efac' : '#166534'
-                    }}
-                    data-testid="text-magic-link-success"
-                  >
-                    Check your inbox for a secure login link. It expires in 5 minutes.
-                  </motion.p>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {step === "set-password" && (
-            <motion.div
-              key="set-password-step"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="w-full"
-            >
-              <h2 
-                className="text-2xl font-bold text-center mb-2"
-                style={{ color: textColor }}
-                data-testid="text-heading"
-              >
-                Set up a password
-              </h2>
-              <p 
-                className="text-center mb-6"
-                style={{ color: secondaryTextColor }}
-              >
-                To sign in via the app, you need to set up a password.
-              </p>
-              <p 
-                className="text-center text-xs mb-8"
-                style={{ color: secondaryTextColor }}
-              >
-                We'll send you an email with a link to create your password. After setting it, return here to sign in.
-              </p>
-
-              <form onSubmit={handleSendPasswordReset} className="space-y-4">
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="email-display" 
-                    className="text-sm font-medium"
-                    style={{ color: textColor }}
-                  >
-                    Email address
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="email-display"
-                      type="email"
-                      value={email}
-                      disabled
-                      className="w-full pr-16 bg-muted"
-                      data-testid="input-email-display"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleEditEmail}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                      style={{ color: textColor }}
-                      data-testid="button-edit-email"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-6 text-lg font-semibold"
-                  disabled={settingPassword || magicLinkSent}
-                  data-testid="button-send-password-reset"
-                >
-                  {settingPassword ? "Sending..." : magicLinkSent ? "Email sent" : "Send password setup email"}
-                </Button>
-
-                {magicLinkSent && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-sm text-center p-3 rounded-lg space-y-2"
-                    style={{ 
-                      backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
-                      color: isDarkMode ? '#86efac' : '#166534'
-                    }}
-                  >
-                    <p>Check your email and click the link to set your password.</p>
-                    <p>After setting your password, return here and enter it to sign in.</p>
-                  </motion.div>
-                )}
-
-                {magicLinkSent && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full py-6 text-base font-medium border-2"
-                    onClick={handleEditEmail}
-                    data-testid="button-back-to-login"
-                  >
-                    Back to sign in
-                  </Button>
-                )}
-              </form>
-            </motion.div>
-          )}
-
-          {step === "create-account" && (
-            <motion.div
-              key="create-account-step"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="w-full"
-            >
-              <motion.h2 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.4 }}
-                className="text-2xl font-bold text-center mb-8"
-                style={{ color: textColor }}
-                data-testid="text-heading"
-              >
-                Create your free account
-              </motion.h2>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label 
-                    htmlFor="email-display" 
-                    className="text-sm font-medium"
-                    style={{ color: textColor }}
-                  >
-                    Email address
-                  </label>
-                  <div className="relative">
-                    <Input
-                      id="email-display"
-                      type="email"
-                      value={email}
-                      disabled
-                      className="w-full pr-16 bg-muted"
-                      data-testid="input-email-display"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleEditEmail}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
-                      style={{ color: textColor }}
-                      data-testid="button-edit-email"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </div>
-
-                {/* Hide magic link option for iOS PWA users */}
-                {!isInIosPwa && (
-                  <>
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: 0.1 }}
-                    >
+                    {/* OAuth options - show if user has linked them */}
+                    {userAuthInfo?.googleLinked && (
                       <Button
                         type="button"
                         variant="outline"
                         className="w-full py-6 text-base font-medium border-2"
-                        onClick={() => handleSendMagicLink(true)}
-                        disabled={sendingMagicLink || magicLinkCooldown > 0}
-                        data-testid="button-magic-link-signup"
+                        onClick={handleGoogleLogin}
+                        data-testid="button-google-login"
                       >
-                        {getMagicLinkButtonText()}
+                        <SiGoogle className="w-5 h-5 mr-3" />
+                        Continue with Google
                       </Button>
-                    </motion.div>
+                    )}
+
+                    {userAuthInfo?.appleLinked && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full py-6 text-base font-medium border-2"
+                        onClick={handleAppleLogin}
+                        data-testid="button-apple-login"
+                      >
+                        <SiApple className="w-5 h-5 mr-3" />
+                        Continue with Apple
+                      </Button>
+                    )}
 
                     {magicLinkSent && (
                       <motion.p
@@ -1032,86 +854,258 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                         }}
                         data-testid="text-magic-link-success"
                       >
-                        Check your inbox for a secure sign up link. It expires in 5 minutes.
+                        Check your inbox for a secure login link. It expires in 5 minutes.
                       </motion.p>
                     )}
-
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.3, delay: 0.2 }}
-                      className="flex items-center my-2"
-                    >
-                      <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
-                      <span className="px-4 text-sm" style={{ color: secondaryTextColor }}>or</span>
-                      <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
-                    </motion.div>
-                  </>
-                )}
-
-                <motion.form
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: 0.3 }}
-                  onSubmit={handleCreateAccount}
-                  className="space-y-4"
-                >
-                  <div className="space-y-2">
-                    <label 
-                      htmlFor="new-password" 
-                      className="text-sm font-medium"
-                      style={{ color: textColor }}
-                    >
-                      Password
-                    </label>
-                    <PasswordInput
-                      id="new-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Create a password"
-                      className="w-full"
-                      data-testid="input-password"
-                    />
-                    <p className="text-xs" style={{ color: secondaryTextColor }}>
-                      {getPasswordRequirementsText()}
-                    </p>
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
-                  <div className="space-y-2">
-                    <label 
-                      htmlFor="confirm-password" 
-                      className="text-sm font-medium"
-                      style={{ color: textColor }}
-                    >
-                      Confirm Password
-                    </label>
-                    <PasswordInput
-                      id="confirm-password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm your password"
-                      className="w-full"
-                      data-testid="input-confirm-password"
-                    />
-                  </div>
-
-                  <p className="text-xs text-center" style={{ color: secondaryTextColor }}>
-                    By creating an account, you agree to the{" "}
-                    <a href="/terms" className="underline">Terms of Sale</a>,{" "}
-                    <a href="/terms" className="underline">Terms of Service</a>, and{" "}
-                    <a href="/privacy" className="underline">Privacy Policy</a>.
+          {step === "set-password" && (
+            <motion.div
+              key="set-password-step"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <Card className="w-full">
+                <CardContent className="pt-6 space-y-4">
+                  <p className="text-center text-muted-foreground">
+                    To sign in via the app, you need to set up a password.
+                  </p>
+                  <p className="text-center text-xs text-muted-foreground">
+                    We'll send you an email with a link to create your password. After setting it, return here to sign in.
                   </p>
 
-                  <Button
-                    type="submit"
-                    className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-6 text-lg font-semibold"
-                    disabled={creatingAccount || !password || !confirmPassword}
-                    data-testid="button-create-account"
+                  <form onSubmit={handleSendPasswordReset} className="space-y-4">
+                    <div className="space-y-2">
+                      <label 
+                        htmlFor="email-display" 
+                        className="text-sm font-medium"
+                        style={{ color: textColor }}
+                      >
+                        Email address
+                      </label>
+                      <div className="relative">
+                        <Input
+                          id="email-display"
+                          type="email"
+                          value={email}
+                          disabled
+                          className="w-full pr-16 bg-muted"
+                          data-testid="input-email-display"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleEditEmail}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600 dark:text-blue-400"
+                          data-testid="button-edit-email"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full bg-blue-700 hover:bg-blue-800 text-white py-6 text-lg font-semibold"
+                      disabled={settingPassword || magicLinkSent}
+                      data-testid="button-send-password-reset"
+                    >
+                      {settingPassword ? "Sending..." : magicLinkSent ? "Email sent" : "Send password setup email"}
+                    </Button>
+
+                    {magicLinkSent && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-sm text-center p-3 rounded-lg space-y-2"
+                        style={{ 
+                          backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
+                          color: isDarkMode ? '#86efac' : '#166534'
+                        }}
+                      >
+                        <p>Check your email and click the link to set your password.</p>
+                        <p>After setting your password, return here and enter it to sign in.</p>
+                      </motion.div>
+                    )}
+
+                    {magicLinkSent && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full py-6 text-base font-medium border-2"
+                        onClick={handleEditEmail}
+                        data-testid="button-back-to-login"
+                      >
+                        Back to sign in
+                      </Button>
+                    )}
+                  </form>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {step === "create-account" && (
+            <motion.div
+              key="create-account-step"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <Card className="w-full">
+                <CardContent className="pt-6 space-y-4">
+                  <div className="space-y-2">
+                    <label 
+                      htmlFor="email-display" 
+                      className="text-sm font-medium"
+                      style={{ color: textColor }}
+                    >
+                      Email address
+                    </label>
+                    <div className="relative">
+                      <Input
+                        id="email-display"
+                        type="email"
+                        value={email}
+                        disabled
+                        className="w-full pr-16 bg-muted"
+                        data-testid="input-email-display"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleEditEmail}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-blue-600 dark:text-blue-400"
+                        data-testid="button-edit-email"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Hide magic link option for iOS PWA users */}
+                  {!isInIosPwa && (
+                    <>
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                      >
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full py-6 text-base font-medium border-2"
+                          onClick={() => handleSendMagicLink(true)}
+                          disabled={sendingMagicLink || magicLinkCooldown > 0}
+                          data-testid="button-magic-link-signup"
+                        >
+                          {getMagicLinkButtonText()}
+                        </Button>
+                      </motion.div>
+
+                      {magicLinkSent && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-sm text-center p-3 rounded-lg"
+                          style={{ 
+                            backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
+                            color: isDarkMode ? '#86efac' : '#166534'
+                          }}
+                          data-testid="text-magic-link-success"
+                        >
+                          Check your inbox for a secure sign up link. It expires in 5 minutes.
+                        </motion.p>
+                      )}
+
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3, delay: 0.2 }}
+                        className="flex items-center my-2"
+                      >
+                        <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
+                        <span className="px-4 text-sm" style={{ color: secondaryTextColor }}>or</span>
+                        <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
+                      </motion.div>
+                    </>
+                  )}
+
+                  <motion.form
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.3 }}
+                    onSubmit={handleCreateAccount}
+                    className="space-y-4"
                   >
-                    {creatingAccount ? "Creating account..." : "Create account"}
-                  </Button>
-                </motion.form>
-              </div>
+                    <div className="space-y-2">
+                      <label 
+                        htmlFor="new-password" 
+                        className="text-sm font-medium"
+                        style={{ color: textColor }}
+                      >
+                        Password
+                      </label>
+                      <PasswordInput
+                        id="new-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Create a password"
+                        className="w-full"
+                        data-testid="input-password"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {getPasswordRequirementsText()}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label 
+                        htmlFor="confirm-password" 
+                        className="text-sm font-medium"
+                        style={{ color: textColor }}
+                      >
+                        Confirm Password
+                      </label>
+                      <PasswordInput
+                        id="confirm-password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm your password"
+                        className="w-full"
+                        data-testid="input-confirm-password"
+                      />
+                    </div>
+
+                    <p className="text-xs text-center text-muted-foreground">
+                      By creating an account, you agree to the{" "}
+                      <a href="/terms" className="underline">Terms of Sale</a>,{" "}
+                      <a href="/terms" className="underline">Terms of Service</a>, and{" "}
+                      <a href="/privacy" className="underline">Privacy Policy</a>.
+                    </p>
+
+                    <Button
+                      type="submit"
+                      className={`w-full py-6 text-lg font-semibold ${
+                        validatePassword(password).isValid && password === confirmPassword && !creatingAccount
+                          ? "bg-blue-700 hover:bg-blue-800 text-white"
+                          : "bg-muted text-muted-foreground cursor-not-allowed"
+                      }`}
+                      disabled={creatingAccount || !validatePassword(password).isValid || password !== confirmPassword}
+                      data-testid="button-create-account"
+                    >
+                      {creatingAccount ? "Creating account..." : "Create account"}
+                    </Button>
+                  </motion.form>
+                </CardContent>
+              </Card>
             </motion.div>
           )}
         </AnimatePresence>

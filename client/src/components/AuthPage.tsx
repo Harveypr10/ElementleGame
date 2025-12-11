@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InlineHelp } from "@/components/ui/inline-help";
 import { PostcodeAutocomplete } from "@/components/PostcodeAutocomplete";
+import { ChevronLeft } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -376,25 +377,51 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 
+  const getHeaderTitle = () => {
+    switch (mode) {
+      case "personalise": return "Personalise your game";
+      case "signup": return "Create an account";
+      case "forgot-password": return "Reset password";
+      default: return "Welcome back";
+    }
+  };
+
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 ${adBannerActive ? 'pb-[50px]' : ''} bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800`}>
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">
-            {mode === "personalise" 
-              ? "Personalise your game" 
-              : mode === "signup" 
-                ? "Create an account" 
-                : "Welcome back"}
-          </CardTitle>
-          <CardDescription className="text-center">
-            {mode === "personalise"
-              ? "Set up your profile to get personalised puzzles"
-              : mode === "signup" 
-                ? "Enter your details to create your account" 
-                : "Enter your email and password to sign in"}
-          </CardDescription>
-        </CardHeader>
+    <div className={`fixed inset-0 flex flex-col ${adBannerActive ? 'pb-[50px]' : ''} bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800`}>
+      {/* Header - matching AccountInfoPage style */}
+      <div className="flex items-center justify-between p-4 mb-2">
+        <button
+          onClick={onBack}
+          data-testid="button-back"
+          className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100/50 dark:hover:bg-gray-700/50 transition-colors"
+        >
+          <ChevronLeft className="h-9 w-9 text-gray-700 dark:text-gray-300" />
+        </button>
+
+        <div className="flex flex-col items-center">
+          <h1 
+            className="text-4xl font-bold text-gray-900 dark:text-white"
+            data-testid="text-title"
+          >
+            {getHeaderTitle()}
+          </h1>
+        </div>
+
+        {/* Spacer to balance layout */}
+        <div className="w-14" />
+      </div>
+
+      <div className="flex-1 overflow-y-auto flex items-start justify-center px-4 pb-8">
+        <Card className="w-full max-w-md">
+          <CardHeader className="space-y-1">
+            <CardDescription className="text-center">
+              {mode === "personalise"
+                ? "Set up your profile to get personalised puzzles"
+                : mode === "signup" 
+                  ? "Enter your details to create your account" 
+                  : "Enter your email and password to sign in"}
+            </CardDescription>
+          </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "personalise" && prefilledEmail && (
@@ -698,6 +725,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           )}
         </CardContent>
       </Card>
+      </div>
 
       {/* Postcode Warning Dialog */}
       <AlertDialog open={showPostcodeWarning} onOpenChange={setShowPostcodeWarning}>
