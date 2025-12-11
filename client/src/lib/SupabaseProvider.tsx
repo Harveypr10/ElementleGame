@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabaseClient';
-import { isPwaContext, markPwaInstalled, shouldShowMagicLinkHandoff } from './pwaContext';
+import { isPwaContext, markPwaInstalled, shouldShowMagicLinkHandoff, getMagicLinkTokenFromCookie, clearMagicLinkCookie } from './pwaContext';
 import { MagicLinkHandoff } from '@/components/MagicLinkHandoff';
 
 const SupabaseContext = createContext<SupabaseClient | null>(null);
@@ -19,9 +19,9 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
       markPwaInstalled();
     }
 
-    // Check if we should show the handoff screen (iOS Safari with magic link token + PWA installed)
+    // Check if we should show the handoff screen (iOS Safari with magic link token)
     if (shouldShowMagicLinkHandoff()) {
-      console.log('[SupabaseProvider] iOS Safari detected with magic link token and PWA installed - showing handoff screen');
+      console.log('[SupabaseProvider] iOS Safari detected with magic link token - showing handoff screen');
       setShowHandoff(true);
       setLoading(false);
       return;
@@ -37,11 +37,22 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
         const searchParams = new URLSearchParams(window.location.search);
         
         // Check for token_hash in URL query params (PKCE flow)
-        const tokenHash = searchParams.get('token_hash');
-        const type = searchParams.get('type');
+        let tokenHash = searchParams.get('token_hash');
+        let type = searchParams.get('type');
+        
+        // In PWA context, also check for token stored in cookie (from Safari handoff)
+        if (isPwaContext() && !tokenHash) {
+          const cookieToken = getMagicLinkTokenFromCookie();
+          if (cookieToken) {
+            console.log('[SupabaseProvider] Found magic link token in cookie (PWA handoff)');
+            tokenHash = cookieToken.tokenHash;
+            type = cookieToken.type;
+            clearMagicLinkCookie();
+          }
+        }
         
         if (tokenHash && type) {
-          console.log('[SupabaseProvider] Detected token_hash in URL - verifying OTP');
+          console.log('[SupabaseProvider] Verifying token_hash');
           
           const { data, error: verifyError } = await client.auth.verifyOtp({
             token_hash: tokenHash,
@@ -124,7 +135,7 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     initSupabase();
   }, []);
 
-  // Show handoff screen for iOS Safari users with magic link token (when PWA is installed)
+  // Show handoff screen for iOS Safari users with magic link token
   if (showHandoff) {
     return <MagicLinkHandoff />;
   }

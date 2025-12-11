@@ -1,0 +1,132 @@
+Step-by-step changes
+1) Detect PWA context and set an “installed” flag
+Add a small utility to detect PWA context and set a flag in localStorage. Run it early (e.g., in your SupabaseProvider or app root).
+
+ts
+// pwaContext.ts
+export function isPwaContext(): boolean {
+  // iOS/Android standalone detection
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
+  // iOS Safari heuristic for standalone (older iOS)
+  // @ts-ignore
+  const isIOSStandalone = typeof window.navigator.standalone === "boolean" && window.navigator.standalone;
+  return isStandalone || isIOSStandalone;
+}
+
+export function markPwaInstalled(): void {
+  try {
+    localStorage.setItem("elementle_pwa_installed", "true");
+  } catch {}
+}
+
+export function hasPwaInstalledFlag(): boolean {
+  try {
+    return localStorage.getItem("elementle_pwa_installed") === "true";
+  } catch {
+    return false;
+  }
+}
+In your app bootstrap:
+
+ts
+// SupabaseProvider.tsx (near app mount)
+import { isPwaContext, markPwaInstalled } from "./pwaContext";
+
+useEffect(() => {
+  if (isPwaContext()) {
+    markPwaInstalled();
+  }
+}, []);
+2) Add a “handoff” screen for Safari
+Create a lightweight screen that appears when token_hash is in the query and the app is not in PWA context. It offers a button that links back to your root path while preserving the token so the PWA can consume it.
+
+tsx
+// MagicLinkHandoff.tsx
+import { useMemo } from "react";
+
+export default function MagicLinkHandoff() {
+  const params = new URLSearchParams(window.location.search);
+  const tokenHash = params.get("token_hash");
+  const type = params.get("type");
+
+  const pwaLink = useMemo(() => {
+    // Keep only the parameters the PWA needs
+    const q = new URLSearchParams();
+    if (tokenHash) q.set("token_hash", tokenHash);
+    if (type) q.set("type", type);
+    // Important: root path of your PWA domain so iOS can route to the installed app
+    return `${window.location.origin}/?${q.toString()}`;
+  }, [tokenHash, type]);
+
+  return (
+    <div style={{ padding: 24, maxWidth: 480, margin: "40px auto", textAlign: "center" }}>
+      <h2 style={{ color: "#0F1729" }}>Open in Elementle App</h2>
+      <p style={{ color: "#344256" }}>
+        You’re almost done. To stay signed in, open this link in the Elementle app you installed on your home screen.
+      </p>
+      <a
+        href={pwaLink}
+        style={{
+          display: "inline-block",
+          marginTop: 16,
+          backgroundColor: "#7DAAE8",
+          color: "#fff",
+          fontWeight: 700,
+          padding: "12px 24px",
+          borderRadius: 6,
+          textDecoration: "none",
+        }}
+      >
+        Open in Elementle App
+      </a>
+      <p style={{ marginTop: 12, fontSize: 13, color: "#667085" }}>
+        Tip: If you see Safari’s toolbar, tap this button to switch to the app version.
+      </p>
+    </div>
+  );
+}
+In your routing (or app entry), render this when not in PWA and token is present:
+
+tsx
+// App.tsx (or SupabaseProvider.tsx)
+import MagicLinkHandoff from "./MagicLinkHandoff";
+import { isPwaContext } from "./pwaContext";
+
+function App() {
+  const params = new URLSearchParams(window.location.search);
+  const tokenHash = params.get("token_hash");
+  const type = params.get("type");
+
+  const shouldShowHandoff = !!tokenHash && type === "magiclink" && !isPwaContext();
+
+  if (shouldShowHandoff) {
+    return <MagicLinkHandoff />;
+  }
+
+  // ...normal app render
+}
+3) Verify token inside PWA context and persist session
+Ensure your existing PWA entry logic verifies the token when present and cleans up the URL. Keep persistSession, autoRefreshToken, and detectSessionInUrl enabled.
+
+ts
+// SupabaseProvider.tsx (early effect)
+useEffect(() => {
+  const verifyTokenIfPresent = async () => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    const type = params.get("type");
+
+    if (tokenHash && type === "magiclink") {
+      const { error } = await supabase.auth.verifyOtp({ type: "magiclink", token_hash: tokenHash });
+      if (!error) {
+        // Clean URL (remove query so future navigations are clean)
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        // Optional: show error UI
+        console.error("Magic link verification failed", error);
+      }
+    }
+  };
+
+  verifyTokenIfPresent();
+}, []);

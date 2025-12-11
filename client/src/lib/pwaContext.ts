@@ -1,5 +1,5 @@
 const PWA_INSTALLED_KEY = 'elementle_pwa_installed';
-const SKIP_HANDOFF_KEY = 'elementle_skip_handoff';
+const MAGIC_LINK_COOKIE_NAME = 'elementle_magic_link_token';
 
 export function isPwaContext(): boolean {
   if (typeof window === 'undefined') return false;
@@ -37,28 +37,36 @@ export function hasPwaInstalledFlag(): boolean {
   }
 }
 
-export function markSkipHandoff(): void {
-  try {
-    sessionStorage.setItem(SKIP_HANDOFF_KEY, 'true');
-  } catch (e) {
-    console.warn('[pwaContext] Could not mark skip handoff:', e);
-  }
+export function storeMagicLinkTokenInCookie(tokenHash: string, type: string): void {
+  const data = JSON.stringify({ tokenHash, type, timestamp: Date.now() });
+  const expiryMinutes = 10;
+  const expires = new Date(Date.now() + expiryMinutes * 60 * 1000).toUTCString();
+  document.cookie = `${MAGIC_LINK_COOKIE_NAME}=${encodeURIComponent(data)}; expires=${expires}; path=/; SameSite=Lax`;
+  console.log('[pwaContext] Stored magic link token in cookie');
 }
 
-export function shouldSkipHandoff(): boolean {
+export function getMagicLinkTokenFromCookie(): { tokenHash: string; type: string } | null {
   try {
-    return sessionStorage.getItem(SKIP_HANDOFF_KEY) === 'true';
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === MAGIC_LINK_COOKIE_NAME && value) {
+        const data = JSON.parse(decodeURIComponent(value));
+        const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+        if (data.timestamp && data.timestamp > tenMinutesAgo) {
+          return { tokenHash: data.tokenHash, type: data.type };
+        }
+      }
+    }
   } catch (e) {
-    return false;
+    console.warn('[pwaContext] Could not read magic link cookie:', e);
   }
+  return null;
 }
 
-export function clearSkipHandoff(): void {
-  try {
-    sessionStorage.removeItem(SKIP_HANDOFF_KEY);
-  } catch (e) {
-    console.warn('[pwaContext] Could not clear skip handoff:', e);
-  }
+export function clearMagicLinkCookie(): void {
+  document.cookie = `${MAGIC_LINK_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+  console.log('[pwaContext] Cleared magic link cookie');
 }
 
 export function shouldShowMagicLinkHandoff(): boolean {
@@ -70,7 +78,6 @@ export function shouldShowMagicLinkHandoff(): boolean {
   if (!hasToken) return false;
   if (isPwaContext()) return false;
   if (!isIOSSafari()) return false;
-  if (shouldSkipHandoff()) return false;
   
   return true;
 }
