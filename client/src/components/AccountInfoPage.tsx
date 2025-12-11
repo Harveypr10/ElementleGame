@@ -227,6 +227,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [magicLinkCooldown, setMagicLinkCooldown] = useState(0);
   const [showPasswordSection, setShowPasswordSection] = useState(false);
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   
   // Magic link cooldown timer
   useEffect(() => {
@@ -264,6 +265,31 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     };
     checkHasPassword();
   }, [supabase, profile?.passwordCreated]);
+  
+  // Check if Google is connected by looking at user's identity providers
+  useEffect(() => {
+    const checkGoogleConnection = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Check identities array for Google provider
+          const hasGoogleIdentity = user.identities?.some(
+            (identity) => identity.provider === 'google'
+          );
+          // Also check app_metadata.providers
+          const providers = user.app_metadata?.providers || [];
+          const hasGoogleProvider = providers.includes('google') || 
+                                   user.app_metadata?.provider === 'google';
+          
+          setIsGoogleConnected(hasGoogleIdentity || hasGoogleProvider);
+        }
+      } catch (error) {
+        console.error('Error checking Google connection:', error);
+        setIsGoogleConnected(false);
+      }
+    };
+    checkGoogleConnection();
+  }, [supabase]);
 
   const handleRegionChange = (newRegion: string) => {
     // Only show confirmation if region actually changed from profile's current region
@@ -1054,26 +1080,56 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                 </div>
               </div>
 
-              {/* Google Login Method (Coming Soon) */}
-              <div className="flex items-center justify-between p-3 rounded-lg border opacity-60" data-testid="connected-account-google">
+              {/* Google Login Method */}
+              <div className={`flex items-center justify-between p-3 rounded-lg border ${!isGoogleConnected ? 'opacity-80' : ''}`} data-testid="connected-account-google">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center">
                     <SiGoogle className="w-5 h-5 text-red-500" />
                   </div>
                   <div>
                     <p className="font-medium">Google</p>
-                    <p className="text-sm text-muted-foreground">Coming soon</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isGoogleConnected ? "Connected" : "Not connected"}
+                    </p>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled
-                  data-testid="button-connect-google"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Connect
-                </Button>
+                <div className="flex items-center gap-2">
+                  {isGoogleConnected ? (
+                    <Check className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const { error } = await supabase.auth.signInWithOAuth({
+                            provider: "google",
+                            options: {
+                              redirectTo: window.location.origin,
+                            },
+                          });
+                          if (error) {
+                            toast({
+                              title: "Error",
+                              description: error.message,
+                              variant: "destructive",
+                            });
+                          }
+                        } catch (error: any) {
+                          toast({
+                            title: "Error",
+                            description: error.message || "Failed to connect Google",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      data-testid="button-connect-google"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Connect
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Apple Login Method (Coming Soon) */}

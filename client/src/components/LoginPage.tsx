@@ -417,11 +417,30 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
     }
   };
 
-  const handleGoogleLogin = () => {
-    toast({
-      title: "Coming soon",
-      description: "Google login will be available soon.",
-    });
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+      // User will be redirected to Google for authentication
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign in with Google",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleAppleLogin = () => {

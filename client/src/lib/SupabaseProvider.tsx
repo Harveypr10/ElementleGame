@@ -131,6 +131,41 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
           }
         }
         
+        // Set up auth state change listener to handle Google OAuth sign-ins
+        const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
+          console.log('[SupabaseProvider] Auth state change:', event);
+          
+          if (event === 'SIGNED_IN' && session?.user) {
+            // Check if this is a Google OAuth user
+            const providers = session.user.app_metadata?.providers || [];
+            const isGoogleUser = providers.includes('google') || 
+                                session.user.app_metadata?.provider === 'google';
+            
+            if (isGoogleUser) {
+              console.log('[SupabaseProvider] Google OAuth user detected, updating signup_method');
+              try {
+                // Update signup_method if it hasn't been set yet
+                const { error } = await client
+                  .from('user_profiles')
+                  .update({ signup_method: 'google' })
+                  .eq('id', session.user.id)
+                  .is('signup_method', null);
+                  
+                if (error) {
+                  console.error('[SupabaseProvider] Error updating signup_method:', error);
+                } else {
+                  console.log('[SupabaseProvider] Successfully updated signup_method to google');
+                }
+              } catch (err) {
+                console.error('[SupabaseProvider] Error in signup_method update:', err);
+              }
+            }
+          }
+        });
+        
+        // Store subscription for cleanup
+        (window as any).__supabaseAuthSubscription = subscription;
+        
         setLoading(false);
       } catch (err) {
         console.error('Supabase initialization error:', err);
@@ -140,6 +175,14 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     }
 
     initSupabase();
+    
+    return () => {
+      // Clean up auth subscription
+      const subscription = (window as any).__supabaseAuthSubscription;
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
   if (loading) {
