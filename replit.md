@@ -57,6 +57,13 @@ Preferred communication style: Simple, everyday language.
   - Users can connect Google from Account Info using `linkIdentity` if not already connected
   - Users can unlink Google/Apple accounts using `unlinkIdentity` - shows "Unlink" button when connected
   - Safety check: Cannot unlink an OAuth provider if it's the only login method (must have password or another OAuth set up first)
+  - **OAuth Tracking in user_profiles**: `google_linked` and `apple_linked` columns track linking status (NULL=never signed up via OAuth, TRUE=linked, FALSE=unlinked)
+  - **Tracking Logic**:
+    - On first OAuth signup: `markFirstLoginCompleted()` in useAuth calls `/api/auth/profile/oauth-linked` to set linked=true
+    - On OAuth linking: AccountInfoPage detects identity in Supabase but not tracked in profile, syncs to database with linked=true
+    - On OAuth unlinking: AccountInfoPage calls `/api/auth/profile/oauth-linked` with linked=false
+  - **Welcome Back Screen**: LoginPage shows only available login options based on user_profiles (password if passwordCreated=TRUE, Google if googleLinked=TRUE, Apple if appleLinked=TRUE)
+  - `/api/auth/check-user` returns googleLinked and appleLinked status for dynamic login UI
 - **Mandatory Personalise Screen**: Users CANNOT bypass the "Personalise your game" screen until they complete it and click "Generate Questions":
   - CRITICAL: `handleSplashComplete` checks `hasCompletedFirstLogin()` and redirects users without completed first login directly to "personalise" screen
   - A navigation guard in Home.tsx prevents access to protected screens (selection, play, stats, archive, settings, options, account-info) until `first_login_completed` is true in user_metadata

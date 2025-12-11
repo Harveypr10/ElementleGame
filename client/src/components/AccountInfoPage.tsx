@@ -318,6 +318,9 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                   'Authorization': `Bearer ${accessToken}`,
                 },
                 body: JSON.stringify({ provider: 'google', linked: true }),
+              }).then(() => {
+                // Invalidate profile query to refresh data
+                queryClient.invalidateQueries({ queryKey: ['/api/auth/profile'] });
               }).catch(err => console.error('Failed to sync Google linked status:', err));
             }
             
@@ -331,6 +334,9 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                   'Authorization': `Bearer ${accessToken}`,
                 },
                 body: JSON.stringify({ provider: 'apple', linked: true }),
+              }).then(() => {
+                // Invalidate profile query to refresh data
+                queryClient.invalidateQueries({ queryKey: ['/api/auth/profile'] });
               }).catch(err => console.error('Failed to sync Apple linked status:', err));
             }
           }
