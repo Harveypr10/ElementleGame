@@ -32,9 +32,17 @@ interface UserAuthInfo {
 const MAGIC_LINK_COOLDOWN_SECONDS = 60;
 
 export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPassword, onPersonalise, subtitle, prefilledEmail }: LoginPageProps) {
-  const { signIn } = useAuth();
+  const { signIn, isAuthenticated } = useAuth();
   const supabase = useSupabase();
   const { toast } = useToast();
+  
+  // If user is already authenticated and came from personalise screen, redirect them back
+  useEffect(() => {
+    if (isAuthenticated && prefilledEmail) {
+      console.log('[LoginPage] User already authenticated with prefilled email, calling onSuccess');
+      onSuccess();
+    }
+  }, [isAuthenticated, prefilledEmail, onSuccess]);
   
   const [email, setEmail] = useState(prefilledEmail || "");
   const [password, setPassword] = useState("");
@@ -325,6 +333,21 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
           }
           
           session = signInResult.data.session;
+        }
+
+        // Mark password_created in user_profiles since user created account with password
+        if (session) {
+          try {
+            await fetch('/api/auth/profile/password-created', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+            });
+          } catch (err) {
+            console.error('[LoginPage] Error setting password_created:', err);
+          }
         }
 
         if (onPersonalise) {
