@@ -221,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user profile exists in our database first (fast lookup)
       const { data: profiles, error: profileError } = await supabaseAdmin
         .from("user_profiles")
-        .select("id, email, password_created")
+        .select("id, email, password_created, google_linked, apple_linked")
         .eq("email", email.toLowerCase())
         .limit(1);
 
@@ -235,15 +235,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ exists: false, hasPassword: false, hasMagicLink: false });
       }
 
-      // Check actual password_created field from user_profiles
+      // Check actual fields from user_profiles
       const hasPassword = profiles[0].password_created === true;
+      const googleLinked = profiles[0].google_linked === true;
+      const appleLinked = profiles[0].apple_linked === true;
       
-      console.log("[GET /api/auth/check-user] User found:", email, "hasPassword:", hasPassword);
+      console.log("[GET /api/auth/check-user] User found:", email, "hasPassword:", hasPassword, "googleLinked:", googleLinked, "appleLinked:", appleLinked);
       
       res.json({ 
         exists: true, 
         hasPassword: hasPassword,
-        hasMagicLink: true // Magic link is available for all email users
+        hasMagicLink: true, // Magic link is available for all email users
+        googleLinked: googleLinked,
+        appleLinked: appleLinked,
       });
     } catch (error: any) {
       console.error("[GET /api/auth/check-user] Error:", error);
@@ -495,21 +499,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/profile/password-created", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      const { setSignupMethod } = req.body; // Optional: also set signup_method to 'password'
       
-      console.log(`[POST /api/auth/profile/password-created] userId: ${userId}`);
+      console.log(`[POST /api/auth/profile/password-created] userId: ${userId}, setSignupMethod: ${setSignupMethod}`);
       
       const existing = await storage.getUserProfile(userId);
       if (!existing) {
         return res.status(404).json({ error: "Profile not found" });
       }
       
-      // Update password_created to true
-      const updatedProfile = await storage.updatePasswordCreated(userId, true);
-      
-      res.json({ passwordCreated: updatedProfile.passwordCreated });
+      // If signup_method is not already set and setSignupMethod is true, set it to 'password'
+      if (setSignupMethod && !existing.signupMethod) {
+        await storage.updateSignupMethod(userId, 'password', true);
+        const finalProfile = await storage.getUserProfile(userId);
+        res.json({ passwordCreated: finalProfile?.passwordCreated, signupMethod: finalProfile?.signupMethod });
+      } else {
+        // Just update password_created to true
+        const updatedProfile = await storage.updatePasswordCreated(userId, true);
+        res.json({ passwordCreated: updatedProfile.passwordCreated });
+      }
     } catch (error: any) {
       console.error("Error updating password_created:", error);
       res.status(500).json({ error: "Failed to update password status" });
+    }
+  });
+
+  // Update OAuth provider linking status
+  app.post("/api/auth/profile/oauth-linked", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { provider, linked } = req.body;
+      
+      if (!provider || !['google', 'apple'].includes(provider)) {
+        return res.status(400).json({ error: "Invalid provider. Must be 'google' or 'apple'" });
+      }
+      
+      if (typeof linked !== 'boolean') {
+        return res.status(400).json({ error: "linked must be a boolean" });
+      }
+      
+      console.log(`[POST /api/auth/profile/oauth-linked] userId: ${userId}, provider: ${provider}, linked: ${linked}`);
+      
+      const existing = await storage.getUserProfile(userId);
+      if (!existing) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      // Also set signup_method if this is the first time and linked is true
+      if (linked && !existing.signupMethod) {
+        await storage.updateSignupMethod(userId, provider, false);
+      }
+      
+      const updatedProfile = await storage.updateOAuthLinked(userId, provider, linked);
+      
+      res.json({ 
+        googleLinked: updatedProfile.googleLinked, 
+        appleLinked: updatedProfile.appleLinked,
+        signupMethod: updatedProfile.signupMethod,
+      });
+    } catch (error: any) {
+      console.error("Error updating OAuth linked status:", error);
+      res.status(500).json({ error: "Failed to update OAuth status" });
     }
   });
 

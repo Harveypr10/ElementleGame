@@ -142,6 +142,12 @@ export const userProfiles = pgTable("user_profiles", {
   signupMethod: text("signup_method"), // null until first login recorded
   // password_created: whether user has created a password (true if signed up with password or created one later)
   passwordCreated: boolean("password_created").default(false),
+  // OAuth provider linking status:
+  // NULL = Not signed up with this provider yet
+  // TRUE = Authorized and linked
+  // FALSE = Authorized but requested to be unlinked
+  googleLinked: boolean("google_linked"),
+  appleLinked: boolean("apple_linked"),
   
   // Foreign key to user_tier table (managed by Supabase trigger)
   userTierId: uuid("user_tier_id").references(() => userTier.id),

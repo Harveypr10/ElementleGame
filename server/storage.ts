@@ -99,6 +99,7 @@ export interface IStorage {
   upsertUserProfile(profile: InsertUserProfile): Promise<UserProfile>;
   updateSignupMethod(userId: string, signupMethod: string, passwordCreated: boolean): Promise<UserProfile>;
   updatePasswordCreated(userId: string, passwordCreated: boolean): Promise<UserProfile>;
+  updateOAuthLinked(userId: string, provider: 'google' | 'apple', linked: boolean): Promise<UserProfile>;
 
   // User tier operations (new subscription system)
   // LEGACY - kept for backward compatibility, use getSubscriptionData instead
@@ -372,6 +373,28 @@ export class DatabaseStorage implements IStorage {
         passwordCreated: passwordCreated,
         updatedAt: new Date(),
       })
+      .where(eq(userProfiles.id, userId))
+      .returning();
+    
+    return profile;
+  }
+
+  async updateOAuthLinked(userId: string, provider: 'google' | 'apple', linked: boolean): Promise<UserProfile> {
+    console.log(`[updateOAuthLinked] userId: ${userId}, provider: ${provider}, linked: ${linked}`);
+    
+    const setData: Record<string, any> = {
+      updatedAt: new Date(),
+    };
+    
+    if (provider === 'google') {
+      setData.googleLinked = linked;
+    } else if (provider === 'apple') {
+      setData.appleLinked = linked;
+    }
+    
+    const [profile] = await db
+      .update(userProfiles)
+      .set(setData)
       .where(eq(userProfiles.id, userId))
       .returning();
     
