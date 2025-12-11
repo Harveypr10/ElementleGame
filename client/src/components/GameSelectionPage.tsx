@@ -121,6 +121,8 @@ export function GameSelectionPage({
     showUserAfterRegion: false,
     holidayDurationDays: 0,
   });
+  // Track if holiday mode was just activated - prevents showing second streak saver popup
+  const [holidayJustActivated, setHolidayJustActivated] = useState(false);
   
   // Animation key - increments on each mount to force animation replay
   const [animationKey, setAnimationKey] = useState(0);
@@ -1303,7 +1305,8 @@ export function GameSelectionPage({
             const currentType = showStreakSaverPopup;
             setShowStreakSaverPopup(null);
             // If we just closed region popup and user also needs attention, show user popup
-            if (currentType === 'region' && hasMissedUser && !hasShownUserPopup) {
+            // But NOT if holiday mode was just activated (covers both game modes)
+            if (currentType === 'region' && hasMissedUser && !hasShownUserPopup && !holidayJustActivated) {
               setHasShownUserPopup(true);
               setTimeout(() => setShowStreakSaverPopup('user'), 300);
             }
@@ -1316,6 +1319,8 @@ export function GameSelectionPage({
           }
           onPlayYesterdaysPuzzle={onPlayYesterdaysPuzzle}
           onStartHolidayWithAnimation={(data) => {
+            // Mark holiday as just activated to prevent second streak saver popup
+            setHolidayJustActivated(true);
             setHolidayOverlayData(data);
             setShowHolidayOverlay(true);
           }}
