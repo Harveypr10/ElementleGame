@@ -30,6 +30,7 @@ import { useGameMode } from "@/contexts/GameModeContext";
 import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { clearUserCache } from "@/lib/localCache";
 import { useToast } from "@/hooks/use-toast";
 import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 import { useInterstitialAd } from "@/components/InterstitialAd";
@@ -49,7 +50,7 @@ interface Puzzle {
 }
 
 export default function Home() {
-  const { isAuthenticated, isLoading, user, hasCompletedFirstLogin, markFirstLoginCompleted } = useAuth();
+  const { isAuthenticated, isLoading, user, hasCompletedFirstLogin, markFirstLoginCompleted, signOut } = useAuth();
   const { isPasswordRecovery, clearPasswordRecovery } = usePasswordRecovery();
   const { profile } = useProfile();
   // Fetch BOTH global and local game attempts to avoid race conditions when switching modes
@@ -797,8 +798,26 @@ export default function Home() {
             <OnboardingScreen
               eventTitle={getDailyPuzzle('global')?.eventTitle || "Loading..."}
               puzzleDateCanonical={getDailyPuzzle('global')?.date || getTodayDateString()}
-              onPlay={() => {
-                // Guest user wants to play - show interstitial ad first, then proceed
+              onPlay={async () => {
+                // Guest user wants to play - clear any cached account creation data first
+                setPersonaliseEmail(null);
+                setLoginPrefilledEmail(null);
+                setPersonaliseData(null);
+                
+                // If user is authenticated (started account creation but wants to play as guest),
+                // sign them out first to play as a true guest
+                if (isAuthenticated) {
+                  try {
+                    await signOut();
+                    clearUserCache();
+                    queryClient.clear();
+                    console.log('[Home] Signed out user to play as guest from onboarding');
+                  } catch (error) {
+                    console.error('[Home] Error signing out for guest play:', error);
+                  }
+                }
+                
+                // Show interstitial ad first, then proceed
                 // Also skip the intro screen since they just saw puzzle info on onboarding
                 triggerGuestAd(() => {
                   setSkipIntroForGuest(true);
@@ -829,6 +848,8 @@ export default function Home() {
               onBack={() => {
                 setShowLoginSubtitle(false);
                 setLoginPrefilledEmail(null);
+                setPersonaliseEmail(null);
+                setPersonaliseData(null);
                 setCurrentScreen("onboarding");
               }}
               onSignup={() => {
