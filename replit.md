@@ -53,9 +53,10 @@ Preferred communication style: Simple, everyday language.
   - After success, `password_created` is updated in user_profiles, URL is cleaned up, and user is redirected to selection screen
   - `usePasswordRecovery()` hook exposes isPasswordRecovery state and clearPasswordRecovery function
 - **Google OAuth Sign-In**: Users can sign in with Google via `signInWithOAuth` in LoginPage
-  - SupabaseProvider listens for `SIGNED_IN` events and updates `signup_method` to "google" in user_profiles if not already set
-  - AccountInfoPage shows Google connection status by checking `user.identities` and `user.app_metadata.providers`
-  - Users can connect Google from Account Info if not already connected
+  - AccountInfoPage shows Google/Apple connection status by checking `user.identities` and `user.app_metadata.providers`
+  - Users can connect Google from Account Info using `linkIdentity` if not already connected
+  - Users can unlink Google/Apple accounts using `unlinkIdentity` - shows "Unlink" button when connected
+  - Safety check: Cannot unlink an OAuth provider if it's the only login method (must have password or another OAuth set up first)
 - **Mandatory Personalise Screen**: Users CANNOT bypass the "Personalise your game" screen until they complete it and click "Generate Questions":
   - CRITICAL: `handleSplashComplete` checks `hasCompletedFirstLogin()` and redirects users without completed first login directly to "personalise" screen
   - A navigation guard in Home.tsx prevents access to protected screens (selection, play, stats, archive, settings, options, account-info) until `first_login_completed` is true in user_metadata

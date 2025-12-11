@@ -228,6 +228,11 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [magicLinkCooldown, setMagicLinkCooldown] = useState(0);
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const [isAppleConnected, setIsAppleConnected] = useState(false);
+  const [unlinkingGoogle, setUnlinkingGoogle] = useState(false);
+  const [unlinkingApple, setUnlinkingApple] = useState(false);
+  const [googleIdentity, setGoogleIdentity] = useState<any>(null);
+  const [appleIdentity, setAppleIdentity] = useState<any>(null);
   
   // Magic link cooldown timer
   useEffect(() => {
@@ -266,14 +271,14 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     checkHasPassword();
   }, [supabase, profile?.passwordCreated]);
   
-  // Check if Google is connected by looking at user's identity providers
+  // Check if Google/Apple is connected by looking at user's identity providers
   useEffect(() => {
-    const checkGoogleConnection = async () => {
+    const checkOAuthConnections = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // Check identities array for Google provider
-          const hasGoogleIdentity = user.identities?.some(
+          // Find Google identity
+          const googleId = user.identities?.find(
             (identity) => identity.provider === 'google'
           );
           // Also check app_metadata.providers
@@ -281,14 +286,26 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           const hasGoogleProvider = providers.includes('google') || 
                                    user.app_metadata?.provider === 'google';
           
-          setIsGoogleConnected(hasGoogleIdentity || hasGoogleProvider);
+          setIsGoogleConnected(!!googleId || hasGoogleProvider);
+          setGoogleIdentity(googleId || null);
+          
+          // Find Apple identity
+          const appleId = user.identities?.find(
+            (identity) => identity.provider === 'apple'
+          );
+          const hasAppleProvider = providers.includes('apple') || 
+                                  user.app_metadata?.provider === 'apple';
+          
+          setIsAppleConnected(!!appleId || hasAppleProvider);
+          setAppleIdentity(appleId || null);
         }
       } catch (error) {
-        console.error('Error checking Google connection:', error);
+        console.error('Error checking OAuth connections:', error);
         setIsGoogleConnected(false);
+        setIsAppleConnected(false);
       }
     };
-    checkGoogleConnection();
+    checkOAuthConnections();
   }, [supabase]);
 
   const handleRegionChange = (newRegion: string) => {
@@ -653,6 +670,84 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
       });
     } finally {
       setSendingMagicLink(false);
+    }
+  };
+
+  // Unlink Google account
+  const handleUnlinkGoogle = async () => {
+    if (!googleIdentity || unlinkingGoogle) return;
+    
+    // Check if user has another way to log in (password or Apple)
+    if (!hasPassword && !isAppleConnected) {
+      toast({
+        title: "Cannot unlink Google",
+        description: "You need at least one login method. Please set up a password first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setUnlinkingGoogle(true);
+    
+    try {
+      const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
+      
+      if (error) throw error;
+      
+      setIsGoogleConnected(false);
+      setGoogleIdentity(null);
+      
+      toast({
+        title: "Google disconnected",
+        description: "Your Google account has been unlinked successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to unlink Google",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setUnlinkingGoogle(false);
+    }
+  };
+
+  // Unlink Apple account
+  const handleUnlinkApple = async () => {
+    if (!appleIdentity || unlinkingApple) return;
+    
+    // Check if user has another way to log in (password or Google)
+    if (!hasPassword && !isGoogleConnected) {
+      toast({
+        title: "Cannot unlink Apple",
+        description: "You need at least one login method. Please set up a password first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setUnlinkingApple(true);
+    
+    try {
+      const { error } = await supabase.auth.unlinkIdentity(appleIdentity);
+      
+      if (error) throw error;
+      
+      setIsAppleConnected(false);
+      setAppleIdentity(null);
+      
+      toast({
+        title: "Apple disconnected",
+        description: "Your Apple account has been unlinked successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to unlink Apple",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setUnlinkingApple(false);
     }
   };
 
@@ -1095,14 +1190,29 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   {isGoogleConnected ? (
-                    <Check className="w-5 h-5 text-green-500" />
+                    <>
+                      <Check className="w-5 h-5 text-green-500" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUnlinkGoogle}
+                        disabled={unlinkingGoogle}
+                        data-testid="button-unlink-google"
+                      >
+                        {unlinkingGoogle ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          "Unlink"
+                        )}
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={async () => {
                         try {
-                          const { error } = await supabase.auth.signInWithOAuth({
+                          const { error } = await supabase.auth.linkIdentity({
                             provider: "google",
                             options: {
                               redirectTo: window.location.origin,
@@ -1132,26 +1242,49 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                 </div>
               </div>
 
-              {/* Apple Login Method (Coming Soon) */}
-              <div className="flex items-center justify-between p-3 rounded-lg border opacity-60" data-testid="connected-account-apple">
+              {/* Apple Login Method */}
+              <div className={`flex items-center justify-between p-3 rounded-lg border ${!isAppleConnected ? 'opacity-60' : ''}`} data-testid="connected-account-apple">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-gray-800/10 dark:bg-gray-200/10 flex items-center justify-center">
                     <SiApple className="w-5 h-5 text-gray-800 dark:text-gray-200" />
                   </div>
                   <div>
                     <p className="font-medium">Apple</p>
-                    <p className="text-sm text-muted-foreground">Coming soon</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isAppleConnected ? "Connected" : "Coming soon"}
+                    </p>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled
-                  data-testid="button-connect-apple"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Connect
-                </Button>
+                <div className="flex items-center gap-2">
+                  {isAppleConnected ? (
+                    <>
+                      <Check className="w-5 h-5 text-green-500" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUnlinkApple}
+                        disabled={unlinkingApple}
+                        data-testid="button-unlink-apple"
+                      >
+                        {unlinkingApple ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          "Unlink"
+                        )}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled
+                      data-testid="button-connect-apple"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Connect
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
