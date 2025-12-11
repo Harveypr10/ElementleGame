@@ -73,6 +73,12 @@ Preferred communication style: Simple, everyday language.
   - **Exit Behavior**: Exiting without completion triggers warning popup; confirming resets streak to 0 via decline API but does NOT consume streak saver.
   - **State Management**: `streakSaverPuzzle` cleared when navigating away from PlayPage to prevent stale navigation.
 - **Holiday Protection System**: Pro-only feature to pause Local mode puzzles.
+  - **streak_day_status values**: 0 = holiday day (streak protected), 1 = played day (streak continues), NULL = missed day (streak breaks)
+  - **Exit Holiday Behavior**: When user exits holiday mode:
+    - Previous dates with streak_day_status=0 remain protected even if replayed
+    - Today's puzzle: Win sets streak_day_status=1, Loss sets streak_day_status=NULL (breaks streak), Not played keeps streak_day_status=0
+  - **StreakSaver Popup Prevention**: Popup won't trigger if yesterday's puzzle has streak_day_status=0 (holiday) or 1 (played)
+  - **Holiday Mode Activation from Popup**: When holiday mode is activated from first StreakSaver popup, second popup for other game mode is suppressed via `holidayJustActivated` flag
 - **Badge System**: Achievement badges for milestones across three categories:
   - **Elementle In**: Awarded for winning in 1 or 2 guesses (checked immediately after each game)
   - **Streak**: Awarded for streak milestones (7, 14, 30, 50, 100, 150, 250, 365, 500, 750, 1000 days) (checked immediately after each game)

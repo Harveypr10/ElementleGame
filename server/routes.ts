@@ -877,6 +877,14 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
       // Streak saver loss: leave streak_day_status as NULL, reset streak to 0
       // streak_day_status stays NULL (don't set to 0) so streak calculation breaks
       console.log('[PATCH /api/game-attempts/:id] Streak saver lost - streak_day_status stays NULL, streak resets');
+    } else if (updates.result === "lost" && isTodaysPuzzle) {
+      // Today's puzzle loss: if streak_day_status was 0 (holiday day), set to NULL to break streak
+      // This handles the case where user exits holiday mode and loses today's puzzle
+      const currentStreakDayStatus = ownedAttempt.streakDayStatus;
+      if (currentStreakDayStatus === 0) {
+        updates.streakDayStatus = null;
+        console.log('[PATCH /api/game-attempts/:id] Today puzzle lost after holiday - setting streak_day_status = NULL to break streak');
+      }
     }
 
     const gameAttempt = await storage.updateGameAttemptRegion(id, updates);
@@ -1471,6 +1479,14 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         // Streak saver loss: leave streak_day_status as NULL, reset streak to 0
         // streak_day_status stays NULL (don't set to 0) so streak calculation breaks
         console.log('[PATCH /api/user/game-attempts/:id] Streak saver lost - streak_day_status stays NULL, streak resets');
+      } else if (updates.result === "lost" && isTodaysPuzzle) {
+        // Today's puzzle loss: if streak_day_status was 0 (holiday day), set to NULL to break streak
+        // This handles the case where user exits holiday mode and loses today's puzzle
+        const currentStreakDayStatus = ownedAttempt.streakDayStatus;
+        if (currentStreakDayStatus === 0) {
+          updates.streakDayStatus = null;
+          console.log('[PATCH /api/user/game-attempts/:id] Today puzzle lost after holiday - setting streak_day_status = NULL to break streak');
+        }
       }
 
       const gameAttempt = await storage.updateGameAttemptUser(id, updates);

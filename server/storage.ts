@@ -2937,19 +2937,21 @@ export class DatabaseStorage implements IStorage {
       // ========================================================================
       // CHECK AND MANAGE MISSED_YESTERDAY_FLAG FOR REGION MODE
       // ========================================================================
-      // Check if yesterday's REGION puzzle was played
-      const regionPlayedYesterdayResult = await db.execute(sql`
-        SELECT ga.id 
+      // Check if yesterday's REGION puzzle was played OR protected by holiday (streak_day_status = 0 or 1)
+      const regionYesterdayStatusResult = await db.execute(sql`
+        SELECT ga.id, ga.streak_day_status, ga.result
         FROM game_attempts_region ga
         INNER JOIN questions_allocated_region qar ON ga.allocated_region_id = qar.id
         WHERE ga.user_id = ${userId}
           AND qar.puzzle_date = ${yesterdayStr}
-          AND ga.result IS NOT NULL
         LIMIT 1
       `);
       
-      const regionPlayedYesterdayRows = Array.isArray(regionPlayedYesterdayResult) ? regionPlayedYesterdayResult : (regionPlayedYesterdayResult as any).rows || [];
-      const didPlayRegionYesterday = regionPlayedYesterdayRows.length > 0;
+      const regionYesterdayStatusRows = Array.isArray(regionYesterdayStatusResult) ? regionYesterdayStatusResult : (regionYesterdayStatusResult as any).rows || [];
+      const regionYesterdayAttempt = regionYesterdayStatusRows[0];
+      // Consider "played" if result IS NOT NULL OR streak_day_status is 0 (holiday) or 1 (played)
+      const didPlayRegionYesterday = regionYesterdayAttempt?.result !== null && regionYesterdayAttempt?.result !== undefined;
+      const regionYesterdayProtected = regionYesterdayAttempt?.streak_day_status === 0 || regionYesterdayAttempt?.streak_day_status === 1;
       
       // Check if TODAY's REGION puzzle was played
       const regionPlayedTodayResult = await db.execute(sql`
@@ -2965,8 +2967,8 @@ export class DatabaseStorage implements IStorage {
       const regionPlayedTodayRows = Array.isArray(regionPlayedTodayResult) ? regionPlayedTodayResult : (regionPlayedTodayResult as any).rows || [];
       const didPlayRegionToday = regionPlayedTodayRows.length > 0;
       
-      if (didPlayRegionYesterday && regionMissedFlag) {
-        // User has played yesterday but flag is still set - CLEAR it!
+      if ((didPlayRegionYesterday || regionYesterdayProtected) && regionMissedFlag) {
+        // User has played yesterday OR yesterday was protected by holiday - CLEAR the flag!
         await db.execute(sql`
           UPDATE user_stats_region 
           SET missed_yesterday_flag_region = false, updated_at = NOW()
@@ -2982,8 +2984,8 @@ export class DatabaseStorage implements IStorage {
           WHERE user_id = ${userId}
         `);
         regionMissedFlag = false;
-      } else if (!didPlayRegionYesterday && !didPlayRegionToday && regionCurrentStreak > 0 && !regionMissedFlag) {
-        // User had a streak, missed yesterday, and hasn't played today yet - SET the flag!
+      } else if (!didPlayRegionYesterday && !regionYesterdayProtected && !didPlayRegionToday && regionCurrentStreak > 0 && !regionMissedFlag) {
+        // User had a streak, missed yesterday (and not protected by holiday), and hasn't played today yet - SET the flag!
         // This is the only case where we should show the streak saver popup
         await db.execute(sql`
           UPDATE user_stats_region 
@@ -2996,19 +2998,21 @@ export class DatabaseStorage implements IStorage {
       // ========================================================================
       // CHECK AND MANAGE MISSED_YESTERDAY_FLAG FOR USER MODE
       // ========================================================================
-      // Check if yesterday's USER puzzle was played
-      const userPlayedYesterdayResult = await db.execute(sql`
-        SELECT ga.id 
+      // Check if yesterday's USER puzzle was played OR protected by holiday (streak_day_status = 0 or 1)
+      const userYesterdayStatusResult = await db.execute(sql`
+        SELECT ga.id, ga.streak_day_status, ga.result
         FROM game_attempts_user ga
         INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
         WHERE ga.user_id = ${userId}
           AND qau.puzzle_date = ${yesterdayStr}
-          AND ga.result IS NOT NULL
         LIMIT 1
       `);
       
-      const userPlayedYesterdayRows = Array.isArray(userPlayedYesterdayResult) ? userPlayedYesterdayResult : (userPlayedYesterdayResult as any).rows || [];
-      const didPlayUserYesterday = userPlayedYesterdayRows.length > 0;
+      const userYesterdayStatusRows = Array.isArray(userYesterdayStatusResult) ? userYesterdayStatusResult : (userYesterdayStatusResult as any).rows || [];
+      const userYesterdayAttempt = userYesterdayStatusRows[0];
+      // Consider "played" if result IS NOT NULL OR streak_day_status is 0 (holiday) or 1 (played)
+      const didPlayUserYesterday = userYesterdayAttempt?.result !== null && userYesterdayAttempt?.result !== undefined;
+      const userYesterdayProtected = userYesterdayAttempt?.streak_day_status === 0 || userYesterdayAttempt?.streak_day_status === 1;
       
       // Check if TODAY's USER puzzle was played
       const userPlayedTodayResult = await db.execute(sql`
@@ -3024,8 +3028,8 @@ export class DatabaseStorage implements IStorage {
       const userPlayedTodayRows = Array.isArray(userPlayedTodayResult) ? userPlayedTodayResult : (userPlayedTodayResult as any).rows || [];
       const didPlayUserToday = userPlayedTodayRows.length > 0;
       
-      if (didPlayUserYesterday && userMissedFlag) {
-        // User has played yesterday but flag is still set - CLEAR it!
+      if ((didPlayUserYesterday || userYesterdayProtected) && userMissedFlag) {
+        // User has played yesterday OR yesterday was protected by holiday - CLEAR the flag!
         await db.execute(sql`
           UPDATE user_stats_user 
           SET missed_yesterday_flag_user = false, updated_at = NOW()
@@ -3040,8 +3044,8 @@ export class DatabaseStorage implements IStorage {
           WHERE user_id = ${userId}
         `);
         userMissedFlag = false;
-      } else if (!didPlayUserYesterday && !didPlayUserToday && userCurrentStreak > 0 && !userMissedFlag && !holidayActive) {
-        // User had a streak, missed yesterday, hasn't played today yet, and not on holiday - SET the flag!
+      } else if (!didPlayUserYesterday && !userYesterdayProtected && !didPlayUserToday && userCurrentStreak > 0 && !userMissedFlag && !holidayActive) {
+        // User had a streak, missed yesterday (and not protected by holiday), hasn't played today yet, and not on holiday - SET the flag!
         await db.execute(sql`
           UPDATE user_stats_user 
           SET missed_yesterday_flag_user = true, updated_at = NOW()
