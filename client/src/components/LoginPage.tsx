@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSupabase } from "@/lib/SupabaseProvider";
 import { SiGoogle, SiApple } from "react-icons/si";
 import { validatePassword, getPasswordRequirementsText } from "@/lib/passwordValidation";
+import { isIosPwa } from "@/lib/pwaContext";
 
 interface LoginPageProps {
   onSuccess: () => void;
@@ -20,7 +21,7 @@ interface LoginPageProps {
   prefilledEmail?: string; // Pre-fill email field when returning from personalise
 }
 
-type LoginStep = "email" | "password" | "magic-link" | "create-account";
+type LoginStep = "email" | "password" | "magic-link" | "create-account" | "set-password";
 
 interface UserAuthInfo {
   exists: boolean;
@@ -46,6 +47,10 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
   const [userAuthInfo, setUserAuthInfo] = useState<UserAuthInfo | null>(null);
   const [fadeIn, setFadeIn] = useState(false);
   const [creatingAccount, setCreatingAccount] = useState(false);
+  const [settingPassword, setSettingPassword] = useState(false);
+  
+  // Check if running in iOS PWA context (magic links don't work in PWA)
+  const isInIosPwa = useMemo(() => isIosPwa(), []);
 
   const cooldownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -136,7 +141,13 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
         if (data.hasPassword) {
           setStep("password");
         } else {
-          setStep("magic-link");
+          // User exists but has no password
+          // In iOS PWA, they must create a password (magic links don't work in PWA)
+          if (isInIosPwa) {
+            setStep("set-password");
+          } else {
+            setStep("magic-link");
+          }
         }
       } else {
         setStep("create-account");
@@ -343,6 +354,100 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
     if (cooldownIntervalRef.current) {
       clearInterval(cooldownIntervalRef.current);
       cooldownIntervalRef.current = null;
+    }
+  };
+
+  // Handle setting password for returning users who don't have one (iOS PWA flow)
+  const handleSetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!password || !confirmPassword) {
+      toast({
+        title: "Password required",
+        description: "Please enter and confirm your password.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure both passwords are the same.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const validation = validatePassword(password);
+    if (!validation.valid) {
+      toast({
+        title: "Invalid Password",
+        description: validation.errors.join(", "),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSettingPassword(true);
+    
+    try {
+      // First, sign in with magic link to get a session, then update password
+      // Actually, we need to update the user's password in Supabase Auth
+      // For an existing user without a password, we need to use updateUser
+      // But we need to be authenticated first - so we'll use a different approach
+      
+      // Use Supabase admin API via our backend to set the password
+      const response = await fetch('/api/auth/set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to set password');
+      }
+      
+      // Now sign in with the new password
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (error) {
+        toast({
+          title: "Login failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data.session) {
+        // Update password_created flag in user_profiles
+        try {
+          await fetch('/api/auth/profile/password-created', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${data.session.access_token}`,
+            },
+          });
+        } catch (profileError) {
+          console.error('[LoginPage] Error updating password_created:', profileError);
+        }
+        
+        onSuccess();
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to set password",
+        variant: "destructive",
+      });
+    } finally {
+      setSettingPassword(false);
     }
   };
 
@@ -589,19 +694,22 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                   {loading ? "Logging in..." : "Log in"}
                 </Button>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full py-6 text-base font-medium border-2"
-                  onClick={() => handleSendMagicLink(false)}
-                  disabled={sendingMagicLink || magicLinkCooldown > 0}
-                  data-testid="button-magic-link"
-                >
-                  {getMagicLinkButtonText()}
-                </Button>
+                {/* Hide magic link button for iOS PWA users */}
+                {!isInIosPwa && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full py-6 text-base font-medium border-2"
+                    onClick={() => handleSendMagicLink(false)}
+                    disabled={sendingMagicLink || magicLinkCooldown > 0}
+                    data-testid="button-magic-link"
+                  >
+                    {getMagicLinkButtonText()}
+                  </Button>
+                )}
               </form>
 
-              {magicLinkSent && (
+              {magicLinkSent && !isInIosPwa && (
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -699,6 +807,117 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
             </motion.div>
           )}
 
+          {step === "set-password" && (
+            <motion.div
+              key="set-password-step"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="w-full"
+            >
+              <h2 
+                className="text-2xl font-bold text-center mb-2"
+                style={{ color: textColor }}
+                data-testid="text-heading"
+              >
+                Create a password
+              </h2>
+              <p 
+                className="text-center mb-6"
+                style={{ color: secondaryTextColor }}
+              >
+                To sign in via the app you need to create a password.
+              </p>
+              <p 
+                className="text-center text-xs mb-8"
+                style={{ color: secondaryTextColor }}
+              >
+                You can continue to use the one-time sign in link through the web browser.
+              </p>
+
+              <form onSubmit={handleSetPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <label 
+                    htmlFor="email-display" 
+                    className="text-sm font-medium"
+                    style={{ color: textColor }}
+                  >
+                    Email address
+                  </label>
+                  <div className="relative">
+                    <Input
+                      id="email-display"
+                      type="email"
+                      value={email}
+                      disabled
+                      className="w-full pr-16 bg-muted"
+                      data-testid="input-email-display"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleEditEmail}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium"
+                      style={{ color: textColor }}
+                      data-testid="button-edit-email"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label 
+                    htmlFor="new-password" 
+                    className="text-sm font-medium"
+                    style={{ color: textColor }}
+                  >
+                    Password
+                  </label>
+                  <PasswordInput
+                    id="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Create a password"
+                    className="w-full"
+                    data-testid="input-password"
+                    autoFocus
+                  />
+                  <p className="text-xs" style={{ color: secondaryTextColor }}>
+                    {getPasswordRequirementsText()}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label 
+                    htmlFor="confirm-password" 
+                    className="text-sm font-medium"
+                    style={{ color: textColor }}
+                  >
+                    Confirm Password
+                  </label>
+                  <PasswordInput
+                    id="confirm-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm your password"
+                    className="w-full"
+                    data-testid="input-confirm-password"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-6 text-lg font-semibold"
+                  disabled={settingPassword || !password || !confirmPassword}
+                  data-testid="button-set-password"
+                >
+                  {settingPassword ? "Setting password..." : "Continue"}
+                </Button>
+              </form>
+            </motion.div>
+          )}
+
           {step === "create-account" && (
             <motion.div
               key="create-account-step"
@@ -749,48 +968,53 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                   </div>
                 </div>
 
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: 0.1 }}
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full py-6 text-base font-medium border-2"
-                    onClick={() => handleSendMagicLink(true)}
-                    disabled={sendingMagicLink || magicLinkCooldown > 0}
-                    data-testid="button-magic-link-signup"
-                  >
-                    {getMagicLinkButtonText()}
-                  </Button>
-                </motion.div>
+                {/* Hide magic link option for iOS PWA users */}
+                {!isInIosPwa && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: 0.1 }}
+                    >
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full py-6 text-base font-medium border-2"
+                        onClick={() => handleSendMagicLink(true)}
+                        disabled={sendingMagicLink || magicLinkCooldown > 0}
+                        data-testid="button-magic-link-signup"
+                      >
+                        {getMagicLinkButtonText()}
+                      </Button>
+                    </motion.div>
 
-                {magicLinkSent && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-sm text-center p-3 rounded-lg"
-                    style={{ 
-                      backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
-                      color: isDarkMode ? '#86efac' : '#166534'
-                    }}
-                    data-testid="text-magic-link-success"
-                  >
-                    Check your inbox for a secure sign up link. It expires in 5 minutes.
-                  </motion.p>
+                    {magicLinkSent && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-sm text-center p-3 rounded-lg"
+                        style={{ 
+                          backgroundColor: isDarkMode ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.1)',
+                          color: isDarkMode ? '#86efac' : '#166534'
+                        }}
+                        data-testid="text-magic-link-success"
+                      >
+                        Check your inbox for a secure sign up link. It expires in 5 minutes.
+                      </motion.p>
+                    )}
+
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3, delay: 0.2 }}
+                      className="flex items-center my-2"
+                    >
+                      <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
+                      <span className="px-4 text-sm" style={{ color: secondaryTextColor }}>or</span>
+                      <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
+                    </motion.div>
+                  </>
                 )}
-
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.2 }}
-                  className="flex items-center my-2"
-                >
-                  <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
-                  <span className="px-4 text-sm" style={{ color: secondaryTextColor }}>or</span>
-                  <div className="flex-1 border-t" style={{ borderColor: isDarkMode ? 'rgba(255,255,255,0.2)' : '#ddd' }} />
-                </motion.div>
 
                 <motion.form
                   initial={{ opacity: 0, y: 10 }}

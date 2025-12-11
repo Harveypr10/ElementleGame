@@ -513,6 +513,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Set password for existing user (used for iOS PWA flow where magic links don't work)
+  app.post("/api/auth/set-password", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+      
+      console.log(`[POST /api/auth/set-password] Setting password for: ${email}`);
+      
+      // First, get the user by email
+      const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (listError) {
+        console.error("[POST /api/auth/set-password] Error listing users:", listError);
+        return res.status(500).json({ error: "Failed to find user" });
+      }
+      
+      const user = users.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Update the user's password using admin API
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        user.id,
+        { password }
+      );
+      
+      if (updateError) {
+        console.error("[POST /api/auth/set-password] Error updating password:", updateError);
+        return res.status(500).json({ error: "Failed to set password" });
+      }
+      
+      // Update password_created in user_profiles
+      await storage.updatePasswordCreated(user.id, true);
+      
+      console.log(`[POST /api/auth/set-password] Password set successfully for: ${email}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[POST /api/auth/set-password] Error:", error);
+      res.status(500).json({ error: "Failed to set password" });
+    }
+  });
+
   // Puzzle routes - REGION MODE (requires authentication for region context)
   app.get("/api/puzzles", verifySupabaseAuth, async (req: any, res) => {
     try {
