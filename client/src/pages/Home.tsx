@@ -29,7 +29,7 @@ import { useUserDateFormat } from "@/hooks/useUserDateFormat";
 import { useGameMode } from "@/contexts/GameModeContext";
 import { useSpinnerWithTimeout } from "@/lib/SpinnerProvider";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient as sharedQueryClient } from "@/lib/queryClient";
 import { clearUserCache } from "@/lib/localCache";
 import { useToast } from "@/hooks/use-toast";
 import { AdBanner, AdBannerContext } from "@/components/AdBanner";
@@ -203,6 +203,23 @@ export default function Home() {
       }
     }
   }, [currentScreen, isAuthenticated, user, hasCompletedFirstLogin, needsFirstLoginSetup, hasShownGeneratingScreen]);
+  
+  // Guard: Redirect unauthenticated users on protected screens to OnboardingScreen
+  // This catches cases where the user is signed out while viewing a protected screen
+  // (e.g., session expired, signed out in another tab, etc.)
+  useEffect(() => {
+    // Only check after initial loading is complete
+    if (isLoading) return;
+    
+    // If user is not authenticated but is on a protected screen, redirect to onboarding
+    if (!isAuthenticated && protectedScreens.includes(currentScreen)) {
+      console.log('[Home] Guard: User signed out on protected screen, redirecting to onboarding');
+      // Clear any local state that might cause issues
+      clearUserCache();
+      sharedQueryClient.clear();
+      setCurrentScreen("onboarding");
+    }
+  }, [isAuthenticated, isLoading, currentScreen]);
 
   // Scroll to top when screen changes
   useEffect(() => {

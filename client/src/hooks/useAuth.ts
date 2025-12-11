@@ -33,11 +33,52 @@ export function useAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("[useAuth] Auth state changed:", _event);
       setUser(session?.user ?? null);
       setIsLoading(false);
     });
+    
+    // Handle visibility change to refresh session when tab resumes focus
+    // This helps restore sessions that may have expired while tab was inactive
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log("[useAuth] Tab visible - checking session...");
+        try {
+          // First try to get the current session
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.warn("[useAuth] Error getting session on visibility change:", error);
+            return;
+          }
+          
+          if (session) {
+            // Session exists - try to refresh it to ensure it's valid
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            if (refreshError) {
+              console.warn("[useAuth] Error refreshing session:", refreshError);
+              // If refresh fails, the session may be invalid - update state
+              setUser(null);
+            } else if (refreshData.session) {
+              console.log("[useAuth] Session refreshed successfully");
+              setUser(refreshData.session.user);
+            }
+          } else {
+            console.log("[useAuth] No session found on visibility change");
+            setUser(null);
+          }
+        } catch (err) {
+          console.warn("[useAuth] Error in visibility change handler:", err);
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [supabase]);
   
   // Check if user has completed first login (from user_metadata)
