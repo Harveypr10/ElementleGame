@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { InlineHelp } from "@/components/ui/inline-help";
 import { PostcodeAutocomplete } from "@/components/PostcodeAutocomplete";
 import {
@@ -223,9 +224,6 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [hasPassword, setHasPassword] = useState<boolean | null>(null);
   
   // Connected accounts state
-  const [sendingMagicLink, setSendingMagicLink] = useState(false);
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
-  const [magicLinkCooldown, setMagicLinkCooldown] = useState(0);
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [isAppleConnected, setIsAppleConnected] = useState(false);
@@ -233,16 +231,33 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   const [unlinkingApple, setUnlinkingApple] = useState(false);
   const [googleIdentity, setGoogleIdentity] = useState<any>(null);
   const [appleIdentity, setAppleIdentity] = useState<any>(null);
+  const [magicLinkEnabled, setMagicLinkEnabled] = useState(true);
+  const [togglingMagicLink, setTogglingMagicLink] = useState(false);
   
-  // Magic link cooldown timer
+  // Initialize magic link enabled state from Supabase (column not in Drizzle schema)
   useEffect(() => {
-    if (magicLinkCooldown > 0) {
-      const timer = setTimeout(() => setMagicLinkCooldown(magicLinkCooldown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (magicLinkCooldown === 0 && magicLinkSent) {
-      setMagicLinkSent(false);
-    }
-  }, [magicLinkCooldown, magicLinkSent]);
+    const fetchMagicLinkSetting = async () => {
+      if (!user?.id) return;
+      try {
+        const session = await supabase.auth.getSession();
+        if (session.data.session) {
+          const response = await fetch(`/api/auth/profile/magic-link-status`, {
+            headers: {
+              'Authorization': `Bearer ${session.data.session.access_token}`,
+            },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setMagicLinkEnabled(data.enabled !== false);
+          }
+        }
+      } catch (e) {
+        // Default to enabled if we can't fetch
+        console.log('[AccountInfoPage] Could not fetch magic link status, defaulting to enabled');
+      }
+    };
+    fetchMagicLinkSetting();
+  }, [user?.id, supabase]);
   
   // Check if user has a password - prefer profile.passwordCreated, fallback to AMR check
   useEffect(() => {
@@ -683,37 +698,58 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     });
   };
 
-  // Send magic link for passwordless login
-  const handleSendMagicLink = async () => {
-    if (!user?.email || sendingMagicLink || magicLinkCooldown > 0) return;
+  // Toggle magic link login enabled/disabled
+  const handleToggleMagicLink = async (enabled: boolean) => {
+    if (togglingMagicLink) return;
     
-    setSendingMagicLink(true);
+    // Check if user has another way to log in before disabling
+    if (!enabled && !hasPassword && !isGoogleConnected && !isAppleConnected) {
+      toast({
+        title: "Cannot disable magic link",
+        description: "You need at least one login method. Please set up a password or connect a social account first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setTogglingMagicLink(true);
     
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: user.email,
-        options: {
-          shouldCreateUser: false, // Don't create a new user, just send login link
-        },
-      });
-      
-      if (error) throw error;
-      
-      setMagicLinkSent(true);
-      setMagicLinkCooldown(60); // 60 second cooldown
-      
-      toast({
-        title: "Magic link sent!",
-        description: `Check your email at ${user.email}. The link expires in 5 minutes.`,
-      });
+      const session = await supabase.auth.getSession();
+      if (session.data.session) {
+        const response = await fetch('/api/auth/profile/magic-link', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.data.session.access_token}`,
+          },
+          body: JSON.stringify({ enabled }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update magic link setting');
+        }
+        
+        setMagicLinkEnabled(enabled);
+        
+        // Invalidate profile cache
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/profile'] });
+        
+        toast({
+          title: enabled ? "Magic link enabled" : "Magic link disabled",
+          description: enabled 
+            ? "You can now sign in with email links" 
+            : "Magic link sign-in has been disabled",
+        });
+      }
     } catch (error: any) {
       toast({
-        title: "Failed to send magic link",
+        title: "Failed to update setting",
         description: error.message || "Please try again later",
         variant: "destructive",
       });
     } finally {
-      setSendingMagicLink(false);
+      setTogglingMagicLink(false);
     }
   };
 
@@ -1223,29 +1259,20 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                   <div>
                     <p className="font-medium">Magic Link</p>
                     <p className="text-sm text-muted-foreground">
-                      Login via email link
+                      {magicLinkEnabled ? "Sign in with email link enabled" : "Sign in with email link disabled"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-green-500" />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSendMagicLink}
-                    disabled={sendingMagicLink || magicLinkCooldown > 0}
-                    data-testid="button-send-magic-link"
-                  >
-                    {sendingMagicLink ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : magicLinkCooldown > 0 ? (
-                      `Sent (${magicLinkCooldown}s)`
-                    ) : magicLinkSent ? (
-                      "Resend"
-                    ) : (
-                      "Send Link"
-                    )}
-                  </Button>
+                  {togglingMagicLink ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Switch
+                      checked={magicLinkEnabled}
+                      onCheckedChange={handleToggleMagicLink}
+                      data-testid="switch-magic-link"
+                    />
+                  )}
                 </div>
               </div>
 

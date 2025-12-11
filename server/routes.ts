@@ -232,7 +232,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If no profile found in our database, user hasn't signed up through our app
       if (!profiles || profiles.length === 0) {
         console.log("[GET /api/auth/check-user] User not found in profiles:", email);
-        return res.json({ exists: false, hasPassword: false, hasMagicLink: false });
+        return res.json({ exists: false, hasPassword: false, hasMagicLink: false, magicLinkEnabled: true });
       }
 
       // Check actual fields from user_profiles
@@ -240,12 +240,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const googleLinked = profiles[0].google_linked === true;
       const appleLinked = profiles[0].apple_linked === true;
       
-      console.log("[GET /api/auth/check-user] User found:", email, "hasPassword:", hasPassword, "googleLinked:", googleLinked, "appleLinked:", appleLinked);
+      // Fetch magic_link separately to avoid breaking if column doesn't exist
+      let magicLinkEnabled = true; // Default to true
+      try {
+        const { data: mlData } = await supabaseAdmin
+          .from("user_profiles")
+          .select("magic_link")
+          .eq("id", profiles[0].id)
+          .single();
+        if (mlData && mlData.magic_link !== undefined) {
+          magicLinkEnabled = mlData.magic_link !== false;
+        }
+      } catch (e) {
+        // Column might not exist yet, default to true
+        console.log("[GET /api/auth/check-user] magic_link column not available, defaulting to true");
+      }
+      
+      console.log("[GET /api/auth/check-user] User found:", email, "hasPassword:", hasPassword, "googleLinked:", googleLinked, "appleLinked:", appleLinked, "magicLinkEnabled:", magicLinkEnabled);
       
       res.json({ 
         exists: true, 
         hasPassword: hasPassword,
         hasMagicLink: true, // Magic link is available for all email users
+        magicLinkEnabled: magicLinkEnabled, // Whether user has enabled magic link login
         googleLinked: googleLinked,
         appleLinked: appleLinked,
       });
@@ -560,6 +577,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating OAuth linked status:", error);
       res.status(500).json({ error: "Failed to update OAuth status" });
+    }
+  });
+
+  // Get magic link login enabled/disabled status
+  app.get("/api/auth/profile/magic-link-status", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Fetch magic_link from user_profiles
+      const { data, error } = await supabaseAdmin
+        .from("user_profiles")
+        .select("magic_link")
+        .eq("id", userId)
+        .single();
+      
+      if (error) {
+        // Column might not exist yet, default to true
+        console.log("[GET /api/auth/profile/magic-link-status] Error or column not found, defaulting to true");
+        return res.json({ enabled: true });
+      }
+      
+      res.json({ enabled: data?.magic_link !== false });
+    } catch (error: any) {
+      console.error("Error fetching magic link status:", error);
+      res.json({ enabled: true }); // Default to true on error
+    }
+  });
+
+  // Update magic link login enabled/disabled status
+  app.post("/api/auth/profile/magic-link", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { enabled } = req.body;
+      
+      if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+      
+      console.log(`[POST /api/auth/profile/magic-link] userId: ${userId}, enabled: ${enabled}`);
+      
+      const existing = await storage.getUserProfile(userId);
+      if (!existing) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+      
+      // Update the magic_link field in user_profiles
+      const { data, error } = await supabaseAdmin
+        .from("user_profiles")
+        .update({ magic_link: enabled })
+        .eq("id", userId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("[POST /api/auth/profile/magic-link] Error:", error);
+        throw error;
+      }
+      
+      res.json({ magicLink: data.magic_link });
+    } catch (error: any) {
+      console.error("Error updating magic link status:", error);
+      res.status(500).json({ error: "Failed to update magic link status" });
     }
   });
 

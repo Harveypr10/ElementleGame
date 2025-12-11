@@ -33,6 +33,7 @@ interface UserAuthInfo {
   exists: boolean;
   hasPassword: boolean;
   hasMagicLink: boolean;
+  magicLinkEnabled: boolean;
   googleLinked: boolean;
   appleLinked: boolean;
 }
@@ -700,8 +701,8 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
 
                   {/* Other login options - show based on what user has activated */}
                   <div className="space-y-3">
-                    {/* Magic link - always available (except iOS PWA) */}
-                    {!isInIosPwa && (
+                    {/* Magic link - only show if enabled and not iOS PWA */}
+                    {!isInIosPwa && userAuthInfo?.magicLinkEnabled !== false && (
                       <Button
                         type="button"
                         variant="outline"
@@ -1094,11 +1095,11 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                     <Button
                       type="submit"
                       className={`w-full py-6 text-lg font-semibold ${
-                        validatePassword(password).isValid && password === confirmPassword && !creatingAccount
+                        validatePassword(password).valid && password === confirmPassword && !creatingAccount
                           ? "bg-blue-700 hover:bg-blue-800 text-white"
                           : "bg-muted text-muted-foreground cursor-not-allowed"
                       }`}
-                      disabled={creatingAccount || !validatePassword(password).isValid || password !== confirmPassword}
+                      disabled={creatingAccount || !validatePassword(password).valid || password !== confirmPassword}
                       data-testid="button-create-account"
                     >
                       {creatingAccount ? "Creating account..." : "Create account"}

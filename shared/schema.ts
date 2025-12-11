@@ -148,6 +148,8 @@ export const userProfiles = pgTable("user_profiles", {
   // FALSE = Authorized but requested to be unlinked
   googleLinked: boolean("google_linked"),
   appleLinked: boolean("apple_linked"),
+  // NOTE: magic_link column exists in database but not in Drizzle schema
+  // to avoid breaking queries if column doesn't exist. Queried separately.
   
   // Foreign key to user_tier table (managed by Supabase trigger)
   userTierId: uuid("user_tier_id").references(() => userTier.id),
