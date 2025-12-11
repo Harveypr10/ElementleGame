@@ -46,6 +46,12 @@ Preferred communication style: Simple, everyday language.
   - Returning iOS PWA users without a password see "Set up a password" step that sends a password reset email via `/api/auth/send-password-reset` (secure - uses Supabase's built-in reset flow)
   - User sets password in Safari via reset link, then returns to PWA to log in with password
   - `/api/auth/set-password` requires authentication (verifySupabaseAuth) - only authenticated users can set their own password
+- **Password Recovery Flow**: When user clicks password reset link from email:
+  - SupabaseProvider detects `type=recovery` in URL and sets `isPasswordRecovery=true`
+  - Home.tsx renders PasswordResetScreen when isPasswordRecovery is true
+  - User enters new password, calls `supabase.auth.updateUser({ password })`
+  - After success, `password_created` is updated in user_profiles, URL is cleaned up, and user is redirected to selection screen
+  - `usePasswordRecovery()` hook exposes isPasswordRecovery state and clearPasswordRecovery function
 - **Mandatory Personalise Screen**: Users CANNOT bypass the "Personalise your game" screen until they complete it and click "Generate Questions":
   - CRITICAL: `handleSplashComplete` checks `hasCompletedFirstLogin()` and redirects users without completed first login directly to "personalise" screen
   - A navigation guard in Home.tsx prevents access to protected screens (selection, play, stats, archive, settings, options, account-info) until `first_login_completed` is true in user_metadata

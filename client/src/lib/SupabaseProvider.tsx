@@ -1,14 +1,27 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabaseClient';
 import { isPwaContext, markPwaInstalled } from './pwaContext';
 
-const SupabaseContext = createContext<SupabaseClient | null>(null);
+interface SupabaseContextValue {
+  client: SupabaseClient;
+  isPasswordRecovery: boolean;
+  clearPasswordRecovery: () => void;
+}
+
+const SupabaseContext = createContext<SupabaseContextValue | null>(null);
 
 export function SupabaseProvider({ children }: { children: ReactNode }) {
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  
+  const clearPasswordRecovery = useCallback(() => {
+    setIsPasswordRecovery(false);
+    // Clean up the URL
+    window.history.replaceState(null, '', window.location.pathname);
+  }, []);
 
   useEffect(() => {
     // Mark PWA as installed when running in PWA context
@@ -31,7 +44,7 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
         let type = searchParams.get('type');
         
         if (tokenHash && type) {
-          console.log('[SupabaseProvider] Verifying token_hash');
+          console.log('[SupabaseProvider] Verifying token_hash, type:', type);
           
           const { data, error: verifyError } = await client.auth.verifyOtp({
             token_hash: tokenHash,
@@ -42,8 +55,16 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
             console.error('[SupabaseProvider] Error verifying token_hash:', verifyError);
           } else if (data.session) {
             console.log('[SupabaseProvider] Successfully verified token_hash for user:', data.session.user.email);
-            // Clear the query params from the URL
-            window.history.replaceState(null, '', window.location.pathname);
+            
+            // Check if this is a password recovery flow
+            if (type === 'recovery') {
+              console.log('[SupabaseProvider] Password recovery flow detected - showing reset screen');
+              setIsPasswordRecovery(true);
+              // Don't clear URL yet - let the password reset screen handle it
+            } else {
+              // Clear the query params from the URL
+              window.history.replaceState(null, '', window.location.pathname);
+            }
           }
         }
         // Check for access_token in hash (implicit flow - for backwards compatibility)
@@ -98,7 +119,14 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
               console.error('[SupabaseProvider] Error verifying token_hash from hash:', verifyError);
             } else if (data.session) {
               console.log('[SupabaseProvider] Successfully verified token_hash from hash for user:', data.session.user.email);
-              window.history.replaceState(null, '', window.location.pathname);
+              
+              // Check if this is a password recovery flow
+              if (hashType === 'recovery') {
+                console.log('[SupabaseProvider] Password recovery flow detected from hash - showing reset screen');
+                setIsPasswordRecovery(true);
+              } else {
+                window.history.replaceState(null, '', window.location.pathname);
+              }
             }
           }
         }
@@ -127,8 +155,14 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     return <div>Error initializing app: {error || 'Supabase client not available'}</div>;
   }
 
+  const contextValue: SupabaseContextValue = {
+    client: supabase,
+    isPasswordRecovery,
+    clearPasswordRecovery,
+  };
+
   return (
-    <SupabaseContext.Provider value={supabase}>
+    <SupabaseContext.Provider value={contextValue}>
       {children}
     </SupabaseContext.Provider>
   );
@@ -139,5 +173,16 @@ export function useSupabase() {
   if (!context) {
     throw new Error('useSupabase must be used within SupabaseProvider');
   }
-  return context;
+  return context.client;
+}
+
+export function usePasswordRecovery() {
+  const context = useContext(SupabaseContext);
+  if (!context) {
+    throw new Error('usePasswordRecovery must be used within SupabaseProvider');
+  }
+  return {
+    isPasswordRecovery: context.isPasswordRecovery,
+    clearPasswordRecovery: context.clearPasswordRecovery,
+  };
 }

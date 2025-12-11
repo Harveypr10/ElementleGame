@@ -20,6 +20,8 @@ import { AboutPage } from "@/components/AboutPage";
 import { BugReportForm } from "@/components/BugReportForm";
 import { FeedbackForm } from "@/components/FeedbackForm";
 import { GeneratingQuestionsScreen } from "@/components/GeneratingQuestionsScreen";
+import PasswordResetScreen from "@/components/PasswordResetScreen";
+import { usePasswordRecovery } from "@/lib/SupabaseProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
@@ -48,6 +50,7 @@ interface Puzzle {
 
 export default function Home() {
   const { isAuthenticated, isLoading, user, hasCompletedFirstLogin, markFirstLoginCompleted } = useAuth();
+  const { isPasswordRecovery, clearPasswordRecovery } = usePasswordRecovery();
   const { profile } = useProfile();
   // Fetch BOTH global and local game attempts to avoid race conditions when switching modes
   const { gameAttempts: globalGameAttempts, loadingAttempts: loadingGlobalAttempts } = useGameData({ modeOverride: 'global' });
@@ -735,6 +738,21 @@ export default function Home() {
   if (isLoading) {
     return (
       <div className="min-h-screen" data-testid="auth-loading" />
+    );
+  }
+
+  // Show password reset screen if user came from a recovery link
+  if (isPasswordRecovery) {
+    return (
+      <AdBannerContext.Provider value={false}>
+        <PasswordResetScreen 
+          onSuccess={() => {
+            // After password reset, clear recovery state and go to selection
+            clearPasswordRecovery();
+            setCurrentScreen("selection");
+          }} 
+        />
+      </AdBannerContext.Provider>
     );
   }
 
