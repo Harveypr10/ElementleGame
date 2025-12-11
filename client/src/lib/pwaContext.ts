@@ -1,4 +1,5 @@
 const PWA_INSTALLED_KEY = 'elementle_pwa_installed';
+const SKIP_HANDOFF_KEY = 'elementle_skip_handoff';
 
 export function isPwaContext(): boolean {
   if (typeof window === 'undefined') return false;
@@ -36,6 +37,30 @@ export function hasPwaInstalledFlag(): boolean {
   }
 }
 
+export function markSkipHandoff(): void {
+  try {
+    sessionStorage.setItem(SKIP_HANDOFF_KEY, 'true');
+  } catch (e) {
+    console.warn('[pwaContext] Could not mark skip handoff:', e);
+  }
+}
+
+export function shouldSkipHandoff(): boolean {
+  try {
+    return sessionStorage.getItem(SKIP_HANDOFF_KEY) === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
+export function clearSkipHandoff(): void {
+  try {
+    sessionStorage.removeItem(SKIP_HANDOFF_KEY);
+  } catch (e) {
+    console.warn('[pwaContext] Could not clear skip handoff:', e);
+  }
+}
+
 export function shouldShowMagicLinkHandoff(): boolean {
   if (typeof window === 'undefined') return false;
   
@@ -45,6 +70,7 @@ export function shouldShowMagicLinkHandoff(): boolean {
   if (!hasToken) return false;
   if (isPwaContext()) return false;
   if (!isIOSSafari()) return false;
+  if (shouldSkipHandoff()) return false;
   
   return true;
 }
