@@ -271,46 +271,50 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     checkHasPassword();
   }, [supabase, profile?.passwordCreated]);
   
-  // Check if Google/Apple is connected by looking at user's identity providers
-  // Also sync database if we detect a connection that isn't tracked yet
+  // Check if Google/Apple is connected - based on profile.googleLinked/appleLinked, not Supabase identity
+  // This allows "unlinking" without revoking OAuth, so re-linking doesn't require re-authorization
   useEffect(() => {
     const checkOAuthConnections = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          // Find Google identity
+          // Find Google identity in Supabase (for re-linking without re-auth)
           const googleId = user.identities?.find(
             (identity) => identity.provider === 'google'
           );
-          // Also check app_metadata.providers
           const providers = user.app_metadata?.providers || [];
           const hasGoogleProvider = providers.includes('google') || 
                                    user.app_metadata?.provider === 'google';
           
-          const googleConnected = !!googleId || hasGoogleProvider;
-          setIsGoogleConnected(googleConnected);
           setGoogleIdentity(googleId || null);
           
-          // Find Apple identity
+          // Find Apple identity in Supabase
           const appleId = user.identities?.find(
             (identity) => identity.provider === 'apple'
           );
           const hasAppleProvider = providers.includes('apple') || 
                                   user.app_metadata?.provider === 'apple';
           
-          const appleConnected = !!appleId || hasAppleProvider;
-          setIsAppleConnected(appleConnected);
           setAppleIdentity(appleId || null);
           
-          // Sync database if we detect a connection not tracked in user_profiles
-          // This handles the case where linkIdentity redirected back after connection
+          // UI "connected" state is based on profile.googleLinked/appleLinked
+          // Not on whether identity exists in Supabase
+          setIsGoogleConnected(profile?.googleLinked === true);
+          setIsAppleConnected(profile?.appleLinked === true);
+          
+          // Sync database if we just authorized OAuth (first time or after redirect from linkIdentity)
+          // Only sync if identity exists in Supabase but profile says NOT linked
+          const googleHasIdentity = !!googleId || hasGoogleProvider;
+          const appleHasIdentity = !!appleId || hasAppleProvider;
+          
           const session = await supabase.auth.getSession();
           if (session.data.session) {
             const accessToken = session.data.session.access_token;
             
-            // If Google is connected via Supabase but not tracked in profile, update it
-            if (googleConnected && profile?.googleLinked !== true) {
-              console.log('[AccountInfoPage] Syncing Google linked status to database');
+            // If Google identity exists but never tracked (null) in profile, set linked=true
+            // Don't sync if googleLinked=false (user explicitly unlinked)
+            if (googleHasIdentity && profile?.googleLinked === null) {
+              console.log('[AccountInfoPage] Syncing Google linked status to database (first auth)');
               fetch('/api/auth/profile/oauth-linked', {
                 method: 'POST',
                 headers: {
@@ -319,14 +323,13 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                 },
                 body: JSON.stringify({ provider: 'google', linked: true }),
               }).then(() => {
-                // Invalidate profile query to refresh data
                 queryClient.invalidateQueries({ queryKey: ['/api/auth/profile'] });
               }).catch(err => console.error('Failed to sync Google linked status:', err));
             }
             
-            // If Apple is connected via Supabase but not tracked in profile, update it
-            if (appleConnected && profile?.appleLinked !== true) {
-              console.log('[AccountInfoPage] Syncing Apple linked status to database');
+            // Same for Apple
+            if (appleHasIdentity && profile?.appleLinked === null) {
+              console.log('[AccountInfoPage] Syncing Apple linked status to database (first auth)');
               fetch('/api/auth/profile/oauth-linked', {
                 method: 'POST',
                 headers: {
@@ -335,7 +338,6 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                 },
                 body: JSON.stringify({ provider: 'apple', linked: true }),
               }).then(() => {
-                // Invalidate profile query to refresh data
                 queryClient.invalidateQueries({ queryKey: ['/api/auth/profile'] });
               }).catch(err => console.error('Failed to sync Apple linked status:', err));
             }
@@ -715,9 +717,9 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     }
   };
 
-  // Unlink Google account
+  // Unlink Google account - just updates database, keeps Supabase identity so re-auth isn't needed
   const handleUnlinkGoogle = async () => {
-    if (!googleIdentity || unlinkingGoogle) return;
+    if (unlinkingGoogle) return;
     
     // Check if user has another way to log in (password or Apple)
     if (!hasPassword && !isAppleConnected) {
@@ -732,14 +734,11 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     setUnlinkingGoogle(true);
     
     try {
-      const { error } = await supabase.auth.unlinkIdentity(googleIdentity);
-      
-      if (error) throw error;
-      
-      // Update google_linked to false in user_profiles
+      // Only update the database - don't revoke from Supabase
+      // This allows re-linking without re-authorization
       const session = await supabase.auth.getSession();
       if (session.data.session) {
-        await fetch('/api/auth/profile/oauth-linked', {
+        const response = await fetch('/api/auth/profile/oauth-linked', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -747,14 +746,19 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           },
           body: JSON.stringify({ provider: 'google', linked: false }),
         });
+        
+        if (!response.ok) throw new Error('Failed to update profile');
       }
       
       setIsGoogleConnected(false);
-      setGoogleIdentity(null);
+      // Keep googleIdentity set - we still have it in Supabase
+      
+      // Invalidate profile query to refresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/profile'] });
       
       toast({
         title: "Google disconnected",
-        description: "Your Google account has been unlinked successfully.",
+        description: "Google sign-in has been disabled for your account.",
       });
     } catch (error: any) {
       toast({
@@ -767,9 +771,9 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     }
   };
 
-  // Unlink Apple account
+  // Unlink Apple account - just updates database, keeps Supabase identity so re-auth isn't needed
   const handleUnlinkApple = async () => {
-    if (!appleIdentity || unlinkingApple) return;
+    if (unlinkingApple) return;
     
     // Check if user has another way to log in (password or Google)
     if (!hasPassword && !isGoogleConnected) {
@@ -784,14 +788,11 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
     setUnlinkingApple(true);
     
     try {
-      const { error } = await supabase.auth.unlinkIdentity(appleIdentity);
-      
-      if (error) throw error;
-      
-      // Update apple_linked to false in user_profiles
+      // Only update the database - don't revoke from Supabase
+      // This allows re-linking without re-authorization
       const session = await supabase.auth.getSession();
       if (session.data.session) {
-        await fetch('/api/auth/profile/oauth-linked', {
+        const response = await fetch('/api/auth/profile/oauth-linked', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -799,14 +800,19 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           },
           body: JSON.stringify({ provider: 'apple', linked: false }),
         });
+        
+        if (!response.ok) throw new Error('Failed to update profile');
       }
       
       setIsAppleConnected(false);
-      setAppleIdentity(null);
+      // Keep appleIdentity set - we still have it in Supabase
+      
+      // Invalidate profile query to refresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/profile'] });
       
       toast({
         title: "Apple disconnected",
-        description: "Your Apple account has been unlinked successfully.",
+        description: "Apple sign-in has been disabled for your account.",
       });
     } catch (error: any) {
       toast({
@@ -1280,18 +1286,46 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                       size="sm"
                       onClick={async () => {
                         try {
-                          const { error } = await supabase.auth.linkIdentity({
-                            provider: "google",
-                            options: {
-                              redirectTo: window.location.origin,
-                            },
-                          });
-                          if (error) {
-                            toast({
-                              title: "Error",
-                              description: error.message,
-                              variant: "destructive",
+                          // If identity already exists in Supabase (user unlinked previously),
+                          // just update the database - no need to re-authorize
+                          if (googleIdentity) {
+                            const session = await supabase.auth.getSession();
+                            if (session.data.session) {
+                              const response = await fetch('/api/auth/profile/oauth-linked', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${session.data.session.access_token}`,
+                                },
+                                body: JSON.stringify({ provider: 'google', linked: true }),
+                              });
+                              
+                              if (response.ok) {
+                                setIsGoogleConnected(true);
+                                queryClient.invalidateQueries({ queryKey: ['/api/auth/profile'] });
+                                toast({
+                                  title: "Google connected",
+                                  description: "Google sign-in is now enabled for your account.",
+                                });
+                              } else {
+                                throw new Error('Failed to update profile');
+                              }
+                            }
+                          } else {
+                            // No identity exists - need to authorize with Google
+                            const { error } = await supabase.auth.linkIdentity({
+                              provider: "google",
+                              options: {
+                                redirectTo: window.location.origin,
+                              },
                             });
+                            if (error) {
+                              toast({
+                                title: "Error",
+                                description: error.message,
+                                variant: "destructive",
+                              });
+                            }
                           }
                         } catch (error: any) {
                           toast({
