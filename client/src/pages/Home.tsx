@@ -66,6 +66,8 @@ export default function Home() {
   const [previousScreen, setPreviousScreen] = useState<Screen>("selection");
   const [statsReturnScreen, setStatsReturnScreen] = useState<Screen>("selection");
   const [archiveReturnScreen, setArchiveReturnScreen] = useState<Screen>("selection");
+  // Track if we're returning to PlayPage from Stats/Archive (to skip intro and show EndGameModal)
+  const [returningToPlay, setReturningToPlay] = useState(false);
   const [statsGameType, setStatsGameType] = useState<'REGION' | 'USER'>('REGION');
   const [showCelebrationFirst, setShowCelebrationFirst] = useState(false);
   const [hasOpenedCelebration, setHasOpenedCelebration] = useState(false);
@@ -996,7 +998,7 @@ export default function Home() {
               maxGuesses={5}
               fromArchive={previousScreen === "archive"}
               hasExistingProgress={hasExistingProgress}
-              skipIntro={skipIntroForGuest}
+              skipIntro={skipIntroForGuest || returningToPlay}
               showCelebrationFirst={showCelebrationFirst}
               hasOpenedCelebration={hasOpenedCelebration}
               puzzleSourceMode={puzzleSourceMode}
@@ -1006,6 +1008,8 @@ export default function Home() {
                 setStreakSaverPuzzle(null);
                 // Reset skipIntro flag when leaving play screen
                 setSkipIntroForGuest(false);
+                // Reset returning to play flag
+                setReturningToPlay(false);
                 // Guests should return to onboarding screen, authenticated users to selection/archive
                 if (!isAuthenticated) {
                   setCurrentScreen("onboarding");
@@ -1015,19 +1019,23 @@ export default function Home() {
               }}
               onHomeFromCelebration={() => {
                 setShowCelebrationFirst(false);
+                setReturningToPlay(false);
                 setCurrentScreen("selection");
               }}
               onViewStats={() => {
                 setStatsReturnScreen("play");
+                setReturningToPlay(true); // Mark that we'll return to play
                 setCurrentScreen("stats");
               }}
               onViewArchive={() => {
                 setArchiveReturnScreen("play");
+                setReturningToPlay(true); // Mark that we'll return to play
                 setCurrentScreen("archive");
               }}
               onContinueToLogin={() => {
                 // Guest completed game - go to login with subtitle
                 setShowLoginSubtitle(true);
+                setReturningToPlay(false);
                 setCurrentScreen("login");
               }}
             />
