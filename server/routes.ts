@@ -221,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user profile exists in our database first (fast lookup)
       const { data: profiles, error: profileError } = await supabaseAdmin
         .from("user_profiles")
-        .select("id, email")
+        .select("id, email, password_created")
         .eq("email", email.toLowerCase())
         .limit(1);
 
@@ -235,11 +235,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ exists: false, hasPassword: false, hasMagicLink: false });
       }
 
-      // User exists in our database - they signed up with password (our only signup method)
-      // All users who signed up have passwords since we don't have magic-link-only signup
+      // Check actual password_created field from user_profiles
+      const hasPassword = profiles[0].password_created === true;
+      
+      console.log("[GET /api/auth/check-user] User found:", email, "hasPassword:", hasPassword);
+      
       res.json({ 
         exists: true, 
-        hasPassword: true, // All existing users have passwords (signup requires password)
+        hasPassword: hasPassword,
         hasMagicLink: true // Magic link is available for all email users
       });
     } catch (error: any) {
