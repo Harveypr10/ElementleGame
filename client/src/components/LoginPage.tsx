@@ -27,6 +27,8 @@ interface UserAuthInfo {
   exists: boolean;
   hasPassword: boolean;
   hasMagicLink: boolean;
+  googleLinked: boolean;
+  appleLinked: boolean;
 }
 
 const MAGIC_LINK_COOLDOWN_SECONDS = 60;
@@ -335,7 +337,7 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
           session = signInResult.data.session;
         }
 
-        // Mark password_created in user_profiles since user created account with password
+        // Mark password_created and signup_method in user_profiles since user created account with password
         if (session) {
           try {
             await fetch('/api/auth/profile/password-created', {
@@ -344,6 +346,7 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session.access_token}`,
               },
+              body: JSON.stringify({ setSignupMethod: true }), // Also set signup_method='password'
             });
           } catch (err) {
             console.error('[LoginPage] Error setting password_created:', err);
@@ -678,8 +681,11 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                 >
                   {loading ? "Logging in..." : "Log in"}
                 </Button>
+              </form>
 
-                {/* Hide magic link button for iOS PWA users */}
+              {/* Other login options - show based on what user has activated */}
+              <div className="space-y-3 mt-4">
+                {/* Magic link - always available (except iOS PWA) */}
                 {!isInIosPwa && (
                   <Button
                     type="button"
@@ -692,7 +698,35 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                     {getMagicLinkButtonText()}
                   </Button>
                 )}
-              </form>
+
+                {/* Google - only show if user has linked Google */}
+                {userAuthInfo?.googleLinked && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full py-6 text-base font-medium border-2"
+                    onClick={handleGoogleLogin}
+                    data-testid="button-google-login"
+                  >
+                    <SiGoogle className="w-5 h-5 mr-3" />
+                    Continue with Google
+                  </Button>
+                )}
+
+                {/* Apple - only show if user has linked Apple */}
+                {userAuthInfo?.appleLinked && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full py-6 text-base font-medium border-2"
+                    onClick={handleAppleLogin}
+                    data-testid="button-apple-login"
+                  >
+                    <SiApple className="w-5 h-5 mr-3" />
+                    Continue with Apple
+                  </Button>
+                )}
+              </div>
 
               {magicLinkSent && !isInIosPwa && (
                 <motion.p
@@ -773,6 +807,33 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                 >
                   {getMagicLinkButtonText()}
                 </Button>
+
+                {/* OAuth options - show if user has linked them */}
+                {userAuthInfo?.googleLinked && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full py-6 text-base font-medium border-2"
+                    onClick={handleGoogleLogin}
+                    data-testid="button-google-login"
+                  >
+                    <SiGoogle className="w-5 h-5 mr-3" />
+                    Continue with Google
+                  </Button>
+                )}
+
+                {userAuthInfo?.appleLinked && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full py-6 text-base font-medium border-2"
+                    onClick={handleAppleLogin}
+                    data-testid="button-apple-login"
+                  >
+                    <SiApple className="w-5 h-5 mr-3" />
+                    Continue with Apple
+                  </Button>
+                )}
 
                 {magicLinkSent && (
                   <motion.p

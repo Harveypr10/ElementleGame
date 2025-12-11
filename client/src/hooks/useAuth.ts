@@ -169,6 +169,27 @@ export function useAuth() {
             },
             body: JSON.stringify({ signupMethod, passwordCreated }),
           });
+          
+          // If Google or Apple OAuth was used, also set google_linked/apple_linked
+          if (signupMethod === 'google') {
+            await fetch('/api/auth/profile/oauth-linked', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ provider: 'google', linked: true }),
+            });
+          } else if (signupMethod === 'apple') {
+            await fetch('/api/auth/profile/oauth-linked', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({ provider: 'apple', linked: true }),
+            });
+          }
         }
       } catch (profileError) {
         console.error("Failed to update profile signup method:", profileError);

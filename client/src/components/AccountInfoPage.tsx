@@ -272,6 +272,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
   }, [supabase, profile?.passwordCreated]);
   
   // Check if Google/Apple is connected by looking at user's identity providers
+  // Also sync database if we detect a connection that isn't tracked yet
   useEffect(() => {
     const checkOAuthConnections = async () => {
       try {
@@ -286,7 +287,8 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           const hasGoogleProvider = providers.includes('google') || 
                                    user.app_metadata?.provider === 'google';
           
-          setIsGoogleConnected(!!googleId || hasGoogleProvider);
+          const googleConnected = !!googleId || hasGoogleProvider;
+          setIsGoogleConnected(googleConnected);
           setGoogleIdentity(googleId || null);
           
           // Find Apple identity
@@ -296,8 +298,42 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
           const hasAppleProvider = providers.includes('apple') || 
                                   user.app_metadata?.provider === 'apple';
           
-          setIsAppleConnected(!!appleId || hasAppleProvider);
+          const appleConnected = !!appleId || hasAppleProvider;
+          setIsAppleConnected(appleConnected);
           setAppleIdentity(appleId || null);
+          
+          // Sync database if we detect a connection not tracked in user_profiles
+          // This handles the case where linkIdentity redirected back after connection
+          const session = await supabase.auth.getSession();
+          if (session.data.session) {
+            const accessToken = session.data.session.access_token;
+            
+            // If Google is connected via Supabase but not tracked in profile, update it
+            if (googleConnected && profile?.googleLinked !== true) {
+              console.log('[AccountInfoPage] Syncing Google linked status to database');
+              fetch('/api/auth/profile/oauth-linked', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({ provider: 'google', linked: true }),
+              }).catch(err => console.error('Failed to sync Google linked status:', err));
+            }
+            
+            // If Apple is connected via Supabase but not tracked in profile, update it
+            if (appleConnected && profile?.appleLinked !== true) {
+              console.log('[AccountInfoPage] Syncing Apple linked status to database');
+              fetch('/api/auth/profile/oauth-linked', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({ provider: 'apple', linked: true }),
+              }).catch(err => console.error('Failed to sync Apple linked status:', err));
+            }
+          }
         }
       } catch (error) {
         console.error('Error checking OAuth connections:', error);
@@ -306,7 +342,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
       }
     };
     checkOAuthConnections();
-  }, [supabase]);
+  }, [supabase, profile?.googleLinked, profile?.appleLinked]);
 
   const handleRegionChange = (newRegion: string) => {
     // Only show confirmation if region actually changed from profile's current region
@@ -694,6 +730,19 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
       
       if (error) throw error;
       
+      // Update google_linked to false in user_profiles
+      const session = await supabase.auth.getSession();
+      if (session.data.session) {
+        await fetch('/api/auth/profile/oauth-linked', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.data.session.access_token}`,
+          },
+          body: JSON.stringify({ provider: 'google', linked: false }),
+        });
+      }
+      
       setIsGoogleConnected(false);
       setGoogleIdentity(null);
       
@@ -732,6 +781,19 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
       const { error } = await supabase.auth.unlinkIdentity(appleIdentity);
       
       if (error) throw error;
+      
+      // Update apple_linked to false in user_profiles
+      const session = await supabase.auth.getSession();
+      if (session.data.session) {
+        await fetch('/api/auth/profile/oauth-linked', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.data.session.access_token}`,
+          },
+          body: JSON.stringify({ provider: 'apple', linked: false }),
+        });
+      }
       
       setIsAppleConnected(false);
       setAppleIdentity(null);
