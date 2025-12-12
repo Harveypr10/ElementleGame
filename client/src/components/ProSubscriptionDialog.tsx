@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import signupHamsterGrey from '@assets/Signup-Hamster-Transparent.png';
+import signupHamsterGrey from '@assets/Signup-Hamster-Cutout.png';
 
 interface ProSubscriptionDialogProps {
   isOpen: boolean;

@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { pageVariants, pageTransition } from "@/lib/pageAnimations";
 import { Target, Flame, Percent } from "lucide-react";
 import type { UserBadgeWithDetails } from "@shared/schema";
-import badgePlaceholder from "@assets/Signup-Hamster-Transparent.png";
+import badgePlaceholder from "@assets/Signup-Hamster-Cutout.png";
 
 import Streak_Hamster_Black from "@assets/Streak-Hamster-Black.svg";
 

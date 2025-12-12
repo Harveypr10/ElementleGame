@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useMotionValue, animate, PanInfo } from "frame
 import { X, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Badge, UserBadgeWithDetails } from "@shared/schema";
-import badgeImage from "@assets/Signup-Hamster-Transparent.png";
+import badgeImage from "@assets/Signup-Hamster-Cutout.png";
 import { useAdBannerActive } from "@/components/AdBanner";
 
 type CategoryType = 'elementle' | 'streak' | 'percentile';

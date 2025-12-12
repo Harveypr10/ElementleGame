@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import welcomeHamster from "@assets/Welcome-Hamster-Blue.svg";
+import welcomeHamster from "@assets/Welcome-Hamster-Cutout.png";
 import historianHamsterBlue from "@assets/Historian-Hamster-Blue.svg";
 import librarianHamsterYellow from "@assets/Librarian-Hamster-Yellow.svg";
 import mathsHamsterGreen from "@assets/Maths-Hamster-Green.svg";
