@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import hamsterImage from '@assets/Question-Hamster-Grey.svg';
+import hamsterImage from '@assets/Question-Hamster-Cutout.png';
 
 interface Category {
   id: number;

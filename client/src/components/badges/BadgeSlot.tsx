@@ -178,7 +178,7 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
   );
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-0.5">
       {/* Category title - top */}
       <span className={cn(
         categoryLabelClasses[size],
