@@ -21,7 +21,7 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
     sm: 'w-14 h-[68px]',      // was w-12 h-14 (48x56 -> 58x68)
     md: 'w-[77px] h-24',      // was w-16 h-20 (64x80 -> 77x96)
     lg: 'w-24 h-[115px]',     // was w-20 h-24 (80x96 -> 96x115)
-    xl: 'w-[115px] h-[154px]', // was w-24 h-32 (96x128 -> 115x154)
+    xl: 'w-[100px] h-[118px]', // was w-24 h-32 (96x128 -> 115x154)
   };
   
   // Image sizes increased by 20%
