@@ -291,11 +291,11 @@ export function AllBadgesPopup({ gameType, earnedBadges, initialCategory, onClos
 
   const arrowButtonColor = "#7DAAE8";
 
-  // Badge sizes increased by 20%: 
+  // Badge sizes increased by 30% for "See all" screen:
   // Original: non-center w-20 h-20 (80px), center w-24 h-24 (96px)
-  // New: non-center w-24 h-24 (96px), center approximately 115px
-  const badgeSizeNormal = "w-24 h-24"; // 96px (was 80px)
-  const badgeSizeCenter = "w-[115px] h-[115px]"; // ~115px (was 96px)
+  // New: non-center ~104px, center ~125px
+  const badgeSizeNormal = "w-[104px] h-[104px]"; // 30% larger than original 80px
+  const badgeSizeCenter = "w-[125px] h-[125px]"; // 30% larger than original 96px
 
   return (
     <motion.div

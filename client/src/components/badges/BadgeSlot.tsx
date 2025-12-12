@@ -16,25 +16,28 @@ interface BadgeSlotProps {
 export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, onAnimationComplete }: BadgeSlotProps) {
   const isEmpty = !badge;
   
+  // Sizes increased by 20% for badges area
   const sizeClasses = {
-    sm: 'w-12 h-14',
-    md: 'w-16 h-20',
-    lg: 'w-20 h-24',
-    xl: 'w-24 h-32',
+    sm: 'w-14 h-[68px]',      // was w-12 h-14 (48x56 -> 58x68)
+    md: 'w-[77px] h-24',      // was w-16 h-20 (64x80 -> 77x96)
+    lg: 'w-24 h-[115px]',     // was w-20 h-24 (80x96 -> 96x115)
+    xl: 'w-[115px] h-[154px]', // was w-24 h-32 (96x128 -> 115x154)
   };
   
+  // Image sizes increased by 20%
   const imageSizeClasses = {
-    sm: 'w-8 h-8',
-    md: 'w-12 h-12',
-    lg: 'w-16 h-16',
-    xl: 'w-16 h-16',
+    sm: 'w-10 h-10',          // was w-8 h-8
+    md: 'w-14 h-14',          // was w-12 h-12
+    lg: 'w-[77px] h-[77px]',  // was w-16 h-16
+    xl: 'w-[77px] h-[77px]',  // was w-16 h-16
   };
 
+  // Placeholder sizes increased by 20%
   const emptyCircleSizeClasses = {
-    sm: 'w-12 h-10',
-    md: 'w-16 h-14',
-    lg: 'w-24 h-20',
-    xl: 'w-24 h-20',
+    sm: 'w-14 h-12',          // was w-12 h-10
+    md: 'w-[77px] h-[67px]',  // was w-16 h-14
+    lg: 'w-[115px] h-24',     // was w-24 h-20
+    xl: 'w-[115px] h-24',     // was w-24 h-20
   };
   
   const iconSizeClasses = {
@@ -145,17 +148,13 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
     <div className="relative flex flex-col items-center justify-center w-full h-full">
       {isEmpty ? (
         <div className={cn(
-          "flex flex-col items-center justify-center w-full h-full",
-          "text-gray-400 dark:text-gray-500"
+          "flex flex-col items-center justify-center w-full h-full"
         )}>
-          <div className={cn(
-            emptyCircleSizeClasses[size],
-            "bg-gray-300 dark:bg-gray-600 flex items-center justify-center"
-          )}
-          style={{
-            clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)'
-          }}>
-          </div>
+          <img 
+            src={badgeImage} 
+            alt="Unearned badge"
+            className={cn(imageSizeClasses[size], "object-contain opacity-30")}
+          />
         </div>
       ) : (
         <>
