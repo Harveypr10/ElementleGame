@@ -182,7 +182,7 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
       {/* Category title - top */}
       <span className={cn(
         categoryLabelClasses[size],
-        "text-center text-muted-foreground font-bold whitespace-nowrap"
+        "text-center text-muted-foreground font-bold whitespace-nowrap mb-0.5"
       )}>
         {getCategoryLabel()}
       </span>
@@ -224,7 +224,7 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false, o
         <motion.span 
           className={cn(
             badgeNameClasses[size],
-            "text-center text-muted-foreground leading-tight line-clamp-2 max-w-[14rem]"
+            "text-center text-muted-foreground leading-tight line-clamp-2 max-w-[14rem] mt-0.5"
           )}
           initial={isAnimating && !hasAnimated ? { opacity: 0, y: 10 } : false}
           animate={isAnimating && !hasAnimated ? { opacity: 1, y: 0 } : undefined}
