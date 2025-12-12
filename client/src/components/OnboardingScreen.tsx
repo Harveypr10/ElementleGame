@@ -121,9 +121,10 @@ export function OnboardingScreen({
           
           <button
             onClick={onSubscribe}
-            className="w-3/5 text-white font-bold text-xl py-4 rounded-full hover:opacity-90 transition-opacity"
+            className="w-3/5 text-white font-bold text-xl py-4 rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: '#8A8A8A' }}
             data-testid="button-onboarding-subscribe"
+            disabled
           >
             Subscribe
           </button>
