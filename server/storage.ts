@@ -3410,10 +3410,14 @@ export class DatabaseStorage implements IStorage {
 
   async getBadgeByThreshold(category: string, threshold: number): Promise<Badge | undefined> {
     try {
+      // Use case-insensitive comparison for category to handle variations in database
       const [badge] = await db
         .select()
         .from(badges)
-        .where(and(eq(badges.category, category), eq(badges.threshold, threshold)));
+        .where(and(
+          sql`LOWER(${badges.category}) = LOWER(${category})`,
+          eq(badges.threshold, threshold)
+        ));
       return badge;
     } catch (error: any) {
       console.error('[getBadgeByThreshold] Error:', error);
@@ -3608,11 +3612,13 @@ export class DatabaseStorage implements IStorage {
     try {
       const allBadges = await this.getUserBadges(userId, gameType, region, true);
       
-      // Map database category names to result keys
-      const categoryMap: Record<string, string> = {
-        'Elementle In': 'elementle',
-        'Streak': 'streak',
-        'Percentile': 'percentile',
+      // Map database category names to result keys (case-insensitive)
+      const getCategoryKey = (category: string): string | null => {
+        const lower = category.toLowerCase();
+        if (lower === 'elementle in' || lower === 'elementle') return 'elementle';
+        if (lower === 'streak') return 'streak';
+        if (lower === 'percentile') return 'percentile';
+        return null;
       };
       
       const result: Record<string, UserBadgeWithDetails | null> = {
@@ -3623,7 +3629,7 @@ export class DatabaseStorage implements IStorage {
 
       for (const badge of allBadges) {
         const dbCategory = badge.badge.category;
-        const resultKey = categoryMap[dbCategory];
+        const resultKey = getCategoryKey(dbCategory);
         
         if (resultKey && resultKey in result) {
           const current = result[resultKey];
