@@ -471,7 +471,7 @@ export function ArchivePage({ onBack, onPlayPuzzle, puzzles, initialMonth, onMon
         {/* Swipeable Calendar Container */}
         <div
           ref={containerRef}
-          className="flex-grow overflow-hidden p-1 -m-1"
+          className="flex-grow overflow-hidden p-2 -m-2"
           {...swipeProps}
         >
           <motion.div
