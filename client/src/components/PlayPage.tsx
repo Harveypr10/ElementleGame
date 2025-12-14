@@ -183,6 +183,7 @@ export function PlayPage({
   const [pendingEndModal, setPendingEndModal] = useState(false); // Track if EndGameModal should show after streak celebration
   const [earnedBadge, setEarnedBadge] = useState<UserBadgeWithDetails | null>(null);
   const [pendingBadgeCheck, setPendingBadgeCheck] = useState(false); // Track if badge check should run after streak celebration
+  const [finalGuessCount, setFinalGuessCount] = useState<number | null>(null); // Store final guess count when game ends - prevents race condition issues
   
   // Badge checker hook
   const { checkAllBadgesOnGameComplete } = useBadgeChecker();
@@ -406,6 +407,7 @@ export function PlayPage({
     setGuessRecords([]);
     setCurrentGameAttemptId(null);
     setShowEndModal(false);
+    setFinalGuessCount(null);
     setLockedDigits(null);
     setDigitsCheckComplete(false);
     setShowIntroScreen(false);
@@ -459,10 +461,16 @@ export function PlayPage({
   }, [hasExistingProgress, digitsCheckComplete, gridDataReady]);
 
   // Check if puzzle is already completed and redirect if needed
+  // IMPORTANT: Skip if gameOver is already true - means we just completed the game in this session
+  // and already have the correct guesses in state. Re-running would cause a race condition where
+  // stale data from cache/DB overwrites the correct guesses.
   useEffect(() => {
     let mounted = true;
     
     const loadCompletedPuzzle = async () => {
+      // Skip if game is already over in this session - we already have correct state
+      if (gameOver) return;
+      
       if (!viewOnly && !loadingAttempts) {
         if (isAuthenticated && gameAttempts && puzzleId) {
           // For authenticated users, check Supabase data using result !== null as completion check
@@ -589,7 +597,7 @@ export function PlayPage({
     
     return () => { mounted = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formattedAnswer, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat, cacheMode]);
+  }, [formattedAnswer, viewOnly, isAuthenticated, gameAttempts, loadingAttempts, puzzleId, dateFormat, cacheMode, gameOver]);
 
   // Load completed puzzle guesses for view-only mode
   useEffect(() => {
@@ -1080,6 +1088,7 @@ export function PlayPage({
       // Game won
       setIsWin(true);
       setGameOver(true);
+      setFinalGuessCount(newGuesses.length); // Store final count to prevent race condition issues
       localStorage.removeItem(`puzzle-progress-${formattedAnswer}`);
       
       // Track if we're showing a streak celebration (to delay EndGameModal)
@@ -1205,6 +1214,7 @@ export function PlayPage({
       // Game lost
       setIsWin(false);
       setGameOver(true);
+      setFinalGuessCount(newGuesses.length); // Store final count to prevent race condition issues
       localStorage.removeItem(`puzzle-progress-${formattedAnswer}`);
       
       // Delay showing modal by 2 seconds to show final state
@@ -1559,6 +1569,7 @@ export function PlayPage({
     setGameOver(false);
     setIsWin(false);
     setWrongGuessCount(0);
+    setFinalGuessCount(null);
   };
 
   // Show loading state until date format and digit mode are ready
@@ -1769,7 +1780,7 @@ export function PlayPage({
         formattedAnswer={formattedAnswer}
         eventTitle={eventTitle}
         eventDescription={eventDescription}
-        numGuesses={guesses.length}
+        numGuesses={finalGuessCount ?? guesses.length}
         onPlayAgain={handlePlayAgain}
         onHome={() => {
           const isTodaysPuzzle = isPlayingTodaysPuzzle();
@@ -1875,14 +1886,15 @@ export function PlayPage({
             if (pendingBadgeCheck) {
               setPendingBadgeCheck(false);
               const gameType = isLocalMode ? 'USER' : 'REGION';
+              const guessCountForBadge = finalGuessCount ?? guesses.length;
               console.log('[StreakCelebration] Checking badges after streak celebration:', { 
-                guessCount: guesses.length, 
+                guessCount: guessCountForBadge, 
                 streak: currentStreak,
                 gameType 
               });
               const badge = await checkAllBadgesOnGameComplete(
                 true, 
-                guesses.length, 
+                guessCountForBadge, 
                 currentStreak,
                 gameType
               );
