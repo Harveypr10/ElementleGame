@@ -186,9 +186,10 @@ export default function Home() {
   
   // Guard: Redirect authenticated users without first login to personalise screen
   // This catches ALL navigation attempts and ensures users can't bypass personalise
-  // Protected screens include: selection, play, stats, archive, settings, options, account-info
+  // Protected screens include: selection, stats, archive, settings, options, account-info
+  // NOTE: "play" is NOT protected because guests can access it after watching an ad
   // Skip guard if needsFirstLoginSetup is false (means user just completed setup in this session)
-  const protectedScreens: Screen[] = ["selection", "play", "stats", "archive", "settings", "options", "account-info"];
+  const protectedScreens: Screen[] = ["selection", "stats", "archive", "settings", "options", "account-info"];
   useEffect(() => {
     // Don't redirect if we're in the middle of setup or just completed it this session
     // needsFirstLoginSetup=false after handleGeneratingQuestionsComplete runs means user finished setup
