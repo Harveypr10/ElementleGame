@@ -67,6 +67,8 @@ interface GameSelectionPageProps {
   onOpenOptionsLocal?: () => void;
   onPlayYesterdaysPuzzle?: (gameType: "region" | "user", puzzleDate: string) => void;
   onViewStatsWithBadge?: (badge: UserBadgeWithDetails, gameType: 'USER' | 'REGION') => void;
+  initialShowProDialog?: boolean;
+  onProDialogShown?: () => void;
 }
 
 export function GameSelectionPage({ 
@@ -85,6 +87,8 @@ export function GameSelectionPage({
   onOpenOptionsLocal,
   onPlayYesterdaysPuzzle,
   onViewStatsWithBadge,
+  initialShowProDialog,
+  onProDialogShown,
 }: GameSelectionPageProps) {
   const { user, isAuthenticated } = useAuth();
   const { profile } = useProfile();
@@ -130,6 +134,14 @@ export function GameSelectionPage({
   useEffect(() => {
     setAnimationKey(prev => prev + 1);
   }, []);
+
+  // Handle initial Pro dialog trigger (e.g., from canceled subscription checkout)
+  useEffect(() => {
+    if (initialShowProDialog) {
+      setShowProDialog(true);
+      onProDialogShown?.();
+    }
+  }, [initialShowProDialog, onProDialogShown]);
 
   const {
     status: streakStatus,

@@ -12,6 +12,7 @@ import { GameModeProvider } from "@/contexts/GameModeContext";
 import { StreakSaverProvider } from "@/contexts/StreakSaverContext";
 import Home from "@/pages/Home";
 import Subscriptions from "@/pages/Subscriptions";
+import ManageSubscriptionRoute from "@/pages/ManageSubscriptionRoute";
 import NotFound from "@/pages/not-found";
 
 import { OptionsPage } from "@/components/OptionsPage";
@@ -27,6 +28,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/subscriptions" component={Subscriptions} />
+      <Route path="/manage-subscription" component={ManageSubscriptionRoute} />
       <Route component={NotFound} />
     </Switch>
   );

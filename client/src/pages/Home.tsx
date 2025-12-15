@@ -100,6 +100,32 @@ export default function Home() {
   const [personaliseData, setPersonaliseData] = useState<{ postcode?: string; region?: string } | null>(null);
   // Track prefilled email for login screen (when returning from personalise)
   const [loginPrefilledEmail, setLoginPrefilledEmail] = useState<string | null>(null);
+  // Track if we should show ProSubscriptionDialog due to canceled checkout
+  const [showProDialogFromCancel, setShowProDialogFromCancel] = useState(false);
+  
+  // Handle canceled subscription checkout from URL params
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isCanceled = urlParams.get("canceled") === "true";
+    
+    if (isCanceled) {
+      // Remove only the canceled param, preserve others
+      urlParams.delete("canceled");
+      const newSearch = urlParams.toString();
+      const newUrl = "/" + (newSearch ? "?" + newSearch : "") + window.location.hash;
+      window.history.replaceState({}, document.title, newUrl);
+      
+      // Show failure toast
+      toast({
+        title: "Subscription attempt failed",
+        description: "Please try again when you're ready.",
+        variant: "destructive",
+      });
+      
+      // Trigger ProSubscriptionDialog when we reach selection screen
+      setShowProDialogFromCancel(true);
+    }
+  }, [toast]);
   
   // Fetch BOTH global and local puzzles to avoid race conditions when switching modes
   const globalPuzzlesEndpoint = isAuthenticated ? '/api/puzzles' : '/api/puzzles/guest';
@@ -1023,6 +1049,8 @@ export default function Home() {
                 setStatsReturnScreen("selection");
                 setCurrentScreen("stats");
               }}
+              initialShowProDialog={showProDialogFromCancel}
+              onProDialogShown={() => setShowProDialogFromCancel(false)}
             />
           </motion.div>
         )}
