@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, Crown, Calendar, Flame, Umbrella, AlertTriangle, Globe, User } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
+import { useProfile } from "@/hooks/useProfile";
 import { useAdBannerActive } from "@/components/AdBanner";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -71,7 +72,10 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     isEndingHoliday,
     holidayDurationDays: hookHolidayDurationDays,
   } = useStreakSaverStatus();
+  const { profile } = useProfile();
   const adBannerActive = useAdBannerActive();
+  
+  const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -363,18 +367,34 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
             <Card className="p-4 space-y-4">
               <h2 className="font-semibold text-lg">Your Allowances</h2>
               
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
-                  <Flame className="h-5 w-5 text-amber-500" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
+                    <Flame className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">Monthly streak savers</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Monthly streak savers</p>
-                  <p className="font-semibold" data-testid="text-streak-savers-remaining">
-                    {statusLoading 
-                      ? `${effectiveStreakSavers} of ${effectiveStreakSavers} remaining`
-                      : `${Math.max(0, streakSaversRemaining)} of ${effectiveStreakSavers} remaining`
-                    }
-                  </p>
+                <div className="pl-12 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <p className="font-semibold" data-testid="text-streak-savers-remaining-region">
+                      {regionLabel} - {statusLoading 
+                        ? `${effectiveStreakSavers} of ${effectiveStreakSavers} remaining`
+                        : `${Math.max(0, effectiveStreakSavers - regionUsed)} of ${effectiveStreakSavers} remaining`
+                      }
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <p className="font-semibold" data-testid="text-streak-savers-remaining-user">
+                      Personal Game - {statusLoading 
+                        ? `${effectiveStreakSavers} of ${effectiveStreakSavers} remaining`
+                        : `${Math.max(0, effectiveStreakSavers - userUsed)} of ${effectiveStreakSavers} remaining`
+                      }
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -500,19 +520,28 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
             <Card className="p-4 space-y-4">
               <h2 className="font-semibold text-lg">Your Allowances</h2>
               
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
-                  <Flame className="h-5 w-5 text-amber-500" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
+                    <Flame className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-muted-foreground">Monthly streak savers</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">Monthly streak savers</p>
-                  <p className="font-semibold" data-testid="text-streak-savers-remaining">
-                    {(() => {
-                      const used = status?.region?.streakSaversUsedMonth ?? 0;
-                      const remaining = Math.max(0, 1 - used);
-                      return `${remaining} of 1 remaining`;
-                    })()}
-                  </p>
+                <div className="pl-12 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    <p className="font-semibold" data-testid="text-streak-savers-remaining-region">
+                      {regionLabel} - {Math.max(0, 1 - regionUsed)} of 1 remaining
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <p className="font-semibold" data-testid="text-streak-savers-remaining-user">
+                      Personal Game - {Math.max(0, 1 - userUsed)} of 1 remaining
+                    </p>
+                  </div>
                 </div>
               </div>
 
