@@ -2207,14 +2207,14 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const result = await db.execute(sql`
         SELECT 
           us.id,
-          us.tier_id,
+          us.user_tier_id,
           us.status,
           us.expires_at,
           us.auto_renew,
           ut.tier,
           ut.tier_type
         FROM user_subscriptions us
-        JOIN user_tier ut ON us.tier_id = ut.id
+        JOIN user_tier ut ON us.user_tier_id = ut.id
         WHERE us.user_id = ${userId}
           AND us.status = 'active'
           AND (us.expires_at IS NULL OR us.expires_at > NOW())
@@ -2238,7 +2238,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         hasActiveSubscription: true,
         subscription: {
           id: subscription.id,
-          tierId: subscription.tier_id,
+          tierId: subscription.user_tier_id,
           tierName: subscription.tier,
           tierType: subscription.tier_type,
           status: subscription.status,
