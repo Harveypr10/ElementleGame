@@ -485,6 +485,11 @@ export function PlayPage({
             // Defensive normalization: handle both "won"/"lost" (current) and "win"/"loss" (legacy)
             const isWinResult = completedAttempt.result === "won" || completedAttempt.result === "win";
             setIsWin(isWinResult);
+            // Set finalGuessCount immediately from attempt data to prevent race condition
+            // where user clicks Continue before guesses are loaded from async operation
+            if (completedAttempt.numGuesses != null) {
+              setFinalGuessCount(completedAttempt.numGuesses);
+            }
             
             // Lock digit mode from the completed attempt if it's set
             if ((completedAttempt as any).digits) {
@@ -621,6 +626,11 @@ export function PlayPage({
             // Defensive normalization: handle both "won"/"lost" (current) and "win"/"loss" (legacy)
             const isWinResult = completedAttempt.result === "won" || completedAttempt.result === "win";
             setIsWin(isWinResult);
+            // Set finalGuessCount immediately from attempt data to prevent race condition
+            // where user clicks Continue before guesses are loaded from async operation
+            if (completedAttempt.numGuesses != null) {
+              setFinalGuessCount(completedAttempt.numGuesses);
+            }
             
             // Lock digit mode from the completed attempt if it's set
             if ((completedAttempt as any).digits) {
