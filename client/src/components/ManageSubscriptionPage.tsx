@@ -378,7 +378,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                 </div>
                 <div className="pl-12 space-y-1">
                   <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    {/*<Globe className="h-4 w-4 text-muted-foreground" />*/}
                     <p className="font-semibold" data-testid="text-streak-savers-remaining-region">
                       {regionLabel} - {statusLoading 
                         ? `${effectiveStreakSavers} of ${effectiveStreakSavers} remaining`
@@ -387,7 +387,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
+                    {/*<User className="h-4 w-4 text-muted-foreground" />*/}
                     <p className="font-semibold" data-testid="text-streak-savers-remaining-user">
                       Personal Game - {statusLoading 
                         ? `${effectiveStreakSavers} of ${effectiveStreakSavers} remaining`
@@ -531,13 +531,13 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                 </div>
                 <div className="pl-12 space-y-1">
                   <div className="flex items-center gap-2">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
+                    {/*<Globe className="h-4 w-4 text-muted-foreground" />*/}
                     <p className="font-semibold" data-testid="text-streak-savers-remaining-region">
                       {regionLabel} - {Math.max(0, 1 - regionUsed)} of 1 remaining
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
+                    {/*<User className="h-4 w-4 text-muted-foreground" />*/}
                     <p className="font-semibold" data-testid="text-streak-savers-remaining-user">
                       Personal Game - {Math.max(0, 1 - userUsed)} of 1 remaining
                     </p>
