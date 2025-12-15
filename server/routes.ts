@@ -67,13 +67,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const inward = sanitizedPostcode.slice(-3);
       const formattedPostcode = `${outward} ${inward}`;
       
-      // Query the Supabase postcodes table using parameterized queries (safe from injection)
-      // Check both with space and without space formatting
-      const { data, error } = await supabaseAdmin
-        .from("postcodes")
-        .select("name1")
-        .or(`name1.eq.${sanitizedPostcode},name1.eq.${formattedPostcode}`)
-        .limit(1);
+      // Helper function to query the postcodes table with retry logic
+      // Uses .eq() with formatted postcode (canonical format) for better query performance
+      const queryPostcode = async (attempt: number = 1): Promise<{ data: any; error: any }> => {
+        const result = await supabaseAdmin
+          .from("postcodes")
+          .select("name1")
+          .eq("name1", formattedPostcode)
+          .limit(1);
+        
+        // If timeout error (57014) and first attempt, retry once after short delay
+        if (result.error?.code === '57014' && attempt === 1) {
+          console.log("[GET /api/postcodes/validate] Query timeout, retrying...");
+          await new Promise(resolve => setTimeout(resolve, 500));
+          return queryPostcode(2);
+        }
+        
+        return result;
+      };
+      
+      const { data, error } = await queryPostcode();
       
       if (error) {
         console.error("[GET /api/postcodes/validate] Database error:", error);
