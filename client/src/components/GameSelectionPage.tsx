@@ -14,6 +14,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useGameData } from "@/hooks/useGameData";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
+import { useStreakSaver } from "@/contexts/StreakSaverContext";
 import { useRealtimeSubscriptions } from "@/hooks/useRealtimeSubscriptions";
 import { useCategoryRestriction } from "@/hooks/useCategoryRestriction";
 import { useToast } from "@/hooks/use-toast";
@@ -140,6 +141,10 @@ export function GameSelectionPage({
     clearHolidayMissedFlags,
   } = useStreakSaverStatus();
 
+  // Get streak saver context to check if a streak saver was just completed
+  // This prevents the popup from re-appearing after the user completes a streak saver puzzle
+  const { isJustCompleted, acknowledgeCompletion } = useStreakSaver();
+
   const [hasShownRegionPopup, setHasShownRegionPopup] = useState(false);
   const [hasShownUserPopup, setHasShownUserPopup] = useState(false);
   
@@ -202,17 +207,28 @@ export function GameSelectionPage({
     // Don't show popups if in holiday mode
     if (holidayActive) return;
     
+    // When API confirms the missed flag is cleared, acknowledge the completion
+    // This clears the "just completed" state so future misses can trigger the popup
+    if (!hasMissedRegion && isJustCompleted('region')) {
+      acknowledgeCompletion('region');
+    }
+    if (!hasMissedUser && isJustCompleted('user')) {
+      acknowledgeCompletion('user');
+    }
+    
     // Show region popup if missed and not yet shown
-    if (hasMissedRegion && !hasShownRegionPopup && !showStreakSaverPopup) {
+    // Also check if the streak saver was just completed (prevents re-showing due to stale cache)
+    if (hasMissedRegion && !hasShownRegionPopup && !showStreakSaverPopup && !isJustCompleted('region')) {
       setShowStreakSaverPopup('region');
       setHasShownRegionPopup(true);
     }
     // Show user popup if missed, not yet shown, and region popup is not active
-    else if (hasMissedUser && !hasShownUserPopup && !showStreakSaverPopup && !hasMissedRegion) {
+    // Also check if the streak saver was just completed (prevents re-showing due to stale cache)
+    else if (hasMissedUser && !hasShownUserPopup && !showStreakSaverPopup && !hasMissedRegion && !isJustCompleted('user')) {
       setShowStreakSaverPopup('user');
       setHasShownUserPopup(true);
     }
-  }, [isAuthenticated, streakStatusLoading, streakStatus, hasMissedRegion, hasMissedUser, hasShownRegionPopup, hasShownUserPopup, showStreakSaverPopup, holidayActive, hasClearedHolidayFlags, clearHolidayMissedFlags]);
+  }, [isAuthenticated, streakStatusLoading, streakStatus, hasMissedRegion, hasMissedUser, hasShownRegionPopup, hasShownUserPopup, showStreakSaverPopup, holidayActive, hasClearedHolidayFlags, clearHolidayMissedFlags, isJustCompleted, acknowledgeCompletion]);
 
   // Cache user name and region label locally to prevent flicker
   const [cachedUserName, setCachedUserName] = useState<string>(() => {

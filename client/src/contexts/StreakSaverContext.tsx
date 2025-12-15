@@ -16,6 +16,8 @@ interface StreakSaverContextValue {
   onSessionCancelled?: (gameType: 'region' | 'user') => void;
   setOnSessionComplete: (callback: ((result: { won: boolean; gameType: 'region' | 'user' }) => void) | undefined) => void;
   setOnSessionCancelled: (callback: ((gameType: 'region' | 'user') => void) | undefined) => void;
+  isJustCompleted: (gameType: 'region' | 'user') => boolean;
+  acknowledgeCompletion: (gameType: 'region' | 'user') => void;
 }
 
 const StreakSaverContext = createContext<StreakSaverContextValue | null>(null);
@@ -24,6 +26,10 @@ export function StreakSaverProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<StreakSaverSession | null>(null);
   const [onSessionComplete, setOnSessionComplete] = useState<((result: { won: boolean; gameType: 'region' | 'user' }) => void) | undefined>();
   const [onSessionCancelled, setOnSessionCancelled] = useState<((gameType: 'region' | 'user') => void) | undefined>();
+  
+  // Track which game types have just been completed (to prevent popup re-appearing during cache update)
+  const [justCompletedRegion, setJustCompletedRegion] = useState(false);
+  const [justCompletedUser, setJustCompletedUser] = useState(false);
 
   const startStreakSaverSession = useCallback((
     gameType: 'region' | 'user',
@@ -37,7 +43,15 @@ export function StreakSaverProvider({ children }: { children: ReactNode }) {
   const completeStreakSaverSession = useCallback((won: boolean) => {
     if (!session) return;
     console.log('[StreakSaverContext] Completing session:', { won, session });
-    const gameType = session.gameType;
+    const { gameType } = session;
+    
+    // Mark this game type as "just completed" to suppress popup until API confirms flag is cleared
+    if (gameType === 'region') {
+      setJustCompletedRegion(true);
+    } else {
+      setJustCompletedUser(true);
+    }
+    
     setSession(null);
     onSessionComplete?.({ won, gameType });
   }, [session, onSessionComplete]);
@@ -49,6 +63,23 @@ export function StreakSaverProvider({ children }: { children: ReactNode }) {
     setSession(null);
     onSessionCancelled?.(gameType);
   }, [session, onSessionCancelled]);
+
+  // Check if a streak saver was just completed for this game type
+  // Used to prevent popup from re-appearing due to stale API cache
+  const isJustCompleted = useCallback((gameType: 'region' | 'user'): boolean => {
+    return gameType === 'region' ? justCompletedRegion : justCompletedUser;
+  }, [justCompletedRegion, justCompletedUser]);
+
+  // Called when the API confirms the missed flag is cleared (hasMissed becomes false)
+  // This clears the "just completed" state so future misses can trigger the popup
+  const acknowledgeCompletion = useCallback((gameType: 'region' | 'user') => {
+    console.log('[StreakSaverContext] Acknowledging completion for:', gameType);
+    if (gameType === 'region') {
+      setJustCompletedRegion(false);
+    } else {
+      setJustCompletedUser(false);
+    }
+  }, []);
 
   return (
     <StreakSaverContext.Provider
@@ -62,6 +93,8 @@ export function StreakSaverProvider({ children }: { children: ReactNode }) {
         onSessionCancelled,
         setOnSessionComplete,
         setOnSessionCancelled,
+        isJustCompleted,
+        acknowledgeCompletion,
       }}
     >
       {children}
