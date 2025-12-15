@@ -235,14 +235,8 @@ export function ProSubscriptionDialog({
       
       if (result.success && result.url) {
         // Stripe Checkout flow - redirect to Stripe
+        // Pending subscription row is already inserted server-side via RPC
         console.log('[ProSubscriptionDialog] Redirecting to Stripe Checkout:', result.url);
-        
-        // Store session ID for verification after redirect
-        if (result.sessionId) {
-          sessionStorage.setItem('elementle-checkout-session-id', result.sessionId);
-          console.log('[ProSubscriptionDialog] Stored checkout session ID for verification');
-        }
-        
         window.location.href = result.url;
         return; // Don't reset state - we're navigating away
       } else if (result.success) {

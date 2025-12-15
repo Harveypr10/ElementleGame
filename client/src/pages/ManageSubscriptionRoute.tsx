@@ -10,7 +10,6 @@ import { AdBanner, AdBannerContext } from "@/components/AdBanner";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 const SUBSCRIPTION_SUCCESS_FLAG = "elementle-subscription-success-pending";
-const CHECKOUT_SESSION_KEY = "elementle-checkout-session-id";
 
 interface SubscriptionStatus {
   hasActiveSubscription: boolean;
@@ -34,7 +33,6 @@ export default function ManageSubscriptionRoute() {
   const [showCategorySelection, setShowCategorySelection] = useState(false);
   const [isFirstTimeProFromCheckout, setIsFirstTimeProFromCheckout] = useState(false);
   const hasShownSuccessToast = useRef(false);
-  const hasAttemptedVerification = useRef(false);
   
   // Polling state for subscription activation
   const [pollCount, setPollCount] = useState(0);
@@ -45,57 +43,6 @@ export default function ManageSubscriptionRoute() {
   // Check if we have success param in URL
   const urlParams = new URLSearchParams(window.location.search);
   const isSuccess = urlParams.get("success") === "true";
-  
-  // Get session_id from URL (Stripe may add it) or from sessionStorage
-  const urlSessionId = urlParams.get("session_id");
-  const storedSessionId = typeof window !== 'undefined' ? sessionStorage.getItem(CHECKOUT_SESSION_KEY) : null;
-  const sessionId = urlSessionId || storedSessionId;
-  
-  // Attempt session verification on first load (fallback for delayed webhooks)
-  useEffect(() => {
-    const verifySession = async () => {
-      if (!isSuccess || !sessionId || !isAuthenticated || hasAttemptedVerification.current) {
-        return;
-      }
-      
-      hasAttemptedVerification.current = true;
-      console.log('[ManageSubscriptionRoute] Attempting session verification with sessionId:', sessionId);
-      
-      try {
-        const supabase = await getSupabaseClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        
-        const response = await fetch('/api/subscription/verify-session', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ sessionId }),
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          console.log('[ManageSubscriptionRoute] Session verification result:', result);
-          
-          if (result.success && (result.alreadyActive || result.subscriptionCreated)) {
-            // Subscription is ready - invalidate queries to trigger refresh
-            queryClient.invalidateQueries({ queryKey: ['/api/subscription/status'] });
-          }
-        }
-      } catch (error) {
-        console.error('[ManageSubscriptionRoute] Session verification error:', error);
-        // Don't fail - continue with polling
-      } finally {
-        // Clear the stored session ID
-        sessionStorage.removeItem(CHECKOUT_SESSION_KEY);
-      }
-    };
-    
-    verifySession();
-  }, [isSuccess, sessionId, isAuthenticated, queryClient]);
   
   // Should poll while waiting for subscription to activate
   const shouldPoll = isSuccess && 
