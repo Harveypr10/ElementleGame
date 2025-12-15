@@ -1,0 +1,92 @@
+import Stripe from "https://esm.sh/stripe@14.0.0";
+import { serve } from "https://deno.land/std/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js";
+
+serve(async (req) => {
+  const { user_id, tier_id, promotion_code } = await req.json();
+
+  const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY"), {
+    apiVersion: "2023-10-16",
+  });
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL"),
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+  );
+
+  // 1. Lookup tier
+  const { data: tier, error: tierError } = await supabase
+    .from("user_tier")
+    .select("stripe_price_id")
+    .eq("id", tier_id)
+    .single();
+
+  if (tierError || !tier) {
+    console.error("Tier lookup failed:", tierError);
+    return new Response("Tier not found", { status: 400 });
+  }
+
+  // 2. Lookup user email (optional)
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("email")
+    .eq("id", user_id)
+    .single();
+
+  const userEmail = profile?.email ?? undefined;
+
+  // 3. Ensure a Stripe customer exists for this email
+  const customer = await stripe.customers.create({
+    email: userEmail,
+    metadata: {
+      user_id,   // Supabase user_profiles.id
+    },
+  });
+
+  // 4. Before inserting, mark any existing pending rows for this customer as unpaid
+  const { error: updateError } = await supabase
+    .from("user_subscriptions")
+    .update({ status: "unpaid" })
+    .eq("stripe_customer_id", customer.id)
+    .eq("status", "pending");
+
+  if (updateError) {
+    console.error("Failed to mark old pending subscriptions as unpaid:", updateError);
+  }
+
+  // 5. Insert a new pending row for this subscription attempt
+  const { error: insertError } = await supabase.rpc("insert_pending_subscription", {
+    p_user_id: user_id,
+    p_user_tier_id: tier_id,
+    p_stripe_customer_id: customer.id,
+  });
+
+  if (insertError) {
+    console.error("Failed to insert pending subscription:", insertError);
+    return new Response("Failed to insert pending subscription", { status: 500 });
+  }
+
+  // 6. Create Checkout Session
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    payment_method_types: ["card"],
+    line_items: [{ price: tier.stripe_price_id, quantity: 1 }],
+    discounts: promotion_code ? [{ promotion_code }] : [],
+    success_url: "https://elementle-game.replit.app/manage-subscription?success=true",
+    cancel_url: "https://elementle-game.replit.app/?canceled=true",
+    customer: customer.id,
+    metadata: {
+      user_id,   // Supabase user_profiles.id
+      tier_id,   // Supabase user_tier.id
+    },
+  });
+
+  // 7. Return both the session URL and the Stripe customer ID
+  return new Response(
+    JSON.stringify({
+      url: session.url,
+      stripe_customer_id: customer.id,
+    }),
+    { status: 200 }
+  );
+});
