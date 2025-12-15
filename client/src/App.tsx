@@ -13,6 +13,7 @@ import { StreakSaverProvider } from "@/contexts/StreakSaverContext";
 import Home from "@/pages/Home";
 import Subscriptions from "@/pages/Subscriptions";
 import ManageSubscriptionRoute from "@/pages/ManageSubscriptionRoute";
+import SubscriptionSuccessRoute from "@/pages/SubscriptionSuccessRoute";
 import NotFound from "@/pages/not-found";
 
 import { OptionsPage } from "@/components/OptionsPage";
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/subscriptions" component={Subscriptions} />
       <Route path="/manage-subscription" component={ManageSubscriptionRoute} />
+      <Route path="/subscription-success" component={SubscriptionSuccessRoute} />
       <Route component={NotFound} />
     </Switch>
   );
