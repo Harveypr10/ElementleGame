@@ -233,7 +233,13 @@ export function ProSubscriptionDialog({
       const result = await response.json();
       console.log('[ProSubscriptionDialog] API result:', result);
       
-      if (result.success) {
+      if (result.success && result.url) {
+        // Stripe Checkout flow - redirect to Stripe
+        console.log('[ProSubscriptionDialog] Redirecting to Stripe Checkout:', result.url);
+        window.location.href = result.url;
+        return; // Don't reset state - we're navigating away
+      } else if (result.success) {
+        // Direct subscription flow (legacy/fallback)
         console.log('[ProSubscriptionDialog] Subscription created successfully');
         // Invalidate subscription and streak saver queries to refresh UI
         queryClient.invalidateQueries({ queryKey: ['/api/subscription'] });

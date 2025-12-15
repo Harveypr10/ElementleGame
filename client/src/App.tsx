@@ -11,6 +11,7 @@ import { GuessCacheProvider } from "@/contexts/GuessCacheContext";
 import { GameModeProvider } from "@/contexts/GameModeContext";
 import { StreakSaverProvider } from "@/contexts/StreakSaverContext";
 import Home from "@/pages/Home";
+import Subscriptions from "@/pages/Subscriptions";
 import NotFound from "@/pages/not-found";
 
 import { OptionsPage } from "@/components/OptionsPage";
@@ -25,6 +26,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/subscriptions" component={Subscriptions} />
       <Route component={NotFound} />
     </Switch>
   );

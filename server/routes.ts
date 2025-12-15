@@ -2166,6 +2166,61 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Get current subscription status (for post-checkout polling)
+  app.get("/api/subscription/status", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      console.log('[subscription/status] Checking subscription status for userId:', userId);
+
+      // Check user_subscriptions table for active subscription
+      const result = await db.execute(sql`
+        SELECT 
+          us.id,
+          us.tier_id,
+          us.status,
+          us.expires_at,
+          us.auto_renew,
+          ut.tier,
+          ut.tier_type
+        FROM user_subscriptions us
+        JOIN user_tier ut ON us.tier_id = ut.id
+        WHERE us.user_id = ${userId}
+          AND us.status = 'active'
+          AND (us.expires_at IS NULL OR us.expires_at > NOW())
+        ORDER BY us.created_at DESC
+        LIMIT 1
+      `);
+
+      const rows = Array.isArray(result) ? result : (result as any).rows || [];
+      
+      if (rows.length === 0) {
+        console.log('[subscription/status] No active subscription found for user:', userId);
+        return res.json({
+          hasActiveSubscription: false,
+        });
+      }
+
+      const subscription = rows[0];
+      console.log('[subscription/status] Found active subscription:', subscription);
+
+      res.json({
+        hasActiveSubscription: true,
+        subscription: {
+          id: subscription.id,
+          tierId: subscription.tier_id,
+          tierName: subscription.tier,
+          tierType: subscription.tier_type,
+          status: subscription.status,
+          expiresAt: subscription.expires_at,
+          autoRenew: subscription.auto_renew,
+        },
+      });
+    } catch (error: any) {
+      console.error("[subscription/status] Error fetching subscription status:", error);
+      res.status(500).json({ error: "Failed to fetch subscription status", details: error.message });
+    }
+  });
+
   // Update auto-renewal setting for subscription
   app.post("/api/subscription/auto-renew", verifySupabaseAuth, async (req: any, res) => {
     try {
