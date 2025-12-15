@@ -1,0 +1,163 @@
+Context and workflow
+•	Goal: Wire Stripe Checkout and Portal with Supabase as the source of truth for subscription state and features.
+•	Frontend: User selects a tier from existing UI (Monthly, Quarterly, Annual) in ProSubscriptionDialog. Each button already maps to a user_tier.id (UUID) and writes user_profiles.user_tier_id.
+•	Backend: Edge Function create_checkout_session creates Stripe Checkout using user_tier.stripe_price_id, and includes metadata.user_id and metadata.tier_id (UUID) for the webhook to use.
+•	Webhook: stripe_webhook receives events and upserts user_subscriptions, resolving tier_id by matching the Stripe price to user_tier.stripe_price_id when needed.
+•	Return: Stripe redirects back to https://elementle-game.replit.app/ProSubscriptionDialog?success=true, checks subscription state, sets “Pro”, or shows failure.
+Tables and key fields (how they’re used)
+•	user_tier
+o	id (UUID): primary key; this is the tier_id the UI passes through.
+o	region, tier, tier_type: categorisation (e.g., UK/US; pro/education; monthly/quarterly/annual/lifetime).
+o	subscription_cost, currency, subscription_duration_months: displayed pricing and duration logic.
+o	streak_savers, holiday_savers, holiday_duration_days: benefits per tier.
+o	stripe_product_id, stripe_price_id: Stripe identifiers used to start Checkout and match webhook events.
+o	billing_period: textual descriptor (e.g., “month”, “quarterly”, “annual”) used to display and store period in user_subscriptions.
+o	intro_allowed: whether promos/intro deals can be applied.
+•	user_profiles
+o	id (UUID): user key.
+o	email (nullable): may be missing (if logged in with Apple/Google).
+o	user_tier_id (UUID): current tier link; updated post-payment.
+•	user_subscriptions
+o	user_id (UUID): owner.
+o	stripe_customer_id, stripe_subscription_id: Stripe linkage.
+o	tier_id (UUID): FK to user_tier.id — always store the UUID.
+o	billing_period, expires_at, auto_renew, status: lifecycle fields for feature gating.
+o	amount_paid, discount_type/value/duration/discount_expires_at: invoice and offer tracking.
+•	promotions, user_promo_grants
+o	Grants and promo codes (optional) that you pass as promotion_code to Checkout.
+What to implement when a user clicks a subscription button
+1) Frontend: Start Checkout with UUID tier_id
+•	Inputs to Edge Function:
+o	user_id: user_profiles.id
+o	tier_id: user_tier.id (UUID from the clicked option)
+o	promotion_code: optional (from user_promo_grants.promotion_code if granted)
+•	Call:
+ts
+// Guidance only: adapt to existing fetch client and routing
+const res = await fetch("https://<project>.functions.supabase.co/create_checkout_session", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    user_id: user.id,
+    tier_id: selectedTierUuid,              // e.g., d8c5175e-...
+    promotion_code: grantedPromoCode || null
+  })
+});
+const { url } = await res.json();
+window.location.href = url;
+•	Do not hard-code tier IDs or Stripe prices. Use rows from user_tier (attached CSV confirms valid UUIDs and stripe_price_id for UK Pro Monthly/Quarterly/Annual).
+2) Edge Function: Use UUID tier_id and set metadata
+•	Lookup: user_tier by id = tier_id to get stripe_price_id, billing_period, and benefits.
+•	Optional email: query user_profiles.email; pass only if present.
+•	Metadata: set both user_id and tier_id (UUID) so the webhook reliably links records.
+•	Example shape (guidance only):
+ts
+const session = await stripe.checkout.sessions.create({
+  mode: "subscription",
+  payment_method_types: ["card"],
+  line_items: [{ price: tier.stripe_price_id, quantity: 1 }],
+  discounts: promotion_code ? [{ promotion_code }] : [],
+  success_url: "https://elementle-game.replit.app/account?success=true",
+  cancel_url: "https://elementle-game.replit.app/account?canceled=true",
+  customer_email: userEmail || undefined,
+  metadata: { user_id, tier_id }  // UUID
+});
+3) Webhook: Upsert with UUID tier_id and match by stripe_price_id if needed
+•	Primary source: Use checkout.session.completed to read metadata.user_id and metadata.tier_id (UUID).
+•	Subscription details: Retrieve subscription; read items[0].price.id and match to user_tier.stripe_price_id if metadata is missing or needs verification.
+•	Upsert user_subscriptions:
+o	user_id: UUID from metadata
+o	tier_id: UUID from metadata or match result
+o	billing_period: from user_tier.billing_period
+o	expires_at: subscription.current_period_end
+o	auto_renew: !subscription.cancel_at_period_end
+o	amount_paid: from latest invoice
+o	discount_*: from subscription.discount.coupon (fixed vs percent, duration)
+•	Set status:
+o	On success events: status = 'active'
+o	On customer.subscription.deleted: status = 'canceled'
+o	On invoice.payment_failed: status = 'past_due' or keep active with note (your choice)
+•	Example match (guidance only):
+ts
+const priceId = subscription.items.data[0].price.id;
+const { data: tierRow } = await supabase
+  .from("user_tier")
+  .select("id, billing_period, stripe_price_id")
+  .eq("stripe_price_id", priceId)
+  .maybeSingle();
+const tierUuid = session.metadata?.tier_id ?? tierRow?.id;
+4) Frontend: Handle return and set Pro state
+•	For now, the redirect goes back to the subscription options page (the page the user came from).
+•	The UI will handle the query string flags (success / cancelled) and continue the workflow.
+•	The Edge Function includes these URLs:
+o	success_url: "https://elementle-game.replit.app/subscriptions?success=true",
+o	cancel_url: "https://elementle-game.replit.app/subscriptions?canceled=true",
+•	On ?success=true:
+o	Query latest user_subscriptions for the current user_id.
+o	If status = 'active' and expires_at > now(), update user_profiles.user_tier_id = tier_id (if not already), show “Pro”, and enable benefits based on user_tier fields (streak savers, holiday savers).
+•	On ?canceled=true:
+o	Do not change tier; show “Subscription not completed”.
+•	On failure (webhook delay):
+o	Show a spinner and poll user_subscriptions for up to ~30 seconds, then offer retry.
+Additional implementation notes
+•	Stripe price mapping present: The UK Pro Monthly, Quarterly, Annual rows include stripe_product_id and stripe_price_id (e.g., monthly price_1SeaISPSznPf1iUU0vGVWftD, quarterly price_1SeaOsPSznPf1iUUu00srttt, annual price_1SeaLGPSznPf1iUU4Ai8lMJ3). Use these for Checkout and webhook confirmations.
+•	Billing period text: user_tier.billing_period contains values like “month”, “quarterly”, “annual”. Use this to populate user_subscriptions.billing_period.
+•	Region-aware pricing: Use the selected user_tier row for the user’s region (UK/US). Do not infer region from currency alone.
+•	Email optionality: If user_profiles.email is null (Apple/Google), omit customer_email; Stripe will still create a customer from card details.
+Code guidance (do not copy verbatim)
+Frontend: subscription button click handler
+ts
+async function onSubscribeClick(selectedTierUuid, grantedPromoCode) {
+  const user = await getCurrentUser(); // your existing auth hook
+  const res = await fetch("/functions/v1/create_checkout_session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_id: user.id,
+      tier_id: selectedTierUuid,
+      promotion_code: grantedPromoCode || null
+    })
+  });
+  const { url } = await res.json();
+  location.href = url;
+}
+Frontend: account page post-return
+ts
+const params = new URLSearchParams(location.search);
+if (params.get("success") === "true") {
+  const { data: sub } = await supabase
+    .from("user_subscriptions")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("expires_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  const isPro = sub && sub.status === "active" && new Date(sub.expires_at) > new Date();
+  if (isPro) {
+    await supabase.from("user_profiles")
+      .update({ user_tier_id: sub.tier_id })
+      .eq("id", user.id);
+    enableProUI(sub.tier_id); // read benefits from user_tier
+  } else {
+    showPendingMessage();
+  }
+}
+Summary of ask:
+Please implement the Stripe subscription workflow with UUID-based tier_id usage:
+•	Frontend
+o	Wire existing subscription buttons to call create_checkout_session with user_id (UUID), tier_id (UUID from user_tier.id), and optional promotion_code.
+o	Redirect to the returned Stripe Checkout session.url.
+o	On /account return, query user_subscriptions for the user, set “Pro” state if status = 'active' and expires_at is in the future, update user_profiles.user_tier_id to the UUID, and enable benefits based on user_tier.
+•	Edge Function
+o	Ensure create_checkout_session looks up stripe_price_id by user_tier.id (UUID) and includes metadata.user_id and metadata.tier_id (UUID).
+o	Keep success/cancel URLs pointing to https://elementle-game.replit.app/subscriptions?....
+•	Webhook
+o	Use metadata.user_id and metadata.tier_id to upsert user_subscriptions.
+o	If metadata is missing, match subscription.items[0].price.id to user_tier.stripe_price_id to resolve tier_id (UUID).
+o	Persist lifecycle fields and discounts; set status appropriately.
+•	Error handling
+o	Gracefully handle missing emails; Stripe creates customers from card data.
+o	Add UI feedback for canceled or delayed confirmations.
+Adapt the code examples to the existing repo structure and Supabase client setup. Do not recreate tables or columns — rely on the confirmed schema and the attached user_tier rows for UUIDs and Stripe mappings.
+

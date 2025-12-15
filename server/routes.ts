@@ -2085,22 +2085,22 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
-  // Create subscription - inserts into user_subscriptions with user_tier_id
-  // Supabase trigger syncs user_profiles.user_tier_id and subscription_end_date
+  // Create Stripe Checkout session via Supabase Edge Function
+  // Returns Stripe Checkout URL for frontend redirect
   app.post("/api/subscription/create-checkout", verifySupabaseAuth, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { tierId } = req.body;
+      const { tierId, promotionCode } = req.body;
 
-      console.log('[checkout] Creating subscription for userId:', userId, 'tierId:', tierId);
+      console.log('[checkout] Creating Stripe checkout for userId:', userId, 'tierId:', tierId);
 
       if (!tierId) {
         return res.status(400).json({ error: "tierId is required" });
       }
 
-      // Get tier details from user_tier table
+      // Validate tier exists and is active
       const result = await db.execute(sql`
-        SELECT id, tier, tier_type, subscription_cost, currency, subscription_duration_months
+        SELECT id, tier, tier_type, stripe_price_id
         FROM user_tier
         WHERE id = ${tierId} AND active = true
       `);
@@ -2112,53 +2112,57 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       
       const tierData = rows[0];
       
-      // Calculate expiration date based on subscription duration
-      let expiresAt: Date;
-      const autoRenew = tierData.tier_type !== 'lifetime';
-      const isLifetime = tierData.tier_type === 'lifetime';
-      
-      if (isLifetime) {
-        // For lifetime subscriptions, set expiry to 100 years in the future
-        expiresAt = new Date();
-        expiresAt.setFullYear(expiresAt.getFullYear() + 100);
-      } else if (tierData.subscription_duration_months) {
-        expiresAt = new Date();
-        expiresAt.setMonth(expiresAt.getMonth() + tierData.subscription_duration_months);
-      } else {
-        // Default to 1 month if no duration specified
-        expiresAt = new Date();
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
+      if (!tierData.stripe_price_id) {
+        console.error('[checkout] Tier missing stripe_price_id:', tierId);
+        return res.status(400).json({ error: "This tier is not available for purchase" });
       }
+
+      // Call Supabase Edge Function to create Stripe Checkout session
+      const supabaseUrl = process.env.SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error("SUPABASE_URL not configured");
+      }
+
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/create_checkout_session`;
       
-      // Create the subscription - Supabase trigger will sync user_profiles
-      await storage.createUserSubscription({
-        userId,
-        userTierId: tierId,
-        amountPaid: tierData.subscription_cost ? parseFloat(tierData.subscription_cost) : 0,
-        currency: tierData.currency || 'GBP',
-        expiresAt,
-        autoRenew,
-        source: 'web',
+      console.log('[checkout] Calling Edge Function:', edgeFunctionUrl);
+      
+      const edgeResponse = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          tier_id: tierId,
+          promotion_code: promotionCode || null,
+        }),
       });
 
-      console.log('[checkout] Subscription created successfully for tier:', tierData.tier, tierData.tier_type);
+      if (!edgeResponse.ok) {
+        const errorText = await edgeResponse.text();
+        console.error('[checkout] Edge Function error:', edgeResponse.status, errorText);
+        throw new Error(`Checkout session creation failed: ${errorText}`);
+      }
+
+      const checkoutData = await edgeResponse.json();
+      
+      if (!checkoutData.url) {
+        console.error('[checkout] No checkout URL returned:', checkoutData);
+        throw new Error("No checkout URL returned from payment provider");
+      }
+
+      console.log('[checkout] Stripe checkout session created, redirecting to:', checkoutData.url);
 
       res.json({ 
-        success: true, 
-        subscription: { 
-          userId, 
-          tier: tierData.tier !== 'Standard' ? 'pro' : 'free',
-          tierName: tierData.tier,
-          tierType: tierData.tier_type,
-          tierId,
-          isActive: true,
-          endDate: expiresAt?.toISOString() || null,
-          autoRenew,
-        } 
+        success: true,
+        url: checkoutData.url,
+        sessionId: checkoutData.session_id,
       });
     } catch (error: any) {
-      console.error("[checkout] Error creating subscription:", error);
-      res.status(500).json({ error: "Failed to create subscription", details: error.message });
+      console.error("[checkout] Error creating checkout session:", error);
+      res.status(500).json({ error: "Failed to create checkout session", details: error.message });
     }
   });
 
