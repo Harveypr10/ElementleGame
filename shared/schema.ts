@@ -46,6 +46,8 @@ export const userTier = pgTable("user_tier", {
   region: text("region").notNull(), // e.g., 'UK', 'US'
   tier: text("tier").notNull(), // e.g., 'Standard', 'Pro', 'Education'
   tierType: text("tier_type").notNull().default("default"), // e.g., 'default', 'monthly', 'annual', 'lifetime'
+  billingPeriod: text("billing_period"), // 'month', 'quarter', 'year' - for Stripe billing
+  stripePriceId: text("stripe_price_id"), // Stripe Price ID for checkout
   subscriptionCost: numeric("subscription_cost", { precision: 10, scale: 2 }), // Cost in currency (e.g., 11.99)
   currency: text("currency").default("GBP"), // e.g., 'GBP', 'USD'
   subscriptionDurationMonths: integer("subscription_duration_months").default(1), // null for lifetime
@@ -57,7 +59,10 @@ export const userTier = pgTable("user_tier", {
   active: boolean("active").default(true),
   description: text("description"),
   sortOrder: integer("sort_order"),
-});
+}, (table) => ({
+  activeIdx: index("idx_user_tier_active").on(table.active),
+  stripePriceIdIdx: index("idx_user_tier_stripe_price_id").on(table.stripePriceId),
+}));
 
 export type UserTier = typeof userTier.$inferSelect;
 export type InsertUserTier = typeof userTier.$inferInsert;
@@ -107,7 +112,7 @@ export interface SubscriptionResponse {
 // References auth.users(id) from Supabase Auth
 export const userProfiles = pgTable("user_profiles", {
   id: uuid("id").primaryKey(),
-  email: varchar("email").notNull(),
+  email: varchar("email"), // Nullable: Google/Apple OAuth may not share email
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   isAdmin: boolean("is_admin").default(false),
@@ -180,26 +185,49 @@ export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
 export type UserProfile = typeof userProfiles.$inferSelect;
 
 // User Subscriptions table - stores active user subscriptions
-// References user_tier for tier metadata, managed by Supabase triggers
+// References user_tier for tier metadata, managed by Supabase triggers and Stripe webhooks
 // Note: 'validity' column is GENERATED ALWAYS (tstzrange) - not in Drizzle schema
 export const userSubscriptions = pgTable("user_subscriptions", {
-  id: serial("id").primaryKey(), // Database uses serial integer, not UUID
+  id: uuid("id").primaryKey(), // UUID for Stripe integration
   userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
-  userTierId: uuid("user_tier_id").references(() => userTier.id), // Nullable in Supabase
-  createdAt: timestamp("created_at").defaultNow(), // No timezone in Supabase
-  amountPaid: numeric("amount_paid", { precision: 10, scale: 2 }), // numeric(10,2) in Supabase
+  userTierId: uuid("user_tier_id").references(() => userTier.id), // FK to user_tier.id (tier_id in brief)
+  
+  // Stripe integration fields
+  stripeCustomerId: text("stripe_customer_id"), // Stripe Customer ID
+  stripeSubscriptionId: text("stripe_subscription_id").unique(), // Stripe Subscription ID (unique constraint)
+  billingPeriod: text("billing_period"), // 'month', 'quarter', 'year'
+  
+  // Payment and subscription state
+  amountPaid: numeric("amount_paid", { precision: 10, scale: 2 }), // Latest invoice amount
   currency: text("currency").default("GBP"),
-  expiresAt: timestamp("expires_at"), // No timezone in Supabase
+  expiresAt: timestamp("expires_at", { withTimezone: true }), // Stripe current_period_end
+  autoRenew: boolean("auto_renew").notNull().default(true),
+  status: text("status").default("active"), // 'active', 'canceled', 'incomplete', 'past_due'
+  
+  // Discount tracking (from Stripe coupons/promotions)
+  discountType: text("discount_type"), // 'fixed' or 'percent'
+  discountValue: numeric("discount_value", { precision: 10, scale: 2 }), // GBP for fixed, % for percent
+  discountDurationMonths: integer("discount_duration_months"), // Null for one-time
+  discountExpiresAt: timestamp("discount_expires_at", { withTimezone: true }),
+  
+  // Legacy fields (kept for backward compatibility)
   paymentReference: text("payment_reference"),
   source: text("source"), // e.g., 'stripe', 'apple', 'google'
   effectiveStartAt: timestamp("effective_start_at", { withTimezone: true }).defaultNow(),
   tier: text("tier"), // 'school', 'trial', 'pro' - nullable
-  autoRenew: boolean("auto_renew").notNull().default(true), // Defaults true in Supabase
-});
+  
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  userIdIdx: index("idx_user_subscriptions_user_id").on(table.userId),
+  statusIdx: index("idx_user_subscriptions_status").on(table.status),
+  expiresAtIdx: index("idx_user_subscriptions_expires_at").on(table.expiresAt),
+}));
 
 export const insertUserSubscriptionSchema = createInsertSchema(userSubscriptions).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 export type InsertUserSubscription = z.infer<typeof insertUserSubscriptionSchema>;
@@ -702,3 +730,80 @@ export const insertDemandSchedulerConfigSchema = demandSchedulerConfigSchema.omi
 });
 
 export type InsertDemandSchedulerConfig = z.infer<typeof insertDemandSchedulerConfigSchema>;
+
+// ============================================================================
+// STRIPE PROMOTIONS TABLES
+// ============================================================================
+
+// Promotions table - defines available promotion codes and discounts
+export const promotions = pgTable("promotions", {
+  id: uuid("id").primaryKey(),
+  code: text("code").notNull().unique(), // Human-readable code like 'WELCOME60'
+  name: text("name").notNull(), // Internal name
+  description: text("description"),
+  
+  // Tier and billing targeting
+  tierType: text("tier_type"), // e.g., 'pro'
+  billingPeriod: text("billing_period"), // 'month', 'quarter', 'year'
+  
+  // Discount configuration
+  discountType: text("discount_type").notNull(), // 'fixed' or 'percent'
+  discountValue: numeric("discount_value", { precision: 10, scale: 2 }).notNull(), // GBP for fixed, % for percent
+  discountDurationMonths: integer("discount_duration_months"), // null for once/trial, or repeating months
+  
+  // Eligibility requirements
+  requiresActive: boolean("requires_active").default(false), // User must have active subscription
+  requiresLapsed: boolean("requires_lapsed").default(false), // User must be a lapsed subscriber
+  
+  // Validity period
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }), // null for no end date
+  
+  // Stripe integration
+  stripeCouponId: text("stripe_coupon_id"), // Stripe Coupon ID
+  stripePromotionCodeId: text("stripe_promotion_code_id"), // Stripe Promotion Code ID
+  
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  activeIdx: index("idx_promotions_active").on(table.active),
+  codeIdx: index("idx_promotions_code").on(table.code),
+  dateRangeIdx: index("idx_promotions_date_range").on(table.startsAt, table.endsAt),
+}));
+
+export const insertPromotionSchema = createInsertSchema(promotions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPromotion = z.infer<typeof insertPromotionSchema>;
+export type Promotion = typeof promotions.$inferSelect;
+
+// User Promo Grants table - tracks promotions granted to specific users
+export const userPromoGrants = pgTable("user_promo_grants", {
+  id: uuid("id").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
+  promotionId: uuid("promotion_id").notNull().references(() => promotions.id, { onDelete: "cascade" }),
+  promotionCode: text("promotion_code").notNull(), // Copy of promotions.code for quick lookup
+  
+  // Grant status
+  status: text("status").default("granted"), // 'granted', 'redeemed', 'expired', 'revoked'
+  
+  // Timestamps
+  grantedAt: timestamp("granted_at", { withTimezone: true }).defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }), // When the grant expires if not redeemed
+  redeemedAt: timestamp("redeemed_at", { withTimezone: true }), // When the user redeemed the promotion
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  userIdIdx: index("idx_user_promo_grants_user_id").on(table.userId),
+  statusIdx: index("idx_user_promo_grants_status").on(table.status),
+  expiresAtIdx: index("idx_user_promo_grants_expires_at").on(table.expiresAt),
+}));
+
+export const insertUserPromoGrantSchema = createInsertSchema(userPromoGrants).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertUserPromoGrant = z.infer<typeof insertUserPromoGrantSchema>;
+export type UserPromoGrant = typeof userPromoGrants.$inferSelect;

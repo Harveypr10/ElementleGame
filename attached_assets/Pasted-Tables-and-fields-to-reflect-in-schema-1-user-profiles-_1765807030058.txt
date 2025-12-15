@@ -1,0 +1,121 @@
+Tables and fields to reflect in schema
+1) user_profiles (existing; ensure fields)
+id: UUID primary key
+
+email: text, nullable (Google/Apple may not share email)
+
+user_tier_id: text or UUID, nullable, FK to user_tier.id
+
+created_at: timestamptz default now()
+
+updated_at: timestamptz default now()
+
+Indexes: on id, on user_tier_id (FK), optional index on email.
+
+2) user_tier (existing; ensure fields)
+id: text or UUID primary key (e.g., ‘pro_monthly’, ‘pro_quarterly’, ‘pro_annual’)
+
+name: text (human-readable, e.g., “Pro Monthly”)
+
+billing_period: text enum (‘month’, ‘quarter’, ‘year’)
+
+stripe_price_id: text (required; maps to Stripe Price)
+
+active: boolean default true
+
+created_at: timestamptz default now()
+
+Indexes: on active, on stripe_price_id.
+
+3) user_subscriptions (new/updated; source of truth for state)
+id: UUID primary key
+
+user_id: UUID, FK to user_profiles.id
+
+stripe_customer_id: text
+
+stripe_subscription_id: text unique
+
+tier_id: text or UUID, FK to user_tier.id
+
+billing_period: text enum (‘month’, ‘quarter’, ‘year’)
+
+expires_at: timestamptz (Stripe current_period_end)
+
+auto_renew: boolean
+
+amount_paid: numeric(10,2) nullable (latest invoice amount)
+
+discount_type: text enum (‘fixed’, ‘percent’) nullable
+
+discount_value: numeric(10,2) nullable (GBP for fixed, % for percent)
+
+discount_duration_months: int nullable
+
+discount_expires_at: timestamptz nullable
+
+status: text enum (‘active’, ‘canceled’, ‘incomplete’, ‘past_due’) default ‘active’
+
+created_at: timestamptz default now()
+
+updated_at: timestamptz default now()
+
+Constraints: unique on stripe_subscription_id. Indexes: on user_id, on status, on expires_at.
+
+4) promotions (existing/new; offer definitions)
+id: UUID primary key
+
+code: text unique (human code like ‘WELCOME60’)
+
+name: text
+
+description: text
+
+tier_type: text (e.g., ‘pro’)
+
+billing_period: text enum (‘month’, ‘quarter’, ‘year’)
+
+discount_type: text enum (‘fixed’, ‘percent’)
+
+discount_value: numeric(10,2)
+
+discount_duration_months: int nullable (null for once/trial, or repeating)
+
+requires_active: boolean default false
+
+requires_lapsed: boolean default false
+
+starts_at: timestamptz
+
+ends_at: timestamptz nullable
+
+stripe_coupon_id: text nullable
+
+stripe_promotion_code_id: text nullable
+
+active: boolean default true
+
+created_at: timestamptz default now()
+
+Indexes: on active, on code, on (starts_at, ends_at).
+
+5) user_promo_grants (existing/new; grants per user)
+id: UUID primary key
+
+user_id: UUID FK to user_profiles.id
+
+promotion_id: UUID FK to promotions.id
+
+promotion_code: text (copy of promotions.code for quick lookup)
+
+status: text enum (‘granted’, ‘redeemed’, ‘expired’, ‘revoked’) default ‘granted’
+
+granted_at: timestamptz default now()
+
+expires_at: timestamptz nullable
+
+redeemed_at: timestamptz nullable
+
+created_at: timestamptz default now()
+
+Constraints: unique on (user_id, promotion_id) where status != 'revoked' (optional). Indexes: on user_id, on status, on expires_at.
