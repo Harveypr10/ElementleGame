@@ -97,7 +97,9 @@ export default function ManageSubscriptionRoute() {
           description: "Welcome to Elementle Pro! Enjoy all premium features.",
         });
         
+        // Immediately show category selection for first-time Pro subscribers
         setIsFirstTimeProFromCheckout(true);
+        setShowCategorySelection(true);
       }
       
       // Clean up URL
@@ -119,12 +121,9 @@ export default function ManageSubscriptionRoute() {
   }, [authLoading, isAuthenticated, setLocation]);
   
   const handleBack = () => {
-    if (isFirstTimeProFromCheckout && isPro) {
-      setShowCategorySelection(true);
-      setIsFirstTimeProFromCheckout(false);
-    } else {
-      setLocation("/");
-    }
+    // Category selection is now shown automatically after checkout success
+    // Back button always goes home
+    setLocation("/");
   };
   
   const handleCategoryClose = () => {
