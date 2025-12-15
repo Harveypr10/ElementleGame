@@ -2155,6 +2155,37 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
 
       console.log('[checkout] Stripe checkout session created, redirecting to:', checkoutData.url);
 
+      // Insert pending subscription row so webhook has something to update
+      const stripeCustomerId = checkoutData.customer_id || checkoutData.stripe_customer_id;
+      if (stripeCustomerId) {
+        console.log('[checkout] Inserting pending subscription for user:', userId, 'tier:', tierId, 'customer:', stripeCustomerId);
+        
+        const rpcUrl = `${supabaseUrl}/rest/v1/rpc/insert_pending_subscription`;
+        const rpcResponse = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+          },
+          body: JSON.stringify({
+            p_user_id: userId,
+            p_user_tier_id: tierId,
+            p_stripe_customer_id: stripeCustomerId,
+          }),
+        });
+
+        if (!rpcResponse.ok) {
+          const rpcError = await rpcResponse.text();
+          console.error('[checkout] Failed to insert pending subscription:', rpcResponse.status, rpcError);
+          // Don't fail the checkout - the webhook can still create the subscription
+        } else {
+          console.log('[checkout] Pending subscription inserted successfully');
+        }
+      } else {
+        console.warn('[checkout] No stripe_customer_id returned from Edge Function, webhook will create subscription');
+      }
+
       res.json({ 
         success: true,
         url: checkoutData.url,
