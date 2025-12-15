@@ -536,6 +536,8 @@ export function PlayPage({
               });
               setGuesses(feedbackArrays);
               setKeyStates(newKeyStates);
+              // Set final guess count for completed puzzles (fixes bug where count shows 0 when returning from Archive)
+              setFinalGuessCount(feedbackArrays.length);
               
               // Reconstruct guess records for display with recalculated feedback
               const records: GuessRecord[] = [];
@@ -579,6 +581,8 @@ export function PlayPage({
                 const feedbackArrays = completion.guesses.map((gr: GuessRecord) => gr.feedbackResult);
                 setGuesses(feedbackArrays);
                 setGuessRecords(completion.guesses);
+                // Set final guess count for completed puzzles (fixes bug where count shows 0 when returning from Archive)
+                setFinalGuessCount(feedbackArrays.length);
               }
               // Guest data is sync from localStorage - mark as loaded immediately
               setGuessesLoaded(true);
@@ -668,6 +672,8 @@ export function PlayPage({
               });
               setGuesses(feedbackArrays);
               setKeyStates(newKeyStates);
+              // Set final guess count for completed puzzles (fixes bug where count shows 0 when returning from Archive)
+              setFinalGuessCount(feedbackArrays.length);
               
               // Reconstruct guess records for display with recalculated feedback
               const records: GuessRecord[] = [];
@@ -710,6 +716,8 @@ export function PlayPage({
                 const feedbackArrays = completion.guesses.map((gr: GuessRecord) => gr.feedbackResult);
                 setGuesses(feedbackArrays);
                 setGuessRecords(completion.guesses);
+                // Set final guess count for completed puzzles (fixes bug where count shows 0 when returning from Archive)
+                setFinalGuessCount(feedbackArrays.length);
               }
               // Guest data is sync from localStorage - mark as loaded immediately
               setGuessesLoaded(true);
