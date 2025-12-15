@@ -997,9 +997,15 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
     const puzzleDate = ownedAttempt.allocatedQuestion?.puzzleDate;
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
     const isTodaysPuzzle = puzzleDate === today;
     const isYesterdaysPuzzle = puzzleDate === yesterday;
     const isStreakSaverPlay = req.body.isStreakSaverPlay === true;
+    
+    // Server-side validation for streak saver: puzzle must be within last 2 days
+    // (yesterday or 2 days ago to account for timezone edge cases)
+    const isValidStreakSaverWindow = puzzleDate === yesterday || puzzleDate === twoDaysAgo;
+    const isValidatedStreakSaverPlay = isStreakSaverPlay && isValidStreakSaverWindow;
     
     // Remove isStreakSaverPlay from updates as it's not a database column
     delete updates.isStreakSaverPlay;
@@ -1008,11 +1014,12 @@ app.patch("/api/game-attempts/:id", verifySupabaseAuth, async (req: any, res) =>
       // Today's puzzle win - always set streak_day_status = 1
       updates.streakDayStatus = 1;
       console.log('[PATCH /api/game-attempts/:id] Setting streak_day_status = 1 (today)');
-    } else if (updates.result === "won" && isYesterdaysPuzzle && isStreakSaverPlay) {
-      // Streak saver win (yesterday's puzzle via streak saver popup) - set streak_day_status = 1
+    } else if (updates.result === "won" && isValidatedStreakSaverPlay) {
+      // Streak saver win - set streak_day_status = 1
+      // Validate: isStreakSaverPlay flag from frontend + puzzle date within last 2 days
       updates.streakDayStatus = 1;
-      console.log('[PATCH /api/game-attempts/:id] Setting streak_day_status = 1 (streak saver)');
-    } else if (updates.result === "lost" && isYesterdaysPuzzle && isStreakSaverPlay) {
+      console.log('[PATCH /api/game-attempts/:id] Setting streak_day_status = 1 (streak saver)', { puzzleDate, today, yesterday, twoDaysAgo });
+    } else if (updates.result === "lost" && isValidatedStreakSaverPlay) {
       // Streak saver loss: leave streak_day_status as NULL, reset streak to 0
       // streak_day_status stays NULL (don't set to 0) so streak calculation breaks
       console.log('[PATCH /api/game-attempts/:id] Streak saver lost - streak_day_status stays NULL, streak resets');
@@ -1622,9 +1629,15 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const puzzleDate = ownedAttempt.allocatedQuestion?.puzzleDate;
       const today = new Date().toISOString().split('T')[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const twoDaysAgo = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
       const isTodaysPuzzle = puzzleDate === today;
       const isYesterdaysPuzzle = puzzleDate === yesterday;
       const isStreakSaverPlay = req.body.isStreakSaverPlay === true;
+      
+      // Server-side validation for streak saver: puzzle must be within last 2 days
+      // (yesterday or 2 days ago to account for timezone edge cases)
+      const isValidStreakSaverWindow = puzzleDate === yesterday || puzzleDate === twoDaysAgo;
+      const isValidatedStreakSaverPlay = isStreakSaverPlay && isValidStreakSaverWindow;
       
       // Remove isStreakSaverPlay from updates as it's not a database column
       delete updates.isStreakSaverPlay;
@@ -1640,11 +1653,12 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
         } else {
           console.log('[PATCH /api/user/game-attempts/:id] Holiday active, streak_day_status remains as-is');
         }
-      } else if (updates.result === "won" && isYesterdaysPuzzle && isStreakSaverPlay) {
-        // Streak saver win (yesterday's puzzle via streak saver popup) - set streak_day_status = 1
+      } else if (updates.result === "won" && isValidatedStreakSaverPlay) {
+        // Streak saver win - set streak_day_status = 1
+        // Validate: isStreakSaverPlay flag from frontend + puzzle date within last 2 days
         updates.streakDayStatus = 1;
-        console.log('[PATCH /api/user/game-attempts/:id] Setting streak_day_status = 1 (streak saver)');
-      } else if (updates.result === "lost" && isYesterdaysPuzzle && isStreakSaverPlay) {
+        console.log('[PATCH /api/user/game-attempts/:id] Setting streak_day_status = 1 (streak saver)', { puzzleDate, today, yesterday, twoDaysAgo });
+      } else if (updates.result === "lost" && isValidatedStreakSaverPlay) {
         // Streak saver loss: leave streak_day_status as NULL, reset streak to 0
         // streak_day_status stays NULL (don't set to 0) so streak calculation breaks
         console.log('[PATCH /api/user/game-attempts/:id] Streak saver lost - streak_day_status stays NULL, streak resets');
