@@ -2166,6 +2166,79 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
+  // Verify Stripe checkout session and create subscription if payment was successful
+  // This is a fallback for when webhooks are delayed or fail
+  app.post("/api/subscription/verify-session", verifySupabaseAuth, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { sessionId } = req.body;
+
+      console.log('[verify-session] Verifying session for userId:', userId, 'sessionId:', sessionId);
+
+      if (!sessionId) {
+        return res.status(400).json({ error: "sessionId is required" });
+      }
+
+      // First check if user already has an active subscription
+      const existingResult = await db.execute(sql`
+        SELECT id FROM user_subscriptions 
+        WHERE user_id = ${userId} 
+          AND status = 'active'
+          AND (expires_at IS NULL OR expires_at > NOW())
+        LIMIT 1
+      `);
+      
+      const existingRows = Array.isArray(existingResult) ? existingResult : (existingResult as any).rows || [];
+      if (existingRows.length > 0) {
+        console.log('[verify-session] User already has active subscription');
+        return res.json({ success: true, alreadyActive: true });
+      }
+
+      // Call Supabase Edge Function to verify the session
+      const supabaseUrl = process.env.SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error("SUPABASE_URL not configured");
+      }
+
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/verify_checkout_session`;
+      
+      console.log('[verify-session] Calling Edge Function:', edgeFunctionUrl);
+      
+      const edgeResponse = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          session_id: sessionId,
+        }),
+      });
+
+      if (!edgeResponse.ok) {
+        const errorText = await edgeResponse.text();
+        console.error('[verify-session] Edge Function error:', edgeResponse.status, errorText);
+        // Don't fail - webhook might handle it
+        return res.json({ success: false, message: "Session verification pending", verified: false });
+      }
+
+      const verifyData = await edgeResponse.json();
+      console.log('[verify-session] Edge Function response:', verifyData);
+
+      if (verifyData.success && verifyData.subscription_created) {
+        console.log('[verify-session] Subscription created via session verification');
+        return res.json({ success: true, verified: true, subscriptionCreated: true });
+      }
+
+      res.json({ success: verifyData.success || false, verified: verifyData.verified || false });
+    } catch (error: any) {
+      console.error("[verify-session] Error verifying session:", error);
+      // Don't fail the request - just return that verification is pending
+      res.json({ success: false, message: "Verification pending", verified: false });
+    }
+  });
+
   // Get current subscription status (for post-checkout polling)
   app.get("/api/subscription/status", verifySupabaseAuth, async (req: any, res) => {
     try {
