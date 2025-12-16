@@ -1,0 +1,58 @@
+      // ========================================================================
+      // CHECK AND MANAGE MISSED_YESTERDAY_FLAG FOR USER MODE
+      // ========================================================================
+      // Check if yesterday's USER puzzle was played OR protected by holiday (streak_day_status = 0 or 1)
+      const userYesterdayStatusResult = await db.execute(sql`
+        SELECT ga.id, ga.streak_day_status, ga.result
+        FROM game_attempts_user ga
+        INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
+        WHERE ga.user_id = ${userId}
+          AND qau.puzzle_date = ${yesterdayStr}
+        LIMIT 1
+      `);
+      
+      const userYesterdayStatusRows = Array.isArray(userYesterdayStatusResult) ? userYesterdayStatusResult : (userYesterdayStatusResult as any).rows || [];
+      const userYesterdayAttempt = userYesterdayStatusRows[0];
+      // Consider "played" if result IS NOT NULL OR streak_day_status is 0 (holiday) or 1 (played)
+      const didPlayUserYesterday = userYesterdayAttempt?.result !== null && userYesterdayAttempt?.result !== undefined;
+      const userYesterdayProtected = userYesterdayAttempt?.streak_day_status === 0 || userYesterdayAttempt?.streak_day_status === 1;
+      
+      // Check if TODAY's USER puzzle was played
+      const userPlayedTodayResult = await db.execute(sql`
+        SELECT ga.id 
+        FROM game_attempts_user ga
+        INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
+        WHERE ga.user_id = ${userId}
+          AND qau.puzzle_date = ${todayStr}
+          AND ga.result IS NOT NULL
+        LIMIT 1
+      `);
+      
+      const userPlayedTodayRows = Array.isArray(userPlayedTodayResult) ? userPlayedTodayResult : (userPlayedTodayResult as any).rows || [];
+      const didPlayUserToday = userPlayedTodayRows.length > 0;
+      
+      if ((didPlayUserYesterday || userYesterdayProtected) && userMissedFlag) {
+        // User has played yesterday OR yesterday was protected by holiday - CLEAR the flag!
+        await db.execute(sql`
+          UPDATE user_stats_user 
+          SET missed_yesterday_flag_user = false, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        userMissedFlag = false;
+      } else if (didPlayUserToday && userMissedFlag) {
+        // User has already played TODAY - the streak saver window has passed. Clear the flag.
+        await db.execute(sql`
+          UPDATE user_stats_user 
+          SET missed_yesterday_flag_user = false, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        userMissedFlag = false;
+      } else if (!didPlayUserYesterday && !userYesterdayProtected && !didPlayUserToday && userCurrentStreak > 0 && !userMissedFlag && !holidayActive) {
+        // User had a streak, missed yesterday (and not protected by holiday), hasn't played today yet, and not on holiday - SET the flag!
+        await db.execute(sql`
+          UPDATE user_stats_user 
+          SET missed_yesterday_flag_user = true, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        userMissedFlag = true;
+      }

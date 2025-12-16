@@ -2990,7 +2990,15 @@ export class DatabaseStorage implements IStorage {
       const regionPlayedTodayRows = Array.isArray(regionPlayedTodayResult) ? regionPlayedTodayResult : (regionPlayedTodayResult as any).rows || [];
       const didPlayRegionToday = regionPlayedTodayRows.length > 0;
       
-      if ((didPlayRegionYesterday || regionYesterdayProtected) && regionMissedFlag) {
+      if (regionCurrentStreak === 0 && regionMissedFlag) {
+        // No streak to protect - CLEAR the flag!
+        await db.execute(sql`
+          UPDATE user_stats_region 
+          SET missed_yesterday_flag_region = false, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        regionMissedFlag = false;
+      } else if ((didPlayRegionYesterday || regionYesterdayProtected) && regionMissedFlag) {
         // User has played yesterday OR yesterday was protected by holiday - CLEAR the flag!
         await db.execute(sql`
           UPDATE user_stats_region 
@@ -3051,7 +3059,15 @@ export class DatabaseStorage implements IStorage {
       const userPlayedTodayRows = Array.isArray(userPlayedTodayResult) ? userPlayedTodayResult : (userPlayedTodayResult as any).rows || [];
       const didPlayUserToday = userPlayedTodayRows.length > 0;
       
-      if ((didPlayUserYesterday || userYesterdayProtected) && userMissedFlag) {
+      if (userCurrentStreak === 0 && userMissedFlag) {
+        // No streak to protect - CLEAR the flag!
+        await db.execute(sql`
+          UPDATE user_stats_user 
+          SET missed_yesterday_flag_user = false, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        userMissedFlag = false;
+      } else if ((didPlayUserYesterday || userYesterdayProtected) && userMissedFlag) {
         // User has played yesterday OR yesterday was protected by holiday - CLEAR the flag!
         await db.execute(sql`
           UPDATE user_stats_user 
