@@ -6,7 +6,7 @@ import { GoProButton } from "./GoProButton";
 import { ProSubscriptionDialog } from "./ProSubscriptionDialog";
 import { GuestRestrictionPopup } from "./GuestRestrictionPopup";
 import { CategorySelectionScreen } from "./CategorySelectionScreen";
-import { StreakSaverPopup } from "./StreakSaverPopup";
+import { StreakSaverPopup, type StreakSaverCloseAction } from "./StreakSaverPopup";
 import { BadgeCelebrationPopup } from "./badges/BadgeCelebrationPopup";
 import { HolidayActivationOverlay } from "./HolidayActivationOverlay";
 import { useAuth } from "@/hooks/useAuth";
@@ -159,6 +159,8 @@ export function GameSelectionPage({
 
   const [hasShownRegionPopup, setHasShownRegionPopup] = useState(false);
   const [hasShownUserPopup, setHasShownUserPopup] = useState(false);
+  // Track if user popup is pending (waiting for user to return from region streak saver puzzle)
+  const [userPopupPendingOnReturn, setUserPopupPendingOnReturn] = useState(false);
   
   // Pending badge popup state
   const [pendingBadgeToShow, setPendingBadgeToShow] = useState<UserBadgeWithDetails | null>(null);
@@ -238,13 +240,26 @@ export function GameSelectionPage({
       setShowStreakSaverPopup('region');
       setHasShownRegionPopup(true);
     }
-    // Show user popup if missed, not yet shown, has a streak worth protecting, and region popup is not active
-    // Also check if the streak saver was just completed (prevents re-showing due to stale cache)
+    // Show user popup if:
+    // 1. User popup was pending on return (user completed region streak saver puzzle and came back), OR
+    // 2. User missed AND has streak AND region is resolved AND not just completed
+    else if (
+      userPopupPendingOnReturn && 
+      hasMissedUser && 
+      userCurrentStreak > 0 && 
+      !showStreakSaverPopup && 
+      !isJustCompleted('user')
+    ) {
+      // User returned from region streak saver puzzle - show user popup now
+      setUserPopupPendingOnReturn(false);
+      setShowStreakSaverPopup('user');
+      setHasShownUserPopup(true);
+    }
     else if (hasMissedUser && userCurrentStreak > 0 && !hasShownUserPopup && !showStreakSaverPopup && !hasMissedRegion && !isJustCompleted('user')) {
       setShowStreakSaverPopup('user');
       setHasShownUserPopup(true);
     }
-  }, [isAuthenticated, streakStatusLoading, streakStatus, hasMissedRegion, hasMissedUser, hasShownRegionPopup, hasShownUserPopup, showStreakSaverPopup, holidayActive, hasClearedHolidayFlags, clearHolidayMissedFlags, isJustCompleted, acknowledgeCompletion]);
+  }, [isAuthenticated, streakStatusLoading, streakStatus, hasMissedRegion, hasMissedUser, hasShownRegionPopup, hasShownUserPopup, showStreakSaverPopup, holidayActive, hasClearedHolidayFlags, clearHolidayMissedFlags, isJustCompleted, acknowledgeCompletion, userPopupPendingOnReturn]);
 
   // Cache user name and region label locally to prevent flicker
   const [cachedUserName, setCachedUserName] = useState<string>(() => {
@@ -1333,16 +1348,25 @@ export function GameSelectionPage({
       {showStreakSaverPopup && streakStatus && (
         <StreakSaverPopup
           open={true}
-          onClose={() => {
+          onClose={(action?: StreakSaverCloseAction) => {
             const currentType = showStreakSaverPopup;
             setShowStreakSaverPopup(null);
-            // If we just closed region popup and user also needs attention, show user popup
+            
+            // If we just closed region popup and user also needs attention
             // But NOT if holiday mode was just activated (covers both game modes)
-            // Also check user has a streak worth protecting (current_streak > 0)
             const userCurrentStreak = streakStatus?.user?.currentStreak ?? 0;
             if (currentType === 'region' && hasMissedUser && userCurrentStreak > 0 && !hasShownUserPopup && !holidayJustActivated) {
-              setHasShownUserPopup(true);
-              setTimeout(() => setShowStreakSaverPopup('user'), 300);
+              if (action === 'decline') {
+                // User let streak end - show user popup immediately
+                setHasShownUserPopup(true);
+                setTimeout(() => setShowStreakSaverPopup('user'), 300);
+              } else if (action === 'use_streak_saver') {
+                // User is navigating to play yesterday's puzzle
+                // Mark user popup as pending - will show when they return to GameSelectionPage
+                setUserPopupPendingOnReturn(true);
+              }
+              // For 'holiday' action: holidayJustActivated flag already prevents user popup
+              // For 'dismiss' action: don't show user popup (user explicitly dismissed)
             }
           }}
           gameType={showStreakSaverPopup}

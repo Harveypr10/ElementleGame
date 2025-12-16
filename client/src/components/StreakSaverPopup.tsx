@@ -21,9 +21,12 @@ interface HolidayAnimationData {
   holidayDurationDays: number;
 }
 
+// Action types for streak saver popup close
+export type StreakSaverCloseAction = 'use_streak_saver' | 'decline' | 'holiday' | 'dismiss';
+
 interface StreakSaverPopupProps {
   open: boolean;
-  onClose: () => void;
+  onClose: (action?: StreakSaverCloseAction) => void;
   gameType: "region" | "user";
   currentStreak: number;
   onPlayYesterdaysPuzzle?: (gameType: "region" | "user", puzzleDate: string) => void;
@@ -118,7 +121,7 @@ export function StreakSaverPopup({
       onPlayYesterdaysPuzzle(gameType, yesterdayDate);
     }
     
-    onClose();
+    onClose('use_streak_saver');
   };
 
   const handleDecline = async () => {
@@ -128,7 +131,7 @@ export function StreakSaverPopup({
         title: "Streak Reset",
         description: "Your streak has been reset to 0. Start fresh today!",
       });
-      onClose();
+      onClose('decline');
       if (onStreakLost) {
         onStreakLost();
       }
@@ -165,7 +168,7 @@ export function StreakSaverPopup({
           
           if ((showRegion || showUser) && onStartHolidayWithAnimation) {
             // Close popup and trigger animation overlay
-            onClose();
+            onClose('holiday');
             onStartHolidayWithAnimation({
               regionHolidayDates: showRegion ? (animationData?.region?.holidayDates || []) : [],
               userHolidayDates: showUser ? (animationData?.user?.holidayDates || []) : [],
@@ -185,7 +188,7 @@ export function StreakSaverPopup({
         title: "Holiday Started!",
         description: `You're on holiday for ${holidayDurationDays} days. Your streak is protected.`,
       });
-      onClose();
+      onClose('holiday');
     } catch (error: any) {
       toast({
         title: "Error",
@@ -218,7 +221,7 @@ export function StreakSaverPopup({
     
     // After successful Pro subscription, show CategorySelectionScreen
     // Close the streak saver popup first, then open category selection
-    onClose();
+    onClose('dismiss');
     if (onShowCategorySelection) {
       onShowCategorySelection();
     }
@@ -233,7 +236,7 @@ export function StreakSaverPopup({
         description: "Your streak has been reset to 0. Start fresh today!",
       });
       setShowProDialog(false);
-      onClose();
+      onClose('decline');
       if (onStreakLost) {
         onStreakLost();
       }
@@ -259,7 +262,7 @@ export function StreakSaverPopup({
   const handleDialogOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       // Only allow closing through our explicit handlers
-      onClose();
+      onClose('dismiss');
     }
   };
 
