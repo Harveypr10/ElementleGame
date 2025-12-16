@@ -160,7 +160,20 @@ export function GameSelectionPage({
   const [hasShownRegionPopup, setHasShownRegionPopup] = useState(false);
   const [hasShownUserPopup, setHasShownUserPopup] = useState(false);
   // Track if user popup is pending (waiting for user to return from region streak saver puzzle)
-  const [userPopupPendingOnReturn, setUserPopupPendingOnReturn] = useState(false);
+  // Persisted in localStorage so it survives navigation (e.g., user abandons puzzle without completing)
+  const [userPopupPendingOnReturn, setUserPopupPendingOnReturn] = useState(() => {
+    const stored = localStorage.getItem('userStreakSaverPopupPending');
+    return stored === 'true';
+  });
+  
+  // Persist userPopupPendingOnReturn to localStorage
+  useEffect(() => {
+    if (userPopupPendingOnReturn) {
+      localStorage.setItem('userStreakSaverPopupPending', 'true');
+    } else {
+      localStorage.removeItem('userStreakSaverPopupPending');
+    }
+  }, [userPopupPendingOnReturn]);
   
   // Pending badge popup state
   const [pendingBadgeToShow, setPendingBadgeToShow] = useState<UserBadgeWithDetails | null>(null);
