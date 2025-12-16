@@ -184,6 +184,8 @@ export function PlayPage({
   const [earnedBadge, setEarnedBadge] = useState<UserBadgeWithDetails | null>(null);
   const [pendingBadgeCheck, setPendingBadgeCheck] = useState(false); // Track if badge check should run after streak celebration
   const [finalGuessCount, setFinalGuessCount] = useState<number | null>(null); // Store final guess count when game ends - prevents race condition issues
+  const [endModalDelayElapsed, setEndModalDelayElapsed] = useState(false); // Track when 2.5s delay has passed
+  const [endModalReady, setEndModalReady] = useState(false); // Track when modal data is ready to show
   
   // Badge checker hook
   const { checkAllBadgesOnGameComplete } = useBadgeChecker();
@@ -236,6 +238,14 @@ export function PlayPage({
   // Background color that adapts to dark mode
   // Light mode: #FAFAFA (near white), Dark mode: hsl(222, 47%, 11%) = dark blue
   const pageBackgroundColor = isDarkMode ? 'hsl(222, 47%, 11%)' : '#FAFAFA';
+  
+  // Show EndGameModal when both delay has elapsed AND modal is ready
+  // This ensures minimum 2.5s delay without adding delay on top of async work
+  useEffect(() => {
+    if (endModalDelayElapsed && endModalReady && !showEndModal && !showStreakCelebration) {
+      setShowEndModal(true);
+    }
+  }, [endModalDelayElapsed, endModalReady, showEndModal, showStreakCelebration]);
   
   // Spinner timeout callbacks for game loading
   const handleGameLoadRetry = useCallback(() => {
@@ -1109,6 +1119,11 @@ export function PlayPage({
       setFinalGuessCount(newGuesses.length); // Store final count to prevent race condition issues
       localStorage.removeItem(`puzzle-progress-${formattedAnswer}`);
       
+      // Start 2.5s timer immediately - modal will show when BOTH timer elapses AND ready
+      setTimeout(() => {
+        setEndModalDelayElapsed(true);
+      }, 2500);
+      
       // Track if we're showing a streak celebration (to delay EndGameModal)
       let hasStreakCelebration = false;
       
@@ -1192,12 +1207,10 @@ export function PlayPage({
         }
       }
       
-      // Only set timer for EndGameModal if there's NO streak celebration
-      // If there IS a streak celebration, the modal will show after it's dismissed
+      // Mark modal as ready (will show when 2.5s timer also elapses)
+      // If there IS a streak celebration, pendingEndModal handles showing after dismissal
       if (!hasStreakCelebration) {
-        setTimeout(() => {
-          setShowEndModal(true);
-        }, 4000);
+        setEndModalReady(true);
       }
       
       // Cache today's outcome (only if playing today's puzzle)
@@ -1235,10 +1248,13 @@ export function PlayPage({
       setFinalGuessCount(newGuesses.length); // Store final count to prevent race condition issues
       localStorage.removeItem(`puzzle-progress-${formattedAnswer}`);
       
-      // Delay showing modal by 2 seconds to show final state
+      // Start 2.5s timer immediately - modal will show when BOTH timer elapses AND ready
       setTimeout(() => {
-        setShowEndModal(true);
-      }, 2000);
+        setEndModalDelayElapsed(true);
+      }, 2500);
+      
+      // Mark modal as ready immediately (losses don't have streak celebrations)
+      setEndModalReady(true);
       
       if (isAuthenticated && attemptId) {
         // Complete game attempt and recalculate stats from database (use attemptId, not state)
@@ -1922,10 +1938,11 @@ export function PlayPage({
               }
             }
             
-            // If EndGameModal was pending (waiting for streak celebration to finish), show it now
+            // If EndGameModal was pending (waiting for streak celebration to finish), mark as ready
+            // Modal will show when both 2.5s delay has elapsed AND ready flag is set
             if (pendingEndModal) {
               setPendingEndModal(false);
-              setShowEndModal(true);
+              setEndModalReady(true);
             }
           }}
         />
@@ -1947,10 +1964,11 @@ export function PlayPage({
             }
             
             setEarnedBadge(null);
-            // If EndGameModal was pending, show it now
+            // If EndGameModal was pending, mark as ready
+            // Modal will show when both 2.5s delay has elapsed AND ready flag is set
             if (pendingEndModal) {
               setPendingEndModal(false);
-              setShowEndModal(true);
+              setEndModalReady(true);
             }
           }}
         />
