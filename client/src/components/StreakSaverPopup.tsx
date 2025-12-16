@@ -55,6 +55,7 @@ export function StreakSaverPopup({
     userCanUseStreakSaver,
     holidaysRemaining,
     holidayDurationDays,
+    hasAnyValidStreakForHoliday,
     declineStreakSaver,
     isDeclining,
     startHoliday,
@@ -338,24 +339,22 @@ export function StreakSaverPopup({
                 )
               )}
 
-              {/* Show holiday button for Pro users - disabled if no allowances */}
+              {/* Show holiday button for Pro users - disabled if no allowances or no valid streak */}
               {isPro && (
                 <Button
                   onClick={handleStartHoliday}
-                  disabled={isStartingHoliday || holidaysRemaining <= 0 || holidayDurationDays <= 0}
+                  disabled={isStartingHoliday || holidaysRemaining <= 0 || holidayDurationDays <= 0 || !hasAnyValidStreakForHoliday}
                   variant="outline"
-                  className={`w-full text-white text-[16px] border-blue-400 ${
-                    holidaysRemaining > 0 && holidayDurationDays > 0 
-                      ? 'bg-[#7DAAE8] hover:bg-blue-400' 
-                      : 'bg-gray-400 cursor-not-allowed opacity-60'
-                  }`}
+                  className="w-full text-[16px]"
                   data-testid="button-start-holiday"
                 >
                   {isStartingHoliday 
                     ? "Starting..." 
-                    : holidaysRemaining <= 0 
-                      ? "No Holidays Remaining" 
-                      : `Go on Holiday (up to ${holidayDurationDays} days)`
+                    : !hasAnyValidStreakForHoliday
+                      ? "No streak to protect"
+                      : holidaysRemaining <= 0 
+                        ? "No Holidays Remaining" 
+                        : `Go on Holiday (up to ${holidayDurationDays} days)`
                   }
                 </Button>
               )}

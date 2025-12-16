@@ -2892,6 +2892,7 @@ export class DatabaseStorage implements IStorage {
       streakSaversUsedMonth: number;
       missedYesterdayFlag: boolean;
       canUseStreakSaver: boolean; // true if missed only yesterday (played day before)
+      hasValidStreakForHoliday: boolean; // true if current_streak > 0 AND recent streak activity within 7 days
     };
     user: {
       currentStreak: number;
@@ -2904,6 +2905,7 @@ export class DatabaseStorage implements IStorage {
       missedYesterdayFlag: boolean;
       holidaysUsedYear: number;
       canUseStreakSaver: boolean; // true if missed only yesterday (played day before)
+      hasValidStreakForHoliday: boolean; // true if current_streak > 0 AND recent streak activity within 7 days
     };
   } | null> {
     try {
@@ -3131,12 +3133,80 @@ export class DatabaseStorage implements IStorage {
       const regionCanUseStreakSaver = regionMissedFlag && didWinRegionDayBeforeYesterday;
       const userCanUseStreakSaver = userMissedFlag && didWinUserDayBeforeYesterday;
       
+      // ========================================================================
+      // HOLIDAY VALIDATION: Check if streak is valid for holiday protection
+      // A streak is valid for holiday if: current_streak > 0 AND there's a puzzle
+      // with streak_day_status = 1 or 0 within the last 7 days
+      // ========================================================================
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+      
+      // Check for REGION mode: last puzzle with streak_day_status=1 or 0 within 7 days
+      const regionRecentStreakResult = await db.execute(sql`
+        SELECT qar.puzzle_date
+        FROM game_attempts_region ga
+        INNER JOIN questions_allocated_region qar ON ga.allocated_region_id = qar.id
+        WHERE ga.user_id = ${userId}
+          AND (ga.streak_day_status = 1 OR ga.streak_day_status = 0)
+          AND qar.puzzle_date >= ${sevenDaysAgoStr}
+        ORDER BY qar.puzzle_date DESC
+        LIMIT 1
+      `);
+      
+      const regionRecentStreakRows = Array.isArray(regionRecentStreakResult) ? regionRecentStreakResult : (regionRecentStreakResult as any).rows || [];
+      const hasRegionRecentStreakActivity = regionRecentStreakRows.length > 0;
+      
+      // Check for USER mode: last puzzle with streak_day_status=1 or 0 within 7 days
+      const userRecentStreakResult = await db.execute(sql`
+        SELECT qau.puzzle_date
+        FROM game_attempts_user ga
+        INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
+        WHERE ga.user_id = ${userId}
+          AND (ga.streak_day_status = 1 OR ga.streak_day_status = 0)
+          AND qau.puzzle_date >= ${sevenDaysAgoStr}
+        ORDER BY qau.puzzle_date DESC
+        LIMIT 1
+      `);
+      
+      const userRecentStreakRows = Array.isArray(userRecentStreakResult) ? userRecentStreakResult : (userRecentStreakResult as any).rows || [];
+      const hasUserRecentStreakActivity = userRecentStreakRows.length > 0;
+      
+      // Determine if each mode has a valid streak for holiday protection
+      let regionHasValidStreakForHoliday = regionCurrentStreak > 0 && hasRegionRecentStreakActivity;
+      let userHasValidStreakForHoliday = userCurrentStreak > 0 && hasUserRecentStreakActivity;
+      
+      // If a mode has current_streak > 0 but NO recent activity, reset the streak only
+      // Note: Keep missed_yesterday_flag intact to preserve streak-saver eligibility logic
+      if (regionCurrentStreak > 0 && !hasRegionRecentStreakActivity) {
+        console.log(`[getStreakSaverStatus] Region streak invalid (no activity in 7 days) - resetting to 0`);
+        await db.execute(sql`
+          UPDATE user_stats_region 
+          SET current_streak = 0, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        regionCurrentStreak = 0;
+        regionHasValidStreakForHoliday = false;
+      }
+      
+      if (userCurrentStreak > 0 && !hasUserRecentStreakActivity) {
+        console.log(`[getStreakSaverStatus] User streak invalid (no activity in 7 days) - resetting to 0`);
+        await db.execute(sql`
+          UPDATE user_stats_user 
+          SET current_streak = 0, updated_at = NOW()
+          WHERE user_id = ${userId}
+        `);
+        userCurrentStreak = 0;
+        userHasValidStreakForHoliday = false;
+      }
+      
       return {
         region: {
           currentStreak: regionCurrentStreak,
           streakSaversUsedMonth: regionRow.streak_savers_used_month || 0,
           missedYesterdayFlag: regionMissedFlag,
           canUseStreakSaver: regionCanUseStreakSaver, // true only if missed just yesterday
+          hasValidStreakForHoliday: regionHasValidStreakForHoliday,
         },
         user: {
           currentStreak: userCurrentStreak,
@@ -3149,6 +3219,7 @@ export class DatabaseStorage implements IStorage {
           missedYesterdayFlag: userMissedFlag,
           holidaysUsedYear: userRow.holidays_used_year || 0,
           canUseStreakSaver: userCanUseStreakSaver, // true only if missed just yesterday
+          hasValidStreakForHoliday: userHasValidStreakForHoliday,
         }
       };
     } catch (error: any) {

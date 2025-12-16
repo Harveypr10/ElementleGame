@@ -66,6 +66,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
     holidayEndDate,
     holidayDaysTakenCurrentPeriod,
     holidaysRemaining,
+    hasAnyValidStreakForHoliday,
     startHoliday,
     isStartingHoliday,
     endHoliday,
@@ -467,11 +468,16 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
                   {holidaysRemaining > 0 ? (
                     <Button
                       onClick={() => setShowStartHolidayConfirm(true)}
-                      disabled={isStartingHoliday}
-                      className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                      disabled={isStartingHoliday || !hasAnyValidStreakForHoliday}
+                      className="w-full"
                       data-testid="button-start-holiday"
                     >
-                      {isStartingHoliday ? "Activating..." : "Start Holiday Mode"}
+                      {isStartingHoliday 
+                        ? "Activating..." 
+                        : !hasAnyValidStreakForHoliday 
+                          ? "No streak to protect" 
+                          : "Start Holiday Mode"
+                      }
                     </Button>
                   ) : (
                     <p className="text-sm text-muted-foreground">

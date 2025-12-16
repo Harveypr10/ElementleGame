@@ -16,6 +16,7 @@ export interface StreakSaverStatus {
     streakSaversUsedMonth: number;
     missedYesterdayFlag: boolean;
     canUseStreakSaver: boolean; // true only if missed just yesterday (played day before)
+    hasValidStreakForHoliday: boolean; // true if current_streak > 0 AND recent streak activity within 7 days
   } | null;
   user: {
     currentStreak: number;
@@ -27,6 +28,7 @@ export interface StreakSaverStatus {
     holidayEnded: boolean;
     missedYesterdayFlag: boolean;
     canUseStreakSaver: boolean; // true only if missed just yesterday (played day before)
+    hasValidStreakForHoliday: boolean; // true if current_streak > 0 AND recent streak activity within 7 days
   } | null;
   allowances: StreakSaverAllowances | null;
 }
@@ -121,6 +123,11 @@ export function useStreakSaverStatus() {
   const holidaysRemaining = status?.allowances
     ? status.allowances.holidaySaversPerYear - status.allowances.holidaysUsedThisYear
     : 0;
+  
+  // Check if either game mode has a valid streak for holiday protection
+  const regionHasValidStreakForHoliday = status?.region?.hasValidStreakForHoliday ?? false;
+  const userHasValidStreakForHoliday = status?.user?.hasValidStreakForHoliday ?? false;
+  const hasAnyValidStreakForHoliday = regionHasValidStreakForHoliday || userHasValidStreakForHoliday;
 
   return {
     status,
@@ -139,6 +146,9 @@ export function useStreakSaverStatus() {
     regionStreakSaversRemaining,
     userStreakSaversRemaining,
     holidaysRemaining,
+    regionHasValidStreakForHoliday,
+    userHasValidStreakForHoliday,
+    hasAnyValidStreakForHoliday,
     isPro: status?.allowances?.isPro ?? false,
     holidayDurationDays: status?.allowances?.holidayDurationDays ?? 0,
     useStreakSaver: useStreakSaverMutation.mutateAsync,
