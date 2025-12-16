@@ -2891,6 +2891,7 @@ export class DatabaseStorage implements IStorage {
       currentStreak: number;
       streakSaversUsedMonth: number;
       missedYesterdayFlag: boolean;
+      canUseStreakSaver: boolean; // true if missed only yesterday (played day before)
     };
     user: {
       currentStreak: number;
@@ -2902,15 +2903,19 @@ export class DatabaseStorage implements IStorage {
       holidayEnded: boolean;
       missedYesterdayFlag: boolean;
       holidaysUsedYear: number;
+      canUseStreakSaver: boolean; // true if missed only yesterday (played day before)
     };
   } | null> {
     try {
-      // Calculate today's and yesterday's dates (in YYYY-MM-DD format)
+      // Calculate today's, yesterday's, and day before yesterday's dates (in YYYY-MM-DD format)
       const today = new Date();
       const todayStr = today.toISOString().split('T')[0];
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const dayBeforeYesterday = new Date(today);
+      dayBeforeYesterday.setDate(dayBeforeYesterday.getDate() - 2);
+      const dayBeforeYesterdayStr = dayBeforeYesterday.toISOString().split('T')[0];
       
       // Get region stats
       const regionResult = await db.execute(sql`
@@ -2990,6 +2995,20 @@ export class DatabaseStorage implements IStorage {
       const regionPlayedTodayRows = Array.isArray(regionPlayedTodayResult) ? regionPlayedTodayResult : (regionPlayedTodayResult as any).rows || [];
       const didPlayRegionToday = regionPlayedTodayRows.length > 0;
       
+      // Check if day before yesterday's REGION puzzle was played and WON (result = 'won')
+      const regionDayBeforeYesterdayResult = await db.execute(sql`
+        SELECT ga.id, ga.result
+        FROM game_attempts_region ga
+        INNER JOIN questions_allocated_region qar ON ga.allocated_region_id = qar.id
+        WHERE ga.user_id = ${userId}
+          AND qar.puzzle_date = ${dayBeforeYesterdayStr}
+          AND ga.result = 'won'
+        LIMIT 1
+      `);
+      
+      const regionDayBeforeYesterdayRows = Array.isArray(regionDayBeforeYesterdayResult) ? regionDayBeforeYesterdayResult : (regionDayBeforeYesterdayResult as any).rows || [];
+      const didWinRegionDayBeforeYesterday = regionDayBeforeYesterdayRows.length > 0;
+      
       if (regionCurrentStreak === 0 && regionMissedFlag) {
         // No streak to protect - CLEAR the flag!
         await db.execute(sql`
@@ -3059,6 +3078,20 @@ export class DatabaseStorage implements IStorage {
       const userPlayedTodayRows = Array.isArray(userPlayedTodayResult) ? userPlayedTodayResult : (userPlayedTodayResult as any).rows || [];
       const didPlayUserToday = userPlayedTodayRows.length > 0;
       
+      // Check if day before yesterday's USER puzzle was played and WON (result = 'won')
+      const userDayBeforeYesterdayResult = await db.execute(sql`
+        SELECT ga.id, ga.result
+        FROM game_attempts_user ga
+        INNER JOIN questions_allocated_user qau ON ga.allocated_user_id = qau.id
+        WHERE ga.user_id = ${userId}
+          AND qau.puzzle_date = ${dayBeforeYesterdayStr}
+          AND ga.result = 'won'
+        LIMIT 1
+      `);
+      
+      const userDayBeforeYesterdayRows = Array.isArray(userDayBeforeYesterdayResult) ? userDayBeforeYesterdayResult : (userDayBeforeYesterdayResult as any).rows || [];
+      const didWinUserDayBeforeYesterday = userDayBeforeYesterdayRows.length > 0;
+      
       if (userCurrentStreak === 0 && userMissedFlag) {
         // No streak to protect - CLEAR the flag!
         await db.execute(sql`
@@ -3093,11 +3126,17 @@ export class DatabaseStorage implements IStorage {
         userMissedFlag = true;
       }
       
+      // Determine if user can use streak saver (missed only yesterday, not multiple days)
+      // Can use streak saver if: missed yesterday flag is set AND won day before yesterday
+      const regionCanUseStreakSaver = regionMissedFlag && didWinRegionDayBeforeYesterday;
+      const userCanUseStreakSaver = userMissedFlag && didWinUserDayBeforeYesterday;
+      
       return {
         region: {
           currentStreak: regionCurrentStreak,
           streakSaversUsedMonth: regionRow.streak_savers_used_month || 0,
           missedYesterdayFlag: regionMissedFlag,
+          canUseStreakSaver: regionCanUseStreakSaver, // true only if missed just yesterday
         },
         user: {
           currentStreak: userCurrentStreak,
@@ -3109,6 +3148,7 @@ export class DatabaseStorage implements IStorage {
           holidayEnded: userRow.holiday_ended || false,
           missedYesterdayFlag: userMissedFlag,
           holidaysUsedYear: userRow.holidays_used_year || 0,
+          canUseStreakSaver: userCanUseStreakSaver, // true only if missed just yesterday
         }
       };
     } catch (error: any) {

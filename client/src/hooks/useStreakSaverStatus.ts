@@ -15,6 +15,7 @@ export interface StreakSaverStatus {
     currentStreak: number;
     streakSaversUsedMonth: number;
     missedYesterdayFlag: boolean;
+    canUseStreakSaver: boolean; // true only if missed just yesterday (played day before)
   } | null;
   user: {
     currentStreak: number;
@@ -25,6 +26,7 @@ export interface StreakSaverStatus {
     holidayDaysTakenCurrentPeriod: number;
     holidayEnded: boolean;
     missedYesterdayFlag: boolean;
+    canUseStreakSaver: boolean; // true only if missed just yesterday (played day before)
   } | null;
   allowances: StreakSaverAllowances | null;
 }
@@ -99,6 +101,10 @@ export function useStreakSaverStatus() {
   const hasMissedUser = status?.user?.missedYesterdayFlag ?? false;
   const hasMissedAny = hasMissedRegion || hasMissedUser;
   
+  // Can use streak saver only if missed just yesterday (played day before)
+  const regionCanUseStreakSaver = status?.region?.canUseStreakSaver ?? false;
+  const userCanUseStreakSaver = status?.user?.canUseStreakSaver ?? false;
+  
   const holidayActive = status?.user?.holidayActive ?? false;
   const holidayEndDate = status?.user?.holidayEndDate ?? null;
   const holidayStartDate = status?.user?.holidayStartDate ?? null;
@@ -123,6 +129,8 @@ export function useStreakSaverStatus() {
     hasMissedRegion,
     hasMissedUser,
     hasMissedAny,
+    regionCanUseStreakSaver,
+    userCanUseStreakSaver,
     holidayActive,
     holidayStartDate,
     holidayEndDate,

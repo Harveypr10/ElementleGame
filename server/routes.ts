@@ -2458,6 +2458,11 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       let subscriptionData = null;
       try {
         subscriptionData = await storage.getSubscriptionData(userId);
+        console.log('[holiday/start] Subscription data:', JSON.stringify({
+          tier: subscriptionData?.tier,
+          isActive: subscriptionData?.isActive,
+          metadata: subscriptionData?.metadata
+        }));
       } catch (subError) {
         console.log('[holiday/start] Could not fetch subscription, denying access');
         return res.status(403).json({ error: "Holiday feature is Pro-only", needsSubscription: true });
@@ -2467,12 +2472,15 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const isPro = subscriptionData?.tier === 'pro' && subscriptionData?.isActive;
       
       if (!isPro || !subscriptionData?.metadata) {
+        console.log('[holiday/start] Not Pro or no metadata. isPro:', isPro, 'hasMetadata:', !!subscriptionData?.metadata);
         return res.status(403).json({ error: "Holiday feature is Pro-only", needsSubscription: true });
       }
       
       // Get holiday allowances from tier metadata
       const holidayAllowance = subscriptionData.metadata.holidaySavers ?? 2;
       const holidayDurationDays = subscriptionData.metadata.holidayDurationDays ?? 7;
+      
+      console.log('[holiday/start] Allowances - savers:', holidayAllowance, 'durationDays:', holidayDurationDays);
       
       if (holidayAllowance === 0 || holidayDurationDays === 0) {
         return res.status(403).json({ error: "Your tier does not include holidays" });
@@ -2481,6 +2489,9 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       // Check annual holiday usage from user_stats_user.holidays_used_year
       const status = await storage.getStreakSaverStatus(userId);
       const holidaysUsedThisYear = status?.user?.holidaysUsedYear ?? 0;
+      const holidayActive = status?.user?.holidayActive ?? false;
+      
+      console.log('[holiday/start] Status - usedThisYear:', holidaysUsedThisYear, 'allowance:', holidayAllowance, 'alreadyActive:', holidayActive);
       
       if (holidaysUsedThisYear >= holidayAllowance) {
         return res.status(400).json({ error: "No holidays remaining this year" });
@@ -2490,10 +2501,11 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
       const result = await storage.startHoliday(userId, holidayDurationDays);
       
       if (!result.success) {
+        console.log('[holiday/start] RPC failed:', result.error);
         return res.status(400).json({ error: result.error });
       }
       
-      console.log('[holiday/start] Holiday started');
+      console.log('[holiday/start] Holiday started successfully');
       res.json({ success: true, holidayDurationDays });
     } catch (error: any) {
       console.error("Error starting holiday:", error);

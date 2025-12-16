@@ -51,6 +51,8 @@ export function StreakSaverPopup({
     isPro,
     regionStreakSaversRemaining,
     userStreakSaversRemaining,
+    regionCanUseStreakSaver,
+    userCanUseStreakSaver,
     holidaysRemaining,
     holidayDurationDays,
     declineStreakSaver,
@@ -65,6 +67,11 @@ export function StreakSaverPopup({
   const streakSaversRemaining = gameType === "region" ? regionStreakSaversRemaining : userStreakSaversRemaining;
   const hasStreakSaversLeft = streakSaversRemaining > 0;
   const canStartHoliday = isPro && holidaysRemaining > 0 && holidayDurationDays > 0;
+  
+  // Check if user can use streak saver (missed only yesterday, not multiple days)
+  const canUseStreakSaverForMode = gameType === "region" ? regionCanUseStreakSaver : userCanUseStreakSaver;
+  // Show streak saver button only if: missed just yesterday AND (has savers left OR can upgrade to Pro)
+  const showStreakSaverButton = canUseStreakSaverForMode;
   
   const regionDisplayNames: Record<string, string> = {
     'UK': 'UK Edition',
@@ -276,10 +283,13 @@ export function StreakSaverPopup({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl text-gray-800">
               <Flame className="h-6 w-6 text-orange-500" />
-              Save Your Streak?
+              {showStreakSaverButton ? "Save Your Streak?" : "Protect Your Streak?"}
             </DialogTitle>
             <DialogDescription className="text-center text-gray-700">
-              You missed yesterday's {gameModeLabel} puzzle!
+              {showStreakSaverButton 
+                ? `You missed yesterday's ${gameModeLabel} puzzle!`
+                : `You've been away for multiple days. Use holiday mode to protect your streak, or let it reset.`
+              }
             </DialogDescription>
           </DialogHeader>
 
@@ -295,42 +305,58 @@ export function StreakSaverPopup({
             <div className="text-center">
               <p className="text-2xl font-bold text-gray-800">{currentStreak} Day Streak</p>
               <p className="text-sm text-gray-700 mt-1">
-                {hasStreakSaversLeft 
-                  ? `You have ${streakSaversRemaining} streak saver${streakSaversRemaining > 1 ? 's' : ''} remaining this month`
-                  : "You've used all your streak savers this month"
+                {showStreakSaverButton 
+                  ? (hasStreakSaversLeft 
+                    ? `You have ${streakSaversRemaining} streak saver${streakSaversRemaining > 1 ? 's' : ''} remaining this month`
+                    : "You've used all your streak savers this month")
+                  : (isPro 
+                    ? `You have ${holidaysRemaining} holiday${holidaysRemaining !== 1 ? 's' : ''} remaining this year`
+                    : "Upgrade to Pro to access holiday protection")
                 }
               </p>
             </div>
 
             <div className="w-full space-y-3">
-              {hasStreakSaversLeft ? (
-                <Button
-                  onClick={handleUseStreakSaver}
-                  className="w-full text-[16px] bg-black hover:bg-gray-800"
-                  data-testid="button-use-streak-saver"
-                >
-                  Use Streak Saver
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleNoStreakSavers}
-                  className="w-full bg-gradient-to-r from-orange-400 to-amber-500"
-                  data-testid="button-get-more-savers"
-                >
-                  Get More Streak Savers
-                </Button>
+              {/* Only show streak saver button if missed just yesterday (not multiple days) */}
+              {showStreakSaverButton && (
+                hasStreakSaversLeft ? (
+                  <Button
+                    onClick={handleUseStreakSaver}
+                    className="w-full text-[16px] bg-black hover:bg-gray-800"
+                    data-testid="button-use-streak-saver"
+                  >
+                    Use Streak Saver
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleNoStreakSavers}
+                    className="w-full bg-gradient-to-r from-orange-400 to-amber-500"
+                    data-testid="button-get-more-savers"
+                  >
+                    Get More Streak Savers
+                  </Button>
+                )
               )}
 
-              {canStartHoliday && (
+              {/* Show holiday button for Pro users - disabled if no allowances */}
+              {isPro && (
                 <Button
                   onClick={handleStartHoliday}
-                  disabled={isStartingHoliday}
+                  disabled={isStartingHoliday || holidaysRemaining <= 0 || holidayDurationDays <= 0}
                   variant="outline"
-                  className="w-full bg-[#7DAAE8] text-white text-[16px] border-blue-400 hover:bg-blue-400"
+                  className={`w-full text-white text-[16px] border-blue-400 ${
+                    holidaysRemaining > 0 && holidayDurationDays > 0 
+                      ? 'bg-[#7DAAE8] hover:bg-blue-400' 
+                      : 'bg-gray-400 cursor-not-allowed opacity-60'
+                  }`}
                   data-testid="button-start-holiday"
                 >
-                  
-                  {isStartingHoliday ? "Starting..." : `Go on Holiday (up to ${holidayDurationDays} days)`}
+                  {isStartingHoliday 
+                    ? "Starting..." 
+                    : holidaysRemaining <= 0 
+                      ? "No Holidays Remaining" 
+                      : `Go on Holiday (up to ${holidayDurationDays} days)`
+                  }
                 </Button>
               )}
 
