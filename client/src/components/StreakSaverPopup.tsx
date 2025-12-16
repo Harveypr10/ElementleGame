@@ -345,7 +345,11 @@ export function StreakSaverPopup({
                   onClick={handleStartHoliday}
                   disabled={isStartingHoliday || holidaysRemaining <= 0 || holidayDurationDays <= 0 || !hasAnyValidStreakForHoliday}
                   variant="outline"
-                  className="w-full text-[16px]"
+                  className={`w-full text-white text-[16px] border-blue-400 ${
+                    holidaysRemaining > 0 && holidayDurationDays > 0 && hasAnyValidStreakForHoliday
+                      ? 'bg-[#7DAAE8] hover:bg-blue-400' 
+                      : 'bg-gray-400 cursor-not-allowed opacity-60'
+                  }`}
                   data-testid="button-start-holiday"
                 >
                   {isStartingHoliday 

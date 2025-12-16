@@ -228,15 +228,19 @@ export function GameSelectionPage({
       acknowledgeCompletion('user');
     }
     
-    // Show region popup if missed and not yet shown
+    // Get current streaks to determine if there's something worth protecting
+    const regionCurrentStreak = streakStatus?.region?.currentStreak ?? 0;
+    const userCurrentStreak = streakStatus?.user?.currentStreak ?? 0;
+    
+    // Show region popup if missed, not yet shown, and has a streak worth protecting
     // Also check if the streak saver was just completed (prevents re-showing due to stale cache)
-    if (hasMissedRegion && !hasShownRegionPopup && !showStreakSaverPopup && !isJustCompleted('region')) {
+    if (hasMissedRegion && regionCurrentStreak > 0 && !hasShownRegionPopup && !showStreakSaverPopup && !isJustCompleted('region')) {
       setShowStreakSaverPopup('region');
       setHasShownRegionPopup(true);
     }
-    // Show user popup if missed, not yet shown, and region popup is not active
+    // Show user popup if missed, not yet shown, has a streak worth protecting, and region popup is not active
     // Also check if the streak saver was just completed (prevents re-showing due to stale cache)
-    else if (hasMissedUser && !hasShownUserPopup && !showStreakSaverPopup && !hasMissedRegion && !isJustCompleted('user')) {
+    else if (hasMissedUser && userCurrentStreak > 0 && !hasShownUserPopup && !showStreakSaverPopup && !hasMissedRegion && !isJustCompleted('user')) {
       setShowStreakSaverPopup('user');
       setHasShownUserPopup(true);
     }
@@ -1334,7 +1338,9 @@ export function GameSelectionPage({
             setShowStreakSaverPopup(null);
             // If we just closed region popup and user also needs attention, show user popup
             // But NOT if holiday mode was just activated (covers both game modes)
-            if (currentType === 'region' && hasMissedUser && !hasShownUserPopup && !holidayJustActivated) {
+            // Also check user has a streak worth protecting (current_streak > 0)
+            const userCurrentStreak = streakStatus?.user?.currentStreak ?? 0;
+            if (currentType === 'region' && hasMissedUser && userCurrentStreak > 0 && !hasShownUserPopup && !holidayJustActivated) {
               setHasShownUserPopup(true);
               setTimeout(() => setShowStreakSaverPopup('user'), 300);
             }
