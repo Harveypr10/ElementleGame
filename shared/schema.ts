@@ -85,7 +85,7 @@ export interface UserActiveTier {
   isActive: boolean;
 }
 
-// New subscription response interface - reads from user_profiles + user_tier
+// New subscription response interface - reads from user_profiles + user_tier + user_subscriptions
 export interface SubscriptionResponse {
   tier: 'free' | 'pro'; // Display tier: 'pro' if tier != 'Standard', else 'free'
   tierName: string; // Canonical tier name from user_tier.tier (e.g., 'Standard', 'Pro')
@@ -106,6 +106,10 @@ export interface SubscriptionResponse {
     description: string | null;
     sortOrder: number | null;
   } | null;
+  // Stripe fields from user_subscriptions (for managing subscription via Stripe)
+  stripeSubscriptionId?: string | null;
+  stripeCustomerId?: string | null;
+  stripePriceId?: string | null;
 }
 
 // User profiles table - extends Supabase Auth users

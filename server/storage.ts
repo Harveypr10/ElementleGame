@@ -452,6 +452,7 @@ export class DatabaseStorage implements IStorage {
   // NEW: Get subscription data from user_profiles + user_tier (replaces getUserActiveTier)
   async getSubscriptionData(userId: string): Promise<SubscriptionResponse | null> {
     // Query user_profiles joined with user_tier to get current tier and expiry
+    // Also fetch Stripe fields from the latest user_subscription record
     const result = await db.execute(sql`
       SELECT 
         up.id as "userId",
@@ -474,7 +475,28 @@ export class DatabaseStorage implements IStorage {
           WHERE us.user_id = up.id 
           ORDER BY us.created_at DESC 
           LIMIT 1
-        ) as "autoRenew"
+        ) as "autoRenew",
+        (
+          SELECT us.stripe_subscription_id 
+          FROM user_subscriptions us 
+          WHERE us.user_id = up.id 
+          ORDER BY us.created_at DESC 
+          LIMIT 1
+        ) as "stripeSubscriptionId",
+        (
+          SELECT us.stripe_customer_id 
+          FROM user_subscriptions us 
+          WHERE us.user_id = up.id 
+          ORDER BY us.created_at DESC 
+          LIMIT 1
+        ) as "stripeCustomerId",
+        (
+          SELECT us.stripe_price_id 
+          FROM user_subscriptions us 
+          WHERE us.user_id = up.id 
+          ORDER BY us.created_at DESC 
+          LIMIT 1
+        ) as "stripePriceId"
       FROM user_profiles up
       LEFT JOIN user_tier ut ON ut.id = up.user_tier_id
       WHERE up.id = ${userId}
@@ -550,6 +572,10 @@ export class DatabaseStorage implements IStorage {
         description: row.description,
         sortOrder: row.sortOrder,
       } : null,
+      // Stripe fields for managing subscription
+      stripeSubscriptionId: row.stripeSubscriptionId || null,
+      stripeCustomerId: row.stripeCustomerId || null,
+      stripePriceId: row.stripePriceId || null,
     };
   }
 

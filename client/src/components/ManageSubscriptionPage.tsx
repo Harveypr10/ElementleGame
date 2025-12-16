@@ -9,6 +9,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAdBannerActive } from "@/components/AdBanner";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -96,62 +97,87 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const [userHolidayDates, setUserHolidayDates] = useState<string[]>([]);
   const [showUserAfterRegion, setShowUserAfterRegion] = useState(false);
 
-  // Sync local autoRenew state with subscription data when it loads/changes
-  useEffect(() => {
-    if (subscription?.autoRenew !== undefined) {
-      setAutoRenew(subscription.autoRenew);
-    }
-  }, [subscription?.autoRenew]);
+// Sync local autoRenew state with subscription data when it loads/changes
+useEffect(() => {
+  if (subscription?.autoRenew !== undefined) {
+    setAutoRenew(subscription.autoRenew);
+  }
+}, [subscription?.autoRenew]);
 
-  // Display value - use subscription value if local state not yet set
-  const displayAutoRenew = autoRenew ?? subscription?.autoRenew ?? true;
+// Display value - use subscription value if local state not yet set
+const displayAutoRenew = autoRenew ?? subscription?.autoRenew ?? true;
 
-  const handleAutoRenewToggle = async (newValue: boolean) => {
-    if (!newValue) {
-      setShowCancelWarning(true);
-    } else {
-      await updateAutoRenew(true);
-    }
-  };
+const handleAutoRenewToggle = async (newValue: boolean) => {
+  if (!isPro) return;
 
-  const updateAutoRenew = async (value: boolean) => {
-    if (!isPro) {
-      return;
+  const previousValue = autoRenew;
+  setIsUpdating(true);
+  setAutoRenew(newValue);
+
+  try {
+    // Call Supabase Edge Function to update Stripe
+    const supabase = await getSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      throw new Error("Not authenticated");
     }
     
-    const previousValue = autoRenew;
-    setIsUpdating(true);
-    setAutoRenew(value);
-    
-    try {
-      const response = await apiRequest("POST", "/api/subscription/auto-renew", { autoRenew: value });
-      if (!response.ok) {
-        throw new Error("Failed to update auto-renew");
-      }
-      queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
-      toast({
-        title: value ? "Auto-renew enabled" : "Auto-renew disabled",
-        description: value 
-          ? "Your subscription will renew automatically." 
-          : "Your subscription will not renew after the current period.",
-      });
-    } catch (error) {
-      console.error("Failed to update auto-renew:", error);
-      setAutoRenew(previousValue);
-      toast({
-        title: "Error",
-        description: "Failed to update auto-renew setting. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdating(false);
+    // Build Edge Function URL
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
+    if (!supabaseUrl) {
+      throw new Error("Supabase URL not configured");
     }
-  };
+    const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
+    
+    const response = await fetch(`${functionBaseUrl}/update-auto-renew`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        stripeSubscriptionId: subscription.stripeSubscriptionId,
+        autoRenew: newValue,
+      }),
+    });
 
-  const confirmCancelAutoRenew = async () => {
-    setShowCancelWarning(false);
-    await updateAutoRenew(false);
-  };
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Edge Function error:", errorText);
+      throw new Error("Failed to update auto-renew");
+    }
+
+    // Wait for webhook to sync back into Supabase, then invalidate cache
+    // Add a small delay to allow webhook to process
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/subscription/status"] });
+
+    toast({
+      title: newValue ? "Auto-renew enabled" : "Auto-renew disabled",
+      description: newValue
+        ? "Your subscription will renew automatically."
+        : "Your subscription will not renew after the current period.",
+    });
+  } catch (error) {
+    console.error("Failed to update auto-renew:", error);
+    setAutoRenew(previousValue);
+    toast({
+      title: "Error",
+      description: "Failed to update auto-renew setting. Please try again.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsUpdating(false);
+  }
+};
+
+const confirmCancelAutoRenew = async () => {
+  setShowCancelWarning(false);
+  await handleAutoRenewToggle(false);
+};
+
 
   const handleStartHoliday = async () => {
     setShowStartHolidayConfirm(false);

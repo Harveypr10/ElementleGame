@@ -2169,83 +2169,90 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     }
   });
 
-  // Get current subscription status (for post-checkout polling)
-  app.get("/api/subscription/status", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      console.log('[subscription/status] Checking subscription status for userId:', userId);
+// Get current subscription status (for post-checkout polling)
+app.get("/api/subscription/status", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    console.log('[subscription/status] Checking subscription status for userId:', userId);
 
-      // Check user_subscriptions table for active subscription
-      const result = await db.execute(sql`
-        SELECT 
-          us.id,
-          us.user_tier_id,
-          us.status,
-          us.expires_at,
-          us.auto_renew,
-          ut.tier,
-          ut.tier_type
-        FROM user_subscriptions us
-        JOIN user_tier ut ON us.user_tier_id = ut.id
-        WHERE us.user_id = ${userId}
-          AND us.status = 'active'
-          AND (us.expires_at IS NULL OR us.expires_at > NOW())
-        ORDER BY us.created_at DESC
-        LIMIT 1
-      `);
+    // Check user_subscriptions table for active subscription
+    const result = await db.execute(sql`
+      SELECT 
+        us.id,
+        us.user_tier_id,
+        us.status,
+        us.expires_at,
+        us.auto_renew,
+        us.stripe_subscription_id,
+        us.stripe_customer_id,
+        us.stripe_price_id,
+        ut.tier,
+        ut.tier_type
+      FROM user_subscriptions us
+      JOIN user_tier ut ON us.user_tier_id = ut.id
+      WHERE us.user_id = ${userId}
+        AND us.status = 'active'
+        AND (us.expires_at IS NULL OR us.expires_at > NOW())
+      ORDER BY us.created_at DESC
+      LIMIT 1
+    `);
 
-      const rows = Array.isArray(result) ? result : (result as any).rows || [];
-      
-      if (rows.length === 0) {
-        console.log('[subscription/status] No active subscription found for user:', userId);
-        return res.json({
-          hasActiveSubscription: false,
-        });
-      }
-
-      const subscription = rows[0];
-      console.log('[subscription/status] Found active subscription:', subscription);
-
-      res.json({
-        hasActiveSubscription: true,
-        subscription: {
-          id: subscription.id,
-          tierId: subscription.user_tier_id,
-          tierName: subscription.tier,
-          tierType: subscription.tier_type,
-          status: subscription.status,
-          expiresAt: subscription.expires_at,
-          autoRenew: subscription.auto_renew,
-        },
+    const rows = Array.isArray(result) ? result : (result as any).rows || [];
+    
+    if (rows.length === 0) {
+      console.log('[subscription/status] No active subscription found for user:', userId);
+      return res.json({
+        hasActiveSubscription: false,
       });
-    } catch (error: any) {
-      console.error("[subscription/status] Error fetching subscription status:", error);
-      res.status(500).json({ error: "Failed to fetch subscription status", details: error.message });
     }
-  });
 
-  // Update auto-renewal setting for subscription
-  app.post("/api/subscription/auto-renew", verifySupabaseAuth, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const { autoRenew } = req.body;
+    const subscription = rows[0];
+    console.log('[subscription/status] Found active subscription:', subscription);
 
-      console.log('[subscription/auto-renew] Updating for userId:', userId, 'autoRenew:', autoRenew);
+    res.json({
+      hasActiveSubscription: true,
+      subscription: {
+        id: subscription.id,
+        tierId: subscription.user_tier_id,
+        tierName: subscription.tier,
+        tierType: subscription.tier_type,
+        status: subscription.status,
+        expiresAt: subscription.expires_at,
+        autoRenew: subscription.auto_renew,
+        stripeSubscriptionId: subscription.stripe_subscription_id,
+        stripeCustomerId: subscription.stripe_customer_id,
+        stripePriceId: subscription.stripe_price_id,
+      },
+    });
+  } catch (error: any) {
+    console.error("[subscription/status] Error fetching subscription status:", error);
+    res.status(500).json({ error: "Failed to fetch subscription status", details: error.message });
+  }
+});
 
-      if (typeof autoRenew !== 'boolean') {
-        return res.status(400).json({ error: "autoRenew must be a boolean" });
-      }
+// Update auto-renewal setting for subscription
+app.post("/api/subscription/auto-renew", verifySupabaseAuth, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { autoRenew } = req.body;
 
-      // Use storage method to update auto_renew on most recent subscription
-      await storage.updateAutoRenew(userId, autoRenew);
+    console.log('[subscription/auto-renew] Updating for userId:', userId, 'autoRenew:', autoRenew);
 
-      console.log('[subscription/auto-renew] Updated successfully');
-      res.json({ success: true, autoRenew });
-    } catch (error: any) {
-      console.error("[subscription/auto-renew] Error updating auto-renew:", error);
-      res.status(500).json({ error: "Failed to update auto-renewal", details: error.message });
+    if (typeof autoRenew !== 'boolean') {
+      return res.status(400).json({ error: "autoRenew must be a boolean" });
     }
-  });
+
+    // Use storage method to update auto_renew on most recent subscription
+    await storage.updateAutoRenew(userId, autoRenew);
+
+    console.log('[subscription/auto-renew] Updated successfully');
+    res.json({ success: true, autoRenew });
+  } catch (error: any) {
+    console.error("[subscription/auto-renew] Error updating auto-renew:", error);
+    res.status(500).json({ error: "Failed to update auto-renewal", details: error.message });
+  }
+});
+
 
   // Downgrade subscription to Standard tier
   app.post("/api/subscription/downgrade", verifySupabaseAuth, async (req: any, res) => {

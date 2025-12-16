@@ -24,6 +24,11 @@ export interface SubscriptionData {
   isActive: boolean;
   isExpired: boolean;
   metadata: TierMetadata | null;
+
+  // New fields
+  stripeSubscriptionId?: string | null;
+  stripeCustomerId?: string | null;
+  stripePriceId?: string | null;
 }
 
 const FREE_SUBSCRIPTION: SubscriptionData = {
@@ -88,6 +93,11 @@ export function useSubscription() {
           isActive: data.isActive ?? false,
           isExpired: data.isExpired ?? false,
           metadata: data.metadata ?? FREE_SUBSCRIPTION.metadata,
+
+          // Pass through Stripe fields
+          stripeSubscriptionId: data.stripeSubscriptionId ?? null,
+          stripeCustomerId: data.stripeCustomerId ?? null,
+          stripePriceId: data.stripePriceId ?? null,
         };
       } catch (error) {
         console.error('Error fetching subscription:', error);
