@@ -547,8 +547,10 @@ export class DatabaseStorage implements IStorage {
       isActive = endDate > now;
       isExpired = endDate < now;
     } else {
-      // Pro without end date (shouldn't happen for monthly/annual, but handle gracefully)
-      isActive = false;
+      // Pro without end date - treat as active since they have a Pro tier assigned
+      // The end date will be set by Stripe webhook when subscription is created/renewed
+      // If they have a Pro tier, they should be treated as active until proven otherwise
+      isActive = true;
       isExpired = false;
     }
     
