@@ -32,8 +32,23 @@ export default function SubscriptionSuccessRoute() {
   // Polling state for subscription activation
   const [pollCount, setPollCount] = useState(0);
   const [subscriptionFound, setSubscriptionFound] = useState(false);
-  const maxPolls = 15;
+  const maxPolls = 5; // 5 polls at 2 second intervals = 10 seconds max
   const pollInterval = 2000;
+  
+  // Hard timeout after 10 seconds - redirect to manage subscription
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!subscriptionFound) {
+        toast({
+          title: "Subscription processing",
+          description: "Your subscription may take a moment to activate. Check your subscription status.",
+        });
+        setLocation("/manage-subscription");
+      }
+    }, 10000);
+    
+    return () => clearTimeout(timeout);
+  }, [subscriptionFound, setLocation, toast]);
   
   // Should poll while waiting for subscription to activate
   const shouldPoll = isAuthenticated && 
@@ -127,20 +142,14 @@ export default function SubscriptionSuccessRoute() {
     );
   }
   
-  // Show error if polling timed out
+  // If polling timed out, the useEffect timeout will redirect, but show loading in meantime
   if (pollingTimedOut) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
-        <p className="text-muted-foreground text-center mb-4">
-          Taking longer than expected. Please refresh the page.
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4" />
+        <p className="text-muted-foreground text-center" data-testid="text-redirecting">
+          Redirecting...
         </p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="text-primary underline"
-          data-testid="button-refresh"
-        >
-          Refresh
-        </button>
       </div>
     );
   }
