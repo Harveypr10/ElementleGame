@@ -1,0 +1,60 @@
+I want to complete the subscription management workflow by wiring the frontend to the Stripe Customer Portal. The goal is:
+•	Add a button labelled “Manage Billing & Subscription”, to the Manage Subscription page, to the right of where “Subscription” is shown at the top, that lets users open the Stripe Customer Portal.
+•	Move the auto renew toggle to the right of the “Renews on” text near the top, just below the new. And make the “Renews on” text change to “Expires on” when the toggle has been set to off e.g. when the subscription won’t auto renew
+•	Users can manage invoices, payment methods, or change/cancel subscriptions directly in Stripe through the “Manage” button.
+•	After finishing in Stripe, they should be redirected back to the same page in the app (/account).
+✅ What’s already in place
+Stripe setup
+•	The Stripe Customer Portal has been configured in the Stripe Dashboard.
+•	Redirect link is set to https://elementle-game.replit.app/account, but this can be changed if you need to setup a different URL to ensure the user returns to the Manage Subscription page.
+Edge Function: manage-billing
+•	Path: /functions/v1/manage-billing
+•	Method: POST
+•	Inputs:
+o	customerId → comes from user_profiles.stripe_customer_id
+o	returnUrl → optional, defaults to https://elementle-game.replit.app/account
+•	Output: { url: session.url } (the Stripe portal session URL)
+•	Handles CORS preflight and matches the same pattern as update-auto-renew.
+Database schema (relevant fields)
+•	user_profiles.stripe_customer_id → used to identify the customer in Stripe.
+•	user_subscriptions → updated automatically via webhook when changes are made in Stripe.
+•	No frontend wiring yet for the portal.
+📌 Specific asks for you to implement:
+1. Add a new button to Manage Subscription page, to the right of “Subscription”
+•	Label: “Manage Billing & Subscription”, and format the button so the text goes on to two line
+•	Tooltip (optional): “View invoices, update payment method, or cancel your subscription”
+•	Disabled state: while request is in flight.
+2. Wire the button to call the manage-billing Edge Function
+•	On click:
+o	Call /functions/v1/manage-billing with:
+json
+{
+  "customerId": user.stripe_customer_id,
+  "returnUrl": "https://elementle-game.replit.app/account"
+}
+o	Redirect the user to the returned session.url.
+3. Handle redirect back from Stripe
+•	After the user finishes in Stripe, they’ll be redirected back to /account.
+•	Ensure the page re-renders or refreshes subscription state on return (e.g., re-run useSubscription hook).
+•	Show the updated subscription status and benefits.
+🧪 Example frontend call (guidance only)
+ts
+async function onManageBillingClick(user) {
+  const res = await fetch("/functions/v1/manage-billing", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      customerId: user.stripe_customer_id,
+      returnUrl: window.location.origin + "/account"
+    })
+  });
+
+  const { url } = await res.json();
+  window.location.href = url; // Redirect to Stripe portal
+}
+4.	Move the auto renew toggle to the right of the “Renews on” text near the top, just below the new. And make the “Renews on” text change to “Expires on” when the toggle has been set to off e.g. when the subscription won’t auto renew
+
+✅ Summary for Replit
+•	Already done: Stripe Customer Portal configured, manage-billing Edge Function deployed, schema fields confirmed.
+•	Needs doing: Add a button to ManageSubscriptionPage, wire it to call manage-billing, redirect user to Stripe, and refresh subscription state when they return. Move the auto-renew toggle and make the “Renews on” text dynamic with the toggle change
+•	Guidance provided: Example code for the fetch call, but you should adapt to the existing frontend structure and hooks.

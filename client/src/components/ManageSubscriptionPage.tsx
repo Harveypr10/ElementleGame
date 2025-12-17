@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { ChevronLeft, Crown, Calendar, Flame, Umbrella, AlertTriangle, Globe, User } from "lucide-react";
+import { ChevronLeft, Crown, Calendar, Flame, Umbrella, AlertTriangle, Globe, User, ExternalLink } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useStreakSaverStatus } from "@/hooks/useStreakSaverStatus";
 import { useProfile } from "@/hooks/useProfile";
@@ -86,6 +86,88 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
   const [isUpdating, setIsUpdating] = useState(false);
   const [showStartHolidayConfirm, setShowStartHolidayConfirm] = useState(false);
   const [showEndHolidayConfirm, setShowEndHolidayConfirm] = useState(false);
+  const [isOpeningBillingPortal, setIsOpeningBillingPortal] = useState(false);
+
+  // Refresh subscription data when returning from Stripe portal
+  useEffect(() => {
+    // Check if we're returning from Stripe (page load or focus)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Refresh subscription data when tab becomes visible
+        queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/subscription/status"] });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also refresh on mount in case we're returning from Stripe
+    queryClient.invalidateQueries({ queryKey: ["/api/subscription"] });
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [queryClient]);
+
+  const handleManageBilling = async () => {
+    if (!subscription?.stripeCustomerId) {
+      toast({
+        title: "Error",
+        description: "No billing account found. Please contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsOpeningBillingPortal(true);
+
+    try {
+      const supabase = await getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error("Not authenticated");
+      }
+
+      // Build Edge Function URL
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
+      if (!supabaseUrl) {
+        throw new Error("Supabase URL not configured");
+      }
+      const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
+      
+      const response = await fetch(`${functionBaseUrl}/manage-billing`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          customerId: subscription.stripeCustomerId,
+          returnUrl: window.location.origin + "/account",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Edge Function error:", errorText);
+        throw new Error("Failed to open billing portal");
+      }
+
+      const { url } = await response.json();
+      
+      // Redirect to Stripe Customer Portal
+      window.location.href = url;
+    } catch (error) {
+      console.error("Failed to open billing portal:", error);
+      setIsOpeningBillingPortal(false);
+      toast({
+        title: "Error",
+        description: "Failed to open billing portal. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
   
   // Holiday activation overlay state
   const [showHolidayOverlay, setShowHolidayOverlay] = useState(false);
@@ -350,28 +432,63 @@ const confirmCancelAutoRenew = async () => {
         {isPro ? (
           <>
             <Card className="p-4 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-gradient-to-br from-orange-400 to-orange-500">
-                  <Crown className="h-5 w-5 text-white" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-gradient-to-br from-orange-400 to-orange-500">
+                    <Crown className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Subscription</p>
+                    <p className="font-semibold text-lg" data-testid="text-subscription-tier">
+                      {formatTierDisplayName(tierName, tierType)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Subscription</p>
-                  <p className="font-semibold text-lg" data-testid="text-subscription-tier">
-                    {formatTierDisplayName(tierName, tierType)}
-                  </p>
-                </div>
+                {!isLifetime && subscription?.stripeCustomerId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleManageBilling}
+                    disabled={isOpeningBillingPortal}
+                    className="text-xs leading-tight text-center whitespace-normal h-auto py-2 px-3"
+                    data-testid="button-manage-billing"
+                  >
+                    {isOpeningBillingPortal ? (
+                      "Opening..."
+                    ) : (
+                      <>
+                        Manage Billing
+                        <br />
+                        & Subscription
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
 
               {!isLifetime && subscription?.endDate && (
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-muted">
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-muted">
+                      <Calendar className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        {displayAutoRenew ? "Renews on" : "Expires on"}
+                      </p>
+                      <p className="font-semibold" data-testid="text-renewal-date">
+                        {formatRenewalDate(subscription.endDate)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Renews on</p>
-                    <p className="font-semibold" data-testid="text-renewal-date">
-                      {formatRenewalDate(subscription.endDate)}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Auto-renew</span>
+                    <Switch
+                      checked={displayAutoRenew}
+                      onCheckedChange={handleAutoRenewToggle}
+                      disabled={isUpdating}
+                      data-testid="switch-auto-renew"
+                    />
                   </div>
                 </div>
               )}
@@ -513,25 +630,6 @@ const confirmCancelAutoRenew = async () => {
                 </div>
               )}
             </Card>
-
-            {!isLifetime && (
-              <Card className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold">Auto-renew</p>
-                    <p className="text-sm text-muted-foreground">
-                      {displayAutoRenew ? "Your subscription will renew automatically" : "Your subscription will not renew"}
-                    </p>
-                  </div>
-                  <Switch
-                    checked={displayAutoRenew}
-                    onCheckedChange={handleAutoRenewToggle}
-                    disabled={isUpdating}
-                    data-testid="switch-auto-renew"
-                  />
-                </div>
-              </Card>
-            )}
           </>
         ) : (
           <>
