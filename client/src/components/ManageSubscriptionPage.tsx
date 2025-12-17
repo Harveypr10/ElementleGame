@@ -144,7 +144,7 @@ export function ManageSubscriptionPage({ onBack, onGoProClick }: ManageSubscript
         },
         body: JSON.stringify({
           customerId: subscription.stripeCustomerId,
-          returnUrl: window.location.origin + "/account",
+          returnUrl: window.location.origin + "/manage-subscription",
         }),
       });
 
@@ -444,26 +444,6 @@ const confirmCancelAutoRenew = async () => {
                     </p>
                   </div>
                 </div>
-                {!isLifetime && subscription?.stripeCustomerId && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleManageBilling}
-                    disabled={isOpeningBillingPortal}
-                    className="text-xs leading-tight text-center whitespace-normal h-auto py-2 px-3"
-                    data-testid="button-manage-billing"
-                  >
-                    {isOpeningBillingPortal ? (
-                      "Opening..."
-                    ) : (
-                      <>
-                        Manage Billing
-                        <br />
-                        & Subscription
-                      </>
-                    )}
-                  </Button>
-                )}
               </div>
 
               {!isLifetime && subscription?.endDate && (
@@ -487,10 +467,22 @@ const confirmCancelAutoRenew = async () => {
                       checked={displayAutoRenew}
                       onCheckedChange={handleAutoRenewToggle}
                       disabled={isUpdating}
+                      className="data-[state=checked]:bg-blue-500"
                       data-testid="switch-auto-renew"
                     />
                   </div>
                 </div>
+              )}
+
+              {!isLifetime && subscription?.stripeCustomerId && (
+                <Button
+                  onClick={handleManageBilling}
+                  disabled={isOpeningBillingPortal}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white"
+                  data-testid="button-manage-billing"
+                >
+                  {isOpeningBillingPortal ? "Opening..." : "Manage Billing & Subscription"}
+                </Button>
               )}
 
               {isLifetime && (

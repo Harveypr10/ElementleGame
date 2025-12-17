@@ -1270,6 +1270,7 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                     <Switch
                       checked={magicLinkEnabled}
                       onCheckedChange={handleToggleMagicLink}
+                      className="data-[state=checked]:bg-blue-500"
                       data-testid="switch-magic-link"
                     />
                   )}
