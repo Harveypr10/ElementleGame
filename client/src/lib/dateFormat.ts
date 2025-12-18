@@ -75,8 +75,15 @@ function isCalendarDateValid(day: number, month: number, year: number): boolean 
     return false;
   }
   
+  // Year must be positive (1 AD or later)
+  if (year < 1) {
+    return false;
+  }
+  
   // Create a Date object (month is 0-indexed in JavaScript Date)
-  const date = new Date(year, month - 1, day);
+  // Use setFullYear to avoid the JS quirk where years 0-99 are treated as 1900-1999
+  const date = new Date(0);
+  date.setFullYear(year, month - 1, day);
   
   // Check if the date round-trips correctly
   // If you set Feb 31, JavaScript will roll it to Mar 3
