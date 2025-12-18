@@ -1127,61 +1127,52 @@ export function PlayPage({
       // Track if we're showing a streak celebration (to delay EndGameModal)
       let hasStreakCelebration = false;
       
-      if (isAuthenticated && attemptId) {
-        // Complete game attempt and recalculate stats from database (use attemptId, not state)
+      // === FAST PATH: Check for streak celebration quickly ===
+      // For authenticated users playing today's puzzle, we need to check streak
+      // But we do this as quickly as possible before any slow API calls
+      if (isAuthenticated && attemptId && isPlayingTodaysPuzzle()) {
+        // Complete game attempt first (required for streak calculation)
         await completeGameAttempt(attemptId, true, newGuesses.length);
         
-        // Show streak celebration only when playing today's puzzle (regardless of access method)
-        if (isPlayingTodaysPuzzle()) {
-          const statsEndpoint = isLocalMode ? "/api/user/stats" : "/api/stats";
-          const statsRes = await apiRequest("GET", statsEndpoint);
-          if (statsRes.ok) {
-            const freshStats = await statsRes.json();
-            console.log('[Win] Fresh stats loaded for streak celebration:', freshStats);
-            if (freshStats.currentStreak) {
-              setCurrentStreak(freshStats.currentStreak);
-              setShowStreakCelebration(true);
-              hasStreakCelebration = true;
-              // Mark that EndGameModal should show after streak celebration is dismissed
-              setPendingEndModal(true);
-              // Mark that badge check should run after streak celebration
-              setPendingBadgeCheck(true);
-            } else {
-              // No streak celebration, check badges immediately
-              const gameType = isLocalMode ? 'USER' : 'REGION';
-              console.log('[Win] Checking badges for game completion:', { 
-                guessCount: newGuesses.length, 
-                streak: freshStats.currentStreak || 0,
-                gameType 
-              });
-              const badge = await checkAllBadgesOnGameComplete(
-                true, 
-                newGuesses.length, 
-                freshStats.currentStreak || 0,
-                gameType
-              );
-              if (badge) {
-                setEarnedBadge(badge);
-              }
-            }
+        // Fetch stats to check for streak celebration
+        const statsEndpoint = isLocalMode ? "/api/user/stats" : "/api/stats";
+        const statsRes = await apiRequest("GET", statsEndpoint);
+        if (statsRes.ok) {
+          const freshStats = await statsRes.json();
+          console.log('[Win] Fresh stats loaded for streak celebration:', freshStats);
+          if (freshStats.currentStreak) {
+            setCurrentStreak(freshStats.currentStreak);
+            setShowStreakCelebration(true);
+            hasStreakCelebration = true;
+            // Mark that EndGameModal should show after streak celebration is dismissed
+            setPendingEndModal(true);
+            // Mark that badge check should run after streak celebration
+            setPendingBadgeCheck(true);
+          } else {
+            // No streak celebration - set modal ready immediately, run badge check in background
+            setEndModalReady(true);
+            // Check badges in background (don't await)
+            const gameType = isLocalMode ? 'USER' : 'REGION';
+            checkAllBadgesOnGameComplete(true, newGuesses.length, freshStats.currentStreak || 0, gameType)
+              .then(badge => { if (badge) setEarnedBadge(badge); });
           }
         } else {
-          // Not playing today's puzzle but still check for elementle badges
-          const gameType = isLocalMode ? 'USER' : 'REGION';
-          const statsEndpoint = isLocalMode ? "/api/user/stats" : "/api/stats";
-          const statsRes = await apiRequest("GET", statsEndpoint);
-          const freshStats = statsRes.ok ? await statsRes.json() : { currentStreak: 0 };
-          
-          const badge = await checkAllBadgesOnGameComplete(
-            true, 
-            newGuesses.length, 
-            freshStats.currentStreak || 0,
-            gameType
-          );
-          if (badge) {
-            setEarnedBadge(badge);
-          }
+          // Stats fetch failed - still show modal
+          setEndModalReady(true);
         }
+      } else if (isAuthenticated && attemptId && !isPlayingTodaysPuzzle()) {
+        // Not playing today's puzzle - no streak celebration, set modal ready immediately
+        setEndModalReady(true);
+        // Complete game attempt in background
+        completeGameAttempt(attemptId, true, newGuesses.length);
+        // Check badges in background
+        const gameType = isLocalMode ? 'USER' : 'REGION';
+        const statsEndpoint = isLocalMode ? "/api/user/stats" : "/api/stats";
+        apiRequest("GET", statsEndpoint).then(async statsRes => {
+          const freshStats = statsRes.ok ? await statsRes.json() : { currentStreak: 0 };
+          const badge = await checkAllBadgesOnGameComplete(true, newGuesses.length, freshStats.currentStreak || 0, gameType);
+          if (badge) setEarnedBadge(badge);
+        });
       } else if (isAuthenticated && !attemptId) {
         // CRITICAL: Authenticated user won but we couldn't save to database!
         console.error('[handleSubmit] CRITICAL: Game WON but could not save to database!', {
@@ -1189,7 +1180,8 @@ export function PlayPage({
           numGuesses: newGuesses.length,
           isLocalMode
         });
-        // Still show celebration locally even though DB save failed
+        // Still show modal even though DB save failed
+        setEndModalReady(true);
       } else if (!isAuthenticated) {
         // Guest user: use localStorage stats
         await updateStats(true, newGuesses.length, newGuessRecords);
@@ -1203,13 +1195,14 @@ export function PlayPage({
             hasStreakCelebration = true;
             // Mark that EndGameModal should show after streak celebration is dismissed
             setPendingEndModal(true);
+          } else {
+            setEndModalReady(true);
           }
+        } else {
+          setEndModalReady(true);
         }
-      }
-      
-      // Mark modal as ready (will show when 2.5s timer also elapses)
-      // If there IS a streak celebration, pendingEndModal handles showing after dismissal
-      if (!hasStreakCelebration) {
+      } else {
+        // Fallback - always show modal
         setEndModalReady(true);
       }
       
@@ -1914,8 +1907,6 @@ export function PlayPage({
         <StreakCelebrationPopup
           streak={currentStreak}
           onDismiss={async () => {
-            setShowStreakCelebration(false);
-            
             // If badge check was pending (waiting for streak celebration to finish), run it now
             if (pendingBadgeCheck) {
               setPendingBadgeCheck(false);
@@ -1934,16 +1925,19 @@ export function PlayPage({
               );
               if (badge) {
                 setEarnedBadge(badge);
+                setShowStreakCelebration(false);
                 return; // Wait for badge celebration before showing end modal
               }
             }
             
-            // If EndGameModal was pending (waiting for streak celebration to finish), mark as ready
-            // Modal will show when both 2.5s delay has elapsed AND ready flag is set
+            // If EndGameModal was pending (waiting for streak celebration to finish), mark as ready FIRST
+            // Then hide streak celebration to avoid flash of PlayPage
             if (pendingEndModal) {
               setPendingEndModal(false);
               setEndModalReady(true);
             }
+            // Hide streak celebration after EndGameModal is ready
+            setShowStreakCelebration(false);
           }}
         />
       )}
