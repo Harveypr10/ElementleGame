@@ -198,6 +198,15 @@ export function PlayPage({
     backgroundOpsResolversRef.current = [];
   }, []);
   
+  // If game is already over when component mounts (e.g., returning from Archive),
+  // mark background ops as complete since they were already handled
+  useEffect(() => {
+    if (gameOver && !backgroundOpsCompleteRef.current) {
+      console.log('[PlayPage] Game already over on mount, marking background ops complete');
+      markBackgroundOpsComplete();
+    }
+  }, [gameOver, markBackgroundOpsComplete]);
+  
   // Wait for background ops to complete (returns immediately if already complete)
   const waitForBackgroundOps = useCallback((): Promise<void> => {
     if (backgroundOpsCompleteRef.current) {
@@ -337,26 +346,46 @@ export function PlayPage({
   }, []);
   
   // Wrapper for EndGameModal navigation that waits for background ops
-  // Shows spinner if async operations are still in progress
-  const createOpsAwareHandler = useCallback((callback: () => void) => {
+  // Shows spinner if async operations are still in progress, with timeout fallback
+  const createOpsAwareHandler = useCallback((callback: () => void, fallback?: () => void) => {
     return async () => {
       // If background ops are already complete, navigate immediately
       if (backgroundOpsCompleteRef.current) {
         callback();
         return;
       }
-      // Show spinner and wait for background ops to complete
+      // Show spinner and wait for background ops to complete (with 6s timeout)
       showSpinner(0);
-      await waitForBackgroundOps();
+      const timeoutMs = 6000;
+      const timeoutPromise = new Promise<'timeout'>((resolve) => 
+        setTimeout(() => resolve('timeout'), timeoutMs)
+      );
+      const result = await Promise.race([
+        waitForBackgroundOps().then(() => 'complete' as const),
+        timeoutPromise
+      ]);
       hideSpinner();
-      callback();
+      
+      if (result === 'timeout') {
+        console.warn('[PlayPage] Background ops timed out, using fallback');
+        // Mark as complete to prevent future timeouts
+        markBackgroundOpsComplete();
+        if (fallback) {
+          fallback();
+        } else {
+          // Default fallback: proceed with navigation anyway
+          callback();
+        }
+      } else {
+        callback();
+      }
     };
-  }, [showSpinner, hideSpinner, waitForBackgroundOps]);
+  }, [showSpinner, hideSpinner, waitForBackgroundOps, markBackgroundOpsComplete]);
   
   // Optional version that returns undefined if callback is undefined
-  const createOptionalOpsAwareHandler = useCallback((callback: (() => void) | undefined) => {
+  const createOptionalOpsAwareHandler = useCallback((callback: (() => void) | undefined, fallback?: () => void) => {
     if (!callback) return undefined;
-    return createOpsAwareHandler(callback);
+    return createOpsAwareHandler(callback, fallback);
   }, [createOpsAwareHandler]);
   
   // Spinner with timeout for game loading
