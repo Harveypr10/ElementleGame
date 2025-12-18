@@ -276,7 +276,7 @@ export function EndGameModal({
         }
         
         .animate-fade-in {
-          animation: fade-in 0.8s ease-in forwards;
+          animation: fade-in 0.3s ease-out forwards;
         }
         
         @keyframes confetti-fall {
