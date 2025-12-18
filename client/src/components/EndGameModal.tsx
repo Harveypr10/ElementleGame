@@ -97,16 +97,20 @@ export function EndGameModal({
     >
       <div className="min-h-screen p-4 pt-8">
         <div className="w-full max-w-md mx-auto space-y-6">
-          <h2 className="text-center text-3xl font-bold">
-            {isWin ? "Congratulations!" : "Unlucky!"}
-          </h2>
+          {/* Fixed-height container for title to prevent layout shift */}
+          <div className="h-10 flex items-center justify-center">
+            <h2 className="text-center text-3xl font-bold animate-fade-in">
+              {isWin ? "Congratulations!" : "Unlucky!"}
+            </h2>
+          </div>
 
-          <div className="relative flex justify-center my-4">
+          {/* Fixed-height container for hamster to prevent layout shift */}
+          <div className="relative flex justify-center my-4 h-[150px]">
             {/* Light mode hamster */}
             <img
               src={isWin ? happyHamster : sadHamster}
               alt={isWin ? "Happy hamster" : "Sad hamster"}
-              className={`${isWin ? "max-w-[150px]" : "max-w-[150px]"} w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""} block dark:hidden`}
+              className="max-w-[150px] w-full h-auto object-contain animate-fade-in block dark:hidden"
               data-testid="hamster-image"
             />
 
@@ -114,7 +118,7 @@ export function EndGameModal({
             <img
               src={isWin ? happyHamsterDark : sadHamsterDark}
               alt={isWin ? "Happy hamster dark" : "Sad hamster dark"}
-              className={`${isWin ? "max-w-[150px]" : "max-w-[150px]"} w-full h-auto object-contain ${!isWin ? "animate-fade-in" : ""} hidden dark:block`}
+              className="max-w-[150px] w-full h-auto object-contain animate-fade-in hidden dark:block"
               data-testid="hamster-image-dark"
             />
 
@@ -151,13 +155,16 @@ export function EndGameModal({
             )}
           </div>
 
-          <div className="space-y-4 text-center">
-            <p
-              className="text-2xl font-bold truncate max-w-full overflow-hidden text-ellipsis"
-              data-testid="text-target-date"
-            >
-              {formatWithOrdinal(answerDateCanonical)}
-            </p>
+          <div className="space-y-4 text-center animate-fade-in">
+            {/* Fixed-height container for date to prevent layout shift */}
+            <div className="h-8 flex items-center justify-center">
+              <p
+                className="text-2xl font-bold truncate max-w-full overflow-hidden text-ellipsis"
+                data-testid="text-target-date"
+              >
+                {formatWithOrdinal(answerDateCanonical)}
+              </p>
+            </div>
 
             <div className="bg-muted p-4 rounded-lg space-y-2">
               <h3 className="font-semibold text-lg" data-testid="text-event-title">
