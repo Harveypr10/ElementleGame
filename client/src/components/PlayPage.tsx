@@ -1192,10 +1192,11 @@ export function PlayPage({
       setFinalGuessCount(newGuesses.length); // Store final count to prevent race condition issues
       localStorage.removeItem(`puzzle-progress-${formattedAnswer}`);
       
-      // Start 2.5s timer immediately - modal will show when BOTH timer elapses AND ready
+      // Start brief timer immediately - modal shows when BOTH timer elapses AND ready
+      // Reduced from 2.5s to 500ms for faster feedback
       setTimeout(() => {
         setEndModalDelayElapsed(true);
-      }, 2500);
+      }, 500);
       
       // Track if we're showing a streak celebration (to delay EndGameModal)
       let hasStreakCelebration = false;
@@ -1322,10 +1323,11 @@ export function PlayPage({
       setFinalGuessCount(newGuesses.length); // Store final count to prevent race condition issues
       localStorage.removeItem(`puzzle-progress-${formattedAnswer}`);
       
-      // Start 2.5s timer immediately - modal will show when BOTH timer elapses AND ready
+      // Start brief timer immediately - modal shows when BOTH timer elapses AND ready
+      // Reduced from 2.5s to 500ms for faster feedback
       setTimeout(() => {
         setEndModalDelayElapsed(true);
-      }, 2500);
+      }, 500);
       
       // Mark modal as ready immediately (losses don't have streak celebrations)
       setEndModalReady(true);
