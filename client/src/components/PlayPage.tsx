@@ -187,6 +187,27 @@ export function PlayPage({
   const [endModalDelayElapsed, setEndModalDelayElapsed] = useState(false); // Track when 2.5s delay has passed
   const [endModalReady, setEndModalReady] = useState(false); // Track when modal data is ready to show
   
+  // Track when background async operations are complete (game saving, stats refresh, badge checks)
+  const backgroundOpsCompleteRef = useRef(false);
+  const backgroundOpsResolversRef = useRef<(() => void)[]>([]); // Callbacks to resolve when ops complete
+  
+  // Mark background ops as complete and resolve any waiting promises
+  const markBackgroundOpsComplete = useCallback(() => {
+    backgroundOpsCompleteRef.current = true;
+    backgroundOpsResolversRef.current.forEach(resolve => resolve());
+    backgroundOpsResolversRef.current = [];
+  }, []);
+  
+  // Wait for background ops to complete (returns immediately if already complete)
+  const waitForBackgroundOps = useCallback((): Promise<void> => {
+    if (backgroundOpsCompleteRef.current) {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      backgroundOpsResolversRef.current.push(resolve);
+    });
+  }, []);
+  
   // Badge checker hook
   const { checkAllBadgesOnGameComplete } = useBadgeChecker();
   const [currentGameAttemptId, setCurrentGameAttemptId] = useState<number | null>(null);
@@ -314,6 +335,29 @@ export function PlayPage({
     // Reset the exit animation state so the IntroScreen content is visible again
     setIntroExitingViaBack(false);
   }, []);
+  
+  // Wrapper for EndGameModal navigation that waits for background ops
+  // Shows spinner if async operations are still in progress
+  const createOpsAwareHandler = useCallback((callback: () => void) => {
+    return async () => {
+      // If background ops are already complete, navigate immediately
+      if (backgroundOpsCompleteRef.current) {
+        callback();
+        return;
+      }
+      // Show spinner and wait for background ops to complete
+      showSpinner(0);
+      await waitForBackgroundOps();
+      hideSpinner();
+      callback();
+    };
+  }, [showSpinner, hideSpinner, waitForBackgroundOps]);
+  
+  // Optional version that returns undefined if callback is undefined
+  const createOptionalOpsAwareHandler = useCallback((callback: (() => void) | undefined) => {
+    if (!callback) return undefined;
+    return createOpsAwareHandler(callback);
+  }, [createOpsAwareHandler]);
   
   // Spinner with timeout for game loading
   // Note: /api/puzzles can take 5-7 seconds, so we use a generous 15s timeout
@@ -1151,28 +1195,30 @@ export function PlayPage({
           } else {
             // No streak celebration - set modal ready immediately, run badge check in background
             setEndModalReady(true);
-            // Check badges in background (don't await)
+            // Check badges in background (don't await), mark ops complete when done
             const gameType = isLocalMode ? 'USER' : 'REGION';
             checkAllBadgesOnGameComplete(true, newGuesses.length, freshStats.currentStreak || 0, gameType)
-              .then(badge => { if (badge) setEarnedBadge(badge); });
+              .then(badge => { if (badge) setEarnedBadge(badge); })
+              .finally(() => markBackgroundOpsComplete());
           }
         } else {
           // Stats fetch failed - still show modal
           setEndModalReady(true);
+          markBackgroundOpsComplete();
         }
       } else if (isAuthenticated && attemptId && !isPlayingTodaysPuzzle()) {
         // Not playing today's puzzle - no streak celebration, set modal ready immediately
         setEndModalReady(true);
         // Complete game attempt in background
         completeGameAttempt(attemptId, true, newGuesses.length);
-        // Check badges in background
+        // Check badges in background, mark ops complete when done
         const gameType = isLocalMode ? 'USER' : 'REGION';
         const statsEndpoint = isLocalMode ? "/api/user/stats" : "/api/stats";
         apiRequest("GET", statsEndpoint).then(async statsRes => {
           const freshStats = statsRes.ok ? await statsRes.json() : { currentStreak: 0 };
           const badge = await checkAllBadgesOnGameComplete(true, newGuesses.length, freshStats.currentStreak || 0, gameType);
           if (badge) setEarnedBadge(badge);
-        });
+        }).finally(() => markBackgroundOpsComplete());
       } else if (isAuthenticated && !attemptId) {
         // CRITICAL: Authenticated user won but we couldn't save to database!
         console.error('[handleSubmit] CRITICAL: Game WON but could not save to database!', {
@@ -1182,6 +1228,7 @@ export function PlayPage({
         });
         // Still show modal even though DB save failed
         setEndModalReady(true);
+        markBackgroundOpsComplete();
       } else if (!isAuthenticated) {
         // Guest user: use localStorage stats
         await updateStats(true, newGuesses.length, newGuessRecords);
@@ -1195,15 +1242,20 @@ export function PlayPage({
             hasStreakCelebration = true;
             // Mark that EndGameModal should show after streak celebration is dismissed
             setPendingEndModal(true);
+            // Guest user - no async ops to wait for after streak celebration
+            markBackgroundOpsComplete();
           } else {
             setEndModalReady(true);
+            markBackgroundOpsComplete();
           }
         } else {
           setEndModalReady(true);
+          markBackgroundOpsComplete();
         }
       } else {
         // Fallback - always show modal
         setEndModalReady(true);
+        markBackgroundOpsComplete();
       }
       
       // Cache today's outcome (only if playing today's puzzle)
@@ -1252,6 +1304,7 @@ export function PlayPage({
       if (isAuthenticated && attemptId) {
         // Complete game attempt and recalculate stats from database (use attemptId, not state)
         await completeGameAttempt(attemptId, false, newGuesses.length);
+        markBackgroundOpsComplete();
       } else if (isAuthenticated && !attemptId) {
         // CRITICAL: Authenticated user lost but we couldn't save to database!
         console.error('[handleSubmit] CRITICAL: Game LOST but could not save to database!', {
@@ -1259,9 +1312,11 @@ export function PlayPage({
           numGuesses: newGuesses.length,
           isLocalMode
         });
+        markBackgroundOpsComplete();
       } else if (!isAuthenticated) {
         // Guest user: use localStorage stats
         await updateStats(false, newGuesses.length, newGuessRecords);
+        markBackgroundOpsComplete();
       }
       
       // Cache today's outcome (only if playing today's puzzle)
@@ -1809,7 +1864,7 @@ export function PlayPage({
         eventDescription={eventDescription}
         numGuesses={finalGuessCount ?? guesses.length}
         onPlayAgain={handlePlayAgain}
-        onHome={() => {
+        onHome={createOpsAwareHandler(() => {
           const isTodaysPuzzle = isPlayingTodaysPuzzle();
           if (!isTodaysPuzzle && fromArchive) {
             triggerAd(() => {
@@ -1818,12 +1873,12 @@ export function PlayPage({
           } else {
             (onHomeFromCelebration || onBack)();
           }
-        }}
-        onViewStats={onViewStats}
-        onViewArchive={onViewArchive}
+        })}
+        onViewStats={createOptionalOpsAwareHandler(onViewStats)}
+        onViewArchive={createOptionalOpsAwareHandler(onViewArchive)}
         isLocalMode={isLocalMode}
         isGuest={!isAuthenticated}
-        onContinueToLogin={onContinueToLogin}
+        onContinueToLogin={createOptionalOpsAwareHandler(onContinueToLogin)}
       />
 
       <HelpDialog isOpen={showHelp} onClose={() => setShowHelp(false)} />
@@ -1923,6 +1978,8 @@ export function PlayPage({
                 currentStreak,
                 gameType
               );
+              // Mark ops complete after badge check
+              markBackgroundOpsComplete();
               if (badge) {
                 setEarnedBadge(badge);
                 setShowStreakCelebration(false);
