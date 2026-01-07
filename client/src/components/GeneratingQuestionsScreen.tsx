@@ -52,6 +52,29 @@
       sessionStorage.removeItem(key);
     }
 
+    // Idempotency guard: prevents duplicate populate_user_locations RPC calls
+    // This prevents 409 conflicts when the component mounts twice (React StrictMode, etc.)
+    const LOC_CALL_COOLDOWN_MS = 30000; // 30 second window
+    const LOC_CALL_KEY_PREFIX = 'elementle_loc_call_';
+
+    function getLocCallKey(userId: string): string {
+      return `${LOC_CALL_KEY_PREFIX}${userId}`;
+    }
+
+    function canCallPopulateLocations(userId: string): boolean {
+      const key = getLocCallKey(userId);
+      const lastCallTime = sessionStorage.getItem(key);
+      if (!lastCallTime) return true;
+      
+      const elapsed = Date.now() - parseInt(lastCallTime, 10);
+      return elapsed >= LOC_CALL_COOLDOWN_MS;
+    }
+
+    function markLocCallMade(userId: string): void {
+      const key = getLocCallKey(userId);
+      sessionStorage.setItem(key, Date.now().toString());
+    }
+
     export function GeneratingQuestionsScreen({
       userId,
       region,
@@ -435,16 +458,22 @@
 
 
           // ---------- Insert here (after initial spawn scheduling, before finishTimeout) ----------
-          try {
-            console.log("[GeneratingQuestions] Step 1c: Populating user locations...");
-            await supabase.rpc("populate_user_locations", {
-              p_user_id: userId,
-              p_postcode: postcode,
-            });
-            console.log("[GeneratingQuestions] populate_user_locations complete");
-          } catch (err) {
-            console.error("[GeneratingQuestions] populate_user_locations failed:", err);
-            // continue — animation should not be blocked
+          // Use idempotency guard to prevent duplicate RPC calls (React StrictMode, component re-mounts)
+          if (canCallPopulateLocations(userId)) {
+            try {
+              console.log("[GeneratingQuestions] Step 1c: Populating user locations...");
+              markLocCallMade(userId); // Mark before call to prevent race conditions
+              await supabase.rpc("populate_user_locations", {
+                p_user_id: userId,
+                p_postcode: postcode,
+              });
+              console.log("[GeneratingQuestions] populate_user_locations complete");
+            } catch (err) {
+              console.error("[GeneratingQuestions] populate_user_locations failed:", err);
+              // continue — animation should not be blocked
+            }
+          } else {
+            console.log("[GeneratingQuestions] Step 1c: Skipping populate_user_locations (already called within cooldown window)");
           }
 
           // Step 2: Poll location_allocation until rows exist
