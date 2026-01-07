@@ -278,8 +278,8 @@ export function CategorySelectionScreen({
   }, [userCategories, isOpen, isFetched, isError, loadingUserCategories, hasSyncedFromApi, cachedCategoryIds, isAuthenticated]);
 
   const saveCategoriesMutation = useMutation({
-    mutationFn: async (categoryIds: number[]) => {
-      console.log('[CategorySelectionScreen] Mutation started with categoryIds:', categoryIds);
+    mutationFn: async ({ categoryIds, isFirstTimeSelection }: { categoryIds: number[]; isFirstTimeSelection: boolean }) => {
+      console.log('[CategorySelectionScreen] Mutation started with categoryIds:', categoryIds, 'isFirstTimeSelection:', isFirstTimeSelection);
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -308,43 +308,49 @@ export function CategorySelectionScreen({
       console.log('[CategorySelectionScreen] Categories saved successfully to API');
 
       // Step 2: Call reset-and-reallocate-user Edge Function
-      console.log('[CategorySelectionScreen] Calling reset-and-reallocate-user Edge Function');
-      
-      if (!accessToken) {
-        throw new Error('No access token found');
-      }
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
-      if (!supabaseUrl) {
-        console.warn('[CategorySelectionScreen] Supabase URL not available; skipping reset-and-reallocate-user');
+      // ONLY call this when user is CHANGING existing categories, not for first-time selection
+      // This prevents deleting location_allocation rows that were just created during initial signup
+      if (isFirstTimeSelection) {
+        console.log('[CategorySelectionScreen] First-time category selection - SKIPPING reset-and-reallocate-user to preserve location_allocation rows');
       } else {
-        const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
-        console.log('[CategorySelectionScreen] Function base URL:', functionBaseUrl);
+        console.log('[CategorySelectionScreen] Calling reset-and-reallocate-user Edge Function (changing existing categories)');
         
-        if (user?.id) {
-          try {
-            const resetPayload = { user_id: user.id };
-            const resetResponse = await fetch(`${functionBaseUrl}/reset-and-reallocate-user`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`,
-              },
-              body: JSON.stringify(resetPayload),
-            });
-            
-            const resetBody = await resetResponse.text();
-            console.log('[CategorySelectionScreen] reset-and-reallocate-user status:', resetResponse.status, resetBody);
-            
-            if (!resetResponse.ok) {
-              console.error('[CategorySelectionScreen] reset-and-reallocate-user error:', resetResponse.status, resetBody);
-              throw new Error(`reset-and-reallocate-user returned error: ${resetResponse.status}`);
+        if (!accessToken) {
+          throw new Error('No access token found');
+        }
+
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (supabase as any).supabaseUrl;
+        if (!supabaseUrl) {
+          console.warn('[CategorySelectionScreen] Supabase URL not available; skipping reset-and-reallocate-user');
+        } else {
+          const functionBaseUrl = supabaseUrl.replace('.supabase.co', '.functions.supabase.co');
+          console.log('[CategorySelectionScreen] Function base URL:', functionBaseUrl);
+          
+          if (user?.id) {
+            try {
+              const resetPayload = { user_id: user.id };
+              const resetResponse = await fetch(`${functionBaseUrl}/reset-and-reallocate-user`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify(resetPayload),
+              });
+              
+              const resetBody = await resetResponse.text();
+              console.log('[CategorySelectionScreen] reset-and-reallocate-user status:', resetResponse.status, resetBody);
+              
+              if (!resetResponse.ok) {
+                console.error('[CategorySelectionScreen] reset-and-reallocate-user error:', resetResponse.status, resetBody);
+                throw new Error(`reset-and-reallocate-user returned error: ${resetResponse.status}`);
+              }
+              
+              console.log('[CategorySelectionScreen] reset-and-reallocate-user completed successfully');
+            } catch (err) {
+              console.error('[CategorySelectionScreen] reset-and-reallocate-user failed:', err);
+              throw err;
             }
-            
-            console.log('[CategorySelectionScreen] reset-and-reallocate-user completed successfully');
-          } catch (err) {
-            console.error('[CategorySelectionScreen] reset-and-reallocate-user failed:', err);
-            throw err;
           }
         }
       }
@@ -352,7 +358,7 @@ export function CategorySelectionScreen({
       console.log('[CategorySelectionScreen] Mutation mutationFn completed, returning response');
       return response.json();
     },
-    onSuccess: (_, categoryIds) => {
+    onSuccess: (_, { categoryIds }) => {
       console.log('[CategorySelectionScreen] onSuccess handler called with categoryIds:', categoryIds);
       // Update cache with newly saved categories
       writeLocal(CACHE_KEYS.PRO_CATEGORIES, categoryIds);
@@ -440,8 +446,12 @@ export function CategorySelectionScreen({
       return;
     }
 
-    console.log('[CategorySelectionScreen] Starting mutation with categories:', Array.from(selectedCategories));
-    saveCategoriesMutation.mutate(Array.from(selectedCategories));
+    const categoryIds = Array.from(selectedCategories);
+    // Check if this is first-time category selection (no saved categories yet)
+    // If so, we should NOT call reset-and-reallocate-user to preserve location_allocation rows
+    const isFirstTimeSelection = !userCategories || userCategories.length === 0;
+    console.log('[CategorySelectionScreen] Starting mutation with categories:', categoryIds, 'isFirstTimeSelection:', isFirstTimeSelection);
+    saveCategoriesMutation.mutate({ categoryIds, isFirstTimeSelection });
   };
 
   // Handler for when GeneratingQuestionsScreen completes
