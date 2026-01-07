@@ -54,25 +54,48 @@
 
     // Idempotency guard: prevents duplicate populate_user_locations RPC calls
     // This prevents 409 conflicts when the component mounts twice (React StrictMode, etc.)
+    // Uses a module-level Set for synchronous check-and-mark (avoids race conditions)
     const LOC_CALL_COOLDOWN_MS = 30000; // 30 second window
     const LOC_CALL_KEY_PREFIX = 'elementle_loc_call_';
+    
+    // Module-level tracking - persists across ALL component instances
+    const activeLocCalls = new Set<string>();
 
     function getLocCallKey(userId: string): string {
       return `${LOC_CALL_KEY_PREFIX}${userId}`;
     }
 
-    function canCallPopulateLocations(userId: string): boolean {
+    // Atomic check-and-mark: returns true if this call should proceed, false if duplicate
+    function tryAcquireLocCallLock(userId: string): boolean {
       const key = getLocCallKey(userId);
-      const lastCallTime = sessionStorage.getItem(key);
-      if (!lastCallTime) return true;
       
-      const elapsed = Date.now() - parseInt(lastCallTime, 10);
-      return elapsed >= LOC_CALL_COOLDOWN_MS;
+      // Check module-level Set first (prevents race conditions)
+      if (activeLocCalls.has(key)) {
+        console.log("[GeneratingQuestions] Lock already held for:", key);
+        return false;
+      }
+      
+      // Check sessionStorage for cooldown
+      const lastCallTime = sessionStorage.getItem(key);
+      if (lastCallTime) {
+        const elapsed = Date.now() - parseInt(lastCallTime, 10);
+        if (elapsed < LOC_CALL_COOLDOWN_MS) {
+          console.log("[GeneratingQuestions] Within cooldown window for:", key);
+          return false;
+        }
+      }
+      
+      // Acquire lock and mark in sessionStorage atomically
+      activeLocCalls.add(key);
+      sessionStorage.setItem(key, Date.now().toString());
+      console.log("[GeneratingQuestions] Acquired lock for:", key);
+      return true;
     }
 
-    function markLocCallMade(userId: string): void {
+    function releaseLocCallLock(userId: string): void {
       const key = getLocCallKey(userId);
-      sessionStorage.setItem(key, Date.now().toString());
+      activeLocCalls.delete(key);
+      console.log("[GeneratingQuestions] Released lock for:", key);
     }
 
     export function GeneratingQuestionsScreen({
@@ -458,11 +481,11 @@
 
 
           // ---------- Insert here (after initial spawn scheduling, before finishTimeout) ----------
-          // Use idempotency guard to prevent duplicate RPC calls (React StrictMode, component re-mounts)
-          if (canCallPopulateLocations(userId)) {
+          // Use atomic lock to prevent duplicate RPC calls (React StrictMode, component re-mounts)
+          const acquiredLock = tryAcquireLocCallLock(userId);
+          if (acquiredLock) {
             try {
               console.log("[GeneratingQuestions] Step 1c: Populating user locations...");
-              markLocCallMade(userId); // Mark before call to prevent race conditions
               await supabase.rpc("populate_user_locations", {
                 p_user_id: userId,
                 p_postcode: postcode,
@@ -471,9 +494,12 @@
             } catch (err) {
               console.error("[GeneratingQuestions] populate_user_locations failed:", err);
               // continue — animation should not be blocked
+            } finally {
+              // Release lock after call completes (success or failure)
+              releaseLocCallLock(userId);
             }
           } else {
-            console.log("[GeneratingQuestions] Step 1c: Skipping populate_user_locations (already called within cooldown window)");
+            console.log("[GeneratingQuestions] Step 1c: Skipping populate_user_locations (duplicate call blocked)");
           }
 
           // Step 2: Poll location_allocation until rows exist
