@@ -21,7 +21,7 @@ interface LoginPageProps {
   onSuccess: () => void;
   onBack: () => void;
   onSignup: () => void;
-  onForgotPassword?: () => void;
+  onForgotPassword?: (email: string) => void;
   onPersonalise?: (email: string, password?: string) => void;
   subtitle?: string; // Optional subtitle to show below the main title
   prefilledEmail?: string; // Pre-fill email field when returning from personalise
@@ -677,7 +677,7 @@ export default function LoginPage({ onSuccess, onBack, onSignup, onForgotPasswor
                     {onForgotPassword && (
                       <button
                         type="button"
-                        onClick={onForgotPassword}
+                        onClick={() => onForgotPassword(email)}
                         className="text-sm underline text-blue-600 dark:text-blue-400"
                         data-testid="button-forgot-password"
                       >

@@ -9,13 +9,14 @@ import { ArrowLeft } from "lucide-react";
 
 interface ForgotPasswordPageProps {
   onBack: () => void;
+  initialEmail?: string;
 }
 
-export default function ForgotPasswordPage({ onBack }: ForgotPasswordPageProps) {
+export default function ForgotPasswordPage({ onBack, initialEmail = "" }: ForgotPasswordPageProps) {
   const supabase = useSupabase();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [sent, setSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {

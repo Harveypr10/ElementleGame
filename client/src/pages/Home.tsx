@@ -100,6 +100,8 @@ export default function Home() {
   const [personaliseData, setPersonaliseData] = useState<{ postcode?: string; region?: string } | null>(null);
   // Track prefilled email for login screen (when returning from personalise)
   const [loginPrefilledEmail, setLoginPrefilledEmail] = useState<string | null>(null);
+  // Track email for forgot password screen (pre-fill from login)
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState<string | null>(null);
   // Track if we should show ProSubscriptionDialog due to canceled checkout
   const [showProDialogFromCancel, setShowProDialogFromCancel] = useState(false);
   
@@ -948,8 +950,9 @@ export default function Home() {
                 setLoginPrefilledEmail(null);
                 setCurrentScreen("signup");
               }}
-              onForgotPassword={() => {
+              onForgotPassword={(email) => {
                 setShowLoginSubtitle(false);
+                setForgotPasswordEmail(email || null);
                 setCurrentScreen("forgot-password");
               }}
               onPersonalise={(email) => {
@@ -1002,7 +1005,11 @@ export default function Home() {
         {currentScreen === "forgot-password" && (
           <motion.div key="forgot-password" className="absolute w-full top-0 left-0" {...pageVariants.slideRight} transition={pageTransition}>
             <ForgotPasswordPage 
-              onBack={() => setCurrentScreen("login")}
+              onBack={() => {
+                setForgotPasswordEmail(null);
+                setCurrentScreen("login");
+              }}
+              initialEmail={forgotPasswordEmail || undefined}
             />
           </motion.div>
         )}

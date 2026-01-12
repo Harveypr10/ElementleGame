@@ -1188,6 +1188,43 @@ export default function AccountInfoPage({ onBack }: AccountInfoPageProps) {
                           }
                           required
                         />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!user?.email) {
+                              toast({
+                                title: "Error",
+                                description: "No email address found for your account.",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            setLoading(true);
+                            try {
+                              const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                                redirectTo: `${window.location.origin}/reset-password`,
+                              });
+                              if (error) throw error;
+                              toast({
+                                title: "Email sent!",
+                                description: "Check your inbox for a password reset link.",
+                              });
+                              setShowPasswordSection(false);
+                            } catch (err: any) {
+                              toast({
+                                title: "Error",
+                                description: err.message || "Failed to send reset email",
+                                variant: "destructive",
+                              });
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          className="text-sm underline text-blue-600 dark:text-blue-400"
+                          data-testid="button-forgot-password-settings"
+                        >
+                          Forgot your password?
+                        </button>
                       </div>
                     )}
                     
