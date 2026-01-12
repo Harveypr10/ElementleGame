@@ -439,22 +439,15 @@ export function AllBadgesPopup({ gameType, earnedBadges, initialCategory, onClos
               )}
               <div className="h-20 mt-2 flex flex-col items-center justify-center">
                 {activeBadge?.isEarned && (
-                  <>
-                    <span 
-                      className="px-6 py-2 text-white rounded-full text-lg font-semibold"
-                      style={{ backgroundColor: gameType === 'USER' ? '#93cd78' : '#A4DB57' }}
-                    >
-                      Earned!
-                    </span>
-                    {activeBadge.userBadge?.badgeCount && (
-                      <span 
-                        className="mt-1 text-sm font-bold text-muted-foreground"
-                        data-testid="text-badge-count"
-                      >
-                        x{activeBadge.userBadge.badgeCount}
-                      </span>
-                    )}
-                  </>
+                  <span 
+                    className="px-6 py-2 text-white rounded-full text-lg font-semibold"
+                    style={{ backgroundColor: gameType === 'USER' ? '#93cd78' : '#A4DB57' }}
+                    data-testid="text-earned-badge"
+                  >
+                    {activeBadge.userBadge?.badgeCount 
+                      ? `Earned x${activeBadge.userBadge.badgeCount}!`
+                      : 'Earned!'}
+                  </span>
                 )}
               </div>
             </div>
