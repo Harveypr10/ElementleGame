@@ -3608,6 +3608,7 @@ export class DatabaseStorage implements IStorage {
           isAwarded: userBadges.isAwarded,
           region: userBadges.region,
           gameType: userBadges.gameType,
+          badgeCount: userBadges.badgeCount,
           awardedAt: userBadges.awardedAt,
           badge: {
             id: badges.id,
@@ -3647,6 +3648,7 @@ export class DatabaseStorage implements IStorage {
           isAwarded: userBadges.isAwarded,
           region: userBadges.region,
           gameType: userBadges.gameType,
+          badgeCount: userBadges.badgeCount,
           awardedAt: userBadges.awardedAt,
           badge: {
             id: badges.id,
