@@ -672,6 +672,7 @@ export const userBadges = pgTable("user_badges", {
   isAwarded: boolean("is_awarded").notNull().default(false), // false until shown in popup, true after
   region: varchar("region", { length: 20 }).notNull().default("GLOBAL"), // 'GLOBAL' for User game, region code for Region game
   gameType: varchar("game_type", { length: 20 }).notNull().default("USER"), // 'USER' or 'REGION'
+  badgeCount: integer("badge_count").notNull().default(1), // how many times this badge has been earned
   awardedAt: timestamp("awarded_at", { withTimezone: true }).defaultNow(),
 }, (table) => ({
   userIdIdx: index("idx_user_badges_user_id").on(table.userId),
@@ -681,6 +682,7 @@ export const userBadges = pgTable("user_badges", {
 export const insertUserBadgeSchema = createInsertSchema(userBadges).omit({
   id: true,
   awardedAt: true,
+  badgeCount: true, // defaults to 1 in the database
 });
 
 export type InsertUserBadge = z.infer<typeof insertUserBadgeSchema>;

@@ -196,6 +196,15 @@ export function BadgeCelebrationPopup({ badge, onDismiss }: BadgeCelebrationPopu
             data-testid="badge-image"
           />
           
+          {badge.badgeCount && badge.badgeCount > 1 && (
+            <span 
+              className="text-lg font-bold text-white/90"
+              data-testid="text-badge-count"
+            >
+              x{badge.badgeCount}
+            </span>
+          )}
+          
           <div className={`flex items-center gap-2 ${getBadgeColor()}`}>
             {getCategoryIcon()}
             <h3 

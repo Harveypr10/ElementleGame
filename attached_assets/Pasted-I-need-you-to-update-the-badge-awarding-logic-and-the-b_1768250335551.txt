@@ -1,0 +1,79 @@
+I need you to update the badge‑awarding logic and the badge UI. Please follow these instructions carefully.
+
+## PART 1 — Update backend badge awarding logic (server/storage.ts)
+
+The `user_badges` table in Supabase ALREADY has a column called `badge_count` (integer, default 1). DO NOT create a new column. DO NOT modify the schema.
+
+Update BOTH of these backend functions:
+
+- checkAndAwardElementleBadge(...)
+- checkAndAwardStreakBadge(...)
+
+They currently:
+1. Check if the user already has the badge (same badge_id, same game_type, same region)
+2. If not, they insert a new row with is_awarded = false
+3. If yes, they return null and do nothing
+
+I need you to change this behaviour:
+
+### NEW LOGIC:
+- If the user does NOT already have the badge → insert a new row with badge_count = 1 (this already happens)
+- If the user DOES already have the badge → DO NOT return null  
+  Instead:
+  - Increment badge_count by 1
+  - Set is_awarded = false (so the popup will show again)
+  - Return the updated badge so the popup can display it
+
+This must be done for BOTH Elementle‑in‑1/2 badges and Streak badges.
+
+Be careful:
+- Only increment badge_count for the SAME badge_id + SAME region + SAME game_type
+- Do NOT create duplicate rows
+- Do NOT modify any other badge logic
+- Do NOT modify percentile badge logic
+
+## PART 2 — Update the badge popup UI
+
+File: BadgeCelebrationPopup
+
+I need you to add a small text label BELOW the hamster image that shows:
+- “x2” if badge_count = 2
+- “x3” if badge_count = 3
+- etc.
+If badge_count = 1 then don’t show anything additional on screen
+
+Use the badge_count returned from the backend (it is included in the user_badges row).
+
+Styling:
+- Place it centered below the hamster image
+- Use a subtle but visible style (e.g., small bold text)
+- Apart from vertical spacing to allow it to fit in, do NOT change the layout of anything else
+
+## PART 3 — Update the “View All Badges” screen
+
+File: AllBadgesPopup
+
+I need you to add the same “xN” label BELOW the “Earned” icon:
+- For this one do show “x1” if badge_count = 1
+- And show “x2”, “x3”, etc. for higher counts
+
+This applies to:
+- Elementle badges
+- Streak badges
+- Percentile badges (which already have badge_count updated from the monthly job)
+
+Make sure:
+- The label is small and centered
+- It does not break the grid layout
+- It appears only if the user has earned the badge and a row exists in the user_badges table
+
+## PART 4 — Do NOT modify anything else
+
+- Do NOT create new DB fields
+- Do NOT rename existing fields
+- Do NOT change the badge popup logic except for adding the count
+- Do NOT change the badge awarding flow for percentile badges
+- Do NOT change the API routes
+- Do NOT change the badge thresholds
+
+Please implement all of the above changes.

@@ -3841,15 +3841,38 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      // Check if user already has this badge
-      const existingBadges = await this.getUserBadges(userId, gameType, region, false);
-      const hasBadge = existingBadges.some(ub => ub.badge.id === badge.id);
+      // Check if user already has this exact badge (same badge_id, game_type, region)
+      const existing = await db
+        .select()
+        .from(userBadges)
+        .where(
+          and(
+            eq(userBadges.userId, userId),
+            eq(userBadges.badgeId, badge.id),
+            eq(userBadges.gameType, gameType),
+            eq(userBadges.region, region)
+          )
+        );
       
-      if (hasBadge) {
-        return null; // Already has this badge
+      if (existing.length > 0) {
+        // Badge already exists - increment badge_count and set is_awarded = false to trigger popup again
+        const [updatedBadge] = await db
+          .update(userBadges)
+          .set({
+            badgeCount: sql`${userBadges.badgeCount} + 1`,
+            isAwarded: false,
+          })
+          .where(eq(userBadges.id, existing[0].id))
+          .returning();
+        
+        console.log(`[checkAndAwardStreakBadge] Incremented badge_count to ${updatedBadge.badgeCount} for user ${userId}, badge ${badge.id}`);
+        return {
+          ...updatedBadge,
+          badge,
+        };
       }
 
-      // Award the badge
+      // Award new badge
       const newBadge = await this.awardBadge(userId, badge.id, gameType, region);
       if (newBadge) {
         return {
@@ -3883,15 +3906,38 @@ export class DatabaseStorage implements IStorage {
         return null;
       }
 
-      // Check if user already has this badge
-      const existingBadges = await this.getUserBadges(userId, gameType, region, false);
-      const hasBadge = existingBadges.some(ub => ub.badge.id === badge.id);
+      // Check if user already has this exact badge (same badge_id, game_type, region)
+      const existing = await db
+        .select()
+        .from(userBadges)
+        .where(
+          and(
+            eq(userBadges.userId, userId),
+            eq(userBadges.badgeId, badge.id),
+            eq(userBadges.gameType, gameType),
+            eq(userBadges.region, region)
+          )
+        );
       
-      if (hasBadge) {
-        return null; // Already has this badge
+      if (existing.length > 0) {
+        // Badge already exists - increment badge_count and set is_awarded = false to trigger popup again
+        const [updatedBadge] = await db
+          .update(userBadges)
+          .set({
+            badgeCount: sql`${userBadges.badgeCount} + 1`,
+            isAwarded: false,
+          })
+          .where(eq(userBadges.id, existing[0].id))
+          .returning();
+        
+        console.log(`[checkAndAwardElementleBadge] Incremented badge_count to ${updatedBadge.badgeCount} for user ${userId}, badge ${badge.id}`);
+        return {
+          ...updatedBadge,
+          badge,
+        };
       }
 
-      // Award the badge
+      // Award new badge
       const newBadge = await this.awardBadge(userId, badge.id, gameType, region);
       if (newBadge) {
         return {
