@@ -19,7 +19,7 @@ The application features a responsive, mobile-first design with a custom color p
 - **OAuth Linking (Soft Unlink Design)**: user_profiles tracks google_linked/apple_linked (NULL=never used, TRUE=linked, FALSE=unlinked). Unlinking just sets DB to FALSE without revoking Supabase identity - allows instant re-connect without re-authorization. UI "connected" state is based on profile fields, not Supabase identity. Welcome back screen shows login options based on these profile fields.
 - **Subscription & Monetization**: Dynamic, database-driven Pro subscription tiers with regional pricing, including API endpoints for status, checkout, and renewal. Ad banners and interstitial ads are displayed for non-Pro users.
 - **Game Mechanics**: Client-side puzzle validation, feedback calculation, and LocalStorage-based statistics. Features include a Streak Saver system with tier-based allowances and a Pro-only Holiday Protection system to pause local puzzles.
-- **Badge System**: Achievements for milestones (Elementle In, Streak, Percentile) with a monthly cron job for percentile rankings. Badges are processed and celebrated via a dedicated popup and displayed on the Stats screen.
+- **Badge System**: Achievements for milestones (Elementle In, Streak, Percentile) with a monthly cron job for percentile rankings. Badges are processed and celebrated via a dedicated popup and displayed on the Stats screen. Badge count tracking increments when users re-earn the same badge (Elementle/Streak), displaying "xN" indicator in celebration popup and all-badges screen.
 - **Restrictions**: Cooldowns for location and category changes managed by admin settings and implemented with React Query.
 
 ### System Design Choices
