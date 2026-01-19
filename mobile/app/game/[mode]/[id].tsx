@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Calendar, HelpCircle } from 'lucide-react-native';
 import { ActiveGame } from '../../../components/game/ActiveGame';
 import { useAuth } from '../../../lib/auth';
+import { useOptions } from '../../../lib/options';
 import { supabase } from '../../../lib/supabase';
 import { format } from 'date-fns';
 
@@ -218,9 +219,9 @@ export default function GameScreen() {
     }
 
     return (
-        <View className="flex-1" style={{ backgroundColor: '#FAFAFA' }}>
-            <SafeAreaView edges={['top']} className="z-10" style={{ backgroundColor: '#FAFAFA' }}>
-                <View className="relative items-center pb-2 z-50">
+        <View className="flex-1 bg-slate-50 dark:bg-slate-800">
+            <SafeAreaView edges={['top']} className="z-10 bg-slate-50 dark:bg-slate-800">
+                <View className="relative items-center pb-2 z-50 bg-slate-50 dark:bg-slate-800">
 
                     {/* Left: Back Arrow */}
                     <View className="absolute left-4 top-2">
@@ -228,7 +229,7 @@ export default function GameScreen() {
                             onPress={() => router.back()}
                             className="items-center justify-center bg-transparent"
                         >
-                            <ArrowLeft size={28} color="#1e293b" />
+                            <ArrowLeft size={28} className="text-slate-800 dark:text-white" />
                         </TouchableOpacity>
                     </View>
 
@@ -243,7 +244,7 @@ export default function GameScreen() {
                             onPress={() => Alert.alert("How to Play", "Guess the date of the historic event!\n\n• Green = Correct\n• Yellow = Close (within 10 years/days)\n• Arrows indicate if you need to go Higher or Lower.")}
                             className="items-center justify-center bg-transparent"
                         >
-                            <HelpCircle size={28} color="#1e293b" />
+                            <HelpCircle size={28} className="text-slate-800 dark:text-white" />
                         </TouchableOpacity>
                     </View>
                 </View>

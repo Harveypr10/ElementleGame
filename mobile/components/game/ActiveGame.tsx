@@ -8,7 +8,6 @@ import { HelpCircle } from 'lucide-react-native';
 import { InputGrid } from '../InputGrid';
 import { NumericKeyboard } from '../NumericKeyboard';
 import { useGameEngine } from '../../hooks/useGameEngine';
-import { EndGameModal } from './EndGameModal';
 import { StreakCelebration } from './StreakCelebration';
 import { BadgeUnlockModal } from './BadgeUnlockModal';
 import { IntroScreen } from './IntroScreen';
@@ -42,7 +41,7 @@ interface ActiveGameProps {
 
 export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: ActiveGameProps) {
     const router = useRouter();
-    const { dateLength } = useOptions(); // Dynamically get dateLength
+    const { dateLength, cluesEnabled, dateFormatOrder } = useOptions(); // Get dateLength, cluesEnabled, and dateFormatOrder
 
     // Pass the correct props to useGameEngine
     // Note: useGameEngine expects { puzzleId, answerDateCanonical, mode }
@@ -64,14 +63,24 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
         mode: gameMode
     });
 
-    // Generate dynamic placeholders based on dateLength preference
-    // If 8: D D M M Y Y Y Y. If 6: D D M M Y Y.
-    // Assuming simple day/month/year order for now as per design requests.
-    // Ideally use dateFormatOrder, but placeholder letters are same relative to format.
-    // Let's hardcode defaults for 6 vs 8 for now.
-    const placeHolders = dateLength === 8
-        ? ['D', 'D', 'M', 'M', 'Y', 'Y', 'Y', 'Y']
-        : ['D', 'D', 'M', 'M', 'Y', 'Y'];
+    // Generate dynamic placeholders based on dateLength and dateFormatOrder
+    const placeHolders = React.useMemo(() => {
+        if (dateLength === 8) {
+            // 8 digits: full year
+            if (dateFormatOrder === 'mmddyy') {
+                return ['M', 'M', 'D', 'D', 'Y', 'Y', 'Y', 'Y'];
+            } else {
+                return ['D', 'D', 'M', 'M', 'Y', 'Y', 'Y', 'Y'];
+            }
+        } else {
+            // 6 digits: 2-digit year
+            if (dateFormatOrder === 'mmddyy') {
+                return ['M', 'M', 'D', 'D', 'Y', 'Y'];
+            } else {
+                return ['D', 'D', 'M', 'M', 'Y', 'Y'];
+            }
+        }
+    }, [dateLength, dateFormatOrder]);
 
     // ... Hook Integrations ...
 
@@ -86,7 +95,6 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
     const [isLoading, setIsLoading] = React.useState(true);
     const [showIntro, setShowIntro] = React.useState(false);
     const [showStreakCelebration, setShowStreakCelebration] = React.useState(false);
-    const [showResultModal, setShowResultModal] = React.useState(false);
     const [streakToDisplay, setStreakToDisplay] = React.useState(0);
 
     // Badge Queue System
@@ -164,9 +172,21 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
             // Update Stats (reset streak, etc.)
             updateStats(false);
 
-            // No celebration, just result modal after delay
+            // No celebration, just navigate to result after delay
             const timer = setTimeout(() => {
-                setShowResultModal(true);
+                router.replace({
+                    pathname: '/game-result',
+                    params: {
+                        isWin: 'false',
+                        guessesCount: guesses.length.toString(),
+                        maxGuesses: '5',
+                        answerDateCanonical: puzzle.solutionDate,
+                        eventTitle: puzzle.title,
+                        eventDescription: puzzle.eventDescription || '',
+                        gameMode,
+                        puzzleId: puzzle.id.toString(),
+                    }
+                });
             }, 1000);
             return () => clearTimeout(timer);
         }
@@ -191,8 +211,20 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
             setCurrentBadge(nextBadge);
             setShowBadgeModal(true);
         } else {
-            // No badges, go correctly to Result
-            setShowResultModal(true);
+            // No badges, navigate to result
+            router.replace({
+                pathname: '/game-result',
+                params: {
+                    isWin: 'true',
+                    guessesCount: guesses.length.toString(),
+                    maxGuesses: '5',
+                    answerDateCanonical: puzzle.solutionDate,
+                    eventTitle: puzzle.title,
+                    eventDescription: puzzle.eventDescription || '',
+                    gameMode,
+                    puzzleId: puzzle.id.toString(),
+                }
+            });
         }
     };
 
@@ -213,8 +245,20 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                 setShowBadgeModal(true);
             }, 300);
         } else {
-            // Done with badges, show Result
-            setShowResultModal(true);
+            // Done with badges, navigate to result
+            router.replace({
+                pathname: '/game-result',
+                params: {
+                    isWin: 'true',
+                    guessesCount: guesses.length.toString(),
+                    maxGuesses: '5',
+                    answerDateCanonical: puzzle.solutionDate,
+                    eventTitle: puzzle.title,
+                    eventDescription: puzzle.eventDescription || '',
+                    gameMode,
+                    puzzleId: puzzle.id.toString(),
+                }
+            });
         }
     };
 
@@ -225,12 +269,12 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
     const headerLine1 = `${categoryText}${locationText}`;
 
     return (
-        <View className="flex-1" style={{ backgroundColor: isLoading ? '#FAFAFA' : (showIntro ? '#FFFFFF' : backgroundColor) }}>
+        <View className="flex-1 bg-slate-50 dark:bg-slate-800">
             {/* Loading Spinner - shown while determining game state */}
             {isLoading && (
-                <View className="flex-1 items-center justify-center">
+                <View className="flex-1 items-center justify-center bg-slate-50 dark:bg-slate-800">
                     <ActivityIndicator size="large" color="#7DAAE8" />
-                    <Text className="text-slate-600 dark:text-slate-400 mt-4 font-n-medium">Loading puzzle...</Text>
+                    <Text className="text-slate-600 dark:text-slate-300 mt-4 font-n-medium">Loading puzzle...</Text>
                 </View>
             )}
 
@@ -242,13 +286,16 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                             {headerLine1 || (gameMode === 'REGION' ? 'Great Britain' : 'Personal User')}
                         </StyledText>
 
-                        <StyledText className="font-n-bold text-slate-800 dark:text-white text-center text-[22px] leading-7">
-                            {puzzle.title}
-                        </StyledText>
+                        {/* Event Title - only show if clues enabled */}
+                        {cluesEnabled && (
+                            <StyledText className="font-n-bold text-slate-800 dark:text-white text-center text-[22px] leading-7">
+                                {puzzle.title}
+                            </StyledText>
+                        )}
                     </View>
 
                     {/* Game Grid */}
-                    <View className="flex-1 w-full max-w-md mx-auto px-4 justify-start" style={{ backgroundColor, paddingTop: 16, paddingBottom: 8 }}>
+                    <View className="flex-1 w-full max-w-md mx-auto px-4 justify-start bg-slate-50 dark:bg-slate-800" style={{ paddingTop: 16, paddingBottom: 8 }}>
                         <InputGrid
                             guesses={guesses}
                             currentInput={currentInput}
@@ -273,7 +320,21 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                         ) : (
                             <View className="items-center px-4">
                                 <TouchableOpacity
-                                    onPress={() => setShowResultModal(true)}
+                                    onPress={() => {
+                                        router.replace({
+                                            pathname: '/game-result',
+                                            params: {
+                                                isWin: gameState === 'won' ? 'true' : 'false',
+                                                guessesCount: guesses.length.toString(),
+                                                maxGuesses: '5',
+                                                answerDateCanonical: puzzle.solutionDate,
+                                                eventTitle: puzzle.title,
+                                                eventDescription: puzzle.eventDescription || '',
+                                                gameMode,
+                                                puzzleId: puzzle.id.toString(),
+                                            }
+                                        });
+                                    }}
                                     className="bg-slate-300 dark:bg-slate-700 w-full py-4 rounded-xl items-center active:bg-slate-400 dark:active:bg-slate-600"
                                 >
                                     <StyledText className="text-slate-900 dark:text-white font-n-bold text-lg">
@@ -299,31 +360,8 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                 />
             )}
 
-            {/* Celebrations & Modals */}
-            <EndGameModal
-                isOpen={showResultModal}
-                isWin={gameState === 'won'}
-                guessesCount={guesses.length}
-                maxGuesses={5}
-                answerDateCanonical={puzzle.solutionDate} // Pass solution date for display
-                eventTitle={puzzle.title}
-                eventDescription={puzzle.eventDescription || ''}
-                isLocalMode={gameMode === 'USER'}
-                onClose={() => setShowResultModal(false)} // Allow closing
-                onHome={() => {
-                    setShowResultModal(false);
-                    router.push('/(tabs)');
-                }}
-                onViewStats={() => {
-                    setShowResultModal(false);
-                    router.push(`/stats?mode=${gameMode}`);
-                }}
-                onViewArchive={() => {
-                    setShowResultModal(false);
-                    router.push('/archive');
-                }}
-            />
 
+            {/* Celebrations */}
             {/* Streak Celebration */}
             <StreakCelebration
                 visible={showStreakCelebration}

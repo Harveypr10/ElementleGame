@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { styled } from 'nativewind';
 import { Delete, RotateCcw } from 'lucide-react-native';
+import hapticsManager from '../lib/hapticsManager';
+import soundManager from '../lib/soundManager';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -63,7 +65,11 @@ export function NumericKeyboard({
     const renderKey = (digit: string) => (
         <StyledTouchableOpacity
             key={digit}
-            onPress={() => onDigitPress(digit)}
+            onPress={() => {
+                hapticsManager.light();
+                soundManager.play('tap');
+                onDigitPress(digit);
+            }}
             className={`flex-1 m-1 rounded-md justify-center items-center active:bg-slate-300 ${getKeyClasses(digit)}`}
             style={{ height: buttonHeight }}
         >
@@ -81,7 +87,10 @@ export function NumericKeyboard({
             </View>
             <View className="flex-row mt-1">
                 <StyledTouchableOpacity
-                    onPress={onEnter}
+                    onPress={() => {
+                        hapticsManager.medium();
+                        onEnter();
+                    }}
                     disabled={!canSubmit}
                     className={`flex-1 m-1 rounded-md justify-center items-center ${canSubmit ? "bg-brand-blue" : "bg-brand-blue/30"}`}
                     style={{ height: buttonHeight }}>
@@ -89,7 +98,10 @@ export function NumericKeyboard({
                 </StyledTouchableOpacity>
 
                 <StyledTouchableOpacity
-                    onPress={onClear}
+                    onPress={() => {
+                        hapticsManager.medium();
+                        onClear();
+                    }}
                     className="w-20 m-1 rounded-md justify-center items-center bg-slate-200 dark:bg-slate-700"
                     style={{ height: buttonHeight }}
                 >
@@ -97,7 +109,10 @@ export function NumericKeyboard({
                 </StyledTouchableOpacity>
 
                 <StyledTouchableOpacity
-                    onPress={onDelete}
+                    onPress={() => {
+                        hapticsManager.medium();
+                        onDelete();
+                    }}
                     className="w-20 m-1 rounded-md justify-center items-center bg-slate-200 dark:bg-slate-700"
                     style={{ height: buttonHeight }}
                 >

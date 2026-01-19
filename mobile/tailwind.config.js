@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-    darkMode: 'class', // Enable class-based dark mode for NativeWind
+    // NativeWind v4 uses media queries by default - don't set darkMode: 'class'
+    // This allows setColorScheme() to work properly
     content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}", "./lib/**/*.{js,jsx,ts,tsx}"],
     theme: {
         extend: {

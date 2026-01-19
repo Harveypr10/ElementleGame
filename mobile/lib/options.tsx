@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { useAuth } from './auth';
@@ -92,10 +92,17 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         Appearance.setColorScheme(colorScheme);
     }, [darkMode]);
 
-    // Initial Load
+    // Track if we've loaded initially to prevent re-loading on every change
+    const hasLoadedRef = useRef(false);
+
+    // Initial Load - only run ONCE when component mounts
     useEffect(() => {
-        loadOptions();
-    }, [user]);
+        if (!hasLoadedRef.current) {
+            console.log('[Options] Running initial loadOptions');
+            loadOptions();
+            hasLoadedRef.current = true;
+        }
+    }, []); // Empty deps = run once on mount
 
     const loadOptions = async () => {
         try {

@@ -8,6 +8,8 @@ import { formatCanonicalDate, parseUserDateWithContext } from '../lib/dateFormat
 import { KeyState } from '../components/NumericKeyboard';
 import { CellFeedback } from '../components/InputGrid';
 import { checkAndAwardStreakBadge, checkAndAwardElementleBadge, checkAndAwardPercentileBadge } from '../lib/supabase-rpc';
+import hapticsManager from '../lib/hapticsManager';
+import soundManager from '../lib/soundManager';
 
 export type GameState = 'loading' | 'playing' | 'won' | 'lost';
 export type GameMode = 'REGION' | 'USER';
@@ -475,6 +477,8 @@ export function useGameEngine({
         console.log('[GameEngine] Validation result:', canonicalGuessCheck);
         if (!canonicalGuessCheck) {
             console.log('[GameEngine] Date validation FAILED - triggering shake');
+            hapticsManager.error(); // Invalid date haptic
+            soundManager.play('guess_failed'); // Invalid date sound
             setInvalidShake(prev => prev + 1);
             return;
         }
@@ -492,9 +496,16 @@ export function useGameEngine({
         setWrongGuessCount(newWrongGuessCount);
 
         if (isWin) {
+            hapticsManager.success(); // Victory haptic
+            soundManager.play('game_win'); // Victory sound
             setGameState('won');
         } else if (newGuesses.length >= maxGuesses) {
+            hapticsManager.error(); // Lost game haptic
+            soundManager.play('game_lose'); // Lost game sound
             setGameState('lost');
+        } else {
+            hapticsManager.warning(); // Incorrect guess but game continues
+            soundManager.play('guess_entered'); // Guess submitted sound
         }
 
         // 2. Persist to DB

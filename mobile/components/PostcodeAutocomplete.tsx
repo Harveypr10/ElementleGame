@@ -8,6 +8,7 @@ import {
     StyleSheet,
     Text,
     TextInputProps,
+    useColorScheme,
 } from 'react-native';
 
 interface PostcodeAutocompleteProps extends Omit<TextInputProps, 'value' | 'onChangeText' | 'onChange'> {
@@ -169,11 +170,15 @@ export function PostcodeAutocomplete({
         };
     }, []);
 
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
+
     return (
         <View style={styles.container}>
             <View style={[
                 styles.inputContainer,
-                !isValid && styles.inputContainerInvalid
+                !isValid && styles.inputContainerInvalid,
+                isDark && styles.inputContainerDark
             ]}>
                 <TextInput
                     ref={inputRef}
@@ -181,7 +186,7 @@ export function PostcodeAutocomplete({
                     onChangeText={handleInputChange}
                     onBlur={handleBlur}
                     onFocus={handleFocus}
-                    style={styles.input}
+                    style={[styles.input, isDark && styles.inputDark]}
                     className="text-base font-nunito"
                     placeholder={props.placeholder || 'Enter postcode'}
                     placeholderTextColor="#999"
@@ -235,19 +240,30 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#d1d5db',
+        borderColor: '#cbd5e1',
         borderRadius: 8,
-        backgroundColor: '#fff',
+        backgroundColor: '#f8fafc',
         paddingHorizontal: 12,
-        height: 40,
+        paddingVertical: 0,
+        minHeight: 48,
     },
     inputContainerInvalid: {
         borderColor: '#ef4444',
     },
     input: {
         flex: 1,
-        paddingVertical: 8,
-        color: '#000',
+        paddingVertical: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+        color: '#1e293b',
+        textAlignVertical: 'center',
+    },
+    inputDark: {
+        color: '#ffffff',
+    },
+    inputContainerDark: {
+        backgroundColor: '#334155',
+        borderColor: '#475569',
     },
     loader: {
         marginLeft: 8,

@@ -254,9 +254,14 @@ export default function HomeScreen() {
             }
         }
 
-        // Region Fallback
-        if (!percentileMessage && isRegion) {
-            percentileMessage = "Play the archive to boost your ranking";
+        // Fallback messages
+        if (!percentileMessage) {
+            if (isRegion) {
+                percentileMessage = "Play the archive to boost your ranking";
+            } else {
+                // User mode fallback - always show a message
+                percentileMessage = "Play the archive to boost your ranking";
+            }
         }
 
         // Use same hamster images for both modes (PNG only to avoid React Native freeze errors)
@@ -326,14 +331,14 @@ export default function HomeScreen() {
                     {/* Top Left Icon (Help) */}
                     <StyledView className="absolute left-4 top-2">
                         <StyledTouchableOpacity onPress={() => setHelpVisible(true)}>
-                            <HelpCircle size={28} color="#1e293b" />
+                            <HelpCircle size={28} className="text-slate-800 dark:text-white" />
                         </StyledTouchableOpacity>
                     </StyledView>
 
                     {/* Top Right Icon (Settings/Options) */}
                     <StyledView className="absolute right-4 top-2">
                         <StyledTouchableOpacity onPress={() => router.push('/settings')}>
-                            <Settings size={28} color="#1e293b" />
+                            <Settings size={28} className="text-slate-800 dark:text-white" />
                         </StyledTouchableOpacity>
                     </StyledView>
 

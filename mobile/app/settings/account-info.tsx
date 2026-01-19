@@ -1,56 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ScrollView,
-    StyleSheet,
-    ActivityIndicator,
-    useColorScheme,
-    Platform,
-    Alert,
-    Switch,
-    Modal,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Switch, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Key, Mail, Link2, Check, X } from 'lucide-react-native';
+import { styled } from 'nativewind';
+import { ChevronLeft, Mail, Key, Save, ChevronDown, X } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { PostcodeAutocomplete } from '../../components/PostcodeAutocomplete';
+
+const StyledView = styled(View);
+const StyledText = styled(Text);
+const StyledTextInput = styled(TextInput);
+const StyledTouchableOpacity = styled(TouchableOpacity);
 
 interface Region {
     code: string;
     name: string;
 }
 
-interface Profile {
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-    region: string | null;
-    postcode: string | null;
-    googleLinked: boolean | null;
-    appleLinked: boolean | null;
-    passwordCreated: boolean | null;
-}
-
 export default function AccountInfoPage() {
     const router = useRouter();
     const { user } = useAuth();
-    const colorScheme = useColorScheme();
-    const isDarkMode = colorScheme === 'dark';
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [profile, setProfile] = useState<Profile | null>(null);
     const [regions, setRegions] = useState<Region[]>([]);
     const [regionModalVisible, setRegionModalVisible] = useState(false);
+
+    // Original values for change detection
+    const [originalFirstName, setOriginalFirstName] = useState('');
+    const [originalLastName, setOriginalLastName] = useState('');
+    const [originalEmail, setOriginalEmail] = useState('');
+    const [originalRegion, setOriginalRegion] = useState('');
+    const [originalPostcode, setOriginalPostcode] = useState('');
 
     // Form state
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [email, setEmail] = useState('');
     const [region, setRegion] = useState('');
     const [postcode, setPostcode] = useState('');
 
@@ -59,14 +46,15 @@ export default function AccountInfoPage() {
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
     const [isAppleConnected, setIsAppleConnected] = useState(false);
     const [magicLinkEnabled, setMagicLinkEnabled] = useState(true);
+    const [togglingMagicLink, setTogglingMagicLink] = useState(false);
 
-    // Colors
-    const backgroundColor = isDarkMode ? 'hsl(222, 47%, 11%)' : '#FAFAFA';
-    const textColor = isDarkMode ? '#FAFAFA' : '#54524F';
-    const cardBg = isDarkMode ? '#1e293b' : '#fff';
-    const borderColor = isDarkMode ? '#444' : '#d1d5db';
+    // Confirmation modals
+    const [emailConfirmModal, setEmailConfirmModal] = useState(false);
+    const [regionConfirmModal, setRegionConfirmModal] = useState(false);
+    const [postcodeConfirmModal, setPostcodeConfirmModal] = useState(false);
+    const [restrictionModal, setRestrictionModal] = useState(false);
+    const [restrictionMessage, setRestrictionMessage] = useState('');
 
-    // Fetch profile and regions
     useEffect(() => {
         fetchData();
     }, []);
@@ -83,17 +71,28 @@ export default function AccountInfoPage() {
 
             if (profileError) throw profileError;
 
-            console.log('[AccountInfo] Loaded profile:', profileData);
-            setProfile(profileData);
-            // Use snake_case column names from database
-            setFirstName(profileData.first_name || '');
-            setLastName(profileData.last_name || '');
-            setRegion(profileData.region || '');
-            setPostcode(profileData.postcode || '');
+            const fname = profileData.first_name || '';
+            const lname = profileData.last_name || '';
+            const emailVal = profileData.email || user?.email || '';
+            const regionVal = profileData.region || '';
+            const postcodeVal = profileData.postcode || '';
+
+            setFirstName(fname);
+            setLastName(lname);
+            setEmail(emailVal);
+            setRegion(regionVal);
+            setPostcode(postcodeVal);
+
+            setOriginalFirstName(fname);
+            setOriginalLastName(lname);
+            setOriginalEmail(emailVal);
+            setOriginalRegion(regionVal);
+            setOriginalPostcode(postcodeVal);
+
             setHasPassword(profileData.password_created || false);
             setIsGoogleConnected(profileData.google_linked || false);
             setIsAppleConnected(profileData.apple_linked || false);
-            setMagicLinkEnabled(profileData.magic_link !== false); // Default to true if not set
+            setMagicLinkEnabled(profileData.magic_link !== false);
 
             // Fetch regions
             const { data: regionsData, error: regionsError } = await supabase
@@ -102,30 +101,86 @@ export default function AccountInfoPage() {
                 .order('name');
 
             if (regionsError) throw regionsError;
-
             setRegions(regionsData);
         } catch (error: any) {
-            console.error('[AccountInfo] Error fetching data:', error);
+            console.error('[AccountInfo] Error:', error);
             Alert.alert('Error', 'Failed to load account information');
         } finally {
             setLoading(false);
         }
     };
 
+    const getRegionName = (code: string) => {
+        const selectedRegion = regions.find(r => r.code === code);
+        return selectedRegion?.name || 'Select region';
+    };
+
     const handleSave = async () => {
+        const emailChanged = email !== originalEmail;
+        const regionChanged = region !== originalRegion;
+        const postcodeChanged = postcode !== originalPostcode;
+
+        // Email change requires confirmation
+        if (emailChanged) {
+            setEmailConfirmModal(true);
+            return;
+        }
+
+        // Region change requires warning
+        if (regionChanged) {
+            setRegionConfirmModal(true);
+            return;
+        }
+
+        // Postcode change requires warning
+        if (postcodeChanged) {
+            setPostcodeConfirmModal(true);
+            return;
+        }
+
+        // No sensitive changes, proceed with save
+        await performSave();
+    };
+
+    const performSave = async () => {
         setSaving(true);
         try {
-            const { error } = await supabase
+            const { data, error } = await supabase
                 .from('user_profiles')
                 .update({
                     first_name: firstName,
                     last_name: lastName,
+                    email,
                     region,
                     postcode: postcode || null,
                 })
-                .eq('id', user?.id);
+                .eq('id', user?.id)
+                .select()
+                .single();
 
-            if (error) throw error;
+            if (error) {
+                // Check for cooldown error
+                if (error.message?.includes('cooldown') || error.message?.includes('LOCATION_COOLDOWN')) {
+                    setRestrictionMessage('You can only update your location once every few days. Please try again later.');
+                    setRestrictionModal(true);
+                    return;
+                }
+                throw error;
+            }
+
+            // Check for restriction in response
+            if (data && (data as any)._restrictionBlocked) {
+                setRestrictionMessage((data as any)._restrictionMessage || 'Location change restricted');
+                setRestrictionModal(true);
+                return;
+            }
+
+            // Update original values
+            setOriginalFirstName(firstName);
+            setOriginalLastName(lastName);
+            setOriginalEmail(email);
+            setOriginalRegion(region);
+            setOriginalPostcode(postcode);
 
             Alert.alert('Success', 'Profile updated successfully');
         } catch (error: any) {
@@ -136,15 +191,34 @@ export default function AccountInfoPage() {
         }
     };
 
-    const handlePasswordAction = () => {
-        if (hasPassword) {
-            Alert.alert('Change Password', 'Password change feature coming soon!');
-        } else {
-            Alert.alert('Create Password', 'Password creation feature coming soon!');
-        }
+    const handleEmailConfirm = async () => {
+        setEmailConfirmModal(false);
+        await performSave();
     };
 
-    const handleMagicLinkToggle = async (enabled: boolean) => {
+    const handleRegionConfirm = async () => {
+        setRegionConfirmModal(false);
+        await performSave();
+    };
+
+    const handlePostcodeConfirm = async () => {
+        setPostcodeConfirmModal(false);
+        await performSave();
+    };
+
+    const handleToggleMagicLink = async (enabled: boolean) => {
+        if (togglingMagicLink) return;
+
+        // Check if user has another way to log in
+        if (!enabled && !hasPassword && !isGoogleConnected && !isAppleConnected) {
+            Alert.alert(
+                'Cannot Disable',
+                'You need at least one login method. Please set up a password or connect a social account first.'
+            );
+            return;
+        }
+
+        setTogglingMagicLink(true);
         try {
             const { error } = await supabase
                 .from('user_profiles')
@@ -152,457 +226,473 @@ export default function AccountInfoPage() {
                 .eq('id', user?.id);
 
             if (error) throw error;
-
             setMagicLinkEnabled(enabled);
-            console.log('[AccountInfo] Magic link updated:', enabled);
+            Alert.alert('Success', enabled ? 'Magic link enabled' : 'Magic link disabled');
         } catch (error: any) {
             Alert.alert('Error', 'Failed to update magic link setting');
-            console.error('[AccountInfo] Magic link toggle error:', error);
+        } finally {
+            setTogglingMagicLink(false);
         }
     };
 
-    const handleGoogleConnect = async () => {
-        if (isGoogleConnected) {
-            // Unlink
-            Alert.alert(
-                'Disconnect Google',
-                'Are you sure you want to disconnect your Google account?',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                        text: 'Disconnect',
-                        style: 'destructive',
-                        onPress: async () => {
-                            try {
-                                const { error } = await supabase
-                                    .from('user_profiles')
-                                    .update({ google_linked: false })
-                                    .eq('id', user?.id);
+    const handleLinkGoogle = async () => {
+        if (isGoogleConnected) return;
 
-                                if (error) throw error;
+        try {
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: `${window.location.origin}/settings/account-info`,
+                },
+            });
 
-                                setIsGoogleConnected(false);
-                                Alert.alert('Success', 'Google account disconnected');
-                            } catch (error: any) {
-                                Alert.alert('Error', 'Failed to disconnect Google');
-                            }
-                        },
-                    },
-                ]
-            );
-        } else {
-            // Link
-            try {
-                const { error } = await supabase.auth.linkIdentity({
-                    provider: 'google',
-                });
+            if (error) throw error;
+        } catch (error: any) {
+            Alert.alert('Error', 'Failed to link Google account');
+        }
+    };
 
-                if (error) throw error;
+    const handleLinkApple = async () => {
+        if (isAppleConnected) return;
 
-                // Update profile
-                await supabase
-                    .from('user_profiles')
-                    .update({ google_linked: true })
-                    .eq('id', user?.id);
+        try {
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'apple',
+                options: {
+                    redirectTo: `${window.location.origin}/settings/account-info`,
+                },
+            });
 
-                setIsGoogleConnected(true);
-                Alert.alert('Success', 'Google account connected');
-            } catch (error: any) {
-                Alert.alert('Error', error.message || 'Failed to connect Google');
-            }
+            if (error) throw error;
+        } catch (error: any) {
+            Alert.alert('Error', 'Failed to link Apple account');
         }
     };
 
     if (loading) {
         return (
-            <View style={[styles.container, { backgroundColor }]}>
+            <StyledView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center">
                 <ActivityIndicator size="large" color="#7DAAE8" />
-            </View>
+            </StyledView>
         );
     }
 
     return (
-        <View style={[styles.container, { backgroundColor }]}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ChevronLeft size={28} color={textColor} />
-                </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: textColor }]}>Account Info</Text>
-                <View style={styles.headerSpacer} />
-            </View>
+        <StyledView className="flex-1 bg-white dark:bg-slate-900">
+            <SafeAreaView edges={['top']} className="flex-1">
+                {/* Header */}
+                <StyledView className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                    <StyledView className="flex-row items-center justify-center relative">
+                        <StyledTouchableOpacity
+                            onPress={() => router.back()}
+                            className="absolute left-0"
+                        >
+                            <ChevronLeft size={28} className="text-slate-800 dark:text-white" />
+                        </StyledTouchableOpacity>
+                        <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white">
+                            Account Info
+                        </StyledText>
+                    </StyledView>
+                </StyledView>
 
-            <ScrollView style={styles.content}>
-                {/* Profile Information */}
-                <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: textColor }]}>Profile Information</Text>
-
-                    <View style={styles.card}>
-                        <View style={styles.field}>
-                            <Text style={[styles.label, { color: textColor }]}>Email</Text>
-                            <Text style={[styles.valueText, { color: textColor }]}>{profile?.email}</Text>
-                        </View>
-
-                        <View style={styles.field}>
-                            <Text style={[styles.label, { color: textColor }]}>First Name</Text>
-                            <TextInput
-                                style={[styles.input, { color: textColor, borderColor }]}
-                                value={firstName}
-                                onChangeText={setFirstName}
-                                placeholderTextColor="#999"
-                            />
-                        </View>
-
-                        <View style={styles.field}>
-                            <Text style={[styles.label, { color: textColor }]}>Last Name</Text>
-                            <TextInput
-                                style={[styles.input, { color: textColor, borderColor }]}
-                                value={lastName}
-                                onChangeText={setLastName}
-                                placeholderTextColor="#999"
-                            />
-                        </View>
-
-                        <View style={styles.field}>
-                            <Text style={[styles.label, { color: textColor }]}>Region</Text>
-                            <TouchableOpacity
-                                style={[styles.selector, { borderColor }]}
-                                onPress={() => setRegionModalVisible(true)}
-                            >
-                                <Text style={[styles.selectorText, { color: textColor }]}>
-                                    {regions.find(r => r.code === region)?.name || 'Select Region'}
-                                </Text>
-                                <ChevronRight size={20} color="#999" />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.field}>
-                            <Text style={[styles.label, { color: textColor }]}>Postcode</Text>
-                            <PostcodeAutocomplete
-                                value={postcode}
-                                onChange={setPostcode}
-                                placeholder="Enter postcode"
-                            />
-                        </View>
-                    </View>
-                </View>
-
-                {/* Connected Accounts */}
-                <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: textColor }]}>Connected Accounts</Text>
-
-                    <View style={styles.card}>
-                        {/* Password */}
-                        <TouchableOpacity style={styles.accountItem} onPress={handlePasswordAction}>
-                            <View style={styles.accountIcon}>
-                                <Key size={20} color="#7DAAE8" />
-                            </View>
-                            <View style={styles.accountInfo}>
-                                <Text style={[styles.accountName, { color: textColor }]}>Password</Text>
-                                <Text style={styles.accountStatus}>
-                                    {hasPassword ? 'Connected' : 'Not set'}
-                                </Text>
-                            </View>
-                            <ChevronRight size={20} color="#999" />
-                        </TouchableOpacity>
-
-                        {/* Magic Link */}
-                        <View style={styles.accountItem}>
-                            <View style={styles.accountIcon}>
-                                <Mail size={20} color="#7DAAE8" />
-                            </View>
-                            <View style={styles.accountInfo}>
-                                <Text style={[styles.accountName, { color: textColor }]}>Magic Link</Text>
-                                <Text style={styles.accountStatus}>
-                                    {magicLinkEnabled ? 'Enabled' : 'Disabled'}
-                                </Text>
-                            </View>
-                            <Switch
-                                value={magicLinkEnabled}
-                                onValueChange={handleMagicLinkToggle}
-                                trackColor={{ false: '#767577', true: '#7DAAE8' }}
-                            />
-                        </View>
-
-                        {/* Google */}
-                        <TouchableOpacity style={styles.accountItem} onPress={handleGoogleConnect}>
-                            <View style={styles.accountIcon}>
-                                <Text style={styles.googleIcon}>G</Text>
-                            </View>
-                            <View style={styles.accountInfo}>
-                                <Text style={[styles.accountName, { color: textColor }]}>Google</Text>
-                                <Text style={styles.accountStatus}>
-                                    {isGoogleConnected ? 'Connected' : 'Not connected'}
-                                </Text>
-                            </View>
-                            <ChevronRight size={20} color="#999" />
-                        </TouchableOpacity>
-
-                        {/* Apple */}
-                        <View style={[styles.accountItem, styles.accountItemDisabled]}>
-                            <View style={styles.accountIcon}>
-                                <Text style={styles.appleIcon}></Text>
-                            </View>
-                            <View style={styles.accountInfo}>
-                                <Text style={[styles.accountName, { color: '#999' }]}>Apple</Text>
-                                <Text style={styles.accountStatus}>Coming soon</Text>
-                            </View>
-                        </View>
-                    </View>
-                </View>
-
-                {/* Save Button */}
-                <TouchableOpacity
-                    style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-                    onPress={handleSave}
-                    disabled={saving}
+                <KeyboardAvoidingView
+                    className="flex-1"
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={100}
                 >
-                    {saving ? (
-                        <ActivityIndicator color="#fff" />
-                    ) : (
-                        <Text style={styles.saveButtonText}>Save Changes</Text>
-                    )}
-                </TouchableOpacity>
-            </ScrollView>
+                    <ScrollView
+                        className="flex-1 px-4 py-4"
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {/* Profile Section */}
+                        <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-4 border border-slate-100 dark:border-slate-700">
+                            <StyledText className="text-sm font-n-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                                Profile
+                            </StyledText>
 
-            {/* Region Modal */}
+                            <StyledView className="mb-4">
+                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                    First Name
+                                </StyledText>
+                                <StyledTextInput
+                                    value={firstName}
+                                    onChangeText={setFirstName}
+                                    placeholder="Enter first name"
+                                    placeholderTextColor="#94a3b8"
+                                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-slate-900 dark:text-white font-n-medium"
+                                />
+                            </StyledView>
+
+                            <StyledView className="mb-4">
+                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                    Last Name
+                                </StyledText>
+                                <StyledTextInput
+                                    value={lastName}
+                                    onChangeText={setLastName}
+                                    placeholder="Enter last name"
+                                    placeholderTextColor="#94a3b8"
+                                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-slate-900 dark:text-white font-n-medium"
+                                />
+                            </StyledView>
+
+                            <StyledView className="mb-4">
+                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                    Email
+                                </StyledText>
+                                <StyledTextInput
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    placeholder="Enter email"
+                                    placeholderTextColor="#94a3b8"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-slate-900 dark:text-white font-n-medium"
+                                />
+                            </StyledView>
+
+                            <StyledView className="mb-4">
+                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                    Region
+                                </StyledText>
+                                <StyledTouchableOpacity
+                                    onPress={() => setRegionModalVisible(true)}
+                                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 flex-row items-center justify-between"
+                                >
+                                    <StyledText className="text-slate-900 dark:text-white font-n-medium">
+                                        {getRegionName(region)}
+                                    </StyledText>
+                                    <ChevronDown size={20} className="text-slate-500 dark:text-slate-400" />
+                                </StyledTouchableOpacity>
+                            </StyledView>
+
+                            <StyledView className="mb-4">
+                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                    Postcode
+                                </StyledText>
+                                <PostcodeAutocomplete
+                                    value={postcode}
+                                    onChange={(value) => setPostcode(value)}
+                                />
+                            </StyledView>
+
+                            {/* Save Button */}
+                            <StyledTouchableOpacity
+                                onPress={handleSave}
+                                disabled={saving}
+                                className="bg-blue-500 rounded-lg py-3 flex-row items-center justify-center mt-2"
+                            >
+                                {saving ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <>
+                                        <Save size={18} color="#fff" />
+                                        <StyledText className="text-white font-n-bold ml-2">Save Changes</StyledText>
+                                    </>
+                                )}
+                            </StyledTouchableOpacity>
+                        </StyledView>
+
+                        {/* Account Section */}
+                        <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-4 border border-slate-100 dark:border-slate-700">
+                            <StyledText className="text-sm font-n-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                                Account
+                            </StyledText>
+
+                            <StyledTouchableOpacity
+                                onPress={() => Alert.alert('Password', hasPassword ? 'Change password feature coming soon' : 'Create password feature coming soon')}
+                                className="flex-row items-center py-3 border-b border-slate-100 dark:border-slate-700"
+                            >
+                                <Key size={20} className="text-slate-600 dark:text-slate-400 mr-3" />
+                                <StyledView className="flex-1">
+                                    <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300">
+                                        Password
+                                    </StyledText>
+                                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                        {hasPassword ? 'Change password' : 'Create password'}
+                                    </StyledText>
+                                </StyledView>
+                            </StyledTouchableOpacity>
+
+                            {/* Magic Link Toggle */}
+                            <StyledView className="flex-row items-center justify-between py-3">
+                                <StyledView className="flex-1 pr-3">
+                                    <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300">
+                                        Enable Magic Link
+                                    </StyledText>
+                                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                        Sign in with email links
+                                    </StyledText>
+                                </StyledView>
+                                <Switch
+                                    value={magicLinkEnabled}
+                                    onValueChange={handleToggleMagicLink}
+                                    disabled={togglingMagicLink}
+                                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                                    thumbColor={'#ffffff'}
+                                    ios_backgroundColor="#e2e8f0"
+                                />
+                            </StyledView>
+                        </StyledView>
+
+                        {/* Connected Accounts Section */}
+                        <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-4 border border-slate-100 dark:border-slate-700">
+                            <StyledText className="text-sm font-n-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                                Connected Accounts
+                            </StyledText>
+
+                            {/* Google */}
+                            <StyledTouchableOpacity
+                                onPress={handleLinkGoogle}
+                                disabled={isGoogleConnected}
+                                className="flex-row items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700"
+                            >
+                                <StyledView className="flex-1">
+                                    <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300">
+                                        Google
+                                    </StyledText>
+                                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                        {isGoogleConnected ? 'Connected' : 'Tap to connect'}
+                                    </StyledText>
+                                </StyledView>
+                                {isGoogleConnected ? (
+                                    <StyledText className="text-green-600 dark:text-green-400 text-sm font-n-medium">
+                                        ✓ Linked
+                                    </StyledText>
+                                ) : (
+                                    <StyledText className="text-blue-600 dark:text-blue-400 text-sm font-n-medium">
+                                        Link →
+                                    </StyledText>
+                                )}
+                            </StyledTouchableOpacity>
+
+                            {/* Apple */}
+                            <StyledTouchableOpacity
+                                onPress={handleLinkApple}
+                                disabled={isAppleConnected}
+                                className="flex-row items-center justify-between py-3"
+                            >
+                                <StyledView className="flex-1">
+                                    <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300">
+                                        Apple
+                                    </StyledText>
+                                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                        {isAppleConnected ? 'Connected' : 'Tap to connect'}
+                                    </StyledText>
+                                </StyledView>
+                                {isAppleConnected ? (
+                                    <StyledText className="text-green-600 dark:text-green-400 text-sm font-n-medium">
+                                        ✓ Linked
+                                    </StyledText>
+                                ) : (
+                                    <StyledText className="text-blue-600 dark:text-blue-400 text-sm font-n-medium">
+                                        Link →
+                                    </StyledText>
+                                )}
+                            </StyledTouchableOpacity>
+                        </StyledView>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+
+            {/* Email Change Confirmation Modal */}
+            <Modal
+                visible={emailConfirmModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setEmailConfirmModal(false)}
+            >
+                <StyledView className="flex-1 bg-black/50 justify-center items-center px-6">
+                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm">
+                        <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white mb-4">
+                            Confirm Email Change
+                        </StyledText>
+                        <StyledText className="text-slate-600 dark:text-slate-300 mb-2">
+                            You are changing your email from:
+                        </StyledText>
+                        <StyledText className="font-n-bold text-slate-900 dark:text-white mb-2">
+                            {originalEmail}
+                        </StyledText>
+                        <StyledText className="text-slate-600 dark:text-slate-300 mb-2">
+                            to:
+                        </StyledText>
+                        <StyledText className="font-n-bold text-slate-900 dark:text-white mb-6">
+                            {email}
+                        </StyledText>
+                        <StyledView className="flex-row gap-3">
+                            <StyledTouchableOpacity
+                                onPress={() => {
+                                    setEmail(originalEmail);
+                                    setEmailConfirmModal(false);
+                                }}
+                                className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-lg py-3"
+                            >
+                                <StyledText className="text-slate-900 dark:text-white font-n-bold text-center">
+                                    Cancel
+                                </StyledText>
+                            </StyledTouchableOpacity>
+                            <StyledTouchableOpacity
+                                onPress={handleEmailConfirm}
+                                className="flex-1 bg-blue-500 rounded-lg py-3"
+                            >
+                                <StyledText className="text-white font-n-bold text-center">
+                                    Confirm
+                                </StyledText>
+                            </StyledTouchableOpacity>
+                        </StyledView>
+                    </StyledView>
+                </StyledView>
+            </Modal>
+
+            {/* Region Change Warning Modal */}
+            <Modal
+                visible={regionConfirmModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setRegionConfirmModal(false)}
+            >
+                <StyledView className="flex-1 bg-black/50 justify-center items-center px-6">
+                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm">
+                        <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white mb-4">
+                            Change Region?
+                        </StyledText>
+                        <StyledText className="text-slate-600 dark:text-slate-300 mb-4">
+                            Changing from <StyledText className="font-n-bold">{getRegionName(originalRegion)}</StyledText> to <StyledText className="font-n-bold">{getRegionName(region)}</StyledText> will change the questions you receive.
+                        </StyledText>
+                        <StyledText className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                            Note: You can only change your region once every few days.
+                        </StyledText>
+                        <StyledView className="flex-row gap-3">
+                            <StyledTouchableOpacity
+                                onPress={() => {
+                                    setRegion(originalRegion);
+                                    setRegionConfirmModal(false);
+                                }}
+                                className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-lg py-3"
+                            >
+                                <StyledText className="text-slate-900 dark:text-white font-n-bold text-center">
+                                    Cancel
+                                </StyledText>
+                            </StyledTouchableOpacity>
+                            <StyledTouchableOpacity
+                                onPress={handleRegionConfirm}
+                                className="flex-1 bg-blue-500 rounded-lg py-3"
+                            >
+                                <StyledText className="text-white font-n-bold text-center">
+                                    Confirm
+                                </StyledText>
+                            </StyledTouchableOpacity>
+                        </StyledView>
+                    </StyledView>
+                </StyledView>
+            </Modal>
+
+            {/* Postcode Change Warning Modal */}
+            <Modal
+                visible={postcodeConfirmModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setPostcodeConfirmModal(false)}
+            >
+                <StyledView className="flex-1 bg-black/50 justify-center items-center px-6">
+                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm">
+                        <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white mb-4">
+                            Change Postcode?
+                        </StyledText>
+                        <StyledText className="text-slate-600 dark:text-slate-300 mb-4">
+                            Changing your postcode will update the location-based questions you receive in the personal edition of the game.
+                        </StyledText>
+                        <StyledText className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                            Note: You can only change your postcode once every few days.
+                        </StyledText>
+                        <StyledView className="flex-row gap-3">
+                            <StyledTouchableOpacity
+                                onPress={() => {
+                                    setPostcode(originalPostcode);
+                                    setPostcodeConfirmModal(false);
+                                }}
+                                className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-lg py-3"
+                            >
+                                <StyledText className="text-slate-900 dark:text-white font-n-bold text-center">
+                                    Cancel
+                                </StyledText>
+                            </StyledTouchableOpacity>
+                            <StyledTouchableOpacity
+                                onPress={handlePostcodeConfirm}
+                                className="flex-1 bg-blue-500 rounded-lg py-3"
+                            >
+                                <StyledText className="text-white font-n-bold text-center">
+                                    Confirm
+                                </StyledText>
+                            </StyledTouchableOpacity>
+                        </StyledView>
+                    </StyledView>
+                </StyledView>
+            </Modal>
+
+            {/* Restriction/Cooldown Error Modal */}
+            <Modal
+                visible={restrictionModal}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setRestrictionModal(false)}
+            >
+                <StyledView className="flex-1 bg-black/50 justify-center items-center px-6">
+                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm">
+                        <StyledText className="text-xl font-n-bold text-red-600 dark:text-red-400 mb-4">
+                            Change Restricted
+                        </StyledText>
+                        <StyledText className="text-slate-600 dark:text-slate-300 mb-6">
+                            {restrictionMessage}
+                        </StyledText>
+                        <StyledTouchableOpacity
+                            onPress={() => setRestrictionModal(false)}
+                            className="bg-blue-500 rounded-lg py-3"
+                        >
+                            <StyledText className="text-white font-n-bold text-center">
+                                OK
+                            </StyledText>
+                        </StyledTouchableOpacity>
+                    </StyledView>
+                </StyledView>
+            </Modal>
+
+            {/* Region Selection Modal */}
             <Modal
                 visible={regionModalVisible}
                 transparent={true}
                 animationType="slide"
                 onRequestClose={() => setRegionModalVisible(false)}
             >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setRegionModalVisible(false)}
-                >
-                    <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: textColor }]}>Select Region</Text>
-                            <TouchableOpacity onPress={() => setRegionModalVisible(false)}>
-                                <X size={24} color="#999" />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView style={styles.modalList}>
-                            {regions.map((r) => (
-                                <TouchableOpacity
-                                    key={r.code}
-                                    style={[
-                                        styles.modalOption,
-                                        region === r.code && styles.modalOptionSelected
-                                    ]}
-                                    onPress={() => {
-                                        setRegion(r.code);
-                                        setRegionModalVisible(false);
-                                    }}
-                                >
-                                    <Text style={[
-                                        styles.modalOptionText,
-                                        { color: textColor },
-                                        region === r.code && styles.modalOptionTextSelected
-                                    ]}>
-                                        {r.name}
-                                    </Text>
-                                    {region === r.code && (
-                                        <Check size={20} color="#7DAAE8" />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                </TouchableOpacity>
+                <StyledView className="flex-1 bg-black/50" onTouchEnd={() => setRegionModalVisible(false)}>
+                    <StyledView className="flex-1 justify-end">
+                        <StyledView className="bg-white dark:bg-slate-800 rounded-t-3xl max-h-[70%]">
+                            <StyledView className="p-4 border-b border-slate-200 dark:border-slate-700">
+                                <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white text-center">
+                                    Select Region
+                                </StyledText>
+                            </StyledView>
+                            <FlatList
+                                data={regions}
+                                keyExtractor={(item) => item.code}
+                                renderItem={({ item }) => (
+                                    <StyledTouchableOpacity
+                                        onPress={() => {
+                                            setRegion(item.code);
+                                            setRegionModalVisible(false);
+                                        }}
+                                        className="px-4 py-4 border-b border-slate-100 dark:border-slate-700"
+                                    >
+                                        <StyledText className={`font-n-medium ${region === item.code ? 'text-blue-600 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}>
+                                            {item.name}
+                                        </StyledText>
+                                    </StyledTouchableOpacity>
+                                )}
+                            />
+                        </StyledView>
+                    </StyledView>
+                </StyledView>
             </Modal>
-        </View>
+        </StyledView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        paddingTop: Platform.OS === 'ios' ? 60 : 12,
-    },
-    backButton: {
-        padding: 4,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
-    },
-    headerSpacer: {
-        width: 32,
-    },
-    content: {
-        flex: 1,
-        paddingHorizontal: 16,
-    },
-    section: {
-        marginBottom: 24,
-    },
-    sectionTitle: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
-        marginBottom: 12,
-        textTransform: 'uppercase',
-        opacity: 0.6,
-    },
-    card: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 16,
-    },
-    field: {
-        marginBottom: 16,
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        fontFamily: 'Nunito',
-        marginBottom: 8,
-    },
-    input: {
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        fontSize: 16,
-        fontFamily: 'Nunito',
-    },
-    valueText: {
-        fontSize: 16,
-        fontFamily: 'Nunito',
-        opacity: 0.7,
-    },
-    selector: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderWidth: 1,
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-    },
-    selectorText: {
-        fontSize: 16,
-        fontFamily: 'Nunito',
-        flex: 1,
-    },
-    accountItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f3f4f6',
-    },
-    accountItemDisabled: {
-        opacity: 0.5,
-    },
-    accountIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#eef6ff',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-    googleIcon: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#EA4335',
-    },
-    appleIcon: {
-        fontSize: 20,
-        color: '#000',
-    },
-    accountInfo: {
-        flex: 1,
-    },
-    accountName: {
-        fontSize: 16,
-        fontWeight: '600',
-        fontFamily: 'Nunito',
-    },
-    accountStatus: {
-        fontSize: 14,
-        fontFamily: 'Nunito',
-        color: '#999',
-        marginTop: 2,
-    },
-    saveButton: {
-        backgroundColor: '#7DAAE8',
-        borderRadius: 12,
-        paddingVertical: 16,
-        alignItems: 'center',
-        marginTop: 16,
-        marginBottom: 32,
-    },
-    saveButtonDisabled: {
-        opacity: 0.5,
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        paddingTop: 20,
-        paddingBottom: 40,
-        maxHeight: '70%',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#e5e7eb',
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
-    },
-    modalList: {
-        paddingHorizontal: 20,
-    },
-    modalOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f3f4f6',
-    },
-    modalOptionSelected: {
-        backgroundColor: '#eef6ff',
-    },
-    modalOptionText: {
-        fontSize: 16,
-        fontFamily: 'Nunito',
-        flex: 1,
-    },
-    modalOptionTextSelected: {
-        fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
-        color: '#7DAAE8',
-    },
-});

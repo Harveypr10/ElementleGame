@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { styled } from 'nativewind';
@@ -28,6 +28,143 @@ export default function OptionsScreen() {
         streakSaverActive, toggleStreakSaver,
         holidaySaverActive, toggleHolidaySaver
     } = useOptions();
+
+    // Local state toggles - receive props to avoid context subscription
+    const SoundsToggle = ({ value, onToggle }: { value: boolean, onToggle: () => void }) => {
+        const [localValue, setLocalValue] = useState(value);
+
+        useEffect(() => {
+            setLocalValue(value);
+        }, [value]);
+
+        const handleToggle = () => {
+            const newValue = !localValue;
+            setLocalValue(newValue);
+            onToggle();
+        };
+
+        return (
+            <StyledView className="flex-row justify-between items-center py-2.5">
+                <StyledView className="flex-1 pr-3">
+                    <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">
+                        Sounds
+                    </StyledText>
+                    <StyledText className="text-sm text-slate-500 dark:text-slate-400">
+                        Play sound effects
+                    </StyledText>
+                </StyledView>
+                <Switch
+                    value={localValue}
+                    onValueChange={handleToggle}
+                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                    thumbColor={'#ffffff'}
+                    ios_backgroundColor="#e2e8f0"
+                />
+            </StyledView>
+        );
+    };
+
+    const DarkModeToggle = ({ value, onToggle }: { value: boolean, onToggle: () => void }) => {
+        const [localValue, setLocalValue] = useState(value);
+
+        useEffect(() => {
+            setLocalValue(value);
+        }, [value]);
+
+        const handleToggle = () => {
+            const newValue = !localValue;
+            setLocalValue(newValue);
+            onToggle();
+        };
+
+        return (
+            <StyledView className="flex-row justify-between items-center py-2.5">
+                <StyledView className="flex-1 pr-3">
+                    <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">
+                        Dark Mode
+                    </StyledText>
+                    <StyledText className="text-sm text-slate-500 dark:text-slate-400">
+                        Toggle dark theme
+                    </StyledText>
+                </StyledView>
+                <Switch
+                    value={localValue}
+                    onValueChange={handleToggle}
+                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                    thumbColor={'#ffffff'}
+                    ios_backgroundColor="#e2e8f0"
+                />
+            </StyledView>
+        );
+    };
+
+    const CluesToggle = ({ value, onToggle }: { value: boolean, onToggle: () => void }) => {
+        const [localValue, setLocalValue] = useState(value);
+
+        useEffect(() => {
+            setLocalValue(value);
+        }, [value]);
+
+        const handleToggle = () => {
+            const newValue = !localValue;
+            setLocalValue(newValue);
+            onToggle();
+        };
+
+        return (
+            <StyledView className="flex-row justify-between items-center py-2.5">
+                <StyledView className="flex-1 pr-3">
+                    <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">
+                        Clues
+                    </StyledText>
+                    <StyledText className="text-sm text-slate-500 dark:text-slate-400">
+                        Show event titles
+                    </StyledText>
+                </StyledView>
+                <Switch
+                    value={localValue}
+                    onValueChange={handleToggle}
+                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                    thumbColor={'#ffffff'}
+                    ios_backgroundColor="#e2e8f0"
+                />
+            </StyledView>
+        );
+    };
+
+    const StreakSaverToggle = ({ value, onToggle }: { value: boolean, onToggle: () => void }) => {
+        const [localValue, setLocalValue] = useState(value);
+
+        useEffect(() => {
+            setLocalValue(value);
+        }, [value]);
+
+        const handleToggle = () => {
+            const newValue = !localValue;
+            setLocalValue(newValue);
+            onToggle();
+        };
+
+        return (
+            <StyledView className="flex-row justify-between items-center py-2.5">
+                <StyledView className="flex-1 pr-3">
+                    <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">
+                        Streak Saver Reminders
+                    </StyledText>
+                    <StyledText className="text-sm text-slate-500 dark:text-slate-400">
+                        Show recovery popup
+                    </StyledText>
+                </StyledView>
+                <Switch
+                    value={localValue}
+                    onValueChange={handleToggle}
+                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                    thumbColor={'#ffffff'}
+                    ios_backgroundColor="#e2e8f0"
+                />
+            </StyledView>
+        );
+    };
 
     const ToggleRow = ({ label, subLabel, value, onToggle, disabled = false }: {
         label: string,
@@ -75,8 +212,8 @@ export default function OptionsScreen() {
                             key={String(opt.value)}
                             onPress={() => onSelect(opt.value)}
                             className={`flex-1 py-2.5 rounded-xl border items-center justify-center ${isSelected
-                                    ? 'bg-blue-500 border-blue-500'
-                                    : 'bg-white border-slate-200 dark:bg-slate-700 dark:border-slate-600'
+                                ? 'bg-blue-500 border-blue-500'
+                                : 'bg-white border-slate-200 dark:bg-slate-700 dark:border-slate-600'
                                 }`}
                         >
                             <StyledText className={`font-n-semibold ${isSelected ? 'text-white' : 'text-slate-600 dark:text-slate-300'
@@ -124,31 +261,16 @@ export default function OptionsScreen() {
                     />
 
                     {/* Dark Mode */}
-                    <ToggleRow
-                        label="Dark Mode"
-                        subLabel="Toggle dark theme"
-                        value={darkMode}
-                        onToggle={toggleDarkMode}
-                    />
+                    <DarkModeToggle value={darkMode} onToggle={toggleDarkMode} />
                 </StyledView>
 
                 {/* Gameplay Card */}
                 <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
                     <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-3">Gameplay</StyledText>
 
-                    <ToggleRow
-                        label="Sounds"
-                        subLabel="Play sound effects"
-                        value={soundsEnabled}
-                        onToggle={toggleSounds}
-                    />
+                    <SoundsToggle value={soundsEnabled} onToggle={toggleSounds} />
 
-                    <ToggleRow
-                        label="Clues"
-                        subLabel="Show event titles"
-                        value={cluesEnabled}
-                        onToggle={toggleClues}
-                    />
+                    <CluesToggle value={cluesEnabled} onToggle={toggleClues} />
                 </StyledView>
 
                 {/* Date Format Card */}
@@ -187,12 +309,7 @@ export default function OptionsScreen() {
                         </StyledText>
                     </StyledView>
 
-                    <ToggleRow
-                        label="Streak Saver Reminders"
-                        subLabel="Show recovery popup"
-                        value={streakSaverActive}
-                        onToggle={toggleStreakSaver}
-                    />
+                    <StreakSaverToggle value={streakSaverActive} onToggle={toggleStreakSaver} />
 
                     <StyledView className="flex-row justify-between items-center py-2 mt-1">
                         <StyledView className="flex-1 pr-3">

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, Image, Animated } from 'react-native';
 import { styled } from 'nativewind';
 import { format } from 'date-fns';
+import { useOptions } from '../../lib/options';
 // Fallback to png as SVG not found in migration
 const WelcomeHamster = require('../../assets/hamster.png');
 import StreakHamster from '../../assets/Streak-Hamster-Black.svg';
@@ -31,6 +32,7 @@ export function IntroScreen({
     eventTitle
 }: IntroScreenProps) {
     const fadeAnim = useRef(new Animated.Value(0)).current;
+    const { cluesEnabled } = useOptions();
 
     useEffect(() => {
         if (visible) {
@@ -46,10 +48,12 @@ export function IntroScreen({
 
     if (!visible) return null;
 
-    // TODO: Determine prompt text based on mode
-    const promptText = gameMode === 'REGION'
-        ? "On what date did this historical event occur?"
-        : "On what date did this personal event occur?";
+    // Prompt text changes based on clues enabled
+    const promptText = cluesEnabled
+        ? (gameMode === 'REGION'
+            ? "On what date did this historical event occur?"
+            : "On what date did this personal event occur?")
+        : "Take on the challenge of guessing a date in history!";
 
     const formattedDate = puzzleDate ? format(new Date(puzzleDate), 'MMM d, yyyy') : '';
 
@@ -82,8 +86,8 @@ export function IntroScreen({
                             {isStreakGame ? "Continue your streak!" : promptText}
                         </StyledText>
 
-                        {/* Title (e.g. "Hagia Sophia...") */}
-                        {eventTitle && !isStreakGame && (
+                        {/* Title (e.g. "Hagia Sophia...") - only show if clues enabled */}
+                        {cluesEnabled && eventTitle && !isStreakGame && (
                             <StyledText className="text-center font-display font-bold text-xl text-brand-blue dark:text-blue-400 mt-2">
                                 {eventTitle}
                             </StyledText>

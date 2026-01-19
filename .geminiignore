@@ -1,0 +1,17 @@
+# Ignore dependencies (CRITICAL for speed)
+node_modules/
+.expo/
+ios/Pods/
+android/app/build/
+
+# Ignore build outputs
+dist/
+build/
+web-build/
+
+# Ignore git history (The agent doesn't need to read 5,000 old commits)
+.git/
+
+# Ignore large assets/artifacts unless specifically asked
+client/Artifacts/
+assets/images/
