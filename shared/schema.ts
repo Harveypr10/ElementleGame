@@ -136,16 +136,16 @@ export const userProfiles = pgTable("user_profiles", {
   region: text("region").default("UK"), // ISO country code (e.g., 'UK', 'US')
   postcode: text("postcode"), // References postcodes.name1
   location: text("location"), // Geography type stored as text
-  
+
   // Postcode change tracking
   postcodeLastChangedAt: timestamp("postcode_last_changed_at", { withTimezone: true }),
-  
+
   // Category change tracking (Pro users)
   categoriesLastChangedAt: timestamp("categories_last_changed_at", { withTimezone: true }),
-  
+
   // Archive puzzle sync count
   archiveSyncedCount: integer("archive_synced_count").default(0),
-  
+
   // Authentication method tracking
   // signup_method: how user first signed up ('password', 'magic_link', 'google', 'apple')
   signupMethod: text("signup_method"), // null until first login recorded
@@ -159,10 +159,10 @@ export const userProfiles = pgTable("user_profiles", {
   appleLinked: boolean("apple_linked"),
   // NOTE: magic_link column exists in database but not in Drizzle schema
   // to avoid breaking queries if column doesn't exist. Queried separately.
-  
+
   // Foreign key to user_tier table (managed by Supabase trigger)
   userTierId: uuid("user_tier_id").references(() => userTier.id),
-  
+
   // Subscription end date - null means Standard tier or lifetime subscription
   // Managed by Supabase trigger (sync_user_profile_user_tier_id_and_end_date)
   subscriptionEndDate: timestamp("subscription_end_date", { withTimezone: true }),
@@ -174,15 +174,15 @@ export const userProfiles = pgTable("user_profiles", {
 }));
 
 export const insertUserProfileSchema = createInsertSchema(userProfiles)
-.omit({
-  createdAt: true,
-  updatedAt: true,
-})
-.extend({
-  acceptedTermsAt: z.date().optional().nullable(),
-  adsConsentUpdatedAt: z.date().optional().nullable(),
-  emailVerified: z.boolean().optional(),
-});
+  .omit({
+    createdAt: true,
+    updatedAt: true,
+  })
+  .extend({
+    acceptedTermsAt: z.date().optional().nullable(),
+    adsConsentUpdatedAt: z.date().optional().nullable(),
+    emailVerified: z.boolean().optional(),
+  });
 
 
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
@@ -195,31 +195,31 @@ export const userSubscriptions = pgTable("user_subscriptions", {
   id: uuid("id").primaryKey(), // UUID for Stripe integration
   userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
   userTierId: uuid("user_tier_id").references(() => userTier.id), // FK to user_tier.id (tier_id in brief)
-  
+
   // Stripe integration fields
   stripeCustomerId: text("stripe_customer_id"), // Stripe Customer ID
   stripeSubscriptionId: text("stripe_subscription_id").unique(), // Stripe Subscription ID (unique constraint)
   billingPeriod: text("billing_period"), // 'month', 'quarter', 'year'
-  
+
   // Payment and subscription state
   amountPaid: numeric("amount_paid", { precision: 10, scale: 2 }), // Latest invoice amount
   currency: text("currency").default("GBP"),
   expiresAt: timestamp("expires_at", { withTimezone: true }), // Stripe current_period_end
   autoRenew: boolean("auto_renew").notNull().default(true),
   status: text("status").default("active"), // 'active', 'canceled', 'incomplete', 'past_due'
-  
+
   // Discount tracking (from Stripe coupons/promotions)
   discountType: text("discount_type"), // 'fixed' or 'percent'
   discountValue: numeric("discount_value", { precision: 10, scale: 2 }), // GBP for fixed, % for percent
   discountDurationMonths: integer("discount_duration_months"), // Null for one-time
   discountExpiresAt: timestamp("discount_expires_at", { withTimezone: true }),
-  
+
   // Legacy fields (kept for backward compatibility)
   paymentReference: text("payment_reference"),
   source: text("source"), // e.g., 'stripe', 'apple', 'google'
   effectiveStartAt: timestamp("effective_start_at", { withTimezone: true }).defaultNow(),
   tier: text("tier"), // 'school', 'trial', 'pro' - nullable
-  
+
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 }, (table) => ({
@@ -284,19 +284,19 @@ export const userSettings = pgTable("user_settings", {
   soundsEnabled: boolean("sounds_enabled").default(false),
   darkMode: boolean("dark_mode").default(false),
   cluesEnabled: boolean("clues_enabled").default(true),
-  
+
   // Date format preferences
   dateFormatPreference: text("date_format_preference").default("ddmmyy"), // ddmmyy, mmddyy, ddmmyyyy, mmddyyyy
   useRegionDefault: boolean("use_region_default").default(true), // Auto-detect from region
   digitPreference: varchar("digit_preference", { length: 1 }).default("8"), // '6' or '8' for 6-digit vs 8-digit dates
-  
+
   // Category preferences (for future use)
   categoryPreferences: jsonb("category_preferences"),
-  
+
   // Streak saver preferences
   streakSaverActive: boolean("streak_saver_active").default(true), // Toggle for streak saver popup workflow
   holidaySaverActive: boolean("holiday_saver_active").default(true), // Toggle for holiday protection (Pro/Education only)
-  
+
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
@@ -452,7 +452,7 @@ export type GameAttemptRegion = typeof gameAttemptsRegion.$inferSelect;
 export const guessesRegion = pgTable("guesses_region", {
   id: serial("id").primaryKey(),
   gameAttemptId: integer("game_attempt_id").notNull().references(() => gameAttemptsRegion.id, { onDelete: "cascade" }),
-  guessValue: varchar("guess_value", { length: 8 }).notNull(), // Date string in user's format (DDMMYY or DDMMYYYY)
+  guessValue: varchar("guess_value", { length: 10 }).notNull(), // Date string in user's format (DDMMYY or DDMMYYYY)
   guessedAt: timestamp("guessed_at").defaultNow(),
 });
 
@@ -747,28 +747,28 @@ export const promotions = pgTable("promotions", {
   code: text("code").notNull().unique(), // Human-readable code like 'WELCOME60'
   name: text("name").notNull(), // Internal name
   description: text("description"),
-  
+
   // Tier and billing targeting
   tierType: text("tier_type"), // e.g., 'pro'
   billingPeriod: text("billing_period"), // 'month', 'quarter', 'year'
-  
+
   // Discount configuration
   discountType: text("discount_type").notNull(), // 'fixed' or 'percent'
   discountValue: numeric("discount_value", { precision: 10, scale: 2 }).notNull(), // GBP for fixed, % for percent
   discountDurationMonths: integer("discount_duration_months"), // null for once/trial, or repeating months
-  
+
   // Eligibility requirements
   requiresActive: boolean("requires_active").default(false), // User must have active subscription
   requiresLapsed: boolean("requires_lapsed").default(false), // User must be a lapsed subscriber
-  
+
   // Validity period
   startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
   endsAt: timestamp("ends_at", { withTimezone: true }), // null for no end date
-  
+
   // Stripe integration
   stripeCouponId: text("stripe_coupon_id"), // Stripe Coupon ID
   stripePromotionCodeId: text("stripe_promotion_code_id"), // Stripe Promotion Code ID
-  
+
   active: boolean("active").default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (table) => ({
@@ -791,10 +791,10 @@ export const userPromoGrants = pgTable("user_promo_grants", {
   userId: uuid("user_id").notNull().references(() => userProfiles.id, { onDelete: "cascade" }),
   promotionId: uuid("promotion_id").notNull().references(() => promotions.id, { onDelete: "cascade" }),
   promotionCode: text("promotion_code").notNull(), // Copy of promotions.code for quick lookup
-  
+
   // Grant status
   status: text("status").default("granted"), // 'granted', 'redeemed', 'expired', 'revoked'
-  
+
   // Timestamps
   grantedAt: timestamp("granted_at", { withTimezone: true }).defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }), // When the grant expires if not redeemed

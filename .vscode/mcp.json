@@ -1,0 +1,7 @@
+{
+    "servers": {
+        "supabase": {
+            "type": "stdio"
+        }
+    }
+}
