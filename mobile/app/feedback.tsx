@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { styled } from 'nativewind';
 import { ChevronLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useOptions } from '../lib/options';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -13,6 +14,7 @@ const StyledTextInput = styled(TextInput);
 
 export default function FeedbackScreen() {
     const router = useRouter();
+    const { textScale } = useOptions();
     const [feedback, setFeedback] = useState('');
     const [selectedType, setSelectedType] = useState<'feature' | 'general' | 'praise'>('general');
 
@@ -36,7 +38,7 @@ export default function FeedbackScreen() {
                     >
                         <ChevronLeft size={24} color="#1e293b" />
                     </StyledTouchableOpacity>
-                    <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white">Feedback</StyledText>
+                    <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Feedback</StyledText>
                     <StyledView className="w-10" />
                 </StyledView>
             </SafeAreaView>
@@ -44,7 +46,7 @@ export default function FeedbackScreen() {
             <StyledScrollView className="flex-1 px-4 py-4">
                 {/* Feedback Type */}
                 <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                    <StyledText className="text-sm font-n-bold text-slate-500 mb-2">Feedback Type</StyledText>
+                    <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-500 mb-2">Feedback Type</StyledText>
                     <StyledView className="flex-row gap-2">
                         {[
                             { value: 'feature' as const, label: 'Feature Request' },
@@ -55,11 +57,11 @@ export default function FeedbackScreen() {
                                 key={type.value}
                                 onPress={() => setSelectedType(type.value)}
                                 className={`flex-1 py-2 rounded-xl border items-center justify-center ${selectedType === type.value
-                                        ? 'bg-blue-500 border-blue-500'
-                                        : 'bg-white border-slate-200 dark:bg-slate-700 dark:border-slate-600'
+                                    ? 'bg-blue-500 border-blue-500'
+                                    : 'bg-white border-slate-200 dark:bg-slate-700 dark:border-slate-600'
                                     }`}
                             >
-                                <StyledText className={`font-n-semibold text-sm ${selectedType === type.value ? 'text-white' : 'text-slate-600 dark:text-slate-300'
+                                <StyledText style={{ fontSize: 14 * textScale }} className={`font-n-semibold ${selectedType === type.value ? 'text-white' : 'text-slate-600 dark:text-slate-300'
                                     }`}>
                                     {type.label}
                                 </StyledText>
@@ -70,9 +72,10 @@ export default function FeedbackScreen() {
 
                 {/* Feedback Text */}
                 <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                    <StyledText className="text-sm font-n-bold text-slate-500 mb-2">Your Feedback</StyledText>
+                    <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-500 mb-2">Your Feedback</StyledText>
                     <StyledTextInput
-                        className="bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-3 text-base text-slate-900 dark:text-white min-h-[120px]"
+                        style={{ fontSize: 16 * textScale }}
+                        className="bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-3 text-slate-900 dark:text-white min-h-[120px]"
                         placeholder="Tell us what you think..."
                         placeholderTextColor="#94a3b8"
                         value={feedback}
@@ -86,7 +89,7 @@ export default function FeedbackScreen() {
                     onPress={handleSubmit}
                     className="bg-blue-500 rounded-2xl py-3 px-4"
                 >
-                    <StyledText className="text-center font-n-bold text-white">Submit Feedback</StyledText>
+                    <StyledText style={{ fontSize: 16 * textScale }} className="text-center font-n-bold text-white">Submit Feedback</StyledText>
                 </StyledTouchableOpacity>
             </StyledScrollView>
         </StyledView>

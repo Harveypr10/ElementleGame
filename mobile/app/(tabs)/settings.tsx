@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/auth';
 import { useProfile } from '../../hooks/useProfile';
 import { useSubscription } from '../../hooks/useSubscription';
+import { useOptions } from '../../lib/options';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -33,6 +34,7 @@ export default function SettingsScreen() {
     const { user, isAuthenticated, signOut } = useAuth();
     const { profile, isAdmin } = useProfile();
     const { isPro, tierName, tierType } = useSubscription();
+    const { textScale } = useOptions();
 
     const [signingOut, setSigningOut] = useState(false);
 
@@ -129,7 +131,7 @@ export default function SettingsScreen() {
                     >
                         <ChevronLeft size={24} color="#1e293b" />
                     </StyledTouchableOpacity>
-                    <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white">Settings</StyledText>
+                    <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Settings</StyledText>
                     <StyledView className="w-10" />
                 </StyledView>
             </SafeAreaView>
@@ -146,8 +148,8 @@ export default function SettingsScreen() {
                             <User size={20} color="#2563eb" />
                         </StyledView>
                         <StyledView className="flex-1 ml-3">
-                            <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">Account</StyledText>
-                            <StyledText className="text-sm text-slate-500">
+                            <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Account</StyledText>
+                            <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-500">
                                 {user?.email || 'Not signed in'}
                             </StyledText>
                         </StyledView>
@@ -165,8 +167,8 @@ export default function SettingsScreen() {
                                 <Crown size={20} color="#ffffff" />
                             </StyledView>
                             <StyledView className="flex-1 ml-3">
-                                <StyledText className="text-base font-n-bold text-white">Pro</StyledText>
-                                <StyledText className="text-sm text-white opacity-80">Manage subscription</StyledText>
+                                <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-white">Pro</StyledText>
+                                <StyledText style={{ fontSize: 14 * textScale }} className="text-white opacity-80">Manage subscription</StyledText>
                             </StyledView>
                             <ChevronRight size={20} color="#ffffff" />
                         </StyledTouchableOpacity>
@@ -179,8 +181,8 @@ export default function SettingsScreen() {
                                 <Crown size={20} color="#d97706" />
                             </StyledView>
                             <StyledView className="flex-1 ml-3">
-                                <StyledText className="text-base font-n-bold text-amber-900 dark:text-amber-100">Go Pro</StyledText>
-                                <StyledText className="text-sm text-amber-700 dark:text-amber-300">Unlock all features</StyledText>
+                                <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-amber-900 dark:text-amber-100">Go Pro</StyledText>
+                                <StyledText style={{ fontSize: 14 * textScale }} className="text-amber-700 dark:text-amber-300">Unlock all features</StyledText>
                             </StyledView>
                             <ChevronRight size={20} color="#d97706" />
                         </StyledTouchableOpacity>
@@ -196,8 +198,8 @@ export default function SettingsScreen() {
                                 <Grid size={20} color="#ea580c" />
                             </StyledView>
                             <StyledView className="flex-1 ml-3">
-                                <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">Categories</StyledText>
-                                <StyledText className="text-sm text-slate-500">Customize your puzzles</StyledText>
+                                <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Categories</StyledText>
+                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-500">Customize your puzzles</StyledText>
                             </StyledView>
                             <ChevronRight size={20} color="#94a3b8" />
                         </StyledTouchableOpacity>
@@ -213,8 +215,8 @@ export default function SettingsScreen() {
                                 <Flame size={20} color="#f97316" />
                             </StyledView>
                             <StyledView className="flex-1 ml-3">
-                                <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">Streak Savers</StyledText>
-                                <StyledText className="text-sm text-slate-500">View your allowances</StyledText>
+                                <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Streak Savers</StyledText>
+                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-500">View your allowances</StyledText>
                             </StyledView>
                             <ChevronRight size={20} color="#94a3b8" />
                         </StyledTouchableOpacity>
@@ -223,31 +225,31 @@ export default function SettingsScreen() {
 
                 {/* Group 2: Preferences */}
                 <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                    <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-2">Preferences</StyledText>
+                    <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-500 uppercase tracking-wide mb-2">Preferences</StyledText>
 
                     <StyledTouchableOpacity
                         onPress={handleOptions}
                         className="flex-row items-center py-3"
                     >
                         <SettingsIcon size={20} color="#64748b" />
-                        <StyledText className="flex-1 ml-3 text-base font-n-medium text-slate-900 dark:text-white">Options</StyledText>
+                        <StyledText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium text-slate-900 dark:text-white">Options</StyledText>
                         <ChevronRight size={20} color="#94a3b8" />
                     </StyledTouchableOpacity>
                 </StyledView>
 
                 {/* Group 3: Help & Legal */}
                 <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                    <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-2">Help & Info</StyledText>
+                    <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-500 uppercase tracking-wide mb-2">Help & Info</StyledText>
 
                     <StyledTouchableOpacity onPress={handleBugReport} className="flex-row items-center py-2.5">
                         <Bug size={18} color="#64748b" />
-                        <StyledText className="flex-1 ml-3 text-base font-n-medium text-slate-900 dark:text-white">Report a Bug</StyledText>
+                        <StyledText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium text-slate-900 dark:text-white">Report a Bug</StyledText>
                         <ChevronRight size={18} color="#94a3b8" />
                     </StyledTouchableOpacity>
 
                     <StyledTouchableOpacity onPress={handleFeedback} className="flex-row items-center py-2.5">
                         <MessageSquare size={18} color="#64748b" />
-                        <StyledText className="flex-1 ml-3 text-base font-n-medium text-slate-900 dark:text-white">Feedback</StyledText>
+                        <StyledText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium text-slate-900 dark:text-white">Feedback</StyledText>
                         <ChevronRight size={18} color="#94a3b8" />
                     </StyledTouchableOpacity>
 
@@ -255,19 +257,19 @@ export default function SettingsScreen() {
 
                     <StyledTouchableOpacity onPress={handleAbout} className="flex-row items-center py-2.5">
                         <Info size={18} color="#64748b" />
-                        <StyledText className="flex-1 ml-3 text-base font-n-medium text-slate-900 dark:text-white">About</StyledText>
+                        <StyledText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium text-slate-900 dark:text-white">About</StyledText>
                         <ChevronRight size={18} color="#94a3b8" />
                     </StyledTouchableOpacity>
 
                     <StyledTouchableOpacity onPress={handlePrivacy} className="flex-row items-center py-2.5">
                         <Lock size={18} color="#64748b" />
-                        <StyledText className="flex-1 ml-3 text-base font-n-medium text-slate-900 dark:text-white">Privacy</StyledText>
+                        <StyledText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium text-slate-900 dark:text-white">Privacy</StyledText>
                         <ChevronRight size={18} color="#94a3b8" />
                     </StyledTouchableOpacity>
 
                     <StyledTouchableOpacity onPress={handleTerms} className="flex-row items-center py-2.5">
                         <FileText size={18} color="#64748b" />
-                        <StyledText className="flex-1 ml-3 text-base font-n-medium text-slate-900 dark:text-white">Terms</StyledText>
+                        <StyledText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium text-slate-900 dark:text-white">Terms</StyledText>
                         <ChevronRight size={18} color="#94a3b8" />
                     </StyledTouchableOpacity>
                 </StyledView>
@@ -283,8 +285,8 @@ export default function SettingsScreen() {
                             <Shield size={20} color="#ffffff" />
                         </StyledView>
                         <StyledView className="flex-1 ml-3">
-                            <StyledText className="text-base font-n-bold text-white">Admin Panel</StyledText>
-                            <StyledText className="text-sm text-white opacity-80">Manage application</StyledText>
+                            <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-white">Admin Panel</StyledText>
+                            <StyledText style={{ fontSize: 14 * textScale }} className="text-white opacity-80">Manage application</StyledText>
                         </StyledView>
                         <ChevronRight size={20} color="#ffffff" />
                     </StyledTouchableOpacity>
@@ -298,7 +300,7 @@ export default function SettingsScreen() {
                         className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 mt-2 flex-row items-center justify-center"
                     >
                         <LogOut size={20} color="#dc2626" />
-                        <StyledText className="text-base font-n-bold text-red-600 dark:text-red-400 ml-2">
+                        <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-red-600 dark:text-red-400 ml-2">
                             {signingOut ? 'Signing Out...' : 'Sign Out'}
                         </StyledText>
                     </StyledTouchableOpacity>

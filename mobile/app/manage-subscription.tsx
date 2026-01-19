@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSubscription } from '../hooks/useSubscription';
 import { useStreakSaverStatus } from '../hooks/useStreakSaverStatus';
 import { useProfile } from '../hooks/useProfile';
+import { useOptions } from '../lib/options';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -18,6 +19,7 @@ export default function ManageSubscriptionScreen() {
     const { subscription, isPro, tierName, tierType, streakSavers, holidaySavers, holidayDurationDays } = useSubscription();
     const { status, holidayActive, holidayStartDate, holidayEndDate } = useStreakSaverStatus();
     const { profile } = useProfile();
+    const { textScale } = useOptions();
 
     const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
 
@@ -44,7 +46,7 @@ export default function ManageSubscriptionScreen() {
                         >
                             <ChevronLeft size={24} color="#1e293b" />
                         </StyledTouchableOpacity>
-                        <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white">Subscription</StyledText>
+                        <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Subscription</StyledText>
                         <StyledView className="w-10" />
                     </StyledView>
                 </SafeAreaView>
@@ -57,15 +59,15 @@ export default function ManageSubscriptionScreen() {
                                 <Crown size={24} color="#64748b" />
                             </StyledView>
                             <StyledView className="flex-1">
-                                <StyledText className="text-sm text-slate-500">Subscription</StyledText>
-                                <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white">Standard</StyledText>
+                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-500">Subscription</StyledText>
+                                <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Standard</StyledText>
                             </StyledView>
                         </StyledView>
                     </StyledView>
 
                     {/* Allowances Card */}
                     <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                        <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-3">Your Allowances</StyledText>
+                        <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-500 uppercase tracking-wide mb-3">Your Allowances</StyledText>
 
                         {/* Streak Savers */}
                         <StyledView className="flex-row items-start mb-3">
@@ -73,11 +75,11 @@ export default function ManageSubscriptionScreen() {
                                 <Flame size={20} color="#f59e0b" />
                             </StyledView>
                             <StyledView className="flex-1">
-                                <StyledText className="text-base font-n-bold text-slate-900 dark:text-white mb-1">Streak Savers</StyledText>
-                                <StyledText className="text-sm text-slate-600 dark:text-slate-400 mb-1">
+                                <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-slate-900 dark:text-white mb-1">Streak Savers</StyledText>
+                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-600 dark:text-slate-400 mb-1">
                                     {regionLabel}: <StyledText className="font-n-semibold">{Math.max(0, 1 - regionUsed)} of 1 remaining</StyledText>
                                 </StyledText>
-                                <StyledText className="text-sm text-slate-600 dark:text-slate-400">
+                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-600 dark:text-slate-400">
                                     Personal: <StyledText className="font-n-semibold">{Math.max(0, 1 - userUsed)} of 1 remaining</StyledText>
                                 </StyledText>
                             </StyledView>
@@ -89,9 +91,9 @@ export default function ManageSubscriptionScreen() {
                                 <Umbrella size={20} color="#3b82f6" />
                             </StyledView>
                             <StyledView className="flex-1">
-                                <StyledText className="text-base font-n-bold text-slate-400 mb-1">Holiday Mode</StyledText>
-                                <StyledText className="text-sm text-slate-500">14-day protection: 0 of 0 remaining</StyledText>
-                                <StyledText className="text-xs text-slate-400 mt-1">Pro members can pause their streak</StyledText>
+                                <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-slate-400 mb-1">Holiday Mode</StyledText>
+                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-500">14-day protection: 0 of 0 remaining</StyledText>
+                                <StyledText style={{ fontSize: 12 * textScale }} className="text-slate-400 mt-1">Pro members can pause their streak</StyledText>
                             </StyledView>
                         </StyledView>
                     </StyledView>

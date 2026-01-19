@@ -304,7 +304,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
 
 export default function ArchiveScreen() {
     const router = useRouter();
-    const { gameMode } = useOptions();
+    const { gameMode, textScale } = useOptions();
     const flatListRef = useRef<FlatList>(null);
     const { user } = useAuth(); // Need user for min date logic maybe?
 
@@ -474,7 +474,7 @@ export default function ArchiveScreen() {
                         </StyledTouchableOpacity>
                     </StyledView>
 
-                    <StyledText className="text-4xl font-n-bold text-slate-900 dark:text-white mb-2 pt-2 font-heading">
+                    <StyledText style={{ fontSize: 36 * textScale }} className="font-n-bold text-slate-900 dark:text-white mb-2 pt-2 font-heading">
                         Archive
                     </StyledText>
                 </StyledView>
@@ -495,7 +495,7 @@ export default function ArchiveScreen() {
                         onPress={() => setModalVisible(true)}
                         className="bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl"
                     >
-                        <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white">
+                        <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-900 dark:text-white">
                             {currentTitle}
                         </StyledText>
                     </StyledTouchableOpacity>
@@ -513,7 +513,7 @@ export default function ArchiveScreen() {
                 {/* Week Headers */}
                 <StyledView className="flex-row justify-between mb-2 px-4 mt-2">
                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                        <StyledText key={day} className="w-[14%] text-center text-sm font-n-semibold text-slate-400">
+                        <StyledText key={day} style={{ fontSize: 14 * textScale }} className="w-[14%] text-center font-n-semibold text-slate-400">
                             {day}
                         </StyledText>
                     ))}
@@ -545,7 +545,7 @@ export default function ArchiveScreen() {
                             onPress={returnToToday}
                             className="bg-white dark:bg-slate-800 px-6 py-3 rounded-full shadow-lg border border-slate-100 dark:border-slate-700"
                         >
-                            <StyledText className="text-[#7DAAE8] font-n-bold text-base">
+                            <StyledText style={{ fontSize: 16 * textScale }} className="text-[#7DAAE8] font-n-bold">
                                 Return to today
                             </StyledText>
                         </StyledTouchableOpacity>

@@ -19,7 +19,7 @@ export default function OptionsScreen() {
     const { isAuthenticated } = useAuth();
     const { isPro } = useSubscription();
     const {
-        textSize, setTextSize,
+        textSize, setTextSize, textScale,
         soundsEnabled, toggleSounds,
         darkMode, toggleDarkMode,
         cluesEnabled, toggleClues,
@@ -238,7 +238,7 @@ export default function OptionsScreen() {
                     >
                         <ChevronLeft size={24} color="#1e293b" />
                     </StyledTouchableOpacity>
-                    <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white">Options</StyledText>
+                    <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Options</StyledText>
                     <StyledView className="w-10" />
                 </StyledView>
             </SafeAreaView>

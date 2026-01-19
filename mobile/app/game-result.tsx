@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
+import { useOptions } from '../lib/options';
 
 // Hamster images
 const WinHamsterImg = require('../assets/hamster.png');
@@ -18,6 +19,7 @@ const StyledImage = styled(Image);
 
 export default function GameResultScreen() {
     const router = useRouter();
+    const { textScale } = useOptions();
     const params = useLocalSearchParams();
 
     // Parse params
@@ -66,7 +68,7 @@ export default function GameResultScreen() {
                     <View className="flex-1 items-center w-full">
                         {/* Header */}
                         <StyledView className="items-center mb-6">
-                            <StyledText className="text-3xl font-n-bold text-slate-800 dark:text-white text-center">
+                            <StyledText style={{ fontSize: 30 * textScale }} className="font-n-bold text-slate-800 dark:text-white text-center">
                                 {isWin ? "Congratulations!" : "Unlucky!"}
                             </StyledText>
                         </StyledView>
@@ -82,17 +84,17 @@ export default function GameResultScreen() {
 
                         {/* Date */}
                         <StyledView className="items-center mb-4">
-                            <StyledText className="text-2xl font-n-bold text-slate-700 dark:text-slate-200 text-center">
+                            <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-700 dark:text-slate-200 text-center">
                                 {formattedDate}
                             </StyledText>
                         </StyledView>
 
                         {/* Description Box */}
                         <StyledView className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl w-full mb-4 border border-slate-200 dark:border-slate-700">
-                            <StyledText className="font-n-semibold text-lg text-slate-900 dark:text-white text-center mb-2">
+                            <StyledText style={{ fontSize: 18 * textScale }} className="font-n-semibold text-slate-900 dark:text-white text-center mb-2">
                                 {eventTitle}
                             </StyledText>
-                            <StyledText className="text-sm text-slate-500 dark:text-slate-400 text-center">
+                            <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-500 dark:text-slate-400 text-center">
                                 {eventDescription || "A historic day to remember!"}
                             </StyledText>
                         </StyledView>

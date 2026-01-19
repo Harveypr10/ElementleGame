@@ -2,7 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { useAuth } from './auth';
-import { Appearance, ColorSchemeName } from 'react-native';
+import { useColorScheme } from 'nativewind';
+import soundManager from './soundManager';
+import { getTextScale } from './textScaling';
 
 export type DateFormatOrder = 'ddmmyy' | 'mmddyy';
 export type DateLength = 6 | 8;
@@ -42,6 +44,9 @@ type OptionsContextType = {
     holidaySaverActive: boolean;
     toggleHolidaySaver: () => void;
 
+    // Computed from textSize
+    textScale: number;
+
     loading: boolean;
 };
 
@@ -64,11 +69,13 @@ const OptionsContext = createContext<OptionsContextType>({
     toggleStreakSaver: () => { },
     holidaySaverActive: true,
     toggleHolidaySaver: () => { },
+    textScale: 1.0,
     loading: true,
 });
 
 export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
+    const { setColorScheme } = useColorScheme();
 
     // Default States
     const [textSize, setTextSizeState] = useState<TextSize>('medium');
@@ -86,11 +93,16 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
     // Apply dark mode when it changes
     useEffect(() => {
-        console.log('[Options] Applying dark mode:', { darkMode, scheme: darkMode ? 'dark' : 'light' });
-        // Use React Native's Appearance API to set color scheme
-        const colorScheme: ColorSchemeName = darkMode ? 'dark' : 'light';
-        Appearance.setColorScheme(colorScheme);
-    }, [darkMode]);
+        const scheme = darkMode ? 'dark' : 'light';
+        console.log('[Options] Applying dark mode:', { darkMode, scheme });
+        setColorScheme(scheme);
+    }, [darkMode, setColorScheme]);
+
+    // Sync sound settings with SoundManager
+    useEffect(() => {
+        soundManager.setEnabled(soundsEnabled);
+        console.log('[Options] Sound manager synced:', soundsEnabled);
+    }, [soundsEnabled]);
 
     // Track if we've loaded initially to prevent re-loading on every change
     const hasLoadedRef = useRef(false);
@@ -100,6 +112,10 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         if (!hasLoadedRef.current) {
             console.log('[Options] Running initial loadOptions');
             loadOptions();
+            // Initialize sound manager
+            soundManager.initialize().catch(err => {
+                console.error('[Options] Failed to initialize sound manager:', err);
+            });
             hasLoadedRef.current = true;
         }
     }, []); // Empty deps = run once on mount
@@ -144,8 +160,8 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
                 if (data) {
                     // Apply DB settings (override AsyncStorage)
-                    if (data.date_format_length) setDateLengthState(data.date_format_length);
-                    if (data.date_format_order) setDateFormatOrderState(data.date_format_order);
+                    if (data.digit_preference) setDateLengthState(parseInt(data.digit_preference) as DateLength);
+                    if (data.date_format_preference) setDateFormatOrderState(data.date_format_preference as DateFormatOrder);
                     if (data.text_size) setTextSizeState(data.text_size);
                     if (data.sounds_enabled !== undefined) setSoundsEnabled(data.sounds_enabled);
                     if (data.dark_mode !== undefined) setDarkModeState(data.dark_mode);
@@ -237,7 +253,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         persist('opt_date_length', length.toString());
         if (user) {
             supabase.from('user_settings')
-                .update({ date_format_length: length })
+                .update({ digit_preference: length.toString() })
                 .eq('user_id', user.id)
                 .then(({ error }) => { if (error) console.log('[Options] Error updating date length:', error) });
         }
@@ -248,7 +264,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         persist('opt_date_order', order);
         if (user) {
             supabase.from('user_settings')
-                .update({ date_format_order: order })
+                .update({ date_format_preference: order })
                 .eq('user_id', user.id)
                 .then(({ error }) => { if (error) console.log('[Options] Error updating date order:', error) });
         }
@@ -289,6 +305,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             gameMode, setGameMode,
             streakSaverActive, toggleStreakSaver,
             holidaySaverActive, toggleHolidaySaver,
+            textScale: getTextScale(textSize),
             loading
         }}>
             {children}
