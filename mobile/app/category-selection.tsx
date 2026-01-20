@@ -4,15 +4,15 @@
  * Allows users to select their interest categories for personalized puzzles
  */
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { styled } from 'nativewind';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Check, Loader2 } from 'lucide-react-native';
-import hapticsManager from '../../lib/hapticsManager';
-import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../lib/auth';
+import { Check, Loader2, ChevronLeft } from 'lucide-react-native';
+import hapticsManager from '../lib/hapticsManager';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -30,9 +30,11 @@ export default function CategorySelectionScreen() {
     const { user } = useAuth();
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+    const [initialCategories, setInitialCategories] = useState<number[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [generating, setGenerating] = useState(false);
+    const [hasSyncedFromApi, setHasSyncedFromApi] = useState(false);
 
     // Fetch categories and user's selections on mount
     useEffect(() => {
@@ -61,6 +63,7 @@ export default function CategorySelectionScreen() {
     const loadUserCategories = async () => {
         if (!user) {
             setLoading(false);
+            setHasSyncedFromApi(true);
             return;
         }
 
@@ -76,11 +79,13 @@ export default function CategorySelectionScreen() {
                 const categoryIds = data.map(p => p.category_id);
                 console.log('[CategorySelection] Loaded user selections:', categoryIds);
                 setSelectedCategories(categoryIds);
+                setInitialCategories(categoryIds); // Store initial state
             }
         } catch (err) {
             console.error('[CategorySelection] Load error:', err);
         } finally {
             setLoading(false);
+            setHasSyncedFromApi(true);
         }
     };
 
@@ -93,10 +98,32 @@ export default function CategorySelectionScreen() {
         );
     };
 
+    // Check if categories have changed from initial selection
+    const categoriesHaveChanged = useMemo(() => {
+        if (!hasSyncedFromApi) return false;
+
+        // For first-time selection (no initial categories), allow generation
+        if (initialCategories.length === 0) return true;
+
+        // Check if sizes differ
+        if (selectedCategories.length !== initialCategories.length) return true;
+
+        // Check if all initial categories are still selected
+        return !initialCategories.every(catId => selectedCategories.includes(catId));
+    }, [selectedCategories, initialCategories, hasSyncedFromApi]);
+
+    // Button enabled only when 3+ categories AND they differ from initial
+    const canGenerate = selectedCategories.length >= 3 && categoriesHaveChanged;
+
     const handleContinue = async () => {
         if (selectedCategories.length < 3) {
             hapticsManager.error();
             console.log('[CategorySelection] Please select at least 3 categories');
+            return;
+        }
+
+        if (!categoriesHaveChanged) {
+            console.log('[CategorySelection] No changes detected');
             return;
         }
 
@@ -173,19 +200,36 @@ export default function CategorySelectionScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
+            {/* Back Button */}
+            <StyledTouchableOpacity
+                onPress={() => router.back()}
+                className="absolute left-4 top-12 z-10 w-12 h-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800"
+            >
+                <ChevronLeft size={24} color="#1e293b" />
+            </StyledTouchableOpacity>
+
+            {/* Hamster Image */}
+            <StyledView className="absolute right-4 top-8 z-10">
+                <Image
+                    source={require('../assets/Question-Hamster-Cutout.png')}
+                    style={{ width: 80, height: 80 }}
+                    resizeMode="contain"
+                />
+            </StyledView>
+
             <StyledView className="flex-1 px-6">
-                <StyledView className="py-6">
-                    <StyledText className="text-3xl font-n-bold text-slate-900 dark:text-white mb-2">
-                        Choose Your Interests
+                <StyledView className="py-6 pt-20">
+                    <StyledText className="text-3xl font-n-bold text-slate-900 dark:text-white mb-2 text-center">
+                        Select Your{'\n'}Categories
                     </StyledText>
-                    <StyledText className="text-slate-600 dark:text-slate-400 font-n-medium">
-                        Select at least 3 categories for personalized puzzles
+                    <StyledText className="text-slate-600 dark:text-slate-400 font-n-medium text-center">
+                        Choose at least 3 categories
                     </StyledText>
                 </StyledView>
 
                 {/* Categories Grid */}
                 <StyledScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                    <StyledView className="flex-row flex-wrap gap-3 pb-6">
+                    <StyledView className="flex-row flex-wrap gap-2 pb-6">
                         {categories.map(category => {
                             const isSelected = selectedCategories.includes(category.id);
 
@@ -194,32 +238,20 @@ export default function CategorySelectionScreen() {
                                     key={category.id}
                                     onPress={() => toggleCategory(category.id)}
                                     className={`
-                                        flex-1 min-w-[45%] p-4 rounded-2xl border-2
+                                        flex-1 min-w-[48%] px-4 py-3 rounded-xl items-center justify-center
                                         ${isSelected
-                                            ? 'bg-blue-500 border-blue-600 dark:bg-blue-600 dark:border-blue-700'
-                                            : 'bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700'
+                                            ? 'bg-blue-500 dark:bg-blue-600'
+                                            : 'bg-slate-200 dark:bg-slate-700'
                                         }
                                     `}
+                                    style={{ minHeight: 56 }}
                                 >
-                                    <StyledView className="flex-row items-center justify-between mb-2">
-                                        <StyledText className={`
-                                            text-lg font-n-bold
-                                            ${isSelected ? 'text-white' : 'text-slate-900 dark:text-white'}
-                                        `}>
-                                            {category.name}
-                                        </StyledText>
-                                        {isSelected && (
-                                            <Check size={20} color="white" />
-                                        )}
-                                    </StyledView>
-                                    {category.description && (
-                                        <StyledText className={`
-                                            text-sm
-                                            ${isSelected ? 'text-blue-100' : 'text-slate-500 dark:text-slate-400'}
-                                        `}>
-                                            {category.description}
-                                        </StyledText>
-                                    )}
+                                    <StyledText className={`
+                                        text-sm font-n-bold text-center
+                                        ${isSelected ? 'text-white' : 'text-slate-700 dark:text-slate-300'}
+                                    `}>
+                                        {category.name}
+                                    </StyledText>
                                 </StyledTouchableOpacity>
                             );
                         })}
@@ -227,17 +259,17 @@ export default function CategorySelectionScreen() {
                 </StyledScrollView>
 
                 {/* Bottom Action */}
-                <StyledView className="py-4 border-t border-slate-200 dark:border-slate-800">
-                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mb-3 text-center">
-                        {selectedCategories.length} of {categories.length} selected (minimum 3)
+                <StyledView className="py-4">
+                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mb-3 text-center font-n-medium">
+                        {selectedCategories.length} {selectedCategories.length === 1 ? 'Category' : 'Categories'} Selected
                     </StyledText>
 
                     <StyledTouchableOpacity
                         onPress={handleContinue}
-                        disabled={selectedCategories.length < 3 || saving || generating}
+                        disabled={!canGenerate || saving || generating}
                         className={`
-                            py-4 rounded-xl items-center
-                            ${selectedCategories.length >= 3 && !saving && !generating
+                            py-4 rounded-full items-center
+                            ${canGenerate && !saving && !generating
                                 ? 'bg-blue-500 dark:bg-blue-600'
                                 : 'bg-slate-300 dark:bg-slate-700'
                             }
@@ -247,15 +279,15 @@ export default function CategorySelectionScreen() {
                             <StyledView className="flex-row items-center">
                                 <Loader2 size={20} color="white" className="mr-2" />
                                 <StyledText className="text-white font-n-bold text-lg">
-                                    {generating ? 'Generating Questions...' : 'Saving...'}
+                                    {generating ? 'Generating...' : 'Saving...'}
                                 </StyledText>
                             </StyledView>
                         ) : (
                             <StyledText className={`
                                 font-n-bold text-lg
-                                ${selectedCategories.length >= 3 ? 'text-white' : 'text-slate-500 dark:text-slate-400'}
+                                ${canGenerate ? 'text-white' : 'text-slate-500 dark:text-slate-400'}
                             `}>
-                                Continue
+                                {initialCategories.length === 0 ? 'Generate' : 'Re-Generate'}
                             </StyledText>
                         )}
                     </StyledTouchableOpacity>
