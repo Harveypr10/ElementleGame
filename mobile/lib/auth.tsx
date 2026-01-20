@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { migrateGuestDataToUser } from './guestMigration';
 
 type AuthContextType = {
     session: Session | null;
@@ -156,6 +157,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
                 } catch (err) {
                     console.error('[Auth] Error updating password_created:', err);
+                }
+
+                // Migrate guest data if converting from guest mode
+                try {
+                    console.log('[Auth] Starting guest data migration for user:', data.user.id);
+                    const migrationResult = await migrateGuestDataToUser(data.user.id);
+                    if (migrationResult.success) {
+                        console.log(`[Auth] Guest migration successful: ${migrationResult.migratedGames} games migrated`);
+                    } else {
+                        console.error('[Auth] Guest migration failed:', migrationResult.error);
+                    }
+                } catch (migrationError) {
+                    console.error('[Auth] Error during guest migration:', migrationError);
                 }
             }
 

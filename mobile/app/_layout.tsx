@@ -6,7 +6,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../lib/auth';
 import { OptionsProvider } from '../lib/options';
 import { StreakSaverProvider } from '../contexts/StreakSaverContext';
+import { ToastProvider } from '../contexts/ToastContext';
+import { ConversionPromptProvider } from '../contexts/ConversionPromptContext';
+import { GuessCacheProvider } from '../contexts/GuessCacheContext';
 import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ConversionPromptModal } from '../components/ConversionPromptModal';
 import '../lib/typography'; // Global Font Patch
 
 /* 
@@ -89,37 +94,46 @@ export default function Layout() {
     }
 
     return (
-        <SafeAreaProvider>
-            <QueryClientProvider client={queryClient}>
-                <AuthProvider>
-                    <StreakSaverProvider>
-                        <OptionsProvider>
-                            <NavigationGuard>
-                                <Stack screenOptions={{ headerShown: false }}>
-                                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                    <Stack.Screen name="game" options={{ headerShown: false }} />
-                                    <Stack.Screen
-                                        name="archive"
-                                        options={{
-                                            headerShown: false,
-                                            presentation: 'card'
-                                        }}
-                                    />
-                                    <Stack.Screen
-                                        name="stats"
-                                        options={{
-                                            headerShown: false,
-                                            presentation: 'card'
-                                        }}
-                                    />
-                                    <Stack.Screen name="index" options={{ headerShown: false }} />
-                                </Stack>
-                            </NavigationGuard>
-                        </OptionsProvider>
-                    </StreakSaverProvider>
-                </AuthProvider>
-            </QueryClientProvider>
-        </SafeAreaProvider>
+        <ErrorBoundary>
+            <ToastProvider>
+                <SafeAreaProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <AuthProvider>
+                            <ConversionPromptProvider>
+                                <GuessCacheProvider>
+                                    <StreakSaverProvider>
+                                        <OptionsProvider>
+                                            <NavigationGuard>
+                                                <Stack screenOptions={{ headerShown: false }}>
+                                                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                                    <Stack.Screen name="game" options={{ headerShown: false }} />
+                                                    <Stack.Screen
+                                                        name="archive"
+                                                        options={{
+                                                            headerShown: false,
+                                                            presentation: 'card'
+                                                        }}
+                                                    />
+                                                    <Stack.Screen
+                                                        name="stats"
+                                                        options={{
+                                                            headerShown: false,
+                                                            presentation: 'card'
+                                                        }}
+                                                    />
+                                                    <Stack.Screen name="index" options={{ headerShown: false }} />
+                                                </Stack>
+                                            </NavigationGuard>
+                                            <ConversionPromptModal />
+                                        </OptionsProvider>
+                                    </StreakSaverProvider>
+                                </GuessCacheProvider>
+                            </ConversionPromptProvider>
+                        </AuthProvider>
+                    </QueryClientProvider>
+                </SafeAreaProvider>
+            </ToastProvider>
+        </ErrorBoundary>
     );
 }

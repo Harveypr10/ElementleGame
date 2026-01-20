@@ -23,6 +23,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { useOptions } from '../lib/options';
 import { MonthSelectModal } from '../components/archive/MonthSelectModal';
+import { GuestRestrictionModal } from '../components/GuestRestrictionModal';
+import { hasFeatureAccess } from '../lib/featureGates';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -306,7 +308,7 @@ export default function ArchiveScreen() {
     const router = useRouter();
     const { gameMode, textScale } = useOptions();
     const flatListRef = useRef<FlatList>(null);
-    const { user } = useAuth(); // Need user for min date logic maybe?
+    const { user, isGuest } = useAuth();
 
     // Initial Loading State for MinDate
     const [initializing, setInitializing] = useState(true);
@@ -315,6 +317,14 @@ export default function ArchiveScreen() {
 
     // Modal State
     const [modalVisible, setModalVisible] = useState(false);
+    const [guestModalVisible, setGuestModalVisible] = useState(false);
+
+    // Check for guest mode on mount
+    useEffect(() => {
+        if (isGuest && !hasFeatureAccess('archive', !isGuest)) {
+            setGuestModalVisible(true);
+        }
+    }, [isGuest]);
 
     // Fetch Min Date on Mount
     useEffect(() => {
@@ -559,6 +569,16 @@ export default function ArchiveScreen() {
                     minDate={minDate}
                     maxDate={today}
                     onSelectDate={handleDateSelect}
+                />
+
+                <GuestRestrictionModal
+                    visible={guestModalVisible}
+                    onClose={() => {
+                        setGuestModalVisible(false);
+                        router.back();
+                    }}
+                    feature="Archive"
+                    description="Sign up to access past puzzles and track your history!"
                 />
             </SafeAreaView>
         </StyledView>

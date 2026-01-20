@@ -83,8 +83,7 @@ export default function SettingsScreen() {
     };
 
     const handleCategories = () => {
-        // TODO: Navigate to category selection
-        Alert.alert('Categories', 'Category selection coming soon!');
+        router.push('/category-selection');
     };
 
     const handleStreakSaver = () => {

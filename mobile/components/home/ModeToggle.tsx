@@ -14,9 +14,10 @@ interface ModeToggleProps {
     scrollX: Animated.Value; // The horizontal scroll value from the parent ScrollView
     screenWidth: number; // To calculate interpolation
     userLabel?: string;
+    regionLabel?: string;
 }
 
-export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel }: ModeToggleProps) {
+export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel, regionLabel = 'UK Edition' }: ModeToggleProps) {
     const [containerWidth, setContainerWidth] = useState(0);
     const [activeMode, setActiveMode] = useState(mode);
 
@@ -86,7 +87,7 @@ export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel
                 }}
             >
                 <StyledText className={`${activeMode === 'REGION' ? 'font-n-bold text-slate-900' : 'font-n-medium text-slate-500'}`}>
-                    UK Edition
+                    {regionLabel}
                 </StyledText>
             </StyledTouchableOpacity>
 

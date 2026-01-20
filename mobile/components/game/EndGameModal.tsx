@@ -3,6 +3,10 @@ import { View, Text, Modal, TouchableOpacity, Share, Image, Animated } from 'rea
 import { styled } from 'nativewind';
 import { X } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
+import hapticsManager from '../../lib/hapticsManager';
+import soundManager from '../../lib/soundManager';
+import { shareGameResult } from '../../lib/share';
+import { useToast } from '../../contexts/ToastContext';
 
 // Import SVGs
 import StatsHamster from '../../assets/Maths-Hamster-Green.svg';
@@ -32,6 +36,7 @@ interface GameResultModalProps {
     onPlayAgain?: () => void;
     isLocalMode?: boolean;
     awardedBadges?: any[];
+    gameMode?: 'REGION' | 'USER';
 }
 
 export function EndGameModal({
@@ -48,7 +53,8 @@ export function EndGameModal({
     onViewArchive,
     onPlayAgain,
     isLocalMode = false,
-    awardedBadges = []
+    awardedBadges = [],
+    gameMode = 'REGION'
 }: GameResultModalProps) {
     // Colors and hamster images based on mode (matching web client)
     const statsColor = isLocalMode ? "#93cd78" : "#A4DB57"; // Green (lighter for USER)
@@ -61,6 +67,16 @@ export function EndGameModal({
     useEffect(() => {
         if (isOpen) {
             setIsClosing(false);
+
+            // Trigger haptics and sound for win/loss
+            if (isWin) {
+                hapticsManager.success();
+                soundManager.play('game_win');
+            } else {
+                hapticsManager.warning();
+                soundManager.play('game_lose');
+            }
+
             Animated.timing(fadeAnim, {
                 toValue: 1,
                 duration: 600,

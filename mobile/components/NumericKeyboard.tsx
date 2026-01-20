@@ -65,6 +65,7 @@ export function NumericKeyboard({
     const renderKey = (digit: string) => (
         <StyledTouchableOpacity
             key={digit}
+            testID={`keyboard-digit-${digit}`}
             onPress={() => {
                 hapticsManager.light();
                 soundManager.play('tap');
@@ -87,6 +88,7 @@ export function NumericKeyboard({
             </View>
             <View className="flex-row mt-1">
                 <StyledTouchableOpacity
+                    testID="keyboard-enter"
                     onPress={() => {
                         hapticsManager.medium();
                         onEnter();
@@ -98,6 +100,7 @@ export function NumericKeyboard({
                 </StyledTouchableOpacity>
 
                 <StyledTouchableOpacity
+                    testID="keyboard-clear"
                     onPress={() => {
                         hapticsManager.medium();
                         onClear();
@@ -109,6 +112,7 @@ export function NumericKeyboard({
                 </StyledTouchableOpacity>
 
                 <StyledTouchableOpacity
+                    testID="keyboard-delete"
                     onPress={() => {
                         hapticsManager.medium();
                         onDelete();

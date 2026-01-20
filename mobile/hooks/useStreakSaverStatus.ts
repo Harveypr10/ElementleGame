@@ -9,19 +9,27 @@ export interface StreakSaverStatus {
         streakSaversUsedMonth: number;
         missedYesterdayFlag: boolean;
         canUseStreakSaver: boolean;
+        hasValidStreakForHoliday: boolean;
     } | null;
     user: {
         currentStreak: number;
         streakSaversUsedMonth: number;
         missedYesterdayFlag: boolean;
         canUseStreakSaver: boolean;
+        holidayActive: boolean;
+        holidayStartDate: string | null;
+        holidayEndDate: string | null;
+        holidayDaysTakenCurrentPeriod: number;
+        holidayEnded: boolean;
+        holidaysUsedYear: number;
+        hasValidStreakForHoliday: boolean;
     } | null;
 }
 
 export function useStreakSaverStatus() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    const { streakSavers } = useSubscription();
+    const { streakSavers, holidaySavers, holidayDurationDays, isPro } = useSubscription();
 
     // Fetch streak saver status from database
     const { data: status, isLoading, refetch } = useQuery({
@@ -34,101 +42,65 @@ export function useStreakSaverStatus() {
                 const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
                 const dayBeforeYesterday = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
 
-                // Get REGION mode status
-                const { data: regionStats } = await supabase
-                    .from('user_stats_region')
-                    .select('current_streak, streak_savers_used_month, region')
-                    .eq('user_id', user.id)
-                    .maybeSingle();
-
-                // Get USER mode status
+                // Get USER mode status (includes holiday fields)
                 const { data: userStats } = await supabase
                     .from('user_stats_user')
-                    .select('current_streak, streak_savers_used_month')
+                    .select(`
+                        current_streak,
+                        streak_savers_used_month,
+                        holiday_active,
+                        holiday_start_date,
+                        holiday_end_date,
+                        holiday_days_taken_current_period,
+                        holiday_ended,
+                        holidays_used_year,
+                        missed_yesterday_flag_user
+                    `)
                     .eq('user_id', user.id)
                     .maybeSingle();
 
-                // Check if missed yesterday for REGION mode
-                let regionMissedYesterday = false;
-                if (regionStats && regionStats.current_streak > 0) {
-                    const { data: yesterdayAttempt } = await supabase
-                        .from('game_attempts_region')
-                        .select('id, result, streak_day_status, allocated_region_id(puzzle_date)')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
+                // Get REGION mode status (simpler - no holiday mode in region)
+                const { data: regionStats } = await supabase
+                    .from('user_stats_region')
+                    .select('current_streak, streak_savers_used_month, region, missed_yesterday_flag_region')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
 
-                    const { data: todayAttempt } = await supabase
-                        .from('game_attempts_region')
-                        .select('id')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
-
-                    const { data: dayBeforeAttempt } = await supabase
-                        .from('game_attempts_region')
-                        .select('result, streak_day_status')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
-
-                    // Missed yesterday if:
-                    // 1. Yesterday has no result OR result is NULL
-                    // 2. Yesterday's streak_day_status is NOT 0 (not protected by holiday) and NOT 1 (not played)
-                    // 3. Today has NOT been played yet
-                    // 4. Day before yesterday WAS won (had streak going)
-                    regionMissedYesterday =
-                        yesterdayAttempt?.result === null &&
-                        yesterdayAttempt?.streak_day_status !== 0 &&
-                        yesterdayAttempt?.streak_day_status !== 1 &&
-                        !todayAttempt &&
-                        dayBeforeAttempt?.result === 'won';
-                }
-
-                // Check if missed yesterday for USER mode
-                let userMissedYesterday = false;
-                if (userStats && userStats.current_streak > 0) {
-                    const { data: yesterdayAttempt } = await supabase
-                        .from('game_attempts_user')
-                        .select('id, result, streak_day_status')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
-
-                    const { data: todayAttempt } = await supabase
-                        .from('game_attempts_user')
-                        .select('id')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
-
-                    const { data: dayBeforeAttempt } = await supabase
-                        .from('game_attempts_user')
-                        .select('result, streak_day_status')
-                        .eq('user_id', user.id)
-                        .maybeSingle();
-
-                    userMissedYesterday =
-                        yesterdayAttempt?.result === null &&
-                        yesterdayAttempt?.streak_day_status !== 0 &&
-                        yesterdayAttempt?.streak_day_status !== 1 &&
-                        !todayAttempt &&
-                        dayBeforeAttempt?.result === 'won';
-                }
-
+                // Calculate savers remaining
                 const regionSaversRemaining = streakSavers - (regionStats?.streak_savers_used_month || 0);
                 const userSaversRemaining = streakSavers - (userStats?.streak_savers_used_month || 0);
+
+                // Check if has valid streak for holiday (current_streak > 0)
+                const regionHasValidStreakForHoliday = (regionStats?.current_streak || 0) > 0;
+                const userHasValidStreakForHoliday = (userStats?.current_streak || 0) > 0;
+
+                // Can use streak saver if missed yesterday AND has savers remaining
+                const regionCanUseStreakSaver = (regionStats?.missed_yesterday_flag_region ?? false) && regionSaversRemaining > 0;
+                const userCanUseStreakSaver = (userStats?.missed_yesterday_flag_user ?? false) && userSaversRemaining > 0;
 
                 return {
                     region: regionStats
                         ? {
                             currentStreak: regionStats.current_streak || 0,
                             streakSaversUsedMonth: regionStats.streak_savers_used_month || 0,
-                            missedYesterdayFlag: regionMissedYesterday,
-                            canUseStreakSaver: regionMissedYesterday && regionSaversRemaining > 0,
+                            missedYesterdayFlag: regionStats.missed_yesterday_flag_region ?? false,
+                            canUseStreakSaver: regionCanUseStreakSaver,
+                            hasValidStreakForHoliday: regionHasValidStreakForHoliday,
                         }
                         : null,
                     user: userStats
                         ? {
                             currentStreak: userStats.current_streak || 0,
                             streakSaversUsedMonth: userStats.streak_savers_used_month || 0,
-                            missedYesterdayFlag: userMissedYesterday,
-                            canUseStreakSaver: userMissedYesterday && userSaversRemaining > 0,
+                            missedYesterdayFlag: userStats.missed_yesterday_flag_user ?? false,
+                            canUseStreakSaver: userCanUseStreakSaver,
+                            holidayActive: userStats.holiday_active || false,
+                            holidayStartDate: userStats.holiday_start_date,
+                            holidayEndDate: userStats.holiday_end_date,
+                            holidayDaysTakenCurrentPeriod: userStats.holiday_days_taken_current_period || 0,
+                            holidayEnded: userStats.holiday_ended || false,
+                            holidaysUsedYear: userStats.holidays_used_year || 0,
+                            hasValidStreakForHoliday: userHasValidStreakForHoliday,
                         }
                         : null,
                 };
@@ -169,17 +141,149 @@ export function useStreakSaverStatus() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
+            queryClient.invalidateQueries({ queryKey: ['user-stats'] });
         },
     });
+
+    // Mutation to decline streak saver (reset streak to 0)
+    const declineStreakSaverMutation = useMutation({
+        mutationFn: async (gameType: 'REGION' | 'USER') => {
+            if (!user) throw new Error('No user');
+
+            const tableName = gameType === 'REGION' ? 'user_stats_region' : 'user_stats_user';
+            const missedFlagColumn = gameType === 'REGION' ? 'missed_yesterday_flag_region' : 'missed_yesterday_flag_user';
+
+            // Reset current streak to 0 and clear missed flag
+            const { error: updateError } = await supabase
+                .from(tableName)
+                .update({
+                    current_streak: 0,
+                    [missedFlagColumn]: false,
+                })
+                .eq('user_id', user.id);
+
+            if (updateError) throw updateError;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
+            queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+        },
+    });
+
+    // Mutation to start holiday mode (USER mode only)
+    const startHolidayMutation = useMutation({
+        mutationFn: async () => {
+            if (!user) throw new Error('No user');
+
+            const today = new Date();
+            const endDate = new Date();
+            endDate.setDate(endDate.getDate() + holidayDurationDays);
+
+            // Update user_stats_user with holiday dates
+            const { error: updateError } = await supabase
+                .from('user_stats_user')
+                .update({
+                    holiday_active: true,
+                    holiday_start_date: today.toISOString().split('T')[0],
+                    holiday_end_date: endDate.toISOString().split('T')[0],
+                    holidays_used_year: (status?.user?.holidaysUsedYear || 0) + 1,
+                    missed_yesterday_flag_user: false, // Clear missed flag
+                })
+                .eq('user_id', user.id);
+
+            if (updateError) throw updateError;
+
+            // TODO: Mark game attempts with streak_day_status=0 for holiday dates
+            // This might need a Supabase RPC function to batch update multiple dates
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
+            queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+            queryClient.invalidateQueries({ queryKey: ['game-attempts'] });
+        },
+    });
+
+    // Mutation to end holiday mode
+    const endHolidayMutation = useMutation({
+        mutationFn: async (acknowledge?: boolean) => {
+            if (!user) throw new Error('No user');
+
+            // Update user_stats_user to deactivate holiday
+            const updateData: any = {
+                holiday_active: false,
+            };
+
+            if (acknowledge) {
+                updateData.holiday_ended = false; // Clear ended flag after acknowledgment
+            }
+
+            const { error: updateError } = await supabase
+                .from('user_stats_user')
+                .update(updateData)
+                .eq('user_id', user.id);
+
+            if (updateError) throw updateError;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
+            queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+        },
+    });
+
+    // Derived values
+    const hasMissedRegion = status?.region?.missedYesterdayFlag ?? false;
+    const hasMissedUser = status?.user?.missedYesterdayFlag ?? false;
+    const hasMissedAny = hasMissedRegion || hasMissedUser;
+
+    const regionCanUseStreakSaver = status?.region?.canUseStreakSaver ?? false;
+    const userCanUseStreakSaver = status?.user?.canUseStreakSaver ?? false;
+
+    const holidayActive = status?.user?.holidayActive ?? false;
+    const holidayEndDate = status?.user?.holidayEndDate ?? null;
+    const holidayStartDate = status?.user?.holidayStartDate ?? null;
+    const holidayEnded = status?.user?.holidayEnded ?? false;
+    const holidayDaysTakenCurrentPeriod = status?.user?.holidayDaysTakenCurrentPeriod ?? 0;
+
+    const regionStreakSaversRemaining = streakSavers - (status?.region?.streakSaversUsedMonth ?? 0);
+    const userStreakSaversRemaining = streakSavers - (status?.user?.streakSaversUsedMonth ?? 0);
+
+    const holidaysRemaining = holidaySavers - (status?.user?.holidaysUsedYear ?? 0);
+
+    const regionHasValidStreakForHoliday = status?.region?.hasValidStreakForHoliday ?? false;
+    const userHasValidStreakForHoliday = status?.user?.hasValidStreakForHoliday ?? false;
+    const hasAnyValidStreakForHoliday = regionHasValidStreakForHoliday || userHasValidStreakForHoliday;
 
     return {
         status,
         isLoading,
         refetch,
-        hasMissedRegion: status?.region?.missedYesterdayFlag ?? false,
-        hasMissedUser: status?.user?.missedYesterdayFlag ?? false,
-        regionCanUseStreakSaver: status?.region?.canUseStreakSaver ?? false,
-        userCanUseStreakSaver: status?.user?.canUseStreakSaver ?? false,
+        hasMissedRegion,
+        hasMissedUser,
+        hasMissedAny,
+        regionCanUseStreakSaver,
+        userCanUseStreakSaver,
+        holidayActive,
+        holidayStartDate,
+        holidayEndDate,
+        holidayEnded,
+        holidayDaysTakenCurrentPeriod,
+        regionStreakSaversRemaining,
+        userStreakSaversRemaining,
+        holidaysRemaining,
+        regionHasValidStreakForHoliday,
+        userHasValidStreakForHoliday,
+        hasAnyValidStreakForHoliday,
+        isPro,
+        holidayDurationDays,
+        // Mutations
         useStreakSaver: useStreakSaverMutation.mutateAsync,
+        isUsingStreakSaver: useStreakSaverMutation.isPending,
+        declineStreakSaver: declineStreakSaverMutation.mutateAsync,
+        isDeclining: declineStreakSaverMutation.isPending,
+        startHoliday: startHolidayMutation.mutateAsync,
+        isStartingHoliday: startHolidayMutation.isPending,
+        endHoliday: endHolidayMutation.mutateAsync,
+        isEndingHoliday: endHolidayMutation.isPending,
+        acknowledgeHolidayEnd: () => endHolidayMutation.mutateAsync(true),
     };
 }

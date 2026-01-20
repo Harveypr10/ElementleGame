@@ -10,6 +10,10 @@ import { useAuth } from '../lib/auth';
 import { useOptions } from '../lib/options';
 import { format, subDays } from 'date-fns';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GuestRestrictionModal } from '../components/GuestRestrictionModal';
+import { hasFeatureAccess } from '../lib/featureGates';
+import { AdBanner } from '../components/AdBanner';
+import { AdBannerContext } from '../contexts/AdBannerContext';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -33,7 +37,7 @@ interface DailyAttempt {
 
 export default function StatsScreen() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, isGuest } = useAuth();
     const { textScale } = useOptions();
     const searchParams = useLocalSearchParams();
     const mode = (searchParams.mode as 'USER' | 'REGION') || 'USER';
@@ -48,8 +52,17 @@ export default function StatsScreen() {
     const [recentActivity, setRecentActivity] = useState<DailyAttempt[]>([]);
     const [showPercentileInfo, setShowPercentileInfo] = useState(false);
     const [showBadgesModal, setShowBadgesModal] = useState(false);
+    const [guestModalVisible, setGuestModalVisible] = useState(false);
     const [highestBadges, setHighestBadges] = useState<Record<string, any>>({ elementle: null, streak: null, percentile: null });
     const [selectedCategory, setSelectedCategory] = useState<'elementle' | 'streak' | 'percentile'>('elementle');
+    const [userRegion, setUserRegion] = useState<string>('UK');
+
+    // Check for guest mode on mount
+    useEffect(() => {
+        if (isGuest && !hasFeatureAccess('stats', !isGuest)) {
+            setGuestModalVisible(true);
+        }
+    }, [isGuest]);
 
     const fetchData = useCallback(async () => {
         if (!user) return;
@@ -64,7 +77,8 @@ export default function StatsScreen() {
                 .eq('id', user.id)
                 .single();
 
-            const userRegion = profile?.region || 'UK';
+            const fetchedRegion = profile?.region || 'UK';
+            setUserRegion(fetchedRegion);
 
             // Determine which stats table to query based on mode
             const STATS_TABLE = mode === 'REGION' ? 'user_stats_region' : 'user_stats_user';
@@ -77,7 +91,7 @@ export default function StatsScreen() {
 
             // Add region filter only for REGION mode
             if (mode === 'REGION') {
-                statsQuery = statsQuery.eq('region', userRegion);
+                statsQuery = statsQuery.eq('region', fetchedRegion);
             }
 
             const { data: userStats, error: statsError } = await statsQuery.single();
@@ -176,10 +190,12 @@ export default function StatsScreen() {
 
     if (!user) {
         return (
-            <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 px-4 justify-center items-center">
-                <ActivityIndicator size="large" color="#7DAAE8" />
-                <StyledText style={{ fontSize: 18 * textScale }} className="mt-4 text-slate-900 dark:text-white">Loading user data...</StyledText>
-            </SafeAreaView>
+            <AdBannerContext.Provider value={true}>
+                <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 px-4 justify-center items-center" style={{ paddingBottom: 50 }}>
+                    <ActivityIndicator size="large" color="#7DAAE8" />
+                    <StyledText style={{ fontSize: 18 * textScale }} className="mt-4 text-slate-900 dark:text-white">Loading user data...</StyledText>
+                </SafeAreaView>
+            </AdBannerContext.Provider>
         );
     }
 
@@ -237,7 +253,7 @@ export default function StatsScreen() {
                     <StyledView className="flex-row gap-3 mb-6">
                         {/* Left Column: Stats */}
                         <StyledView className="flex-1 bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm space-y-4">
-                            <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-900 dark:text-white mb-2">UK Edition</StyledText>
+                            <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-900 dark:text-white mb-2">{userRegion} Edition</StyledText>
 
                             <StyledView className="flex-row justify-between items-center">
                                 <StyledText style={{ fontSize: 14 * textScale }} className="font-n-medium text-slate-500 dark:text-slate-400">Played</StyledText>
@@ -433,6 +449,16 @@ export default function StatsScreen() {
                     </StyledView>
                 </StyledView>
             </Modal>
+
+            <GuestRestrictionModal
+                visible={guestModalVisible}
+                onClose={() => {
+                    setGuestModalVisible(false);
+                    router.back();
+                }}
+                feature="Stats"
+                description="Sign up to view your detailed statistics and achievements!"
+            />
 
         </SafeAreaView>
     );

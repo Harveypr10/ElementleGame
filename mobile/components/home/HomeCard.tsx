@@ -1,7 +1,8 @@
 
-import { View, Text, TouchableOpacity, Image, ImageSourcePropType } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ImageSourcePropType, Pressable } from 'react-native';
 import { styled } from 'nativewind';
 import { LucideIcon } from 'lucide-react-native';
+import { getCardShadow } from '../../lib/shadows';
 
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledView = styled(View);
@@ -17,6 +18,7 @@ interface HomeCardProps {
     height?: number; // Optional custom height
     className?: string; // Additional classes
     children?: React.ReactNode;
+    testID?: string; // Test identifier
 }
 
 export function HomeCard({
@@ -27,12 +29,14 @@ export function HomeCard({
     onPress,
     height = 160,
     className = "",
-    children
+    children,
+    testID
 }: HomeCardProps) {
     return (
         <StyledTouchableOpacity
-            className={`w-full rounded-3xl shadow-sm flex-row items-center justify-between px-6 overflow-hidden mb-4 ${className}`}
-            style={{ backgroundColor, height }}
+            testID={testID}
+            className={`w-full rounded-3xl flex-row items-center justify-between px-6 overflow-hidden mb-4 ${className}`}
+            style={{ backgroundColor, height, ...getCardShadow('md') }}
             onPress={onPress}
             activeOpacity={0.9}
         >

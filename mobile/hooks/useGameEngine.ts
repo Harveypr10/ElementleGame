@@ -10,6 +10,7 @@ import { CellFeedback } from '../components/InputGrid';
 import { checkAndAwardStreakBadge, checkAndAwardElementleBadge, checkAndAwardPercentileBadge } from '../lib/supabase-rpc';
 import hapticsManager from '../lib/hapticsManager';
 import soundManager from '../lib/soundManager';
+import { useInterstitialAd } from './useInterstitialAd';
 
 export type GameState = 'loading' | 'playing' | 'won' | 'lost';
 export type GameMode = 'REGION' | 'USER';
@@ -36,6 +37,7 @@ export function useGameEngine({
     const [wrongGuessCount, setWrongGuessCount] = useState(0);
     const [invalidShake, setInvalidShake] = useState(0); // Counter to trigger shake
     const [isRestored, setIsRestored] = useState(false);
+    const { showAd: showInterstitialAd } = useInterstitialAd();
 
 
 
@@ -499,10 +501,14 @@ export function useGameEngine({
             hapticsManager.success(); // Victory haptic
             soundManager.play('game_win'); // Victory sound
             setGameState('won');
+            // Show interstitial ad after delay
+            setTimeout(() => showInterstitialAd(), 3000);
         } else if (newGuesses.length >= maxGuesses) {
             hapticsManager.error(); // Lost game haptic
             soundManager.play('game_lose'); // Lost game sound
             setGameState('lost');
+            // Show interstitial ad after delay
+            setTimeout(() => showInterstitialAd(), 3000);
         } else {
             hapticsManager.warning(); // Incorrect guess but game continues
             soundManager.play('guess_entered'); // Guess submitted sound

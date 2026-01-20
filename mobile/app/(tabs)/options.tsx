@@ -8,6 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOptions, TextSize, DateLength, DateFormatOrder } from '../../lib/options';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAuth } from '../../lib/auth';
+import { AdBanner } from '../../components/AdBanner';
+import { AdBannerContext } from '../../contexts/AdBannerContext';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -29,142 +31,7 @@ export default function OptionsScreen() {
         holidaySaverActive, toggleHolidaySaver
     } = useOptions();
 
-    // Local state toggles - receive props to avoid context subscription
-    const SoundsToggle = ({ value, onToggle }: { value: boolean, onToggle: () => void }) => {
-        const [localValue, setLocalValue] = useState(value);
-
-        useEffect(() => {
-            setLocalValue(value);
-        }, [value]);
-
-        const handleToggle = () => {
-            const newValue = !localValue;
-            setLocalValue(newValue);
-            onToggle();
-        };
-
-        return (
-            <StyledView className="flex-row justify-between items-center py-2.5">
-                <StyledView className="flex-1 pr-3">
-                    <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">
-                        Sounds
-                    </StyledText>
-                    <StyledText className="text-sm text-slate-500 dark:text-slate-400">
-                        Play sound effects
-                    </StyledText>
-                </StyledView>
-                <Switch
-                    value={localValue}
-                    onValueChange={handleToggle}
-                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
-                    thumbColor={'#ffffff'}
-                    ios_backgroundColor="#e2e8f0"
-                />
-            </StyledView>
-        );
-    };
-
-    const DarkModeToggle = ({ value, onToggle }: { value: boolean, onToggle: () => void }) => {
-        const [localValue, setLocalValue] = useState(value);
-
-        useEffect(() => {
-            setLocalValue(value);
-        }, [value]);
-
-        const handleToggle = () => {
-            const newValue = !localValue;
-            setLocalValue(newValue);
-            onToggle();
-        };
-
-        return (
-            <StyledView className="flex-row justify-between items-center py-2.5">
-                <StyledView className="flex-1 pr-3">
-                    <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">
-                        Dark Mode
-                    </StyledText>
-                    <StyledText className="text-sm text-slate-500 dark:text-slate-400">
-                        Toggle dark theme
-                    </StyledText>
-                </StyledView>
-                <Switch
-                    value={localValue}
-                    onValueChange={handleToggle}
-                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
-                    thumbColor={'#ffffff'}
-                    ios_backgroundColor="#e2e8f0"
-                />
-            </StyledView>
-        );
-    };
-
-    const CluesToggle = ({ value, onToggle }: { value: boolean, onToggle: () => void }) => {
-        const [localValue, setLocalValue] = useState(value);
-
-        useEffect(() => {
-            setLocalValue(value);
-        }, [value]);
-
-        const handleToggle = () => {
-            const newValue = !localValue;
-            setLocalValue(newValue);
-            onToggle();
-        };
-
-        return (
-            <StyledView className="flex-row justify-between items-center py-2.5">
-                <StyledView className="flex-1 pr-3">
-                    <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">
-                        Clues
-                    </StyledText>
-                    <StyledText className="text-sm text-slate-500 dark:text-slate-400">
-                        Show event titles
-                    </StyledText>
-                </StyledView>
-                <Switch
-                    value={localValue}
-                    onValueChange={handleToggle}
-                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
-                    thumbColor={'#ffffff'}
-                    ios_backgroundColor="#e2e8f0"
-                />
-            </StyledView>
-        );
-    };
-
-    const StreakSaverToggle = ({ value, onToggle }: { value: boolean, onToggle: () => void }) => {
-        const [localValue, setLocalValue] = useState(value);
-
-        useEffect(() => {
-            setLocalValue(value);
-        }, [value]);
-
-        const handleToggle = () => {
-            const newValue = !localValue;
-            setLocalValue(newValue);
-            onToggle();
-        };
-
-        return (
-            <StyledView className="flex-row justify-between items-center py-2.5">
-                <StyledView className="flex-1 pr-3">
-                    <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">
-                        Streak Saver Reminders
-                    </StyledText>
-                    <StyledText className="text-sm text-slate-500 dark:text-slate-400">
-                        Show recovery popup
-                    </StyledText>
-                </StyledView>
-                <Switch
-                    value={localValue}
-                    onValueChange={handleToggle}
-                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
-                    thumbColor={'#ffffff'}
-                    ios_backgroundColor="#e2e8f0"
-                />
-            </StyledView>
-        );
-    };
+    // Use ToggleRow for all toggles to avoid overlay rendering issues
 
     const ToggleRow = ({ label, subLabel, value, onToggle, disabled = false }: {
         label: string,
@@ -228,125 +95,130 @@ export default function OptionsScreen() {
     );
 
     return (
-        <StyledView className="flex-1 bg-white dark:bg-slate-900">
-            {/* Compact Header */}
-            <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900">
-                <StyledView className="flex-row items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                    <StyledTouchableOpacity
-                        onPress={() => router.back()}
-                        className="w-10 h-10 items-center justify-center"
-                    >
-                        <ChevronLeft size={24} color="#1e293b" />
-                    </StyledTouchableOpacity>
-                    <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Options</StyledText>
-                    <StyledView className="w-10" />
-                </StyledView>
-            </SafeAreaView>
+        <AdBannerContext.Provider value={true}>
+            <StyledView className="flex-1 bg-white dark:bg-slate-900" style={{ paddingBottom: 50 }}>
+                {/* Compact Header */}
+                <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900">
+                    <StyledView className="flex-row items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+                        <StyledTouchableOpacity
+                            onPress={() => router.back()}
+                            className="w-10 h-10 items-center justify-center"
+                        >
+                            <ChevronLeft size={24} color="#1e293b" />
+                        </StyledTouchableOpacity>
+                        <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Options</StyledText>
+                        <StyledView className="w-10" />
+                    </StyledView>
+                </SafeAreaView>
 
-            <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 40 }}>
-                {/* Display Options Card */}
-                <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                    <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-3">Display</StyledText>
+                <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 40 }}>
+                    {/* Display Options Card */}
+                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
+                        <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-3">Display</StyledText>
 
-                    {/* Text Size */}
-                    <SegmentControl<TextSize>
-                        label="Text Size"
-                        selected={textSize}
-                        onSelect={setTextSize}
-                        options={[
-                            { label: 'Small', value: 'small' },
-                            { label: 'Medium', value: 'medium' },
-                            { label: 'Large', value: 'large' },
-                        ]}
-                    />
+                        {/* Text Size */}
+                        <SegmentControl<TextSize>
+                            label="Text Size"
+                            selected={textSize}
+                            onSelect={setTextSize}
+                            options={[
+                                { label: 'Small', value: 'small' },
+                                { label: 'Medium', value: 'medium' },
+                                { label: 'Large', value: 'large' },
+                            ]}
+                        />
 
-                    {/* Dark Mode */}
-                    <DarkModeToggle value={darkMode} onToggle={toggleDarkMode} />
-                </StyledView>
-
-                {/* Gameplay Card */}
-                <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                    <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-3">Gameplay</StyledText>
-
-                    <SoundsToggle value={soundsEnabled} onToggle={toggleSounds} />
-
-                    <CluesToggle value={cluesEnabled} onToggle={toggleClues} />
-                </StyledView>
-
-                {/* Date Format Card */}
-                <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                    <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-3">Date Format</StyledText>
-
-                    <SegmentControl<DateLength>
-                        label="Digit Length"
-                        selected={dateLength}
-                        onSelect={setDateLength}
-                        options={[
-                            { label: '6 Digits', value: 6 },
-                            { label: '8 Digits', value: 8 },
-                        ]}
-                    />
-
-                    <SegmentControl<DateFormatOrder>
-                        label="Format Order"
-                        selected={dateFormatOrder}
-                        onSelect={setDateFormatOrder}
-                        options={[
-                            { label: 'DD/MM/YY', value: 'ddmmyy' },
-                            { label: 'MM/DD/YY', value: 'mmddyy' },
-                        ]}
-                    />
-                </StyledView>
-
-                {/* Streak Protection Card */}
-                <StyledView className="rounded-2xl p-4 mb-3 border border-orange-200 dark:border-orange-800" style={{ backgroundColor: '#fff7ed' }}>
-                    <StyledView className="flex-row items-center mb-3">
-                        <StyledView className="w-8 h-8 rounded-full items-center justify-center mr-2" style={{ backgroundColor: '#f97316' }}>
-                            <Flame size={18} color="#ffffff" />
-                        </StyledView>
-                        <StyledText className="text-sm font-n-bold uppercase tracking-wide" style={{ color: '#9a3412' }}>
-                            Streak Protection
-                        </StyledText>
+                        {/* Dark Mode */}
+                        <ToggleRow label="Dark Mode" subLabel="Toggle dark theme" value={darkMode} onToggle={toggleDarkMode} />
                     </StyledView>
 
-                    <StreakSaverToggle value={streakSaverActive} onToggle={toggleStreakSaver} />
+                    {/* Gameplay Card */}
+                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
+                        <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-3">Gameplay</StyledText>
 
-                    <StyledView className="flex-row justify-between items-center py-2 mt-1">
-                        <StyledView className="flex-1 pr-3">
-                            <StyledView className="flex-row items-center gap-2 mb-1">
-                                <StyledText className={`text-base font-n-bold ${!isPro ? 'text-slate-400' : 'text-slate-900 dark:text-white'}`}>
-                                    Holiday Protection
-                                </StyledText>
-                                {!isPro && (
-                                    <StyledView className="px-2 py-0.5 rounded-full" style={{ backgroundColor: '#f97316' }}>
-                                        <StyledText className="text-white text-xs font-n-bold">Pro</StyledText>
-                                    </StyledView>
-                                )}
-                            </StyledView>
-                            <StyledText className="text-sm text-slate-600 dark:text-slate-400">
-                                {isPro ? 'Pause streak while away' : 'Upgrade to unlock'}
-                            </StyledText>
-                        </StyledView>
-                        <Switch
-                            value={holidaySaverActive}
-                            onValueChange={toggleHolidaySaver}
-                            disabled={!isPro}
-                            trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
-                            thumbColor={'#ffffff'}
-                            ios_backgroundColor="#e2e8f0"
+                        <ToggleRow label="Sounds" subLabel="Play sound effects" value={soundsEnabled} onToggle={toggleSounds} />
+
+                        <ToggleRow label="Clues" subLabel="Show event titles" value={cluesEnabled} onToggle={toggleClues} />
+                    </StyledView>
+
+                    {/* Date Format Card */}
+                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
+                        <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-3">Date Format</StyledText>
+
+                        <SegmentControl<DateLength>
+                            label="Digit Length"
+                            selected={dateLength}
+                            onSelect={setDateLength}
+                            options={[
+                                { label: '6 Digits', value: 6 },
+                                { label: '8 Digits', value: 8 },
+                            ]}
+                        />
+
+                        <SegmentControl<DateFormatOrder>
+                            label="Format Order"
+                            selected={dateFormatOrder}
+                            onSelect={setDateFormatOrder}
+                            options={[
+                                { label: 'DD/MM/YY', value: 'ddmmyy' },
+                                { label: 'MM/DD/YY', value: 'mmddyy' },
+                            ]}
                         />
                     </StyledView>
-                </StyledView>
 
-                {/* Guest Notice */}
-                {!isAuthenticated && (
-                    <StyledView className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
-                        <StyledText className="text-sm text-blue-900 dark:text-blue-100 text-center">
-                            Sign in to sync settings across devices
-                        </StyledText>
+                    {/* Streak Protection Card */}
+                    <StyledView className="rounded-2xl p-4 mb-3 border border-orange-200 dark:border-orange-800" style={{ backgroundColor: '#fff7ed' }}>
+                        <StyledView className="flex-row items-center mb-3">
+                            <StyledView className="w-8 h-8 rounded-full items-center justify-center mr-2" style={{ backgroundColor: '#f97316' }}>
+                                <Flame size={18} color="#ffffff" />
+                            </StyledView>
+                            <StyledText className="text-sm font-n-bold uppercase tracking-wide" style={{ color: '#9a3412' }}>
+                                Streak Protection
+                            </StyledText>
+                        </StyledView>
+
+                        <ToggleRow label="Streak Saver Reminders" subLabel="Show recovery popup" value={streakSaverActive} onToggle={toggleStreakSaver} />
+
+                        <StyledView className="flex-row justify-between items-center py-2 mt-1">
+                            <StyledView className="flex-1 pr-3">
+                                <StyledView className="flex-row items-center gap-2 mb-1">
+                                    <StyledText className={`text-base font-n-bold ${!isPro ? 'text-slate-400' : 'text-slate-900 dark:text-white'}`}>
+                                        Holiday Protection
+                                    </StyledText>
+                                    {!isPro && (
+                                        <StyledView className="px-2 py-0.5 rounded-full" style={{ backgroundColor: '#f97316' }}>
+                                            <StyledText className="text-white text-xs font-n-bold">Pro</StyledText>
+                                        </StyledView>
+                                    )}
+                                </StyledView>
+                                <StyledText className="text-sm text-slate-600 dark:text-slate-400">
+                                    {isPro ? 'Pause streak while away' : 'Upgrade to unlock'}
+                                </StyledText>
+                            </StyledView>
+                            <Switch
+                                value={holidaySaverActive}
+                                onValueChange={toggleHolidaySaver}
+                                disabled={!isPro}
+                                trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                                thumbColor={'#ffffff'}
+                                ios_backgroundColor="#e2e8f0"
+                            />
+                        </StyledView>
                     </StyledView>
-                )}
-            </StyledScrollView>
-        </StyledView>
+
+                    {/* Guest Notice */}
+                    {!isAuthenticated && (
+                        <StyledView className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
+                            <StyledText className="text-sm text-blue-900 dark:text-blue-100 text-center">
+                                Sign in to sync settings across devices
+                            </StyledText>
+                        </StyledView>
+                    )}
+                </StyledScrollView>
+
+                {/* Ad Banner */}
+                <AdBanner />
+            </StyledView>
+        </AdBannerContext.Provider>
     );
 }

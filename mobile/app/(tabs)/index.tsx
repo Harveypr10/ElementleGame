@@ -12,10 +12,15 @@ import { HelpModal } from '../../components/HelpModal';
 import { BadgeUnlockModal } from '../../components/game/BadgeUnlockModal';
 import { StreakSaverPopup } from '../../components/game/StreakSaverPopup';
 import { HolidayModePopup } from '../../components/game/HolidayModePopup';
+import { HolidayModeIndicator } from '../../components/HolidayModeIndicator';
 import { useBadgeSystem } from '../../hooks/useBadgeSystem';
 import { useStreakSaverStatus } from '../../hooks/useStreakSaverStatus';
 import { useSubscription } from '../../hooks/useSubscription';
+import { useConversionPrompt } from '../../contexts/ConversionPromptContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GoProButton } from '../../components/GoProButton';
+import { AdBanner } from '../../components/AdBanner';
+import { AdBannerContext } from '../../contexts/AdBannerContext';
 
 // Import hamster images - using PNG versions to avoid React Native freeze errors with SVG
 const HistorianHamsterBlue = require('../../assets/Historian-Hamster-Blue_1760977182002.png');
@@ -35,6 +40,7 @@ export default function HomeScreen() {
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
     const { status: streakSaverStatus, hasMissedRegion, hasMissedUser, regionCanUseStreakSaver, userCanUseStreakSaver } = useStreakSaverStatus();
     const { isPro } = useSubscription();
+    const { incrementInteraction } = useConversionPrompt();
 
     // Data States
     const [loading, setLoading] = useState(true);
@@ -288,33 +294,45 @@ export default function HomeScreen() {
 
                     {/* 1. PLAY BUTTON */}
                     <HomeCard
+                        testID="home-card-play"
                         title={todayStatus === 'solved' ? "Today's puzzle solved!" : "Play Today"}
                         subtitle={todayStatus === 'solved'
                             ? `Solved in ${guesses} guesses`
                             : "Good luck!"}
                         icon={playIcon}
                         backgroundColor={playColor}
-                        onPress={() => router.push(isRegion ? '/game/REGION/today' : '/game/USER/next')}
+                        onPress={() => {
+                            incrementInteraction();
+                            router.push(isRegion ? '/game/REGION/today' : '/game/USER/next');
+                        }}
                         height={160}
                     />
 
                     {/* 2. ARCHIVE BUTTON */}
                     <HomeCard
+                        testID="home-card-archive"
                         title="Archive"
                         subtitle={`${totalGames} total games played`}
                         icon={archiveIcon}
                         backgroundColor={archiveColor}
-                        onPress={() => router.push('/archive')}
+                        onPress={() => {
+                            incrementInteraction();
+                            router.push('/archive');
+                        }}
                         height={100}
                     />
 
                     {/* 3. STATS BUTTON (Full Width) */}
                     <HomeCard
+                        testID="home-card-stats"
                         title={isRegion ? "UK Stats" : "Personal Stats"}
                         subtitle="View your performance history"
                         icon={statsIcon}
                         backgroundColor={isRegion ? '#A4DB57' : '#93cd78'}
-                        onPress={() => router.push(`/stats?mode=${isRegion ? 'REGION' : 'USER'}`)}
+                        onPress={() => {
+                            incrementInteraction();
+                            router.push(`/stats?mode=${isRegion ? 'REGION' : 'USER'}`);
+                        }}
                         height={100}
                     />
                 </View>
@@ -323,69 +341,88 @@ export default function HomeScreen() {
     };
 
     return (
-        <StyledView className="flex-1 bg-white dark:bg-slate-900">
-            <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900 z-50">
-                {/* Header - Fixed & Safe Area Adjusted */}
-                <StyledView className="items-center relative pb-2 bg-white dark:bg-slate-900 z-50">
+        <AdBannerContext.Provider value={true}>
+            <StyledView className="flex-1 bg-white dark:bg-slate-900" style={{ paddingBottom: isPro ? 0 : 50 }}>
+                <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900 z-50">
+                    {/* Header - Fixed & Safe Area Adjusted */}
+                    <StyledView className="items-center relative pb-2 bg-white dark:bg-slate-900 z-50">
 
-                    {/* Top Left Icon (Help) */}
-                    <StyledView className="absolute left-4 top-2">
-                        <StyledTouchableOpacity onPress={() => setHelpVisible(true)}>
-                            <HelpCircle size={28} className="text-slate-800 dark:text-white" />
-                        </StyledTouchableOpacity>
+                        {/* Top Left Icon (Help) */}
+                        <StyledView className="absolute left-4 top-2">
+                            <StyledTouchableOpacity onPress={() => setHelpVisible(true)}>
+                                <HelpCircle size={28} className="text-slate-800 dark:text-white" />
+                            </StyledTouchableOpacity>
+                        </StyledView>
+
+                        {/* Top Right: Settings Icon */}
+                        <StyledView className="absolute right-4 top-2">
+                            <StyledTouchableOpacity onPress={() => router.push('/settings')}>
+                                <Settings size={28} className="text-slate-800 dark:text-white" />
+                            </StyledTouchableOpacity>
+                        </StyledView>
+
+                        <StyledText className="text-4xl font-n-bold text-slate-900 dark:text-white mb-6 pt-2 font-heading">
+                            Elementle
+                        </StyledText>
+
+                        <ModeToggle
+                            mode={gameMode}
+                            onModeChange={handleModeChange}
+                            scrollX={scrollX}
+                            screenWidth={SCREEN_WIDTH}
+                            userLabel={firstName}
+                        />
+
+                        {/* Greeting Row with Go Pro Button */}
+                        <StyledView className="w-full px-4 flex-row items-center justify-center relative">
+                            <StyledView className="absolute right-4">
+                                <GoProButton
+                                    onPress={() => {
+                                        if (isPro) {
+                                            router.push('/category-selection');
+                                        } else {
+                                            router.push('/subscription');
+                                        }
+                                    }}
+                                />
+                            </StyledView>
+                            <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white">
+                                {getGreeting()}
+                            </StyledText>
+                        </StyledView>
                     </StyledView>
+                </SafeAreaView>
 
-                    {/* Top Right Icon (Settings/Options) */}
-                    <StyledView className="absolute right-4 top-2">
-                        <StyledTouchableOpacity onPress={() => router.push('/settings')}>
-                            <Settings size={28} className="text-slate-800 dark:text-white" />
-                        </StyledTouchableOpacity>
-                    </StyledView>
+                {/* Content Swiper */}
+                <Animated.ScrollView
+                    ref={scrollViewRef}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onScroll={Animated.event(
+                        [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                        { useNativeDriver: false }
+                    )}
+                    scrollEventThrottle={16}
+                    onMomentumScrollEnd={onMomentumScrollEnd}
+                >
+                    {renderGameContent(true)}
+                    {renderGameContent(false)}
+                </Animated.ScrollView>
 
-                    <StyledText className="text-4xl font-n-bold text-slate-900 dark:text-white mb-6 pt-2 font-heading">
-                        Elementle
-                    </StyledText>
+                {/* Modals */}
+                <HelpModal visible={helpVisible} onClose={() => setHelpVisible(false)} />
 
-                    <ModeToggle
-                        mode={gameMode}
-                        onModeChange={handleModeChange}
-                        scrollX={scrollX}
-                        screenWidth={SCREEN_WIDTH}
-                        userLabel={firstName}
-                    />
+                {/* Badge Inbox Modal: Shows first pending badge if any */}
+                <BadgeUnlockModal
+                    visible={badgeModalVisible}
+                    badge={pendingBadges && pendingBadges.length > 0 ? (pendingBadges[0].badge ?? null) : null}
+                    onClose={handleBadgeClose}
+                />
 
-                    <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white">
-                        {getGreeting()}
-                    </StyledText>
-                </StyledView>
-            </SafeAreaView>
-
-            {/* Content Swiper */}
-            <Animated.ScrollView
-                ref={scrollViewRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-                    { useNativeDriver: false }
-                )}
-                scrollEventThrottle={16}
-                onMomentumScrollEnd={onMomentumScrollEnd}
-            >
-                {renderGameContent(true)}
-                {renderGameContent(false)}
-            </Animated.ScrollView>
-
-            {/* Modals */}
-            <HelpModal visible={helpVisible} onClose={() => setHelpVisible(false)} />
-
-            {/* Badge Inbox Modal: Shows first pending badge if any */}
-            <BadgeUnlockModal
-                visible={badgeModalVisible}
-                badge={pendingBadges && pendingBadges.length > 0 ? (pendingBadges[0].badge ?? null) : null}
-                onClose={handleBadgeClose}
-            />
-        </StyledView>
+                {/* Ad Banner - shows at bottom for non-Pro users */}
+                <AdBanner />
+            </StyledView>
+        </AdBannerContext.Provider>
     );
 }
