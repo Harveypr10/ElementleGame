@@ -44,7 +44,7 @@ export default function ManageSubscriptionScreen() {
                             onPress={() => router.back()}
                             className="w-10 h-10 items-center justify-center"
                         >
-                            <ChevronLeft size={24} color="#1e293b" />
+                            <ChevronLeft size={28} color="#1e293b" />
                         </StyledTouchableOpacity>
                         <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Subscription</StyledText>
                         <StyledView className="w-10" />
@@ -99,7 +99,11 @@ export default function ManageSubscriptionScreen() {
                     </StyledView>
 
                     {/* Upgrade Button */}
-                    <StyledTouchableOpacity className="rounded-2xl p-4 flex-row items-center justify-center" style={{ backgroundColor: '#fb923c' }}>
+                    <StyledTouchableOpacity
+                        onPress={() => router.push('/subscription')}
+                        className="rounded-2xl p-4 flex-row items-center justify-center"
+                        style={{ backgroundColor: '#fb923c' }}
+                    >
                         <Crown size={20} color="#ffffff" />
                         <StyledText className="text-base font-n-bold text-white ml-2">
                             Go Pro to increase your allowances
@@ -119,7 +123,7 @@ export default function ManageSubscriptionScreen() {
                         onPress={() => router.back()}
                         className="w-10 h-10 items-center justify-center"
                     >
-                        <ChevronLeft size={24} color="#1e293b" />
+                        <ChevronLeft size={28} color="#1e293b" />
                     </StyledTouchableOpacity>
                     <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white">Subscription</StyledText>
                     <StyledView className="w-10" />

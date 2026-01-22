@@ -317,7 +317,7 @@ export default function LoginPage() {
                     style={styles.backButton}
                     onPressIn={() => Keyboard.dismiss()}
                 >
-                    <ChevronLeft size={24} color={textColor} />
+                    <ChevronLeft size={28} color={textColor} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: textColor }]}>Log in</Text>
                 <View style={styles.headerSpacer} />

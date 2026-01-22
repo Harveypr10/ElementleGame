@@ -23,7 +23,7 @@ export default function PrivacyScreen() {
                         onPress={() => router.back()}
                         className="w-10 h-10 items-center justify-center"
                     >
-                        <ChevronLeft size={24} color="#1e293b" />
+                        <ChevronLeft size={28} color="#1e293b" />
                     </StyledTouchableOpacity>
                     <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Privacy Policy</StyledText>
                     <StyledView className="w-10" />

@@ -71,19 +71,22 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
         };
 
         loadCachedData();
-    }, [monthDate, gameMode]);
+    }, [monthDate, gameMode]); // Keep gameMode here for correct cache key
 
+    // Handle mode changes separately (no refetch, just reset animation state)
     useEffect(() => {
-        // Only reset dataReady if mode actually changed
         if (prevModeRef.current !== gameMode) {
-            console.log('[Archive] Mode changed from', prevModeRef.current, 'to', gameMode);
-            setDataReady(false);
+            console.log('[Archive] Mode changed to', gameMode, '- showing cached data');
+            setDataReady(false); // Trigger fade effect for smooth transition
             prevModeRef.current = gameMode;
         }
+    }, [gameMode]);
 
+    // Fetch fresh data only on month/user changes (not on mode changes)
+    useEffect(() => {
         setHasFetched(false);
-        fetchData(); // Fetch fresh data in background
-    }, [monthDate, user, gameMode]);
+        fetchData(); // Background refresh
+    }, [monthDate, user]); // Removed gameMode dependency
 
     // Trigger fade-in after data is loaded (matching web app's badge pattern)
     useEffect(() => {

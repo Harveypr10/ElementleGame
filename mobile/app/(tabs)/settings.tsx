@@ -78,8 +78,7 @@ export default function SettingsScreen() {
     };
 
     const handleGoProClick = () => {
-        // TODO: Show Pro upgrade dialog
-        Alert.alert('Go Pro', 'Pro subscription coming soon!');
+        router.push('/subscription');
     };
 
     const handleCategories = () => {
@@ -128,7 +127,7 @@ export default function SettingsScreen() {
                         onPress={() => router.back()}
                         className="w-10 h-10 items-center justify-center"
                     >
-                        <ChevronLeft size={24} color="#1e293b" />
+                        <ChevronLeft size={28} color="#1e293b" />
                     </StyledTouchableOpacity>
                     <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Settings</StyledText>
                     <StyledView className="w-10" />

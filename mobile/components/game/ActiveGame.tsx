@@ -365,8 +365,8 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
             {/* Streak Celebration */}
             <StreakCelebration
                 visible={showStreakCelebration}
-                streak={stats?.current_streak || 0}
-                onClose={() => setShowStreakCelebration(false)}
+                streak={streakToDisplay}
+                onClose={handleStreakClose}
             />
             {/* Badge Unlock Modal */}
             <BadgeUnlockModal

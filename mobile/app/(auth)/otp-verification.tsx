@@ -10,7 +10,7 @@ import { styled } from 'nativewind';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft } from 'lucide-react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import hapticsManager from '../../lib/hapticsManager';
 
 const StyledView = styled(View);
@@ -126,7 +126,7 @@ export default function OTPVerificationScreen() {
                             }}
                             className="mr-4"
                         >
-                            <ArrowLeft size={24} color="#64748b" />
+                            <ChevronLeft size={28} color="#1e293b" />
                         </StyledTouchableOpacity>
                         <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white">
                             Verify Email

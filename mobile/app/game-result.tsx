@@ -63,80 +63,81 @@ export default function GameResultScreen() {
     return (
         <StyledView className="flex-1 bg-white dark:bg-slate-900">
             <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-                <StyledView className="flex-1 px-6 pt-12 pb-6 justify-between">
+                <StyledView className="flex-1 px-6 pt-8 pb-6 justify-between">
                     {/* Scrollable Content */}
                     <View className="flex-1 items-center w-full">
                         {/* Header */}
-                        <StyledView className="items-center mb-6">
-                            <StyledText style={{ fontSize: 30 * textScale }} className="font-n-bold text-slate-800 dark:text-white text-center">
+                        <StyledView className="items-center mb-4">
+                            <StyledText style={{ fontSize: 28 * textScale }} className="font-n-bold text-slate-800 dark:text-white text-center">
                                 {isWin ? "Congratulations!" : "Unlucky!"}
                             </StyledText>
                         </StyledView>
 
-                        {/* Hamster Image */}
-                        <StyledView className="items-center mb-6 h-48 justify-center">
+                        {/* Hamster Image - Reduced height */}
+                        <StyledView className="items-center mb-3 h-40 justify-center">
                             <StyledImage
                                 source={WinHamsterImg}
-                                className="w-56 h-56"
+                                className="w-48 h-48"
                                 resizeMode="contain"
                             />
                         </StyledView>
 
                         {/* Date */}
-                        <StyledView className="items-center mb-4">
-                            <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-700 dark:text-slate-200 text-center">
+                        <StyledView className="items-center mb-2">
+                            <StyledText style={{ fontSize: 22 * textScale }} className="font-n-bold text-slate-700 dark:text-slate-200 text-center">
                                 {formattedDate}
                             </StyledText>
                         </StyledView>
 
-                        {/* Description Box */}
-                        <StyledView className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl w-full mb-4 border border-slate-200 dark:border-slate-700">
-                            <StyledText style={{ fontSize: 18 * textScale }} className="font-n-semibold text-slate-900 dark:text-white text-center mb-2">
+                        {/* Description Box - Reduced padding */}
+                        <StyledView className="bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl w-full mb-2 border border-slate-200 dark:border-slate-700">
+                            <StyledText style={{ fontSize: 16 * textScale }} className="font-n-semibold text-slate-900 dark:text-white text-center mb-1">
                                 {eventTitle}
                             </StyledText>
-                            <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-500 dark:text-slate-400 text-center">
+                            <StyledText style={{ fontSize: 13 * textScale }} className="text-slate-500 dark:text-slate-400 text-center">
                                 {eventDescription || "A historic day to remember!"}
                             </StyledText>
                         </StyledView>
 
+                        {/* Guesses text - Reduced margin */}
                         {isWin && (
-                            <StyledText className="text-sm text-slate-500 dark:text-slate-400 text-center font-n-medium mb-4">
+                            <StyledText className="text-sm text-slate-500 dark:text-slate-400 text-center font-n-medium mb-2">
                                 You solved it in {guessesCount} {guessesCount === 1 ? 'guess' : 'guesses'}!
                             </StyledText>
                         )}
                     </View>
 
-                    {/* Buttons Stack (Bottom Fixed) */}
+                    {/* Buttons Stack (Bottom Fixed) - Reduced button heights */}
                     <StyledView className="w-full mb-4">
                         {/* Top Row: Stats and Share */}
                         <StyledView className="flex-row gap-3 mb-3">
-                            {/* Stats Button (Green) */}
+                            {/* Stats Button - h-16 instead of h-20 */}
                             <StyledTouchableOpacity
-                                className="flex-1 h-20 flex-row items-center justify-between px-5 rounded-3xl shadow-sm active:opacity-90"
+                                className="flex-1 h-16 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
                                 style={{ backgroundColor: statsColor }}
-                                onPress={() => router.push(`/(tabs)/stats`)}
+                                onPress={() => router.push(`/stats?mode=${gameMode}`)}
                             >
-                                <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Stats</StyledText>
-                                <View className="w-12 h-12 justify-center items-center">
+                                <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Stats</StyledText>
+                                <View className="w-10 h-10 justify-center items-center">
                                     <StyledImage
                                         source={StatsHamsterImg}
-                                        className="w-12 h-12"
+                                        className="w-10 h-10"
                                         resizeMode="contain"
                                     />
                                 </View>
                             </StyledTouchableOpacity>
 
-                            {/* Share Button (Purple) */}
+                            {/* Share Button - h-16 instead of h-20 */}
                             <StyledTouchableOpacity
-                                className="flex-1 h-20 flex-row items-center justify-between px-5 rounded-3xl shadow-sm active:opacity-90"
+                                className="flex-1 h-16 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
                                 style={{ backgroundColor: shareColor }}
                                 onPress={handleShare}
                             >
-                                <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Share</StyledText>
-                                <View className="w-12 h-12 justify-center items-center">
+                                <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Share</StyledText>
+                                <View className="w-10 h-10 justify-center items-center">
                                     <StyledImage
                                         source={WinHamsterImg}
-                                        className="w-12 h-12"
+                                        className="w-10 h-10"
                                         resizeMode="contain"
                                     />
                                 </View>
@@ -145,33 +146,33 @@ export default function GameResultScreen() {
 
                         {/* Bottom Row: Home and Archive */}
                         <StyledView className="flex-row gap-3">
-                            {/* Home Button (Blue) */}
+                            {/* Home Button - h-16 instead of h-20 */}
                             <StyledTouchableOpacity
-                                className="flex-1 h-20 flex-row items-center justify-between px-5 rounded-3xl shadow-sm active:opacity-90"
+                                className="flex-1 h-16 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
                                 style={{ backgroundColor: homeColor }}
                                 onPress={() => router.push('/(tabs)')}
                             >
-                                <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Home</StyledText>
-                                <View className="w-12 h-12 justify-center items-center">
+                                <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Home</StyledText>
+                                <View className="w-10 h-10 justify-center items-center">
                                     <StyledImage
                                         source={HomeHamsterImg}
-                                        className="w-12 h-12"
+                                        className="w-10 h-10"
                                         resizeMode="contain"
                                     />
                                 </View>
                             </StyledTouchableOpacity>
 
-                            {/* Archive Button (Yellow) */}
+                            {/* Archive Button - h-16 instead of h-20 */}
                             <StyledTouchableOpacity
-                                className="flex-1 h-20 flex-row items-center justify-between px-5 rounded-3xl shadow-sm active:opacity-90"
+                                className="flex-1 h-16 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
                                 style={{ backgroundColor: archiveColor }}
                                 onPress={() => router.push('/archive')}
                             >
-                                <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Archive</StyledText>
-                                <View className="w-12 h-12 justify-center items-center">
+                                <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Archive</StyledText>
+                                <View className="w-10 h-10 justify-center items-center">
                                     <StyledImage
                                         source={ArchiveHamsterImg}
-                                        className="w-12 h-12"
+                                        className="w-10 h-10"
                                         resizeMode="contain"
                                     />
                                 </View>

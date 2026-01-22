@@ -1,58 +1,80 @@
 /**
- * Interstitial Ad Hook - PLACEHOLDER
+ * Interstitial Ad Hook - Production Implementation
  * 
- * Shows full-screen ad after game completion for non-Pro users
- * TODO: Replace with react-native-google-mobile-ads when ready
+ * Manages interstitial ad display after game completion
+ * Uses Google AdMob for real ads
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { useSubscription } from './useSubscription';
+import { AD_UNITS } from '../lib/adConfig';
 
 export function useInterstitialAd() {
     const { isPro } = useSubscription();
-    const [isReady, setIsReady] = useState(false);
-    const [isShowing, setIsShowing] = useState(false);
+    const interstitialRef = useRef<InterstitialAd | null>(null);
+    const isLoadedRef = useRef(false);
 
-    // Simulate ad loading
+    // Initialize interstitial ad
     useEffect(() => {
-        if (!isPro) {
-            // In real implementation, this would load the ad
-            const timer = setTimeout(() => setIsReady(true), 500);
-            return () => clearTimeout(timer);
+        if (isPro) {
+            console.log('[InterstitialAd] Pro user - ads disabled');
+            return;
         }
+
+        console.log('[InterstitialAd] Initializing ad...');
+        const interstitial = InterstitialAd.createForAdRequest(AD_UNITS.interstitial, {
+            requestNonPersonalizedAdsOnly: false,
+        });
+
+        // Event listeners
+        const unsubscribeLoaded = interstitial.addAdEventListener(AdEventType.LOADED, () => {
+            console.log('[InterstitialAd] Ad loaded and ready to show');
+            isLoadedRef.current = true;
+        });
+
+        const unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+            console.log('[InterstitialAd] Ad closed, loading new ad...');
+            isLoadedRef.current = false;
+            interstitial.load();
+        });
+
+        const unsubscribeError = interstitial.addAdEventListener(AdEventType.ERROR, (error) => {
+            console.log('[InterstitialAd] Error loading ad:', error);
+            isLoadedRef.current = false;
+        });
+
+        // Load the ad
+        interstitial.load();
+        interstitialRef.current = interstitial;
+
+        // Cleanup
+        return () => {
+            unsubscribeLoaded();
+            unsubscribeClosed();
+            unsubscribeError();
+        };
     }, [isPro]);
 
-    const showAd = async (): Promise<void> => {
-        // Skip for Pro users
+    const showAd = () => {
         if (isPro) {
-            console.log('[InterstitialAd] Skipping ad - Pro user');
+            console.log('[InterstitialAd] Pro user - not showing ad');
             return;
         }
 
-        // Check if ready
-        if (!isReady) {
-            console.log('[InterstitialAd] Ad not ready yet');
+        if (!interstitialRef.current) {
+            console.log('[InterstitialAd] Ad not initialized');
             return;
         }
 
-        console.log('[InterstitialAd] Showing interstitial ad placeholder');
-        setIsShowing(true);
+        if (!isLoadedRef.current) {
+            console.log('[InterstitialAd] Ad not loaded yet');
+            return;
+        }
 
-        // Placeholder: auto-dismiss after 2 seconds
-        // Real implementation would wait for user interaction
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                setIsShowing(false);
-                setIsReady(false);
-                console.log('[InterstitialAd] Ad dismissed');
-                resolve();
-            }, 2000);
-        });
+        console.log('[InterstitialAd] Showing interstitial ad');
+        interstitialRef.current.show();
     };
 
-    return {
-        isReady,
-        isShowing,
-        showAd,
-    };
+    return { showAd };
 }

@@ -3,6 +3,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { migrateGuestDataToUser } from './guestMigration';
+import { logInRevenueCat, logOutRevenueCat } from './RevenueCat';
 
 type AuthContextType = {
     session: Session | null;
@@ -106,10 +107,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setIsGuest(false);
                 await AsyncStorage.removeItem('is_guest');
 
-                // Sync OAuth provider linkage to database
+                // CRITICAL: Link RevenueCat identity with Supabase user ID
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                    console.log('[Auth] Linking RevenueCat identity...');
+                    await logInRevenueCat(session.user.id);
+
+                    // Sync OAuth provider linkage to database
                     await syncOAuthProfile(session.user);
                 }
+            } else if (event === 'SIGNED_OUT') {
+                // Log out from RevenueCat when signing out
+                console.log('[Auth] Logging out from RevenueCat...');
+                await logOutRevenueCat();
             }
             // If session is null, we don't automatically set guest to false/true 
             // because signOut logic handles that explicitly.
@@ -185,6 +194,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const signOut = async () => {
+        console.log('[Auth] Signing out...');
+        await logOutRevenueCat(); // Log out from RevenueCat first
         await supabase.auth.signOut();
         setIsGuest(false);
         await AsyncStorage.removeItem('is_guest');

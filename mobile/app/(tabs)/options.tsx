@@ -104,7 +104,7 @@ export default function OptionsScreen() {
                             onPress={() => router.back()}
                             className="w-10 h-10 items-center justify-center"
                         >
-                            <ChevronLeft size={24} color="#1e293b" />
+                            <ChevronLeft size={28} color="#1e293b" />
                         </StyledTouchableOpacity>
                         <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Options</StyledText>
                         <StyledView className="w-10" />
@@ -179,31 +179,53 @@ export default function OptionsScreen() {
 
                         <ToggleRow label="Streak Saver Reminders" subLabel="Show recovery popup" value={streakSaverActive} onToggle={toggleStreakSaver} />
 
-                        <StyledView className="flex-row justify-between items-center py-2 mt-1">
-                            <StyledView className="flex-1 pr-3">
-                                <StyledView className="flex-row items-center gap-2 mb-1">
-                                    <StyledText className={`text-base font-n-bold ${!isPro ? 'text-slate-400' : 'text-slate-900 dark:text-white'}`}>
-                                        Holiday Protection
+                        {isPro ? (
+                            <StyledView className="flex-row justify-between items-center py-2 mt-1">
+                                <StyledView className="flex-1 pr-3">
+                                    <StyledView className="flex-row items-center gap-2 mb-1">
+                                        <StyledText className="text-base font-n-bold text-slate-900 dark:text-white">
+                                            Holiday Protection
+                                        </StyledText>
+                                    </StyledView>
+                                    <StyledText className="text-sm text-slate-600 dark:text-slate-400">
+                                        Pause streak while away
                                     </StyledText>
-                                    {!isPro && (
+                                </StyledView>
+                                <Switch
+                                    value={holidaySaverActive}
+                                    onValueChange={toggleHolidaySaver}
+                                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                                    thumbColor={'#ffffff'}
+                                    ios_backgroundColor="#e2e8f0"
+                                />
+                            </StyledView>
+                        ) : (
+                            <StyledTouchableOpacity
+                                onPress={() => router.push('/subscription')}
+                                className="flex-row justify-between items-center py-2 mt-1 active:opacity-70"
+                            >
+                                <StyledView className="flex-1 pr-3">
+                                    <StyledView className="flex-row items-center gap-2 mb-1">
+                                        <StyledText className="text-base font-n-bold text-slate-400">
+                                            Holiday Protection
+                                        </StyledText>
                                         <StyledView className="px-2 py-0.5 rounded-full" style={{ backgroundColor: '#f97316' }}>
                                             <StyledText className="text-white text-xs font-n-bold">Pro</StyledText>
                                         </StyledView>
-                                    )}
+                                    </StyledView>
+                                    <StyledText className="text-sm text-slate-600 dark:text-slate-400">
+                                        Upgrade to unlock
+                                    </StyledText>
                                 </StyledView>
-                                <StyledText className="text-sm text-slate-600 dark:text-slate-400">
-                                    {isPro ? 'Pause streak while away' : 'Upgrade to unlock'}
-                                </StyledText>
-                            </StyledView>
-                            <Switch
-                                value={holidaySaverActive}
-                                onValueChange={toggleHolidaySaver}
-                                disabled={!isPro}
-                                trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
-                                thumbColor={'#ffffff'}
-                                ios_backgroundColor="#e2e8f0"
-                            />
-                        </StyledView>
+                                <Switch
+                                    value={false}
+                                    disabled={true}
+                                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                                    thumbColor={'#ffffff'}
+                                    ios_backgroundColor="#e2e8f0"
+                                />
+                            </StyledTouchableOpacity>
+                        )}
                     </StyledView>
 
                     {/* Guest Notice */}

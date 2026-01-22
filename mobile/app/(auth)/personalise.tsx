@@ -264,7 +264,7 @@ export default function PersonalisePage() {
                     style={styles.backButton}
                     onPressIn={() => Keyboard.dismiss()}
                 >
-                    <ChevronLeft size={24} color={textColor} />
+                    <ChevronLeft size={28} color={textColor} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: textColor }]}>
                     Personalise your game

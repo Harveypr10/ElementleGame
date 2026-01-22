@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, Image, Animated } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Image, Animated, Alert } from 'react-native';
 import { styled } from 'nativewind';
 import { format } from 'date-fns';
+import { useRouter } from 'expo-router';
 import { useOptions } from '../../lib/options';
+import { ChevronLeft } from 'lucide-react-native';
 // Fallback to png as SVG not found in migration
 const WelcomeHamster = require('../../assets/hamster.png');
 import StreakHamster from '../../assets/Streak-Hamster-Black.svg';
@@ -18,6 +20,7 @@ interface IntroScreenProps {
     gameMode: 'REGION' | 'USER';
     puzzleDate?: string;
     isStreakGame?: boolean;
+    isStreakSaverGame?: boolean;
     currentStreak?: number;
     eventTitle?: string;
 }
@@ -28,11 +31,13 @@ export function IntroScreen({
     gameMode,
     puzzleDate,
     isStreakGame,
+    isStreakSaverGame,
     currentStreak,
     eventTitle
 }: IntroScreenProps) {
+    const router = useRouter();
     const fadeAnim = useRef(new Animated.Value(0)).current;
-    const { cluesEnabled } = useOptions();
+    const { cluesEnabled, streakSaverActive } = useOptions();
 
     useEffect(() => {
         if (visible) {
@@ -48,6 +53,30 @@ export function IntroScreen({
 
     if (!visible) return null;
 
+    // Handle back button press - warn if streak saver game
+    const handleBack = () => {
+        if (isStreakSaverGame && streakSaverActive) {
+            // Show warning that exiting will reset streak without using saver
+            Alert.alert(
+                'Streak Saver',
+                'To keep your streak going you must win this puzzle from yesterday. Exiting will reset your streak, without using your streak saver.',
+                [
+                    {
+                        text: 'Continue Playing',
+                        style: 'cancel'
+                    },
+                    {
+                        text: 'Exit and Lose Streak',
+                        style: 'destructive',
+                        onPress: () => router.back()
+                    }
+                ]
+            );
+        } else {
+            router.back();
+        }
+    };
+
     // Prompt text changes based on clues enabled
     const promptText = cluesEnabled
         ? (gameMode === 'REGION'
@@ -60,6 +89,22 @@ export function IntroScreen({
     return (
         <Modal transparent visible={visible} animationType="fade">
             <StyledView className={`flex-1 justify-center items-center p-4 ${isStreakGame ? 'bg-black' : 'bg-white dark:bg-slate-900'}`}>
+                {/* Back Arrow - Always Visible */}
+                <StyledView className="absolute top-12 left-4 z-10">
+                    <StyledTouchableOpacity
+                        onPress={handleBack}
+                        className="p-2 rounded-full active:opacity-70"
+                        style={{
+                            backgroundColor: isStreakGame ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                        }}
+                    >
+                        <ChevronLeft
+                            size={28}
+                            color={isStreakGame ? '#ffffff' : '#1e293b'}
+                        />
+                    </StyledTouchableOpacity>
+                </StyledView>
+
                 <Animated.View style={{ opacity: fadeAnim, width: '100%', maxWidth: 400, alignItems: 'center' }}>
 
                     {/* Mascot */}

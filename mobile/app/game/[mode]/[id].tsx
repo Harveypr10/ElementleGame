@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Calendar, HelpCircle } from 'lucide-react-native';
+import { ChevronLeft, Calendar, HelpCircle } from 'lucide-react-native';
 import { ActiveGame } from '../../../components/game/ActiveGame';
 import { useAuth } from '../../../lib/auth';
 import { useOptions } from '../../../lib/options';
@@ -211,7 +211,7 @@ export default function GameScreen() {
                     className="bg-slate-700 px-6 py-3 rounded-xl flex-row items-center"
                     onPress={() => router.back()}
                 >
-                    <ArrowLeft className="text-white mr-2" size={20} />
+                    <ChevronLeft className="text-white mr-2" size={20} />
                     <Text className="text-white font-bold text-lg">Go Back</Text>
                 </TouchableOpacity>
             </SafeAreaView>
@@ -229,7 +229,7 @@ export default function GameScreen() {
                             onPress={() => router.back()}
                             className="items-center justify-center bg-transparent"
                         >
-                            <ArrowLeft size={28} className="text-slate-800 dark:text-white" />
+                            <ChevronLeft size={28} color="#1e293b" className="dark:text-white" />
                         </TouchableOpacity>
                     </View>
 

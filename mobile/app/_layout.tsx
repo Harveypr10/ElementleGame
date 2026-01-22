@@ -1,6 +1,6 @@
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../lib/auth';
@@ -12,6 +12,8 @@ import { GuessCacheProvider } from '../contexts/GuessCacheContext';
 import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ConversionPromptModal } from '../components/ConversionPromptModal';
+import mobileAds from 'react-native-google-mobile-ads';
+import { initializeRevenueCat } from '../lib/RevenueCat';
 import '../lib/typography'; // Global Font Patch
 
 /* 
@@ -81,6 +83,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 }
 
 export default function Layout() {
+    const [adMobInitialized, setAdMobInitialized] = useState(false);
     let [fontsLoaded] = useFonts({
         Nunito_400Regular,
         Nunito_500Medium,
@@ -89,8 +92,30 @@ export default function Layout() {
         Nunito_800ExtraBold,
     });
 
-    if (!fontsLoaded) {
-        return null;
+    // Initialize Google Mobile Ads BEFORE rendering any ads
+    useEffect(() => {
+        mobileAds()
+            .initialize()
+            .then(adapterStatuses => {
+                console.log('[AdMob] Initialized successfully:', adapterStatuses);
+                setAdMobInitialized(true);
+            })
+            .catch(error => {
+                console.error('[AdMob] Initialization failed:', error);
+                // Still set as initialized to allow app to continue
+                setAdMobInitialized(true);
+            });
+
+        // Initialize RevenueCat for subscription management
+        initializeRevenueCat();
+    }, []);
+
+    if (!fontsLoaded || !adMobInitialized) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }}>
+                <ActivityIndicator size="large" color="#3b82f6" />
+            </View>
+        );
     }
 
     return (

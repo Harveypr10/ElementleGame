@@ -127,6 +127,12 @@ export default function CategorySelectionScreen() {
             return;
         }
 
+        if (!user?.id) {
+            console.error('[CategorySelection] No user ID available');
+            hapticsManager.error();
+            return;
+        }
+
         setSaving(true);
 
         try {
@@ -134,7 +140,7 @@ export default function CategorySelectionScreen() {
             const { error: deleteError } = await supabase
                 .from('user_category_preferences')
                 .delete()
-                .eq('user_id', user?.id);
+                .eq('user_id', user.id);
 
             if (deleteError) {
                 console.error('[CategorySelection] Error deleting old preferences:', deleteError);
@@ -143,7 +149,7 @@ export default function CategorySelectionScreen() {
 
             // Step 2: Insert new preferences
             const preferences = selectedCategories.map(categoryId => ({
-                user_id: user?.id,
+                user_id: user.id,
                 category_id: categoryId,
             }));
 
@@ -158,30 +164,44 @@ export default function CategorySelectionScreen() {
 
             console.log('[CategorySelection] Categories saved successfully');
 
-            // Step 3: Call Edge Function to regenerate questions
+            // Step 3: Call Edge Function to reset allocations
             setGenerating(true);
             const { data, error: edgeFunctionError } = await supabase.functions.invoke(
                 'reset-and-reallocate-user',
-                { body: { user_id: user?.id } }
+                { body: { user_id: user.id } }
             );
 
             if (edgeFunctionError) {
                 console.error('[CategorySelection] Edge Function error:', edgeFunctionError);
+                // Don't throw - navigate anyway
             } else {
-                console.log('[CategorySelection] Questions regenerated:', data);
+                console.log('[CategorySelection] Reset complete:', data);
             }
 
             hapticsManager.success();
 
-            // Navigate back to home
-            setTimeout(() => {
-                router.replace('/(tabs)');
-            }, 1500);
+            // Step 4: Get user profile data for params
+            const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('postcode, region')
+                .eq('id', user.id)
+                .single();
+
+            // Step 5: Navigate to GeneratingQuestionsScreen
+            router.push({
+                pathname: '/(auth)/generating-questions',
+                params: {
+                    userId: user.id,
+                    postcode: profile?.postcode || '',
+                    region: profile?.region || 'UK',
+                    regenerationType: 'category_change',
+                    selectedCategoryIds: JSON.stringify(selectedCategories)
+                }
+            });
 
         } catch (err) {
             console.error('[CategorySelection] Error:', err);
             hapticsManager.error();
-        } finally {
             setSaving(false);
             setGenerating(false);
         }
@@ -205,7 +225,7 @@ export default function CategorySelectionScreen() {
                 onPress={() => router.back()}
                 className="absolute left-4 top-12 z-10 w-12 h-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800"
             >
-                <ChevronLeft size={24} color="#1e293b" />
+                <ChevronLeft size={28} color="#1e293b" />
             </StyledTouchableOpacity>
 
             {/* Hamster Image */}
@@ -237,6 +257,7 @@ export default function CategorySelectionScreen() {
                                 <StyledTouchableOpacity
                                     key={category.id}
                                     onPress={() => toggleCategory(category.id)}
+                                    style={{ minHeight: 56 }}
                                     className={`
                                         flex-1 min-w-[48%] px-4 py-3 rounded-xl items-center justify-center
                                         ${isSelected
@@ -244,7 +265,6 @@ export default function CategorySelectionScreen() {
                                             : 'bg-slate-200 dark:bg-slate-700'
                                         }
                                     `}
-                                    style={{ minHeight: 56 }}
                                 >
                                     <StyledText className={`
                                         text-sm font-n-bold text-center
