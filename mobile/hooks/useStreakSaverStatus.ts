@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { useSubscription } from './useSubscription';
+import { activateHolidayMode, endHolidayMode } from '../lib/supabase-rpc';
 
 export interface StreakSaverStatus {
     region: {
@@ -174,32 +175,16 @@ export function useStreakSaverStatus() {
     const startHolidayMutation = useMutation({
         mutationFn: async () => {
             if (!user) throw new Error('No user');
-
-            const today = new Date();
-            const endDate = new Date();
-            endDate.setDate(endDate.getDate() + holidayDurationDays);
-
-            // Update user_stats_user with holiday dates
-            const { error: updateError } = await supabase
-                .from('user_stats_user')
-                .update({
-                    holiday_active: true,
-                    holiday_start_date: today.toISOString().split('T')[0],
-                    holiday_end_date: endDate.toISOString().split('T')[0],
-                    holidays_used_year: (status?.user?.holidaysUsedYear || 0) + 1,
-                    missed_yesterday_flag_user: false, // Clear missed flag
-                })
-                .eq('user_id', user.id);
-
-            if (updateError) throw updateError;
-
-            // TODO: Mark game attempts with streak_day_status=0 for holiday dates
-            // This might need a Supabase RPC function to batch update multiple dates
+            await activateHolidayMode(user.id, holidayDurationDays);
+            // Small artificial delay to allow DB views/triggers to propagate if needed
+            await new Promise(resolve => setTimeout(resolve, 500));
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
-            queryClient.invalidateQueries({ queryKey: ['user-stats'] });
-            queryClient.invalidateQueries({ queryKey: ['game-attempts'] });
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
+            await queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+            await queryClient.invalidateQueries({ queryKey: ['game-attempts'] });
+            // Force refetch to ensure UI updates immediately
+            refetch();
         },
     });
 
@@ -207,26 +192,14 @@ export function useStreakSaverStatus() {
     const endHolidayMutation = useMutation({
         mutationFn: async (acknowledge?: boolean) => {
             if (!user) throw new Error('No user');
-
-            // Update user_stats_user to deactivate holiday
-            const updateData: any = {
-                holiday_active: false,
-            };
-
-            if (acknowledge) {
-                updateData.holiday_ended = false; // Clear ended flag after acknowledgment
-            }
-
-            const { error: updateError } = await supabase
-                .from('user_stats_user')
-                .update(updateData)
-                .eq('user_id', user.id);
-
-            if (updateError) throw updateError;
+            await endHolidayMode(user.id, acknowledge);
+            // Small artificial delay to allow DB views/triggers to propagate if needed
+            await new Promise(resolve => setTimeout(resolve, 500));
         },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
-            queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
+            await queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+            refetch();
         },
     });
 

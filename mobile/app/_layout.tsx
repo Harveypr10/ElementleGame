@@ -1,5 +1,8 @@
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { styled } from 'nativewind';
+
+const StyledView = styled(View);
 import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -44,7 +47,13 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         if (loading) return;
 
         const inAuthGroup = segments[0] === '(auth)';
-        const inPersonaliseFlow = segments.includes('personalise') || segments.includes('generating-questions');
+        const inPersonaliseFlow =
+            segments.includes('personalise') ||
+            segments.includes('generating-questions') ||
+            segments.includes('category-selection') ||
+            segments.includes('subscription') ||
+            segments.includes('manage-subscription') ||
+            segments.includes('subscription-flow');
 
         console.log('[NavGuard] Session:', !!session, 'Guest:', isGuest, 'Segments:', segments);
 
@@ -128,28 +137,30 @@ export default function Layout() {
                                 <GuessCacheProvider>
                                     <StreakSaverProvider>
                                         <OptionsProvider>
-                                            <NavigationGuard>
-                                                <Stack screenOptions={{ headerShown: false }}>
-                                                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                                    <Stack.Screen name="game" options={{ headerShown: false }} />
-                                                    <Stack.Screen
-                                                        name="archive"
-                                                        options={{
-                                                            headerShown: false,
-                                                            presentation: 'card'
-                                                        }}
-                                                    />
-                                                    <Stack.Screen
-                                                        name="stats"
-                                                        options={{
-                                                            headerShown: false,
-                                                            presentation: 'card'
-                                                        }}
-                                                    />
-                                                    <Stack.Screen name="index" options={{ headerShown: false }} />
-                                                </Stack>
-                                            </NavigationGuard>
+                                            <StyledView className="flex-1 bg-white dark:bg-slate-900">
+                                                <NavigationGuard>
+                                                    <Stack screenOptions={{ headerShown: false }}>
+                                                        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                                        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                                        <Stack.Screen name="game" options={{ headerShown: false }} />
+                                                        <Stack.Screen
+                                                            name="archive"
+                                                            options={{
+                                                                headerShown: false,
+                                                                presentation: 'card'
+                                                            }}
+                                                        />
+                                                        <Stack.Screen
+                                                            name="stats"
+                                                            options={{
+                                                                headerShown: false,
+                                                                presentation: 'card'
+                                                            }}
+                                                        />
+                                                        <Stack.Screen name="index" options={{ headerShown: false }} />
+                                                    </Stack>
+                                                </NavigationGuard>
+                                            </StyledView>
                                             <ConversionPromptModal />
                                         </OptionsProvider>
                                     </StreakSaverProvider>

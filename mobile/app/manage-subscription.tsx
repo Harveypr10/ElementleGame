@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { styled } from 'nativewind';
 import { ChevronLeft, Crown, Calendar, Flame, Umbrella } from 'lucide-react-native';
@@ -17,9 +17,57 @@ const StyledScrollView = styled(ScrollView);
 export default function ManageSubscriptionScreen() {
     const router = useRouter();
     const { subscription, isPro, tierName, tierType, streakSavers, holidaySavers, holidayDurationDays } = useSubscription();
-    const { status, holidayActive, holidayStartDate, holidayEndDate } = useStreakSaverStatus();
+    const { status, holidayActive, holidayStartDate, holidayEndDate, endHoliday, startHoliday } = useStreakSaverStatus();
     const { profile } = useProfile();
     const { textScale } = useOptions();
+
+    const handleEndHoliday = () => {
+        Alert.alert(
+            'End Holiday Early?',
+            'Are you sure you want to end your holiday? Your streak protection will stop immediately.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'End Holiday',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await endHoliday();
+                        } catch (error) {
+                            console.error('Failed to end holiday:', error);
+                            Alert.alert('Error', 'Failed to end holiday mode. Please try again.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleStartHoliday = () => {
+        if ((holidaySavers ?? 0) <= 0) {
+            Alert.alert('No Holidays Remaining', 'You have used all your holiday allowances for this year.');
+            return;
+        }
+
+        Alert.alert(
+            'Start Holiday Mode?',
+            `This will protect your streak for up to ${holidayDurationDays} days.`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Start Holiday',
+                    onPress: async () => {
+                        try {
+                            await startHoliday();
+                        } catch (error) {
+                            console.error('Failed to start holiday:', error);
+                            Alert.alert('Error', 'Failed to start holiday mode. Please try again.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
 
@@ -217,12 +265,18 @@ export default function ManageSubscriptionScreen() {
                                 <StyledText className="text-sm text-blue-700 dark:text-blue-300">Ends:</StyledText>
                                 <StyledText className="text-sm font-n-semibold text-blue-900 dark:text-blue-100">{formatDate(holidayEndDate)}</StyledText>
                             </StyledView>
-                            <StyledTouchableOpacity className="bg-white rounded-xl py-3 px-4 border border-blue-300">
+                            <StyledTouchableOpacity
+                                onPress={handleEndHoliday}
+                                className="bg-white rounded-xl py-3 px-4 border border-blue-300"
+                            >
                                 <StyledText className="text-center font-n-bold text-blue-600">End Holiday Early</StyledText>
                             </StyledTouchableOpacity>
                         </StyledView>
                     ) : (
-                        <StyledTouchableOpacity className="bg-blue-600 rounded-xl py-3 px-4">
+                        <StyledTouchableOpacity
+                            onPress={handleStartHoliday}
+                            className="bg-blue-600 rounded-xl py-3 px-4"
+                        >
                             <StyledText className="text-center font-n-bold text-white">Start Holiday Mode</StyledText>
                         </StyledTouchableOpacity>
                     )}

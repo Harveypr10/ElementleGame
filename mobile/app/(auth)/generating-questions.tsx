@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
+import { ThemedText } from '../../components/ThemedText';
 
 interface TextBlock {
     id: string;
@@ -24,6 +26,7 @@ type RegenerationType = 'first_login' | 'postcode_change' | 'category_change';
 export default function GeneratingQuestionsScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
+    const isPreview = params.preview === 'true';
     const { markFirstLoginCompleted } = useAuth();
 
     // TODO: Get these from params or context
@@ -117,12 +120,6 @@ export default function GeneratingQuestionsScreen() {
             let eventTitles: string[] = [];
 
             try {
-                // TODO: Replace with actual Supabase call
-                // const { data, error } = await supabase
-                //   .from('questions_master_region')
-                //   .select('event_title')
-                //   .limit(50);
-
                 // Mock data for now
                 const mockTitles = [
                     'The Battle of Hastings',
@@ -307,11 +304,6 @@ export default function GeneratingQuestionsScreen() {
             if (postcode) {
                 try {
                     console.log('[GeneratingQuestions] Calling populate_user_locations RPC');
-                    // TODO: Replace with actual Supabase RPC call
-                    // await supabase.rpc('populate_user_locations', {
-                    //   p_user_id: userId,
-                    //   p_postcode: postcode,
-                    // });
 
                     // Mock location fetching
                     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -373,8 +365,7 @@ export default function GeneratingQuestionsScreen() {
             // Step 4: Call calculate-demand Edge Function and poll for completion
             console.log('[GeneratingQuestions] Calling calculate-demand Edge Function');
             try {
-                // Import supabase client
-                const { supabase } = await import('../../lib/supabase');
+                // Use static import
                 const { data: { session } } = await supabase.auth.getSession();
 
                 if (!session?.user?.id) {
@@ -382,16 +373,21 @@ export default function GeneratingQuestionsScreen() {
                 }
 
                 // Invoke the Edge Function
-                const { data: funcData, error: funcError } = await supabase.functions.invoke('calculate-demand', {
-                    body: { user_id: session.user.id }
-                });
+                if (isPreview) {
+                    console.log('[GeneratingQuestions] Preview mode - skipping API call');
+                    // Mock delay for preview
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } else {
+                    const { data: funcData, error: funcError } = await supabase.functions.invoke('calculate-demand', {
+                        body: { user_id: session.user.id }
+                    });
 
-                if (funcError) {
-                    console.error('[GeneratingQuestions] Edge Function error:', funcError);
-                    throw funcError;
+                    if (funcError) {
+                        console.error('[GeneratingQuestions] Edge Function error:', funcError);
+                        throw funcError;
+                    }
+                    console.log('[GeneratingQuestions] Edge Function response:', funcData);
                 }
-
-                console.log('[GeneratingQuestions] Edge Function response:', funcData);
 
 
                 // Poll questions_allocated_user until questions exist
@@ -453,10 +449,13 @@ export default function GeneratingQuestionsScreen() {
                 setTimeout(async () => {
                     if (!mountedRef.current) return;
 
-                    // Mark first login as completed
-                    await markFirstLoginCompleted();
-
-                    router.replace('/');
+                    if (isPreview) {
+                        console.log('[GeneratingQuestions] Preview mode - skipping redirect');
+                    } else {
+                        // Mark first login as completed
+                        await markFirstLoginCompleted();
+                        router.replace('/');
+                    }
                 }, 100);
             }, SCREEN_DURATION);
 
@@ -494,18 +493,30 @@ export default function GeneratingQuestionsScreen() {
                             },
                         ]}
                     >
-                        <Text style={styles.textBlockText} numberOfLines={2}>
+                        <ThemedText style={styles.textBlockText} numberOfLines={2} size="sm">
                             {block.text}
-                        </Text>
+                        </ThemedText>
                     </Animated.View>
                 ))}
             </View>
 
+            {/* Preview Close Button */}
+            {isPreview && (
+                <View style={{ position: 'absolute', top: 50, right: 20, zIndex: 999 }}>
+                    <ThemedText
+                        onPress={() => router.back()}
+                        style={{ color: 'white', fontWeight: 'bold', fontSize: 18, backgroundColor: 'rgba(0,0,0,0.3)', padding: 10, borderRadius: 8 }}
+                    >
+                        Close Preview
+                    </ThemedText>
+                </View>
+            )}
+
             {/* Footer Text */}
             <View style={styles.footer}>
-                <Text style={styles.footerText}>
+                <ThemedText style={styles.footerText} size="base">
                     Hold tight, Hammie is cooking up your personalised questions...
-                </Text>
+                </ThemedText>
             </View>
         </View>
     );

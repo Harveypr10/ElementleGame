@@ -12,6 +12,7 @@ import soundManager from '../../lib/soundManager';
 const StyledView = styled(View);
 const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
+import { X } from 'lucide-react-native';
 
 export type StreakSaverCloseAction = 'use_streak_saver' | 'decline' | 'holiday' | 'dismiss';
 
@@ -20,13 +21,15 @@ interface StreakSaverPopupProps {
     onClose: (action?: StreakSaverCloseAction) => void;
     gameType: 'REGION' | 'USER';
     currentStreak: number;
+    showCloseButton?: boolean;
 }
 
 export function StreakSaverPopup({
     visible,
     onClose,
     gameType,
-    currentStreak
+    currentStreak,
+    showCloseButton = false
 }: StreakSaverPopupProps) {
     const router = useRouter();
     const { toast } = useToast();
@@ -183,11 +186,20 @@ export function StreakSaverPopup({
                     style={{ backgroundColor: bgColor }}
                 >
                     {/* Header */}
-                    <StyledView className="flex-row items-center justify-center gap-2 mb-2">
+                    <StyledView className="flex-row items-center justify-center gap-2 mb-2 relative">
                         <Flame size={24} color="#ef4444" />
                         <StyledText className="text-2xl font-n-bold text-slate-900">
                             {showStreakSaverButton ? 'Save Your Streak?' : 'Protect Your Streak?'}
                         </StyledText>
+
+                        {showCloseButton && (
+                            <StyledTouchableOpacity
+                                onPress={() => onClose('dismiss')}
+                                className="absolute -right-2 -top-2 p-2 bg-white/20 rounded-full"
+                            >
+                                <X size={20} color="#1e293b" />
+                            </StyledTouchableOpacity>
+                        )}
                     </StyledView>
 
                     {/* Description */}

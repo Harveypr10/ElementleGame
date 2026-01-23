@@ -4,6 +4,7 @@ import { styled } from 'nativewind';
 import { Delete, RotateCcw } from 'lucide-react-native';
 import hapticsManager from '../lib/hapticsManager';
 import soundManager from '../lib/soundManager';
+import { ThemedText } from './ThemedText';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -62,6 +63,8 @@ export function NumericKeyboard({
         }
     };
 
+
+
     const renderKey = (digit: string) => (
         <StyledTouchableOpacity
             key={digit}
@@ -74,7 +77,7 @@ export function NumericKeyboard({
             className={`flex-1 m-1 rounded-md justify-center items-center active:bg-slate-300 ${getKeyClasses(digit)}`}
             style={{ height: buttonHeight }}
         >
-            <StyledText className={`text-xl font-nunito ${getKeyTextClasses(digit)}`}>{digit}</StyledText>
+            <ThemedText className={`font-nunito ${getKeyTextClasses(digit)}`} size="xl">{digit}</ThemedText>
         </StyledTouchableOpacity>
     );
 
@@ -96,7 +99,7 @@ export function NumericKeyboard({
                     disabled={!canSubmit}
                     className={`flex-1 m-1 rounded-md justify-center items-center ${canSubmit ? "bg-brand-blue" : "bg-brand-blue/30"}`}
                     style={{ height: buttonHeight }}>
-                    <StyledText className="text-white text-lg font-nunito">Enter</StyledText>
+                    <ThemedText className="text-white font-nunito" size="lg">Enter</ThemedText>
                 </StyledTouchableOpacity>
 
                 <StyledTouchableOpacity

@@ -89,10 +89,9 @@ export function OnboardingScreen({
 
                     <TouchableOpacity
                         onPress={onSubscribe}
-                        style={[styles.button, styles.greyButton, styles.disabledButton]}
+                        style={[styles.button, styles.greyButton]}
                         testID="button-onboarding-subscribe"
-                        disabled
-                        activeOpacity={0.5}
+                        activeOpacity={0.9}
                     >
                         <Text style={styles.buttonText}>Subscribe</Text>
                     </TouchableOpacity>

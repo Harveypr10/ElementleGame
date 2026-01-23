@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, Easing } from 'react-native';
 import { styled } from 'nativewind';
 import { ArrowUp, ArrowDown } from 'lucide-react-native';
+import { ThemedText } from './ThemedText';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -135,6 +136,8 @@ function AnimatedCell({ cell, isPlaceholder, placeholder, isActiveRow, animateEn
     if (cell.digit) content = cell.digit;
     else if (isPlaceholder) content = placeholder;
 
+
+
     return (
         <StyledAnimatedView
             style={{
@@ -148,9 +151,12 @@ function AnimatedCell({ cell, isPlaceholder, placeholder, isActiveRow, animateEn
             }}
             className={`min-h-[60px] max-w-[54px] mx-0.5 my-1 rounded-md justify-center pt-1 items-center ${getCellClasses(cell.state, hasDigit)}`}
         >
-            <StyledText className={`font-nunito ${hasDigit ? 'text-3xl' : 'text-2xl opacity-30'} ${getCellTextColors(cell.state, hasDigit)}`}>
+            <ThemedText
+                className={`font-nunito ${hasDigit ? '' : 'opacity-30'} ${getCellTextColors(cell.state, hasDigit)}`}
+                size={hasDigit ? '3xl' : '2xl'}
+            >
                 {content}
-            </StyledText>
+            </ThemedText>
 
             {/* Arrow Indicator */}
             {cell.arrow && (

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, Animated, TouchableOpacity, Image } from 'react-native';
 import { styled } from 'nativewind';
-// Fallback to PNG due to SVG transformer issues causing runtime crashes
+import { X } from 'lucide-react-native';
 const StreakHamsterImg = require('../../assets/hamster.png');
 
 const StyledView = styled(View);
@@ -13,9 +13,10 @@ interface StreakCelebrationProps {
     visible: boolean;
     streak: number;
     onClose: () => void;
+    showCloseButton?: boolean;
 }
 
-export function StreakCelebration({ visible, streak, onClose }: StreakCelebrationProps) {
+export function StreakCelebration({ visible, streak, onClose, showCloseButton = false }: StreakCelebrationProps) {
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -41,10 +42,18 @@ export function StreakCelebration({ visible, streak, onClose }: StreakCelebratio
     return (
         <Modal transparent visible={visible} animationType="fade">
             <StyledTouchableOpacity
-                className="flex-1 bg-black justify-center items-center"
+                className="flex-1 bg-black/90 justify-center items-center relative"
                 activeOpacity={1}
                 onPress={onClose}
             >
+                {showCloseButton && (
+                    <StyledTouchableOpacity
+                        onPress={onClose}
+                        className="absolute right-6 top-12 z-50 p-2 bg-white/20 rounded-full"
+                    >
+                        <X size={24} color="white" />
+                    </StyledTouchableOpacity>
+                )}
                 <Animated.View style={{ opacity: fadeAnim, width: '100%', alignItems: 'center' }}>
 
                     {/* Hamster with Number Overlay */}

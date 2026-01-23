@@ -13,7 +13,7 @@ import {
     KeyboardAvoidingView,
     Keyboard,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { PasswordInput } from '../../components/ui/PasswordInput';
 import { validatePassword } from '../../lib/passwordValidation';
@@ -45,11 +45,15 @@ const isValidEmail = (email: string) => {
 
 export default function LoginPage() {
     const router = useRouter();
+    const params = useLocalSearchParams();
+    const nextRoute = params.next as string;
+    const initialStep = params.step as LoginStep;
+
     const colorScheme = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
     const { signInWithEmail, signUpWithEmail } = useAuth();
 
-    const [step, setStep] = useState<LoginStep>('email');
+    const [step, setStep] = useState<LoginStep>(initialStep || 'email');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -180,7 +184,11 @@ export default function LoginPage() {
 
 
             console.log('Account created successfully');
-            router.push('/(auth)/personalise');
+            if (nextRoute) {
+                router.replace(nextRoute);
+            } else {
+                router.push('/(auth)/personalise');
+            }
         } catch (error: any) {
             console.error('Signup error:', error);
             Alert.alert('Error', error.message || 'Failed to create account');
@@ -585,7 +593,7 @@ export default function LoginPage() {
                                 )}
                             </TouchableOpacity>
 
-                            {userInfo?.hasPassword && (
+                            {userAuthInfo?.hasPassword && (
                                 <TouchableOpacity
                                     style={styles.secondaryButton}
                                     onPress={() => setStep('password')}

@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
-    Text,
     TextInput,
     TouchableOpacity,
     ScrollView,
     StyleSheet,
     ActivityIndicator,
-    useColorScheme,
     Platform,
     Alert,
     KeyboardAvoidingView,
@@ -18,6 +16,8 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, HelpCircle, ChevronRight } from 'lucide-react-native';
 import { PostcodeAutocomplete } from '../../components/PostcodeAutocomplete';
 import { supabase } from '../../lib/supabase';
+import { useColorScheme } from 'nativewind';
+import { ThemedText } from '../../components/ThemedText';
 
 interface Region {
     code: string;
@@ -26,7 +26,7 @@ interface Region {
 
 export default function PersonalisePage() {
     const router = useRouter();
-    const colorScheme = useColorScheme();
+    const { colorScheme } = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
 
     const [firstName, setFirstName] = useState('');
@@ -266,9 +266,9 @@ export default function PersonalisePage() {
                 >
                     <ChevronLeft size={28} color={textColor} />
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: textColor }]}>
+                <ThemedText style={[styles.headerTitle, { color: textColor }]} size="lg">
                     Personalise your game
-                </Text>
+                </ThemedText>
                 <View style={styles.headerSpacer} />
             </View>
 
@@ -278,15 +278,15 @@ export default function PersonalisePage() {
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={[styles.card, { backgroundColor: cardBg }]}>
-                    <Text style={[styles.subtitle, { color: textColor }]}>
+                    <ThemedText style={[styles.subtitle, { color: textColor }]} size="sm">
                         Set up your profile to get personalised puzzles
-                    </Text>
+                    </ThemedText>
 
                     <View style={styles.formContainer}>
                         {/* Name Fields (2 column grid) */}
                         <View style={styles.nameGrid}>
                             <View style={styles.nameField}>
-                                <Text style={[styles.label, { color: textColor }]}>First Name</Text>
+                                <ThemedText style={[styles.label, { color: textColor }]} size="sm">First Name</ThemedText>
                                 <TextInput
                                     ref={firstNameRef}
                                     style={[styles.input, { color: textColor }]}
@@ -303,7 +303,7 @@ export default function PersonalisePage() {
                             </View>
 
                             <View style={styles.nameField}>
-                                <Text style={[styles.label, { color: textColor }]}>Last Name</Text>
+                                <ThemedText style={[styles.label, { color: textColor }]} size="sm">Last Name</ThemedText>
                                 <TextInput
                                     ref={lastNameRef}
                                     style={[styles.input, { color: textColor }]}
@@ -322,7 +322,7 @@ export default function PersonalisePage() {
                         {/* Region Field */}
                         <View style={styles.fieldContainer}>
                             <View style={styles.labelRow}>
-                                <Text style={[styles.label, { color: textColor }]}>Region</Text>
+                                <ThemedText style={[styles.label, { color: textColor }]} size="sm">Region</ThemedText>
                                 <TouchableOpacity
                                     onPress={() =>
                                         Alert.alert(
@@ -343,22 +343,22 @@ export default function PersonalisePage() {
                                     onPress={() => setRegionModalVisible(true)}
                                     onPressIn={() => Keyboard.dismiss()}
                                 >
-                                    <Text style={[styles.regionSelectorText, { color: textColor }]}>
+                                    <ThemedText style={[styles.regionSelectorText, { color: textColor }]} size="base">
                                         {regions.find(r => r.code === region)?.name || 'Select Region'}
-                                    </Text>
+                                    </ThemedText>
                                     <ChevronRight size={20} color="#999" />
                                 </TouchableOpacity>
                             )}
 
-                            <Text style={[styles.helperText, { color: textColor }]}>
+                            <ThemedText style={[styles.helperText, { color: textColor }]} size="xs">
                                 This determines which region version of the game you play
-                            </Text>
+                            </ThemedText>
                         </View>
 
                         {/* Postcode Field */}
                         <View style={styles.fieldContainer}>
                             <View style={styles.labelRow}>
-                                <Text style={[styles.label, { color: textColor }]}>Postcode</Text>
+                                <ThemedText style={[styles.label, { color: textColor }]} size="sm">Postcode</ThemedText>
                                 <TouchableOpacity
                                     onPress={() =>
                                         Alert.alert(
@@ -385,11 +385,11 @@ export default function PersonalisePage() {
                             onPress={() => setAdsConsent(!adsConsent)}
                         >
                             <View style={[styles.checkbox, adsConsent && styles.checkboxChecked]}>
-                                {adsConsent && <Text style={styles.checkmark}>✓</Text>}
+                                {adsConsent && <ThemedText style={styles.checkmark}>✓</ThemedText>}
                             </View>
-                            <Text style={[styles.checkboxLabel, { color: textColor }]}>
+                            <ThemedText style={[styles.checkboxLabel, { color: textColor }]} size="sm">
                                 I agree to receive tailored ads and promotional content (optional)
-                            </Text>
+                            </ThemedText>
                         </TouchableOpacity>
 
                         {/* Generate Questions Button */}
@@ -405,7 +405,7 @@ export default function PersonalisePage() {
                             {loading ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.primaryButtonText}>Generate Questions</Text>
+                                <ThemedText style={styles.primaryButtonText} size="lg">Generate Questions</ThemedText>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -416,7 +416,7 @@ export default function PersonalisePage() {
                     onPress={() => router.push('/(auth)/login')}
                     onPressIn={() => Keyboard.dismiss()}
                 >
-                    <Text style={styles.linkText}>Return to log in</Text>
+                    <ThemedText style={styles.linkText} size="sm">Return to log in</ThemedText>
                 </TouchableOpacity>
             </ScrollView>
 
@@ -434,9 +434,9 @@ export default function PersonalisePage() {
                 >
                     <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
                         <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: textColor }]}>Select Region</Text>
+                            <ThemedText style={[styles.modalTitle, { color: textColor }]} size="xl">Select Region</ThemedText>
                             <TouchableOpacity onPress={() => setRegionModalVisible(false)}>
-                                <Text style={styles.modalClose}>✕</Text>
+                                <ThemedText style={styles.modalClose}>✕</ThemedText>
                             </TouchableOpacity>
                         </View>
                         <ScrollView style={styles.modalList}>
@@ -452,15 +452,15 @@ export default function PersonalisePage() {
                                         setRegionModalVisible(false);
                                     }}
                                 >
-                                    <Text style={[
+                                    <ThemedText style={[
                                         styles.modalOptionText,
                                         { color: textColor },
                                         region === r.code && styles.modalOptionTextSelected
-                                    ]}>
+                                    ]} size="base">
                                         {r.name}
-                                    </Text>
+                                    </ThemedText>
                                     {region === r.code && (
-                                        <Text style={styles.modalOptionCheck}>✓</Text>
+                                        <ThemedText style={styles.modalOptionCheck}>✓</ThemedText>
                                     )}
                                 </TouchableOpacity>
                             ))}
@@ -488,7 +488,6 @@ const styles = StyleSheet.create({
         padding: 4,
     },
     headerTitle: {
-        fontSize: 18,
         fontWeight: 'bold',
         fontFamily: 'Nunito-Bold',
     },
@@ -511,7 +510,6 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     subtitle: {
-        fontSize: 14,
         fontFamily: 'Nunito',
         marginBottom: 24,
         textAlign: 'center',
@@ -535,7 +533,6 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     label: {
-        fontSize: 14,
         fontWeight: '500',
         fontFamily: 'Nunito-Bold',
     },
@@ -563,11 +560,9 @@ const styles = StyleSheet.create({
         height: 40,
     },
     pickerText: {
-        fontSize: 16,
         fontFamily: 'Nunito',
     },
     helperText: {
-        fontSize: 12,
         fontFamily: 'Nunito',
         opacity: 0.7,
     },
@@ -598,7 +593,6 @@ const styles = StyleSheet.create({
     },
     checkboxLabel: {
         flex: 1,
-        fontSize: 14,
         fontFamily: 'Nunito',
     },
     primaryButton: {
@@ -611,7 +605,6 @@ const styles = StyleSheet.create({
     },
     primaryButtonText: {
         color: '#fff',
-        fontSize: 18,
         fontWeight: 'bold',
         fontFamily: 'Nunito-Bold',
     },
@@ -624,7 +617,6 @@ const styles = StyleSheet.create({
     },
     linkText: {
         color: '#7DAAE8',
-        fontSize: 14,
         fontFamily: 'Nunito',
     },
     regionSelector: {
@@ -638,7 +630,6 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     regionSelectorText: {
-        fontSize: 16,
         fontFamily: 'Nunito',
         flex: 1,
     },
@@ -664,7 +655,6 @@ const styles = StyleSheet.create({
         borderBottomColor: '#e5e7eb',
     },
     modalTitle: {
-        fontSize: 20,
         fontWeight: 'bold',
         fontFamily: 'Nunito-Bold',
     },
@@ -687,7 +677,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#eef6ff',
     },
     modalOptionText: {
-        fontSize: 16,
         fontFamily: 'Nunito',
         flex: 1,
     },

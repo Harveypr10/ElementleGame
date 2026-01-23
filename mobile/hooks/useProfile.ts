@@ -8,6 +8,8 @@ export interface UserProfile {
     last_name: string | null;
     region: string | null;
     is_admin: boolean;
+    categories_last_changed_at: string | null;
+    postcode_last_changed_at: string | null;
 }
 
 export function useProfile() {
@@ -20,7 +22,7 @@ export function useProfile() {
 
             const { data, error } = await supabase
                 .from('user_profiles')
-                .select('id, first_name, last_name, region, is_admin')
+                .select('id, first_name, last_name, region, is_admin, categories_last_changed_at, postcode_last_changed_at')
                 .eq('id', user.id)
                 .single();
 

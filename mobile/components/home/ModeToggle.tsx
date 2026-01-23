@@ -8,6 +8,8 @@ const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledAnimatedView = styled(Animated.View);
 
+import { ThemedText } from '../ThemedText';
+
 interface ModeToggleProps {
     mode: 'REGION' | 'USER';
     onModeChange: (mode: 'REGION' | 'USER') => void;
@@ -78,6 +80,8 @@ export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel
                 />
             )}
 
+
+
             {/* Region Tab */}
             <StyledTouchableOpacity
                 className="flex-1 items-center justify-center z-10"
@@ -86,9 +90,9 @@ export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel
                     onModeChange('REGION');
                 }}
             >
-                <StyledText className={`${activeMode === 'REGION' ? 'font-n-bold text-slate-900' : 'font-n-medium text-slate-500'}`}>
+                <ThemedText className={`${activeMode === 'REGION' ? 'font-n-bold text-slate-900' : 'font-n-medium text-slate-500'}`} size="base">
                     {regionLabel}
-                </StyledText>
+                </ThemedText>
             </StyledTouchableOpacity>
 
             {/* User Tab */}
@@ -99,9 +103,9 @@ export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel
                     onModeChange('USER');
                 }}
             >
-                <StyledText className={`${activeMode === 'USER' ? 'font-n-bold text-slate-900' : 'font-n-medium text-slate-500'}`}>
+                <ThemedText className={`${activeMode === 'USER' ? 'font-n-bold text-slate-900' : 'font-n-medium text-slate-500'}`} size="base">
                     {userLabel}
-                </StyledText>
+                </ThemedText>
             </StyledTouchableOpacity>
         </StyledView>
     );

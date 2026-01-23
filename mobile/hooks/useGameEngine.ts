@@ -42,10 +42,15 @@ export function useGameEngine({
 
 
     const { dateFormatOrder, dateLength } = useOptions();
-    const numDigits = dateLength;
+    // State to hold and lock the digit count for this specific game
+    // Initialize with current preference, but override when loading existing game
+    const [gameDigits, setGameDigits] = useState<number>(dateLength);
+    const numDigits = gameDigits;
+
     // Construct full format: dateFormatOrder is 'ddmmyy' or 'mmddyy', need to append 'yy' or 'yyyy'
     const baseFormat = dateFormatOrder.startsWith('dd') ? 'ddmm' : 'mmdd';
-    const yearFormat = dateLength === 8 ? 'yyyy' : 'yy';
+    // Use the LOCKED gameDigits for formatting
+    const yearFormat = gameDigits === 8 ? 'yyyy' : 'yy';
     const dateFormat = `${baseFormat}${yearFormat}` as import('../lib/dateFormat').DateFormatPreference;
 
     // Dynamic Table Names
@@ -356,6 +361,10 @@ export function useGameEngine({
                             // CRITICAL: Use the digit format that was used when the guess was made (from attempts.digits)
                             // Not the current user preference, to preserve historical guesses correctly
                             const originalDigits = parseInt(attempts.digits || '8');
+
+                            // LOCK the game to this mode for the UI
+                            setGameDigits(originalDigits);
+
                             const baseFormat = (dateFormatOrder && dateFormatOrder.startsWith('mm')) ? 'mm' : 'dd';
                             const originalFormat = baseFormat === 'mm'
                                 ? (originalDigits === 6 ? 'mmddyy' : 'mmddyyyy')
@@ -692,6 +701,7 @@ export function useGameEngine({
         handleClear,
         isValidGuess: currentInput.length === numDigits,
         invalidShake, // Return counter
-        isRestored: attemptId !== null && gameState !== 'loading' && gameState !== 'playing' // Derived state for restoration
+        isRestored: attemptId !== null && gameState !== 'loading' && gameState !== 'playing', // Derived state for restoration
+        numDigits // Expose authoritative digit count
     };
 }

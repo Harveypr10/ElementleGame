@@ -10,12 +10,13 @@ import { styled } from 'nativewind';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, Loader2, ChevronLeft } from 'lucide-react-native';
-import hapticsManager from '../lib/hapticsManager';
-import { supabase } from '../lib/supabase';
-import { useAuth } from '../lib/auth';
+import { hapticsManager } from '../../lib/hapticsManager';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth';
+
+import { ThemedText } from '../../components/ThemedText';
 
 const StyledView = styled(View);
-const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
 
@@ -211,9 +212,9 @@ export default function CategorySelectionScreen() {
         return (
             <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center">
                 <ActivityIndicator size="large" color="#3b82f6" />
-                <StyledText className="text-slate-600 dark:text-slate-400 mt-4">
+                <ThemedText className="text-slate-600 dark:text-slate-400 mt-4" size="base">
                     Loading categories...
-                </StyledText>
+                </ThemedText>
             </SafeAreaView>
         );
     }
@@ -231,7 +232,7 @@ export default function CategorySelectionScreen() {
             {/* Hamster Image */}
             <StyledView className="absolute right-4 top-8 z-10">
                 <Image
-                    source={require('../assets/Question-Hamster-Cutout.png')}
+                    source={require('../../assets/Question-Hamster-Cutout.png')}
                     style={{ width: 80, height: 80 }}
                     resizeMode="contain"
                 />
@@ -239,12 +240,12 @@ export default function CategorySelectionScreen() {
 
             <StyledView className="flex-1 px-6">
                 <StyledView className="py-6 pt-20">
-                    <StyledText className="text-3xl font-n-bold text-slate-900 dark:text-white mb-2 text-center">
+                    <ThemedText className="font-n-bold text-slate-900 dark:text-white mb-2 text-center" size="3xl">
                         Select Your{'\n'}Categories
-                    </StyledText>
-                    <StyledText className="text-slate-600 dark:text-slate-400 font-n-medium text-center">
+                    </ThemedText>
+                    <ThemedText className="text-slate-600 dark:text-slate-400 font-n-medium text-center" size="base">
                         Choose at least 3 categories
-                    </StyledText>
+                    </ThemedText>
                 </StyledView>
 
                 {/* Categories Grid */}
@@ -266,12 +267,12 @@ export default function CategorySelectionScreen() {
                                         }
                                     `}
                                 >
-                                    <StyledText className={`
-                                        text-sm font-n-bold text-center
+                                    <ThemedText className={`
+                                        font-n-bold text-center
                                         ${isSelected ? 'text-white' : 'text-slate-700 dark:text-slate-300'}
-                                    `}>
+                                    `} size="sm">
                                         {category.name}
-                                    </StyledText>
+                                    </ThemedText>
                                 </StyledTouchableOpacity>
                             );
                         })}
@@ -280,9 +281,9 @@ export default function CategorySelectionScreen() {
 
                 {/* Bottom Action */}
                 <StyledView className="py-4">
-                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mb-3 text-center font-n-medium">
+                    <ThemedText className="text-slate-500 dark:text-slate-400 mb-3 text-center font-n-medium" size="sm">
                         {selectedCategories.length} {selectedCategories.length === 1 ? 'Category' : 'Categories'} Selected
-                    </StyledText>
+                    </ThemedText>
 
                     <StyledTouchableOpacity
                         onPress={handleContinue}
@@ -298,17 +299,17 @@ export default function CategorySelectionScreen() {
                         {saving || generating ? (
                             <StyledView className="flex-row items-center">
                                 <Loader2 size={20} color="white" className="mr-2" />
-                                <StyledText className="text-white font-n-bold text-lg">
+                                <ThemedText className="text-white font-n-bold" size="lg">
                                     {generating ? 'Generating...' : 'Saving...'}
-                                </StyledText>
+                                </ThemedText>
                             </StyledView>
                         ) : (
-                            <StyledText className={`
-                                font-n-bold text-lg
+                            <ThemedText className={`
+                                font-n-bold
                                 ${canGenerate ? 'text-white' : 'text-slate-500 dark:text-slate-400'}
-                            `}>
+                            `} size="lg">
                                 {initialCategories.length === 0 ? 'Generate' : 'Re-Generate'}
-                            </StyledText>
+                            </ThemedText>
                         )}
                     </StyledTouchableOpacity>
                 </StyledView>

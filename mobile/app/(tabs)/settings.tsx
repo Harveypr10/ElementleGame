@@ -23,6 +23,7 @@ import { useAuth } from '../../lib/auth';
 import { useProfile } from '../../hooks/useProfile';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useOptions } from '../../lib/options';
+import { useRestrictions } from '../../hooks/useRestrictions';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -35,6 +36,7 @@ export default function SettingsScreen() {
     const { profile, isAdmin } = useProfile();
     const { isPro, tierName, tierType } = useSubscription();
     const { textScale } = useOptions();
+    const { checkCategories } = useRestrictions();
 
     const [signingOut, setSigningOut] = useState(false);
 
@@ -82,6 +84,17 @@ export default function SettingsScreen() {
     };
 
     const handleCategories = () => {
+        const { canChange, nextChangeDate } = checkCategories();
+
+        if (!canChange && nextChangeDate) {
+            Alert.alert(
+                'Restrictions Apply',
+                `You recently changed your category preferences. You can change them again on ${nextChangeDate}.`,
+                [{ text: 'OK', style: 'default' }]
+            );
+            return;
+        }
+
         router.push('/category-selection');
     };
 
@@ -115,7 +128,7 @@ export default function SettingsScreen() {
     };
 
     const handleAdmin = () => {
-        Alert.alert('Admin', 'Admin panel coming soon!');
+        router.push('/settings/admin');
     };
 
     return (

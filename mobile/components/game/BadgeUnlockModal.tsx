@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, Image, TouchableOpacity, Animated } from 'react-native';
 import { styled } from 'nativewind';
-import { Target, Flame, Percent } from 'lucide-react-native';
+import { Target, Flame, Percent, X } from 'lucide-react-native';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -16,9 +16,10 @@ interface BadgeUnlockModalProps {
         threshold: number;
     } | null;
     onClose: () => void;
+    showCloseButton?: boolean;
 }
 
-export function BadgeUnlockModal({ visible, badge, onClose }: BadgeUnlockModalProps) {
+export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = false }: BadgeUnlockModalProps) {
     const scale = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -74,6 +75,15 @@ export function BadgeUnlockModal({ visible, badge, onClose }: BadgeUnlockModalPr
             <StyledView className="flex-1 bg-black/70 justify-center items-center p-4">
                 <Animated.View style={{ transform: [{ scale }] }}>
                     <StyledView className="bg-white dark:bg-slate-800 rounded-3xl p-6 items-center w-80 shadow-2xl relative overflow-visible">
+
+                        {showCloseButton && (
+                            <StyledTouchableOpacity
+                                onPress={onClose}
+                                className="absolute right-2 top-2 z-10 p-2 bg-slate-100 dark:bg-slate-700 rounded-full"
+                            >
+                                <X size={20} className="text-slate-500 dark:text-slate-400" />
+                            </StyledTouchableOpacity>
+                        )}
 
                         {/* Shimmer/Background Effect */}
                         <StyledView

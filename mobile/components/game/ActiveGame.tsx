@@ -15,6 +15,7 @@ import { useOptions } from '../../lib/options';
 
 import { useUserStats } from '../../hooks/useUserStats';
 import { useBadgeSystem, Badge } from '../../hooks/useBadgeSystem';
+import { ThemedText } from '../ThemedText';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -56,16 +57,17 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
         handleClear,
         isValidGuess,
         invalidShake, // Using this to trigger shake animation if needed
-        isRestored
+        isRestored,
+        numDigits // Get authoritative digit count
     } = useGameEngine({
         puzzleId: puzzle.id,
         answerDateCanonical: puzzle.solutionDate, // Use the actual solution date
         mode: gameMode
     });
 
-    // Generate dynamic placeholders based on dateLength and dateFormatOrder
+    // Generate dynamic placeholders based on Locked numDigits and dateFormatOrder
     const placeHolders = React.useMemo(() => {
-        if (dateLength === 8) {
+        if (numDigits === 8) {
             // 8 digits: full year
             if (dateFormatOrder === 'mmddyy') {
                 return ['M', 'M', 'D', 'D', 'Y', 'Y', 'Y', 'Y'];
@@ -80,7 +82,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                 return ['D', 'D', 'M', 'M', 'Y', 'Y'];
             }
         }
-    }, [dateLength, dateFormatOrder]);
+    }, [numDigits, dateFormatOrder]);
 
     // ... Hook Integrations ...
 
@@ -274,7 +276,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
             {isLoading && (
                 <View className="flex-1 items-center justify-center bg-slate-50 dark:bg-slate-800">
                     <ActivityIndicator size="large" color="#7DAAE8" />
-                    <Text className="text-slate-600 dark:text-slate-300 mt-4 font-n-medium">Loading puzzle...</Text>
+                    <ThemedText className="text-slate-600 dark:text-slate-300 mt-4 font-n-medium" size="base">Loading puzzle...</ThemedText>
                 </View>
             )}
 
@@ -282,15 +284,22 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                 <>
                     {/* Title & Info */}
                     <View className="items-center mt-6 mb-4 px-4">
-                        <StyledText className="text-base font-n-bold text-[#3b82f6] mb-1 tracking-wide text-center">
-                            {headerLine1 || (gameMode === 'REGION' ? 'Great Britain' : 'Personal User')}
-                        </StyledText>
+                        {/* Only show Category/Location if Clues are Enabled, otherwise show generic mode label */}
+                        {cluesEnabled ? (
+                            <ThemedText className="font-n-bold text-[#3b82f6] mb-1 tracking-wide text-center" size="base">
+                                {headerLine1}
+                            </ThemedText>
+                        ) : (
+                            <ThemedText className="font-n-bold text-[#3b82f6] mb-1 tracking-wide text-center" size="base">
+                                {gameMode === 'REGION' ? 'Great Britain' : 'Personal User'}
+                            </ThemedText>
+                        )}
 
                         {/* Event Title - only show if clues enabled */}
                         {cluesEnabled && (
-                            <StyledText className="font-n-bold text-slate-800 dark:text-white text-center text-[22px] leading-7">
+                            <ThemedText className="font-n-bold text-slate-800 dark:text-white text-center leading-7" size="2xl">
                                 {puzzle.title}
-                            </StyledText>
+                            </ThemedText>
                         )}
                     </View>
 
@@ -337,9 +346,9 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                                     }}
                                     className="bg-slate-300 dark:bg-slate-700 w-full py-4 rounded-xl items-center active:bg-slate-400 dark:active:bg-slate-600"
                                 >
-                                    <StyledText className="text-slate-900 dark:text-white font-n-bold text-lg">
+                                    <ThemedText className="text-slate-900 dark:text-white font-n-bold" size="lg">
                                         Continue
-                                    </StyledText>
+                                    </ThemedText>
                                 </TouchableOpacity>
                             </View>
                         )}

@@ -16,9 +16,10 @@ const StyledScrollView = styled(ScrollView);
 interface PaywallProps {
     onPurchaseSuccess?: () => void;
     onPurchaseCancel?: () => void;
+    onLoginRequired?: () => void;
 }
 
-export default function Paywall({ onPurchaseSuccess, onPurchaseCancel }: PaywallProps) {
+export default function Paywall({ onPurchaseSuccess, onPurchaseCancel, onLoginRequired }: PaywallProps) {
     const [offerings, setOfferings] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [purchasing, setPurchasing] = useState(false);
@@ -60,6 +61,10 @@ export default function Paywall({ onPurchaseSuccess, onPurchaseCancel }: Paywall
         }
 
         if (!user) {
+            if (onLoginRequired) {
+                onLoginRequired();
+                return;
+            }
             Alert.alert('Error', 'You must be logged in to purchase a subscription');
             return;
         }

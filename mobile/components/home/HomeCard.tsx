@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, ImageSourcePropType, Pressable } f
 import { styled } from 'nativewind';
 import { LucideIcon } from 'lucide-react-native';
 import { getCardShadow } from '../../lib/shadows';
+import { ThemedText } from '../ThemedText';
 
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledView = styled(View);
@@ -32,6 +33,8 @@ export function HomeCard({
     children,
     testID
 }: HomeCardProps) {
+
+
     return (
         <StyledTouchableOpacity
             testID={testID}
@@ -41,13 +44,13 @@ export function HomeCard({
             activeOpacity={0.9}
         >
             <StyledView className="flex-1 py-4">
-                <StyledText className="text-xl font-n-bold text-slate-900 leading-tight">
+                <ThemedText className="font-n-bold text-slate-900 leading-tight" size="xl">
                     {title}
-                </StyledText>
+                </ThemedText>
                 {subtitle && (
-                    <StyledText className="text-slate-700 font-n-medium mt-1">
+                    <ThemedText className="text-slate-700 font-n-medium mt-1" size="base">
                         {subtitle}
-                    </StyledText>
+                    </ThemedText>
                 )}
                 {children}
             </StyledView>

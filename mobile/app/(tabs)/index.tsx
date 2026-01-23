@@ -31,6 +31,8 @@ const StyledView = styled(View);
 const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 
+import { ThemedText } from '../../components/ThemedText';
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
@@ -287,9 +289,9 @@ export default function HomeScreen() {
                 <View className="space-y-4">
                     {/* PERCENTILE TEXT (Dynamic & Above Play Button) */}
                     {percentileMessage && (
-                        <StyledText className="text-slate-500 text-base font-n-medium text-center mb-4">
+                        <ThemedText className="text-slate-500 font-n-medium text-center mb-4" size="base">
                             {percentileMessage}
-                        </StyledText>
+                        </ThemedText>
                     )}
 
                     {/* 1. PLAY BUTTON */}
@@ -342,7 +344,7 @@ export default function HomeScreen() {
 
     return (
         <AdBannerContext.Provider value={true}>
-            <StyledView className="flex-1 bg-white dark:bg-slate-900" style={{ paddingBottom: isPro ? 0 : 50 }}>
+            <View className="flex-1 bg-white dark:bg-slate-900" style={{ paddingBottom: isPro ? 0 : 50 }}>
                 <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900 z-50">
                     {/* Header - Fixed & Safe Area Adjusted */}
                     <StyledView className="items-center relative pb-2 bg-white dark:bg-slate-900 z-50">
@@ -361,9 +363,9 @@ export default function HomeScreen() {
                             </StyledTouchableOpacity>
                         </StyledView>
 
-                        <StyledText className="text-4xl font-n-bold text-slate-900 dark:text-white mb-6 pt-2 font-heading">
+                        <ThemedText className="font-n-bold text-slate-900 dark:text-white mb-6 pt-2 font-heading" size="4xl">
                             Elementle
-                        </StyledText>
+                        </ThemedText>
 
                         <ModeToggle
                             mode={gameMode}
@@ -386,9 +388,9 @@ export default function HomeScreen() {
                                     }}
                                 />
                             </StyledView>
-                            <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white">
+                            <ThemedText className="font-n-bold text-slate-900 dark:text-white" size="xl">
                                 {getGreeting()}
-                            </StyledText>
+                            </ThemedText>
                         </StyledView>
                     </StyledView>
                 </SafeAreaView>
@@ -422,7 +424,7 @@ export default function HomeScreen() {
 
                 {/* Ad Banner - shows at bottom for non-Pro users */}
                 <AdBanner />
-            </StyledView>
+            </View>
         </AdBannerContext.Provider>
     );
 }

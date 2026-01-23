@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { useOptions } from '../../lib/options';
 import { ChevronLeft } from 'lucide-react-native';
+import { ThemedText } from '../ThemedText';
 // Fallback to png as SVG not found in migration
 const WelcomeHamster = require('../../assets/hamster.png');
 import StreakHamster from '../../assets/Streak-Hamster-Black.svg';
@@ -112,9 +113,9 @@ export function IntroScreen({
                         {isStreakGame ? (
                             <View className="relative w-full h-full justify-center items-center">
                                 <StreakHamster width={180} height={180} />
-                                <StyledText className="absolute text-red-600 font-display font-bold text-4xl pt-10 shadow-lg">
+                                <ThemedText className="absolute text-red-600 font-display font-bold shadow-lg" size="4xl" style={{ paddingTop: 40 }}>
                                     {currentStreak}
-                                </StyledText>
+                                </ThemedText>
                             </View>
                         ) : (
                             <Image
@@ -127,15 +128,15 @@ export function IntroScreen({
 
                     {/* Text Content */}
                     <StyledView className="items-center mb-8 space-y-4 px-4">
-                        <StyledText className={`text-center font-body text-lg ${isStreakGame ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`}>
+                        <ThemedText className={`text-center font-body ${isStreakGame ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`} size="lg">
                             {isStreakGame ? "Continue your streak!" : promptText}
-                        </StyledText>
+                        </ThemedText>
 
                         {/* Title (e.g. "Hagia Sophia...") - only show if clues enabled */}
                         {cluesEnabled && eventTitle && !isStreakGame && (
-                            <StyledText className="text-center font-display font-bold text-xl text-brand-blue dark:text-blue-400 mt-2">
+                            <ThemedText className="text-center font-display font-bold text-brand-blue dark:text-blue-400 mt-2" size="xl">
                                 {eventTitle}
-                            </StyledText>
+                            </ThemedText>
                         )}
                     </StyledView>
 
@@ -145,16 +146,16 @@ export function IntroScreen({
                         className={`w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center ${gameMode === 'USER' ? 'bg-[#66becb]' : 'bg-[#7DAAE8]'
                             }`}
                     >
-                        <StyledText className="text-white font-display font-bold text-xl uppercase tracking-wider">
+                        <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
                             Play
-                        </StyledText>
+                        </ThemedText>
                     </StyledTouchableOpacity>
 
                     {/* Date Footer */}
                     {formattedDate && (
-                        <StyledText className="text-slate-400 text-sm mt-8 font-body">
+                        <ThemedText className="text-slate-400 mt-8 font-body" size="sm">
                             Puzzle date: {formattedDate}
-                        </StyledText>
+                        </ThemedText>
                     )}
 
                 </Animated.View>
