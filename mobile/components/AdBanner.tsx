@@ -23,10 +23,10 @@ export function AdBanner() {
     }
 
     return (
-        <StyledView className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+        <StyledView className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 items-center justify-center">
             <BannerAd
                 unitId={AD_UNITS.banner}
-                size={BannerAdSize.BANNER}
+                size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
                 requestOptions={{
                     requestNonPersonalizedAdsOnly: false,
                 }}

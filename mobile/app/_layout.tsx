@@ -1,6 +1,7 @@
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { styled } from 'nativewind';
+import { ThemedView } from '../components/ThemedView';
 
 const StyledView = styled(View);
 import { useEffect, useState } from 'react';
@@ -137,7 +138,7 @@ export default function Layout() {
                                 <GuessCacheProvider>
                                     <StreakSaverProvider>
                                         <OptionsProvider>
-                                            <StyledView className="flex-1 bg-white dark:bg-slate-900">
+                                            <ThemedView className="flex-1">
                                                 <NavigationGuard>
                                                     <Stack screenOptions={{ headerShown: false }}>
                                                         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -160,7 +161,7 @@ export default function Layout() {
                                                         <Stack.Screen name="index" options={{ headerShown: false }} />
                                                     </Stack>
                                                 </NavigationGuard>
-                                            </StyledView>
+                                            </ThemedView>
                                             <ConversionPromptModal />
                                         </OptionsProvider>
                                     </StreakSaverProvider>

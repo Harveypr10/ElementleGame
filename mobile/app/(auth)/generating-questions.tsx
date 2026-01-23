@@ -473,7 +473,7 @@ export default function GeneratingQuestionsScreen() {
             {/* Hamster Image */}
             <View style={styles.hamsterContainer}>
                 <Image
-                    source={require('../../assets/Question-Hamster-Cutout.png')}
+                    source={require('../../assets/ui/webp_assets/Question-Hamster-v2.webp')}
                     style={styles.hamsterImage}
                     resizeMode="contain"
                 />

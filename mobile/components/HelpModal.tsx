@@ -1,13 +1,13 @@
-
 import React from 'react';
 import { View, Text, Modal, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { styled } from 'nativewind';
 import { X } from 'lucide-react-native';
+import { ThemedText } from './ThemedText';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
-const StyledImage = styled(Image);
 
 interface HelpModalProps {
     visible: boolean;
@@ -15,38 +15,57 @@ interface HelpModalProps {
 }
 
 export function HelpModal({ visible, onClose }: HelpModalProps) {
+    const backgroundColor = useThemeColor({}, 'background');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const borderColor = useThemeColor({}, 'border');
+    const textColor = useThemeColor({}, 'text');
+    const iconColor = useThemeColor({}, 'icon');
+    const secondaryTextColor = useThemeColor({ light: '#475569', dark: '#94a3b8' }, 'text');
+
+    // Tile colors - keeping these consistent as they are game indicators, but ensuring they look good on both
+    const tileBaseBg = surfaceColor;
+    const tileBaseBorder = borderColor;
+
     const ExampleRow = ({ digits, feedback, description }: { digits: string[], feedback: ('correct' | 'inSequence' | 'ruledOut')[], description: string }) => (
         <StyledView className="mb-6">
             <StyledView className="flex-row justify-center mb-2 space-x-1">
                 {digits.map((digit, index) => {
-                    let bgColor = "bg-white dark:bg-slate-800";
-                    let borderColor = "border-slate-200 dark:border-slate-700";
-                    let textColor = "text-slate-900 dark:text-white";
+                    let tileStyle = {
+                        backgroundColor: tileBaseBg,
+                        borderColor: tileBaseBorder,
+                    };
+                    let textStyle = {
+                        color: textColor
+                    };
 
                     // Match InputGrid styles
                     if (feedback[index] === 'correct') {
-                        bgColor = "bg-green-500 border-green-500";
-                        textColor = "text-white";
+                        tileStyle = { backgroundColor: '#22c55e', borderColor: '#22c55e' };
+                        textStyle = { color: '#ffffff' };
                     } else if (feedback[index] === 'inSequence') {
-                        bgColor = "bg-amber-400 border-amber-400";
-                        textColor = "text-white";
+                        tileStyle = { backgroundColor: '#fbbf24', borderColor: '#fbbf24' };
+                        textStyle = { color: '#ffffff' };
                     } else if (feedback[index] === 'ruledOut') {
-                        bgColor = "bg-slate-400 border-slate-400 dark:bg-slate-600 dark:border-slate-600";
-                        textColor = "text-white";
+                        tileStyle = { backgroundColor: '#94a3b8', borderColor: '#94a3b8' }; // Slate 400
+                        textStyle = { color: '#ffffff' };
                     }
 
                     return (
-                        <StyledView key={index} className={`w-10 h-12 border-2 rounded-md items-center justify-center ${bgColor} ${borderColor}`}>
-                            <StyledText className={`text-xl font-bold ${textColor}`}>
+                        <StyledView
+                            key={index}
+                            className="w-10 h-12 border-2 rounded-md items-center justify-center m-0.5"
+                            style={tileStyle}
+                        >
+                            <Text style={[{ fontSize: 20, fontWeight: 'bold' }, textStyle]}>
                                 {digit}
-                            </StyledText>
+                            </Text>
                         </StyledView>
                     );
                 })}
             </StyledView>
-            <StyledText className="text-slate-600 dark:text-slate-300 text-center text-sm px-4">
+            <Text style={{ textAlign: 'center', fontSize: 14, color: secondaryTextColor, paddingHorizontal: 16 }}>
                 {description}
-            </StyledText>
+            </Text>
         </StyledView>
     );
 
@@ -58,30 +77,36 @@ export function HelpModal({ visible, onClose }: HelpModalProps) {
             onRequestClose={onClose}
         >
             <StyledView className="flex-1 justify-end bg-black/50">
-                <StyledView className="bg-white dark:bg-slate-900 rounded-t-3xl h-[85%] w-full flex-col">
+                <StyledView
+                    className="rounded-t-3xl h-[85%] w-full flex-col"
+                    style={{ backgroundColor: surfaceColor }}
+                >
                     {/* Header */}
-                    <StyledView className="flex-row items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800">
-                        <StyledText className="text-2xl font-bold text-slate-900 dark:text-white">
+                    <StyledView
+                        className="flex-row items-center justify-between px-6 py-5 border-b"
+                        style={{ borderColor: borderColor }}
+                    >
+                        <ThemedText className="text-2xl font-bold">
                             How to Play
-                        </StyledText>
+                        </ThemedText>
                         <StyledTouchableOpacity onPress={onClose} className="p-2 -mr-2">
-                            <X size={24} color="#64748b" />
+                            <X size={24} color={iconColor} />
                         </StyledTouchableOpacity>
                     </StyledView>
 
                     <ScrollView className="flex-1 px-6 pt-6" contentContainerStyle={{ paddingBottom: 40 }}>
-                        <StyledText className="text-base text-slate-600 dark:text-slate-300 mb-6 leading-6">
+                        <Text style={{ fontSize: 16, color: secondaryTextColor, marginBottom: 24, lineHeight: 24 }}>
                             Guess the date of the event in 5 tries.
-                        </StyledText>
+                        </Text>
 
-                        <StyledText className="text-base text-slate-600 dark:text-slate-300 mb-8 leading-6">
+                        <Text style={{ fontSize: 16, color: secondaryTextColor, marginBottom: 32, lineHeight: 24 }}>
                             Each guess must be a valid date. The color of the tiles will change to show how close your guess was.
-                        </StyledText>
+                        </Text>
 
                         {/* Examples */}
-                        <StyledText className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                        <ThemedText className="text-lg font-bold mb-4">
                             Examples
-                        </StyledText>
+                        </ThemedText>
 
                         {/* Correct Example */}
                         <ExampleRow
@@ -105,24 +130,28 @@ export function HelpModal({ visible, onClose }: HelpModalProps) {
                         />
 
                         <StyledView className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl mb-6">
-                            <StyledText className="text-blue-800 dark:text-blue-200 font-semibold mb-1">
+                            <Text className="text-blue-800 dark:text-blue-200 font-semibold mb-1">
                                 Hint
-                            </StyledText>
-                            <StyledText className="text-blue-600 dark:text-blue-300 text-sm">
+                            </Text>
+                            <Text className="text-blue-600 dark:text-blue-300 text-sm">
                                 Look out for arrows! If you see an arrow on an amber or grey tile, it tells you if the correct digit for that specific slot is higher or lower.
-                            </StyledText>
+                            </Text>
                         </StyledView>
                     </ScrollView>
 
                     {/* Footer */}
-                    <StyledView className="p-6 border-t border-slate-100 dark:border-slate-800">
+                    <StyledView
+                        className="p-6 border-t"
+                        style={{ borderColor: borderColor }}
+                    >
                         <StyledTouchableOpacity
                             onPress={onClose}
-                            className="w-full bg-slate-900 dark:bg-white py-4 rounded-full items-center"
+                            className="w-full py-4 rounded-full items-center"
+                            style={{ backgroundColor: textColor }}
                         >
-                            <StyledText className="text-white dark:text-slate-900 font-bold text-lg">
+                            <Text style={{ color: backgroundColor, fontWeight: 'bold', fontSize: 18 }}>
                                 Got it!
-                            </StyledText>
+                            </Text>
                         </StyledTouchableOpacity>
                     </StyledView>
                 </StyledView>

@@ -8,6 +8,9 @@ import { useSubscription } from '../hooks/useSubscription';
 import { useStreakSaverStatus } from '../hooks/useStreakSaverStatus';
 import { useProfile } from '../hooks/useProfile';
 import { useOptions } from '../lib/options';
+import { ThemedView } from '../components/ThemedView';
+import { ThemedText } from '../components/ThemedText';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -82,40 +85,55 @@ export default function ManageSubscriptionScreen() {
         return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
+    const backgroundColor = useThemeColor({}, 'background');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const borderColor = useThemeColor({}, 'border');
+    const textColor = useThemeColor({}, 'text');
+    const iconColor = useThemeColor({}, 'icon');
+
     if (!isPro) {
         // Standard user view - encourage upgrade
         return (
-            <StyledView className="flex-1 bg-white dark:bg-slate-900">
-                <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900">
-                    <StyledView className="flex-row items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+            <ThemedView className="flex-1">
+                <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
+                    <StyledView
+                        className="flex-row items-center justify-between px-4 py-3 border-b"
+                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                    >
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
                             className="w-10 h-10 items-center justify-center"
                         >
-                            <ChevronLeft size={28} color="#1e293b" />
+                            <ChevronLeft size={28} color={iconColor} />
                         </StyledTouchableOpacity>
-                        <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Subscription</StyledText>
+                        <ThemedText baseSize={20} className="font-n-bold">Subscription</ThemedText>
                         <StyledView className="w-10" />
                     </StyledView>
                 </SafeAreaView>
 
                 <StyledScrollView className="flex-1 px-4 py-4">
                     {/* Standard Tier Card */}
-                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
+                    <StyledView
+                        className="rounded-2xl p-4 mb-3 border"
+                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                    >
                         <StyledView className="flex-row items-center mb-2">
-                            <StyledView className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 items-center justify-center mr-3">
+                            <StyledView className="w-12 h-12 rounded-full items-center justify-center mr-3" style={{ backgroundColor: backgroundColor }}>
                                 <Crown size={24} color="#64748b" />
                             </StyledView>
                             <StyledView className="flex-1">
-                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-500">Subscription</StyledText>
-                                <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Standard</StyledText>
+                                <ThemedText baseSize={14} className="opacity-60">Subscription</ThemedText>
+                                <ThemedText baseSize={20} className="font-n-bold">Standard</ThemedText>
                             </StyledView>
                         </StyledView>
                     </StyledView>
 
                     {/* Allowances Card */}
-                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                        <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-500 uppercase tracking-wide mb-3">Your Allowances</StyledText>
+                    <StyledView
+                        className="rounded-2xl p-4 mb-3 border"
+                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                    >
+                        <ThemedText baseSize={14} className="font-n-bold uppercase tracking-wide mb-3 opacity-60">Your Allowances</ThemedText>
 
                         {/* Streak Savers */}
                         <StyledView className="flex-row items-start mb-3">
@@ -123,13 +141,13 @@ export default function ManageSubscriptionScreen() {
                                 <Flame size={20} color="#f59e0b" />
                             </StyledView>
                             <StyledView className="flex-1">
-                                <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-slate-900 dark:text-white mb-1">Streak Savers</StyledText>
-                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-600 dark:text-slate-400 mb-1">
-                                    {regionLabel}: <StyledText className="font-n-semibold">{Math.max(0, 1 - regionUsed)} of 1 remaining</StyledText>
-                                </StyledText>
-                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-600 dark:text-slate-400">
-                                    Personal: <StyledText className="font-n-semibold">{Math.max(0, 1 - userUsed)} of 1 remaining</StyledText>
-                                </StyledText>
+                                <ThemedText baseSize={16} className="font-n-bold mb-1">Streak Savers</ThemedText>
+                                <ThemedText baseSize={14} className="opacity-80 mb-1">
+                                    {regionLabel}: <ThemedText className="font-n-semibold">{Math.max(0, 1 - regionUsed)} of 1 remaining</ThemedText>
+                                </ThemedText>
+                                <ThemedText baseSize={14} className="opacity-80">
+                                    Personal: <ThemedText className="font-n-semibold">{Math.max(0, 1 - userUsed)} of 1 remaining</ThemedText>
+                                </ThemedText>
                             </StyledView>
                         </StyledView>
 
@@ -139,9 +157,9 @@ export default function ManageSubscriptionScreen() {
                                 <Umbrella size={20} color="#3b82f6" />
                             </StyledView>
                             <StyledView className="flex-1">
-                                <StyledText style={{ fontSize: 16 * textScale }} className="font-n-bold text-slate-400 mb-1">Holiday Mode</StyledText>
-                                <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-500">14-day protection: 0 of 0 remaining</StyledText>
-                                <StyledText style={{ fontSize: 12 * textScale }} className="text-slate-400 mt-1">Pro members can pause their streak</StyledText>
+                                <ThemedText baseSize={16} className="font-n-bold opacity-50 mb-1">Holiday Mode</ThemedText>
+                                <ThemedText baseSize={14} className="opacity-60">14-day protection: 0 of 0 remaining</ThemedText>
+                                <ThemedText baseSize={12} className="opacity-50 mt-1">Pro members can pause their streak</ThemedText>
                             </StyledView>
                         </StyledView>
                     </StyledView>
@@ -158,22 +176,25 @@ export default function ManageSubscriptionScreen() {
                         </StyledText>
                     </StyledTouchableOpacity>
                 </StyledScrollView>
-            </StyledView>
+            </ThemedView>
         );
     }
 
     // Pro user view
     return (
-        <StyledView className="flex-1 bg-white dark:bg-slate-900">
-            <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900">
-                <StyledView className="flex-row items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+        <ThemedView className="flex-1">
+            <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
+                <StyledView
+                    className="flex-row items-center justify-between px-4 py-3 border-b"
+                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                >
                     <StyledTouchableOpacity
                         onPress={() => router.back()}
                         className="w-10 h-10 items-center justify-center"
                     >
-                        <ChevronLeft size={28} color="#1e293b" />
+                        <ChevronLeft size={28} color={iconColor} />
                     </StyledTouchableOpacity>
-                    <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white">Subscription</StyledText>
+                    <ThemedText size="xl" className="font-n-bold">Subscription</ThemedText>
                     <StyledView className="w-10" />
                 </StyledView>
             </SafeAreaView>
@@ -212,8 +233,11 @@ export default function ManageSubscriptionScreen() {
                 </StyledView>
 
                 {/* Allowances Card */}
-                <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                    <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-3">Your Allowances</StyledText>
+                <StyledView
+                    className="rounded-2xl p-4 mb-3 border"
+                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                >
+                    <ThemedText size="sm" className="font-n-bold uppercase tracking-wide mb-3 opacity-60">Your Allowances</ThemedText>
 
                     {/* Streak Savers */}
                     <StyledView className="flex-row items-start mb-3">
@@ -221,13 +245,13 @@ export default function ManageSubscriptionScreen() {
                             <Flame size={20} color="#f59e0b" />
                         </StyledView>
                         <StyledView className="flex-1">
-                            <StyledText className="text-base font-n-bold text-slate-900 dark:text-white mb-1">Streak Savers</StyledText>
-                            <StyledText className="text-sm text-slate-600 dark:text-slate-400 mb-1">
-                                {regionLabel}: <StyledText className="font-n-semibold">{Math.max(0, effectiveStreakSavers - regionUsed)} of {effectiveStreakSavers} remaining</StyledText>
-                            </StyledText>
-                            <StyledText className="text-sm text-slate-600 dark:text-slate-400">
-                                Personal: <StyledText className="font-n-semibold">{Math.max(0, effectiveStreakSavers - userUsed)} of {effectiveStreakSavers} remaining</StyledText>
-                            </StyledText>
+                            <ThemedText size="base" className="font-n-bold mb-1">Streak Savers</ThemedText>
+                            <ThemedText size="sm" className="opacity-80 mb-1">
+                                {regionLabel}: <ThemedText className="font-n-semibold">{Math.max(0, effectiveStreakSavers - regionUsed)} of {effectiveStreakSavers} remaining</ThemedText>
+                            </ThemedText>
+                            <ThemedText size="sm" className="opacity-80">
+                                Personal: <ThemedText className="font-n-semibold">{Math.max(0, effectiveStreakSavers - userUsed)} of {effectiveStreakSavers} remaining</ThemedText>
+                            </ThemedText>
                         </StyledView>
                     </StyledView>
 
@@ -237,33 +261,36 @@ export default function ManageSubscriptionScreen() {
                             <Umbrella size={20} color="#3b82f6" />
                         </StyledView>
                         <StyledView className="flex-1">
-                            <StyledText className="text-base font-n-bold text-slate-900 dark:text-white mb-1">Holiday Mode</StyledText>
-                            <StyledText className="text-sm text-slate-600 dark:text-slate-400">
-                                {holidayDurationDays}-day protection: <StyledText className="font-n-semibold">{holidaySavers} of {holidaySavers} remaining</StyledText>
-                            </StyledText>
+                            <ThemedText size="base" className="font-n-bold mb-1">Holiday Mode</ThemedText>
+                            <ThemedText size="sm" className="opacity-80">
+                                {holidayDurationDays}-day protection: <ThemedText className="font-n-semibold">{holidaySavers} of {holidaySavers} remaining</ThemedText>
+                            </ThemedText>
                         </StyledView>
                     </StyledView>
                 </StyledView>
 
                 {/* Holiday Mode Control */}
-                <StyledView className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-4 border border-blue-200 dark:border-blue-800">
+                <StyledView
+                    className="rounded-2xl p-4 border"
+                    style={{ backgroundColor: useThemeColor({ dark: '#1e3a8a20', light: '#eff6ff' }, 'background'), borderColor: useThemeColor({ dark: '#1e3a8a', light: '#bfdbfe' }, 'border') }}
+                >
                     <StyledView className="flex-row items-center mb-2">
                         <Umbrella size={20} color="#2563eb" style={{ marginRight: 8 }} />
-                        <StyledText className="text-lg font-n-bold text-blue-900 dark:text-blue-100">Holiday Mode</StyledText>
+                        <ThemedText size="lg" className="font-n-bold" style={{ color: '#2563eb' }}>Holiday Mode</ThemedText>
                     </StyledView>
-                    <StyledText className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                    <ThemedText size="sm" className="mb-3 opacity-80" style={{ color: '#1e40af' }}>
                         {holidayActive ? 'Your streak is protected' : `Protect your streak for up to ${holidayDurationDays} days`}
-                    </StyledText>
+                    </ThemedText>
 
                     {holidayActive ? (
                         <StyledView>
                             <StyledView className="flex-row justify-between mb-2">
-                                <StyledText className="text-sm text-blue-700 dark:text-blue-300">Started:</StyledText>
-                                <StyledText className="text-sm font-n-semibold text-blue-900 dark:text-blue-100">{formatDate(holidayStartDate)}</StyledText>
+                                <ThemedText size="sm" style={{ color: '#1d4ed8' }}>Started:</ThemedText>
+                                <ThemedText size="sm" className="font-n-semibold" style={{ color: '#1e3a8a' }}>{formatDate(holidayStartDate)}</ThemedText>
                             </StyledView>
                             <StyledView className="flex-row justify-between mb-3">
-                                <StyledText className="text-sm text-blue-700 dark:text-blue-300">Ends:</StyledText>
-                                <StyledText className="text-sm font-n-semibold text-blue-900 dark:text-blue-100">{formatDate(holidayEndDate)}</StyledText>
+                                <ThemedText size="sm" style={{ color: '#1d4ed8' }}>Ends:</ThemedText>
+                                <ThemedText size="sm" className="font-n-semibold" style={{ color: '#1e3a8a' }}>{formatDate(holidayEndDate)}</ThemedText>
                             </StyledView>
                             <StyledTouchableOpacity
                                 onPress={handleEndHoliday}
@@ -282,6 +309,6 @@ export default function ManageSubscriptionScreen() {
                     )}
                 </StyledView>
             </StyledScrollView>
-        </StyledView>
+        </ThemedView>
     );
 }

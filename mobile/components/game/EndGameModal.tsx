@@ -8,13 +8,15 @@ import soundManager from '../../lib/soundManager';
 import { shareGameResult } from '../../lib/share';
 import { useToast } from '../../contexts/ToastContext';
 
-// Import SVGs
-import StatsHamster from '../../assets/Maths-Hamster-Green.svg';
-import WinBlueHamster from '../../assets/Win-Hamster-Blue.svg';
-import ArchiveHamster from '../../assets/Librarian-Hamster-Yellow.svg';
+// Imports updated to WebP
+// import StatsHamster from '../../assets/Maths-Hamster-Green.svg'; 
+// import WinBlueHamster from '../../assets/Win-Hamster-Blue.svg';
+// import ArchiveHamster from '../../assets/Librarian-Hamster-Yellow.svg';
+
+import { ThemedText } from '../../components/ThemedText';
 
 // Fallback to PNG due to SVG transformer issues
-const WinHamsterImg = require('../../assets/hamster.png');
+const WinHamsterImg = require('../../assets/ui/webp_assets/Win-Hamster-Blue.webp');
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -128,9 +130,9 @@ export function EndGameModal({
 
                         {/* Header: Congratulations */}
                         <StyledView className="items-center mb-6 relative w-full">
-                            <StyledText className="text-3xl font-bold text-slate-800 dark:text-white text-center">
+                            <ThemedText size="3xl" className="font-bold text-center">
                                 {isWin ? "Congratulations!" : "Unlucky!"}
-                            </StyledText>
+                            </ThemedText>
                         </StyledView>
 
                         {/* Hamster Image (Centred) */}
@@ -146,25 +148,25 @@ export function EndGameModal({
 
                         {/* Date */}
                         <StyledView className="items-center mb-4">
-                            <StyledText className="text-2xl font-bold text-slate-700 dark:text-slate-200 text-center">
+                            <ThemedText size="2xl" className="font-bold text-center opacity-80">
                                 {formattedDate}
-                            </StyledText>
+                            </ThemedText>
                         </StyledView>
 
                         {/* Description Box */}
                         <StyledView className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl w-full mb-4 border border-slate-200 dark:border-slate-700">
-                            <StyledText className="font-semibold text-lg text-slate-900 dark:text-white text-center mb-2">
+                            <ThemedText size="lg" className="font-semibold text-center mb-2">
                                 {eventTitle}
-                            </StyledText>
-                            <StyledText className="text-sm text-slate-500 dark:text-slate-400 text-center">
+                            </ThemedText>
+                            <ThemedText size="sm" className="text-center opacity-60">
                                 {eventDescription || "A historic day to remember!"}
-                            </StyledText>
+                            </ThemedText>
                         </StyledView>
 
                         {isWin && (
-                            <StyledText className="text-sm text-slate-500 dark:text-slate-400 text-center font-medium mb-4">
+                            <ThemedText size="sm" className="text-center font-medium mb-4 opacity-60">
                                 You solved it in {guessesCount} {guessesCount === 1 ? 'guess' : 'guesses'}!
-                            </StyledText>
+                            </ThemedText>
                         )}
                     </View>
 
@@ -176,7 +178,7 @@ export function EndGameModal({
                             style={{ backgroundColor: statsColor }}
                             onPress={onViewStats}
                         >
-                            <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Stats</StyledText>
+                            <ThemedText size="xl" className="font-n-bold text-slate-800" style={{ color: '#1e293b' }}>Stats</ThemedText>
                             <View className="w-16 h-16 justify-center items-center">
                                 {/* Placeholder for specific hamster if needed, or re-use existing with tint/style? 
                                 For now using simple fallback or if we have specific PNGs use them. 
@@ -185,7 +187,7 @@ export function EndGameModal({
                                 {/* <StatsHamster width={50} height={50} /> Using Image for safety */}
                                 {/* Use PNG hamster images only to avoid React Native freeze errors */}
                                 <StyledImage
-                                    source={require('../../assets/Maths-Hamster-Green_1760977182003.png')}
+                                    source={require('../../assets/ui/webp_assets/Maths-Hamster.webp')}
                                     className="w-14 h-14"
                                     resizeMode="contain"
                                 />
@@ -200,10 +202,10 @@ export function EndGameModal({
                                 onPress={handleHomePress}
                                 disabled={isClosing}
                             >
-                                <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Home</StyledText>
+                                <ThemedText size="xl" className="font-n-bold text-slate-800" style={{ color: '#1e293b' }}>Home</ThemedText>
                                 <View className="w-12 h-12 justify-center items-center">
                                     <StyledImage
-                                        source={require('../../assets/Historian-Hamster-Blue_1760977182002.png')}
+                                        source={require('../../assets/ui/webp_assets/Historian-Hamster.webp')}
                                         className="w-12 h-12"
                                         resizeMode="contain"
                                     />
@@ -216,10 +218,10 @@ export function EndGameModal({
                                 style={{ backgroundColor: archiveColor }}
                                 onPress={onViewArchive}
                             >
-                                <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Archive</StyledText>
+                                <ThemedText size="xl" className="font-n-bold text-slate-800" style={{ color: '#1e293b' }}>Archive</ThemedText>
                                 <View className="w-12 h-12 justify-center items-center">
                                     <StyledImage
-                                        source={require('../../assets/Librarian-Hamster-Yellow_1760977182002.png')}
+                                        source={require('../../assets/ui/webp_assets/Librarian-Hamster-Yellow.webp')}
                                         className="w-12 h-12"
                                         resizeMode="contain"
                                     />

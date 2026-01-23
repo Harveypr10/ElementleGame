@@ -16,6 +16,8 @@ import { useOptions } from '../../lib/options';
 import { useUserStats } from '../../hooks/useUserStats';
 import { useBadgeSystem, Badge } from '../../hooks/useBadgeSystem';
 import { ThemedText } from '../ThemedText';
+import { ThemedView } from '../ThemedView';
+import { useThemeColor } from '../../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -43,6 +45,7 @@ interface ActiveGameProps {
 export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: ActiveGameProps) {
     const router = useRouter();
     const { dateLength, cluesEnabled, dateFormatOrder } = useOptions(); // Get dateLength, cluesEnabled, and dateFormatOrder
+    const surfaceColor = useThemeColor({}, 'surface');
 
     // Pass the correct props to useGameEngine
     // Note: useGameEngine expects { puzzleId, answerDateCanonical, mode }
@@ -271,13 +274,13 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
     const headerLine1 = `${categoryText}${locationText}`;
 
     return (
-        <View className="flex-1 bg-slate-50 dark:bg-slate-800">
+        <ThemedView className="flex-1">
             {/* Loading Spinner - shown while determining game state */}
             {isLoading && (
-                <View className="flex-1 items-center justify-center bg-slate-50 dark:bg-slate-800">
+                <ThemedView className="flex-1 items-center justify-center">
                     <ActivityIndicator size="large" color="#7DAAE8" />
-                    <ThemedText className="text-slate-600 dark:text-slate-300 mt-4 font-n-medium" size="base">Loading puzzle...</ThemedText>
-                </View>
+                    <ThemedText className="opacity-60 mt-4 font-n-medium" size="base">Loading puzzle...</ThemedText>
+                </ThemedView>
             )}
 
             {!isLoading && !showIntro && (
@@ -297,14 +300,14 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
 
                         {/* Event Title - only show if clues enabled */}
                         {cluesEnabled && (
-                            <ThemedText className="font-n-bold text-slate-800 dark:text-white text-center leading-7" size="2xl">
+                            <ThemedText className="font-n-bold text-center leading-7" size="2xl">
                                 {puzzle.title}
                             </ThemedText>
                         )}
                     </View>
 
                     {/* Game Grid */}
-                    <View className="flex-1 w-full max-w-md mx-auto px-4 justify-start bg-slate-50 dark:bg-slate-800" style={{ paddingTop: 16, paddingBottom: 8 }}>
+                    <ThemedView className="flex-1 w-full max-w-md mx-auto px-4 justify-start" style={{ paddingTop: 16, paddingBottom: 8 }}>
                         <InputGrid
                             guesses={guesses}
                             currentInput={currentInput}
@@ -313,7 +316,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                             invalidShake={invalidShake}
                             isRestored={isRestored} // Always animate if restored
                         />
-                    </View>
+                    </ThemedView>
 
                     {/* Keyboard or Continue Button */}
                     <View style={{ paddingBottom: 16, paddingTop: 4 }}>
@@ -383,6 +386,6 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                 badge={currentBadge}
                 onClose={handleBadgeClose}
             />
-        </View>
+        </ThemedView>
     );
 }

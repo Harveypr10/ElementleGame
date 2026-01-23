@@ -195,8 +195,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const signOut = async () => {
         console.log('[Auth] Signing out...');
-        await logOutRevenueCat(); // Log out from RevenueCat first
-        await supabase.auth.signOut();
+        try {
+            // Remove explicit RevenueCat logout here - the onAuthStateChange listener handles it
+            // This prevents a "double logout" error where the second call fails because user is already anonymous
+            await supabase.auth.signOut();
+        } catch (error) {
+            // Ignore iOS BrowserEngineKit errors usually caused by terminating empty auth sessions
+            console.log('[Auth] Supabase signOut completed with note:', error);
+        }
         setIsGuest(false);
         await AsyncStorage.removeItem('is_guest');
     };

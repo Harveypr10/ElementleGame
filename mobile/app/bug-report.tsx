@@ -6,8 +6,11 @@ import { ChevronLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOptions } from '../lib/options';
 
+import { ThemedText } from '../components/ThemedText';
+import { ThemedView } from '../components/ThemedView';
+import { useThemeColor } from '../hooks/useThemeColor';
+
 const StyledView = styled(View);
-const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
 const StyledTextInput = styled(TextInput);
@@ -16,6 +19,13 @@ export default function BugReportScreen() {
     const router = useRouter();
     const { textScale } = useOptions();
     const [description, setDescription] = useState('');
+
+    const backgroundColor = useThemeColor({}, 'background');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const borderColor = useThemeColor({}, 'border');
+    const textColor = useThemeColor({}, 'text');
+    const iconColor = useThemeColor({}, 'icon');
+    const secondaryTextColor = iconColor;
 
     const handleSubmit = () => {
         if (!description.trim()) {
@@ -28,26 +38,36 @@ export default function BugReportScreen() {
     };
 
     return (
-        <StyledView className="flex-1 bg-white dark:bg-slate-900">
-            <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900">
-                <StyledView className="flex-row items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+        <ThemedView className="flex-1">
+            <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
+                <StyledView
+                    className="flex-row items-center justify-between px-4 py-3 border-b"
+                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                >
                     <StyledTouchableOpacity
                         onPress={() => router.back()}
                         className="w-10 h-10 items-center justify-center"
                     >
-                        <ChevronLeft size={28} color="#1e293b" />
+                        <ChevronLeft size={28} color={iconColor} />
                     </StyledTouchableOpacity>
-                    <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Report a Bug</StyledText>
+                    <ThemedText baseSize={20} className="font-n-bold">Report a Bug</ThemedText>
                     <StyledView className="w-10" />
                 </StyledView>
             </SafeAreaView>
 
             <StyledScrollView className="flex-1 px-4 py-4">
-                <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-3 border border-slate-100 dark:border-slate-700">
-                    <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-500 mb-2">Describe the Bug</StyledText>
+                <StyledView
+                    className="rounded-2xl p-4 mb-3 border"
+                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                >
+                    <ThemedText baseSize={14} className="font-n-bold mb-2 opacity-60">Describe the Bug</ThemedText>
                     <StyledTextInput
-                        style={{ fontSize: 16 * textScale }}
-                        className="bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-3 text-slate-900 dark:text-white min-h-[120px]"
+                        style={{
+                            fontSize: 16 * textScale,
+                            backgroundColor: backgroundColor,
+                            color: textColor
+                        }}
+                        className="rounded-xl px-3 py-3 min-h-[120px]"
                         placeholder="What went wrong? Please provide as much detail as possible..."
                         placeholderTextColor="#94a3b8"
                         value={description}
@@ -61,9 +81,9 @@ export default function BugReportScreen() {
                     onPress={handleSubmit}
                     className="bg-blue-500 rounded-2xl py-3 px-4 mb-3"
                 >
-                    <StyledText style={{ fontSize: 16 * textScale }} className="text-center font-n-bold text-white">Submit Report</StyledText>
+                    <ThemedText baseSize={16} className="text-center font-n-bold text-white">Submit Report</ThemedText>
                 </StyledTouchableOpacity>
             </StyledScrollView>
-        </StyledView>
+        </ThemedView>
     );
 }

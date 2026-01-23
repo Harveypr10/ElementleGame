@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, Animated, TouchableOpacity, Image } from 'react-native';
 import { styled } from 'nativewind';
 import { X } from 'lucide-react-native';
-const StreakHamsterImg = require('../../assets/hamster.png');
+const StreakHamsterImg = require('../../assets/ui/webp_assets/Streak-Hamster-Black.webp');
 
 const StyledView = styled(View);
 const StyledText = styled(Text);

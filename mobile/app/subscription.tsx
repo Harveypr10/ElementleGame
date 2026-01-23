@@ -11,6 +11,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import { useSubscription } from '../hooks/useSubscription';
 import Paywall from '../components/Paywall';
+import { ThemedView } from '../components/ThemedView';
+import { ThemedText } from '../components/ThemedText';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -27,33 +30,44 @@ export default function SubscriptionPage() {
         }
     }, [isPro]);
 
+    const backgroundColor = useThemeColor({}, 'background');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const borderColor = useThemeColor({}, 'border');
+    const textColor = useThemeColor({}, 'text');
+    const iconColor = useThemeColor({}, 'icon');
+
     return (
-        <StyledView className="flex-1 bg-white dark:bg-slate-900">
-            <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900">
+        <ThemedView className="flex-1">
+            <SafeAreaView edges={['top']} className="z-10" style={{ backgroundColor: surfaceColor }}>
                 {/* Header with back button */}
-                <StyledView className="flex-row items-center px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                <StyledView
+                    className="flex-row items-center px-4 py-3 border-b"
+                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                >
                     <StyledTouchableOpacity
                         onPress={() => router.back()}
                         className="p-2 -ml-2"
                     >
-                        <ChevronLeft size={28} color="#1e293b" />
+                        <ChevronLeft size={28} color={iconColor} />
                     </StyledTouchableOpacity>
-                    <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white ml-2">
+                    <ThemedText className="text-xl font-n-bold ml-2">
                         Go Pro
-                    </StyledText>
+                    </ThemedText>
                 </StyledView>
             </SafeAreaView>
 
-            {/* RevenueCat Paywall Component */}
-            <Paywall
-                onPurchaseSuccess={() => {
-                    // After successful purchase, navigate to category selection
-                    router.replace('/category-selection');
-                }}
-                onPurchaseCancel={() => {
-                    console.log('[Subscription] Purchase cancelled by user');
-                }}
-            />
-        </StyledView>
+            {/* RevenueCat Paywall Component - Note: Paywall needs to support theming or be compatible */}
+            <View style={{ flex: 1, backgroundColor: backgroundColor }}>
+                <Paywall
+                    onPurchaseSuccess={() => {
+                        // After successful purchase, navigate to category selection
+                        router.replace('/category-selection');
+                    }}
+                    onPurchaseCancel={() => {
+                        console.log('[Subscription] Purchase cancelled by user');
+                    }}
+                />
+            </View>
+        </ThemedView>
     );
 }

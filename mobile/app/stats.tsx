@@ -15,6 +15,10 @@ import { hasFeatureAccess } from '../lib/featureGates';
 import { AdBanner } from '../components/AdBanner';
 import { AdBannerContext } from '../contexts/AdBannerContext';
 
+import { ThemedView } from '../components/ThemedView';
+import { ThemedText } from '../components/ThemedText';
+import { useThemeColor } from '../hooks/useThemeColor';
+
 const StyledView = styled(View);
 const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
@@ -56,6 +60,9 @@ export default function StatsScreen() {
     const [highestBadges, setHighestBadges] = useState<Record<string, any>>({ elementle: null, streak: null, percentile: null });
     const [selectedCategory, setSelectedCategory] = useState<'elementle' | 'streak' | 'percentile'>('elementle');
     const [userRegion, setUserRegion] = useState<string>('UK');
+    const borderColor = useThemeColor({}, 'border');
+    const iconColor = useThemeColor({}, 'icon');
+    const textColor = useThemeColor({}, 'text');
 
     // Check for guest mode on mount
     useEffect(() => {
@@ -231,92 +238,94 @@ export default function StatsScreen() {
 
 
     return (
-        <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 px-4">
-            <StyledView className="flex-row items-center justify-between py-4">
-                <StyledTouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
-                    <ChevronLeft size={28} color="#1e293b" />
-                </StyledTouchableOpacity>
-                <StyledText style={{ fontSize: 36 * textScale }} className="font-n-bold text-slate-900 dark:text-white font-heading">
-                    Statistics
-                </StyledText>
-                <StyledView className="w-10" />
-            </StyledView>
+        <ThemedView className="flex-1">
+            <SafeAreaView edges={['top']} className="px-4 pb-2" style={{ backgroundColor: useThemeColor({}, 'background') }}>
+                <StyledView className="flex-row items-center justify-between py-2">
+                    <StyledTouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
+                        <ChevronLeft size={28} color={iconColor} />
+                    </StyledTouchableOpacity>
+                    <ThemedText baseSize={36} className="font-n-bold font-heading">
+                        Statistics
+                    </ThemedText>
+                    <StyledView className="w-10" />
+                </StyledView>
+            </SafeAreaView>
 
             {loading ? (
                 <StyledView className="flex-1 justify-center items-center">
                     <ActivityIndicator size="large" color="#7DAAE8" />
                 </StyledView>
             ) : (
-                <StyledScrollView showsVerticalScrollIndicator={false} className="flex-1" contentContainerStyle={{ paddingBottom: 40 }}>
+                <StyledScrollView showsVerticalScrollIndicator={false} className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 40 }}>
 
                     {/* Top Grid */}
                     <StyledView className="flex-row gap-3 mb-6">
                         {/* Left Column: Stats */}
-                        <StyledView className="flex-1 bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm space-y-4">
-                            <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-900 dark:text-white mb-2">{userRegion} Edition</StyledText>
+                        <ThemedView variant="surface" className="flex-1 rounded-xl p-4 shadow-sm space-y-4">
+                            <ThemedText baseSize={14} className="font-n-bold mb-2">{userRegion} Edition</ThemedText>
 
                             <StyledView className="flex-row justify-between items-center">
-                                <StyledText style={{ fontSize: 14 * textScale }} className="font-n-medium text-slate-500 dark:text-slate-400">Played</StyledText>
-                                <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">{stats.played}</StyledText>
+                                <ThemedText baseSize={14} className="font-n-medium opacity-60">Played</ThemedText>
+                                <ThemedText baseSize={20} className="font-n-bold">{stats.played}</ThemedText>
                             </StyledView>
 
                             <StyledView className="flex-row justify-between items-center">
-                                <StyledText style={{ fontSize: 14 * textScale }} className="font-n-medium text-slate-500 dark:text-slate-400">Win %</StyledText>
-                                <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">{winPercentage}%</StyledText>
+                                <ThemedText baseSize={14} className="font-n-medium opacity-60">Win %</ThemedText>
+                                <ThemedText baseSize={20} className="font-n-bold">{winPercentage}%</ThemedText>
                             </StyledView>
 
                             <StyledView className="flex-row justify-between items-center">
-                                <StyledText style={{ fontSize: 14 * textScale }} className="font-n-medium text-slate-500 dark:text-slate-400">Avg Guesses</StyledText>
-                                <StyledText style={{ fontSize: 20 * textScale }} className="font-n-bold text-slate-900 dark:text-white">{averageGuesses}</StyledText>
+                                <ThemedText baseSize={14} className="font-n-medium opacity-60">Avg Guesses</ThemedText>
+                                <ThemedText baseSize={20} className="font-n-bold">{averageGuesses}</ThemedText>
                             </StyledView>
-                        </StyledView>
+                        </ThemedView>
 
                         {/* Right Column: Streak & Percentile */}
                         <StyledView className="flex-1 gap-3">
                             {/* Streak Box */}
-                            <StyledView className="flex-1 bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm justify-between">
-                                <StyledText className="font-n-bold text-sm text-slate-900 dark:text-white">Streak</StyledText>
+                            <ThemedView variant="surface" className="flex-1 rounded-xl p-4 shadow-sm justify-between">
+                                <ThemedText className="font-n-bold text-sm">Streak</ThemedText>
                                 <StyledView>
                                     <StyledView className="flex-row justify-between items-center mb-1">
-                                        <StyledText style={{ fontSize: 12 * textScale }} className="font-n-medium text-slate-500">Current</StyledText>
-                                        <StyledText style={{ fontSize: 18 * textScale }} className="font-n-bold text-slate-900 dark:text-white">{stats.currentStreak}</StyledText>
+                                        <ThemedText baseSize={12} className="font-n-medium opacity-60">Current</ThemedText>
+                                        <ThemedText baseSize={18} className="font-n-bold">{stats.currentStreak}</ThemedText>
                                     </StyledView>
                                     <StyledView className="flex-row justify-between items-center">
-                                        <StyledText style={{ fontSize: 12 * textScale }} className="font-n-medium text-slate-500">Best</StyledText>
-                                        <StyledText style={{ fontSize: 18 * textScale }} className="font-n-bold text-slate-900 dark:text-white">{stats.maxStreak}</StyledText>
+                                        <ThemedText baseSize={12} className="font-n-medium opacity-60">Best</ThemedText>
+                                        <ThemedText baseSize={18} className="font-n-bold">{stats.maxStreak}</ThemedText>
                                     </StyledView>
                                 </StyledView>
-                            </StyledView>
+                            </ThemedView>
 
                             {/* Percentile Box */}
-                            <StyledView className="flex-1 bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm justify-between">
+                            <ThemedView variant="surface" className="flex-1 rounded-xl p-4 shadow-sm justify-between">
                                 <StyledView className="flex-row justify-between items-center">
-                                    <StyledText className="font-n-bold text-sm text-slate-900 dark:text-white">Percentile</StyledText>
+                                    <ThemedText className="font-n-bold text-sm">Percentile</ThemedText>
                                     <TouchableOpacity onPress={() => setShowPercentileInfo(true)}>
                                         <Info size={14} color="#94a3b8" />
                                     </TouchableOpacity>
                                 </StyledView>
                                 <StyledView className="flex-row justify-between items-center mt-2">
-                                    <StyledText style={{ fontSize: 12 * textScale }} className="font-n-medium text-slate-500">Month to Date</StyledText>
-                                    <StyledText style={{ fontSize: 18 * textScale }} className="font-n-bold text-slate-900 dark:text-white">
+                                    <ThemedText baseSize={12} className="font-n-medium opacity-60">Month to Date</ThemedText>
+                                    <ThemedText baseSize={18} className="font-n-bold">
                                         {getPercentileText(stats.cumulativeMonthlyPercentile)}
-                                    </StyledText>
+                                    </ThemedText>
                                 </StyledView>
-                            </StyledView>
+                            </ThemedView>
                         </StyledView>
                     </StyledView>
 
 
 
                     {/* Badges Section */}
-                    <StyledView className="mb-6 bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm">
+                    <ThemedView variant="surface" className="mb-6 rounded-xl p-4 shadow-sm">
                         <StyledView className="flex-row justify-between items-center mb-4">
                             <StyledView className="flex-row items-center gap-2">
                                 <Award size={20} color="#7DAAE8" />
-                                <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Badges</StyledText>
+                                <ThemedText baseSize={14} className="font-n-bold">Badges</ThemedText>
                             </StyledView>
                             <StyledTouchableOpacity onPress={() => setShowBadgesModal(true)}>
-                                <StyledText style={{ fontSize: 12 * textScale }} className="text-blue-500 font-n-bold">See All</StyledText>
+                                <ThemedText baseSize={12} className="text-blue-500 font-n-bold">See All</ThemedText>
                             </StyledTouchableOpacity>
                         </StyledView>
 
@@ -340,7 +349,7 @@ export default function StatsScreen() {
                                 />
                             </StyledTouchableOpacity>
                         </StyledView>
-                    </StyledView>
+                    </ThemedView>
 
                     <AllBadgesModal
                         visible={showBadgesModal}
@@ -352,10 +361,10 @@ export default function StatsScreen() {
 
                     {/* Last 30 Days Chart */}
                     {recentActivity.length > 0 && (
-                        <StyledView className="mb-6 bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm">
+                        <ThemedView variant="surface" className="mb-6 rounded-xl p-4 shadow-sm">
                             <StyledView className="flex-row items-center gap-2 mb-4">
                                 <TrendingUp size={20} color="#7DAAE8" />
-                                <StyledText style={{ fontSize: 14 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Last 30 Days</StyledText>
+                                <ThemedText baseSize={14} className="font-n-bold">Last 30 Days</ThemedText>
                             </StyledView>
 
                             <StyledView className="flex-row h-24 items-end gap-1">
@@ -367,18 +376,18 @@ export default function StatsScreen() {
                                     />
                                 ))}
                             </StyledView>
-                            <StyledText style={{ fontSize: 12 * textScale }} className="font-n-medium text-center text-slate-400 mt-2">
+                            <ThemedText baseSize={12} className="font-n-medium text-center opacity-60 mt-2">
                                 Bar height = guesses
-                            </StyledText>
-                        </StyledView>
+                            </ThemedText>
+                        </ThemedView>
                     )}
 
 
                     {/* Guess Distribution Chart */}
-                    <StyledView className="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm mb-6">
+                    <ThemedView variant="surface" className="rounded-xl p-4 shadow-sm mb-6">
                         <StyledView className="flex-row items-center gap-2 mb-4">
                             <BarChart3 size={20} color="#7DAAE8" />
-                            <StyledText className="font-n-bold text-sm text-slate-900 dark:text-white">Guess Distribution</StyledText>
+                            <ThemedText className="font-n-bold text-sm">Guess Distribution</ThemedText>
                         </StyledView>
 
                         <StyledView className="space-y-3">
@@ -389,14 +398,14 @@ export default function StatsScreen() {
 
                                 return (
                                     <StyledView key={guessNum} className="flex-row items-center gap-3">
-                                        <StyledText className="w-4 text-sm font-n-medium text-slate-700 dark:text-slate-300">{guessNum}</StyledText>
+                                        <ThemedText className="w-4 text-sm font-n-medium opacity-80">{guessNum}</ThemedText>
                                         <StyledView className="flex-1 h-8 rounded-sm overflow-hidden flex-row" style={{ backgroundColor: `${barColor}20` }}>
                                             {count > 0 && (
                                                 <StyledView
                                                     className="h-full justify-center items-end pr-2"
                                                     style={{ width: `${Math.max(percentage, 10)}%`, backgroundColor: barColor }}
                                                 >
-                                                    <StyledText className="text-xs font-n-bold text-white shadow-sm">{count}</StyledText>
+                                                    <ThemedText className="text-xs font-n-bold text-white shadow-sm">{count}</ThemedText>
                                                 </StyledView>
                                             )}
                                         </StyledView>
@@ -406,21 +415,20 @@ export default function StatsScreen() {
 
                             {/* Lost Row */}
                             <StyledView className="flex-row items-center gap-3">
-                                <StyledText className="w-4 text-sm font-n-medium text-slate-700 dark:text-slate-300 relative bottom-0">X</StyledText>
+                                <ThemedText className="w-4 text-sm font-n-medium opacity-80 relative bottom-0">X</ThemedText>
                                 <StyledView className="flex-1 h-8 bg-[#FFD429]/20 rounded-sm overflow-hidden flex-row">
                                     {losses > 0 && (
                                         <StyledView
                                             className="h-full bg-[#FFD429] justify-center items-end pr-2"
                                             style={{ width: `${Math.max((losses / maxGuesses) * 100, 10)}%` }}
                                         >
-                                            <StyledText className="text-xs font-n-bold text-white shadow-sm">{losses}</StyledText>
+                                            <ThemedText className="text-xs font-n-bold text-white shadow-sm">{losses}</ThemedText>
                                         </StyledView>
                                     )}
                                 </StyledView>
                             </StyledView>
                         </StyledView>
-                    </StyledView>
-
+                    </ThemedView>
 
                 </StyledScrollView>
             )}
@@ -433,20 +441,20 @@ export default function StatsScreen() {
                 onRequestClose={() => setShowPercentileInfo(false)}
             >
                 <StyledView className="flex-1 bg-black/50 justify-center items-center p-4">
-                    <StyledView className="bg-white dark:bg-slate-800 p-6 rounded-2xl w-full max-w-sm">
+                    <ThemedView variant="surface" className="p-6 rounded-2xl w-full max-w-sm">
                         <StyledView className="flex-row justify-between items-center mb-4">
-                            <StyledText style={{ fontSize: 18 * textScale }} className="font-n-bold text-slate-900 dark:text-white">Percentile Ranking</StyledText>
+                            <ThemedText baseSize={18} className="font-n-bold">Percentile Ranking</ThemedText>
                             <TouchableOpacity onPress={() => setShowPercentileInfo(false)}>
                                 <X size={24} color="#64748b" />
                             </TouchableOpacity>
                         </StyledView>
-                        <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-600 dark:text-slate-300 mb-4 font-n-medium">
+                        <ThemedText baseSize={14} className="opacity-80 mb-4 font-n-medium">
                             You must have played at least 5 days this month for a percentile to be calculated.
-                        </StyledText>
-                        <StyledText style={{ fontSize: 14 * textScale }} className="text-slate-600 dark:text-slate-300 font-n-medium">
+                        </ThemedText>
+                        <ThemedText baseSize={14} className="opacity-80 font-n-medium">
                             Rankings are updated daily based on your performance compared to other players in your region.
-                        </StyledText>
-                    </StyledView>
+                        </ThemedText>
+                    </ThemedView>
                 </StyledView>
             </Modal>
 
@@ -460,6 +468,6 @@ export default function StatsScreen() {
                 description="Sign up to view your detailed statistics and achievements!"
             />
 
-        </SafeAreaView>
+        </ThemedView>
     );
 }

@@ -7,6 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { PostcodeAutocomplete } from '../../components/PostcodeAutocomplete';
+import { ThemedView } from '../../components/ThemedView';
+import { ThemedText } from '../../components/ThemedText';
+import { useThemeColor } from '../../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -269,29 +272,37 @@ export default function AccountInfoPage() {
         }
     };
 
+    const backgroundColor = useThemeColor({}, 'background');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const borderColor = useThemeColor({}, 'border');
+    const textColor = useThemeColor({}, 'text');
+
     if (loading) {
         return (
-            <StyledView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center">
+            <ThemedView className="flex-1 items-center justify-center">
                 <ActivityIndicator size="large" color="#7DAAE8" />
-            </StyledView>
+            </ThemedView>
         );
     }
 
     return (
-        <StyledView className="flex-1 bg-white dark:bg-slate-900">
-            <SafeAreaView edges={['top']} className="flex-1">
+        <ThemedView className="flex-1">
+            <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: surfaceColor }}>
                 {/* Header */}
-                <StyledView className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                <StyledView
+                    className="px-4 py-3 border-b"
+                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                >
                     <StyledView className="flex-row items-center justify-center relative">
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
                             className="absolute left-0"
                         >
-                            <ChevronLeft size={28} className="text-slate-800 dark:text-white" />
+                            <ChevronLeft size={28} color={textColor} />
                         </StyledTouchableOpacity>
-                        <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white">
+                        <ThemedText size="2xl" className="font-n-bold">
                             Account Info
-                        </StyledText>
+                        </ThemedText>
                     </StyledView>
                 </StyledView>
 
@@ -305,41 +316,54 @@ export default function AccountInfoPage() {
                         keyboardShouldPersistTaps="handled"
                     >
                         {/* Profile Section */}
-                        <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-4 border border-slate-100 dark:border-slate-700">
-                            <StyledText className="text-sm font-n-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                        <StyledView
+                            className="rounded-2xl p-4 mb-4 border"
+                            style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        >
+                            <ThemedText size="sm" className="font-n-bold uppercase tracking-wide mb-3 opacity-60">
                                 Profile
-                            </StyledText>
+                            </ThemedText>
 
                             <StyledView className="mb-4">
-                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                <ThemedText size="sm" className="font-n-semibold mb-2 opacity-80">
                                     First Name
-                                </StyledText>
+                                </ThemedText>
                                 <StyledTextInput
                                     value={firstName}
                                     onChangeText={setFirstName}
                                     placeholder="Enter first name"
                                     placeholderTextColor="#94a3b8"
-                                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-slate-900 dark:text-white font-n-medium"
+                                    className="border rounded-lg px-4 py-3 font-n-medium"
+                                    style={{
+                                        backgroundColor: backgroundColor,
+                                        borderColor: borderColor,
+                                        color: textColor
+                                    }}
                                 />
                             </StyledView>
 
                             <StyledView className="mb-4">
-                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                <ThemedText size="sm" className="font-n-semibold mb-2 opacity-80">
                                     Last Name
-                                </StyledText>
+                                </ThemedText>
                                 <StyledTextInput
                                     value={lastName}
                                     onChangeText={setLastName}
                                     placeholder="Enter last name"
                                     placeholderTextColor="#94a3b8"
-                                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-slate-900 dark:text-white font-n-medium"
+                                    className="border rounded-lg px-4 py-3 font-n-medium"
+                                    style={{
+                                        backgroundColor: backgroundColor,
+                                        borderColor: borderColor,
+                                        color: textColor
+                                    }}
                                 />
                             </StyledView>
 
                             <StyledView className="mb-4">
-                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                <ThemedText size="sm" className="font-n-semibold mb-2 opacity-80">
                                     Email
-                                </StyledText>
+                                </ThemedText>
                                 <StyledTextInput
                                     value={email}
                                     onChangeText={setEmail}
@@ -347,29 +371,35 @@ export default function AccountInfoPage() {
                                     placeholderTextColor="#94a3b8"
                                     keyboardType="email-address"
                                     autoCapitalize="none"
-                                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 text-slate-900 dark:text-white font-n-medium"
+                                    className="border rounded-lg px-4 py-3 font-n-medium"
+                                    style={{
+                                        backgroundColor: backgroundColor,
+                                        borderColor: borderColor,
+                                        color: textColor
+                                    }}
                                 />
                             </StyledView>
 
                             <StyledView className="mb-4">
-                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                <ThemedText size="sm" className="font-n-semibold mb-2 opacity-80">
                                     Region
-                                </StyledText>
+                                </ThemedText>
                                 <StyledTouchableOpacity
                                     onPress={() => setRegionModalVisible(true)}
-                                    className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-4 py-3 flex-row items-center justify-between"
+                                    className="border rounded-lg px-4 py-3 flex-row items-center justify-between"
+                                    style={{ backgroundColor: backgroundColor, borderColor: borderColor }}
                                 >
-                                    <StyledText className="text-slate-900 dark:text-white font-n-medium">
+                                    <ThemedText className="font-n-medium">
                                         {getRegionName(region)}
-                                    </StyledText>
-                                    <ChevronDown size={20} className="text-slate-500 dark:text-slate-400" />
+                                    </ThemedText>
+                                    <ChevronDown size={20} color={textColor} style={{ opacity: 0.5 }} />
                                 </StyledTouchableOpacity>
                             </StyledView>
 
                             <StyledView className="mb-4">
-                                <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300 mb-2">
+                                <ThemedText size="sm" className="font-n-semibold mb-2 opacity-80">
                                     Postcode
-                                </StyledText>
+                                </ThemedText>
                                 <PostcodeAutocomplete
                                     value={postcode}
                                     onChange={(value) => setPostcode(value)}
@@ -394,73 +424,81 @@ export default function AccountInfoPage() {
                         </StyledView>
 
                         {/* Account Section */}
-                        <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-4 border border-slate-100 dark:border-slate-700">
-                            <StyledText className="text-sm font-n-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                        <StyledView
+                            className="rounded-2xl p-4 mb-4 border"
+                            style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        >
+                            <ThemedText size="sm" className="font-n-bold uppercase tracking-wide mb-3 opacity-60">
                                 Account
-                            </StyledText>
+                            </ThemedText>
 
                             <StyledTouchableOpacity
                                 onPress={() => Alert.alert('Password', hasPassword ? 'Change password feature coming soon' : 'Create password feature coming soon')}
-                                className="flex-row items-center py-3 border-b border-slate-100 dark:border-slate-700"
+                                className="flex-row items-center py-3 border-b"
+                                style={{ borderColor: borderColor }}
                             >
-                                <Key size={20} className="text-slate-600 dark:text-slate-400 mr-3" />
+                                <Key size={20} color={textColor} style={{ marginRight: 12 }} />
                                 <StyledView className="flex-1">
-                                    <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300">
+                                    <ThemedText className="text-sm font-n-semibold">
                                         Password
-                                    </StyledText>
-                                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                    </ThemedText>
+                                    <ThemedText className="text-sm mt-1 opacity-60">
                                         {hasPassword ? 'Change password' : 'Create password'}
-                                    </StyledText>
+                                    </ThemedText>
                                 </StyledView>
                             </StyledTouchableOpacity>
 
                             {/* Magic Link Toggle */}
                             <StyledView className="flex-row items-center justify-between py-3">
                                 <StyledView className="flex-1 pr-3">
-                                    <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300">
+                                    <ThemedText className="text-sm font-n-semibold">
                                         Enable Magic Link
-                                    </StyledText>
-                                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                    </ThemedText>
+                                    <ThemedText className="text-sm mt-1 opacity-60">
                                         Sign in with email links
-                                    </StyledText>
+                                    </ThemedText>
                                 </StyledView>
                                 <Switch
                                     value={magicLinkEnabled}
                                     onValueChange={handleToggleMagicLink}
                                     disabled={togglingMagicLink}
-                                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                                    trackColor={{ false: borderColor, true: '#3b82f6' }}
                                     thumbColor={'#ffffff'}
-                                    ios_backgroundColor="#e2e8f0"
+                                    ios_backgroundColor={borderColor}
                                 />
                             </StyledView>
                         </StyledView>
 
                         {/* Connected Accounts Section */}
-                        <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-4 mb-4 border border-slate-100 dark:border-slate-700">
-                            <StyledText className="text-sm font-n-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">
+                        <StyledView
+                            className="rounded-2xl p-4 mb-4 border"
+                            style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        >
+                            <ThemedText size="sm" className="font-n-bold uppercase tracking-wide mb-3 opacity-60">
                                 Connected Accounts
-                            </StyledText>
+                            </ThemedText>
 
                             {/* Google */}
                             <StyledTouchableOpacity
                                 onPress={handleLinkGoogle}
                                 disabled={isGoogleConnected}
-                                className="flex-row items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700"
+                                className="flex-row items-center justify-between py-3 border-b"
+                                style={{ borderColor: borderColor }}
                             >
                                 <StyledView className="flex-1">
-                                    <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300">
+                                    <ThemedText className="text-sm font-n-semibold">
                                         Google
-                                    </StyledText>
-                                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                    </ThemedText>
+                                    <ThemedText className="text-sm mt-1 opacity-60">
                                         {isGoogleConnected ? 'Connected' : 'Tap to connect'}
-                                    </StyledText>
+                                    </ThemedText>
                                 </StyledView>
                                 {isGoogleConnected ? (
-                                    <StyledText className="text-green-600 dark:text-green-400 text-sm font-n-medium">
+                                    <StyledText className="text-green-600 text-sm font-n-medium">
                                         ✓ Linked
                                     </StyledText>
                                 ) : (
-                                    <StyledText className="text-blue-600 dark:text-blue-400 text-sm font-n-medium">
+                                    <StyledText className="text-blue-600 text-sm font-n-medium">
                                         Link →
                                     </StyledText>
                                 )}
@@ -473,19 +511,19 @@ export default function AccountInfoPage() {
                                 className="flex-row items-center justify-between py-3"
                             >
                                 <StyledView className="flex-1">
-                                    <StyledText className="text-sm font-n-semibold text-slate-700 dark:text-slate-300">
+                                    <ThemedText className="text-sm font-n-semibold">
                                         Apple
-                                    </StyledText>
-                                    <StyledText className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                                    </ThemedText>
+                                    <ThemedText className="text-sm mt-1 opacity-60">
                                         {isAppleConnected ? 'Connected' : 'Tap to connect'}
-                                    </StyledText>
+                                    </ThemedText>
                                 </StyledView>
                                 {isAppleConnected ? (
-                                    <StyledText className="text-green-600 dark:text-green-400 text-sm font-n-medium">
+                                    <StyledText className="text-green-600 text-sm font-n-medium">
                                         ✓ Linked
                                     </StyledText>
                                 ) : (
-                                    <StyledText className="text-blue-600 dark:text-blue-400 text-sm font-n-medium">
+                                    <StyledText className="text-blue-600 text-sm font-n-medium">
                                         Link →
                                     </StyledText>
                                 )}
@@ -503,22 +541,25 @@ export default function AccountInfoPage() {
                 onRequestClose={() => setEmailConfirmModal(false)}
             >
                 <StyledView className="flex-1 bg-black/50 justify-center items-center px-6">
-                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm">
-                        <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white mb-4">
+                    <StyledView
+                        className="rounded-2xl p-6 w-full max-w-sm"
+                        style={{ backgroundColor: surfaceColor }}
+                    >
+                        <ThemedText size="xl" className="font-n-bold mb-4">
                             Confirm Email Change
-                        </StyledText>
-                        <StyledText className="text-slate-600 dark:text-slate-300 mb-2">
+                        </ThemedText>
+                        <ThemedText className="mb-2 opacity-80">
                             You are changing your email from:
-                        </StyledText>
-                        <StyledText className="font-n-bold text-slate-900 dark:text-white mb-2">
+                        </ThemedText>
+                        <ThemedText className="font-n-bold mb-2">
                             {originalEmail}
-                        </StyledText>
-                        <StyledText className="text-slate-600 dark:text-slate-300 mb-2">
+                        </ThemedText>
+                        <ThemedText className="mb-2 opacity-80">
                             to:
-                        </StyledText>
-                        <StyledText className="font-n-bold text-slate-900 dark:text-white mb-6">
+                        </ThemedText>
+                        <ThemedText className="font-n-bold mb-6">
                             {email}
-                        </StyledText>
+                        </ThemedText>
                         <StyledView className="flex-row gap-3">
                             <StyledTouchableOpacity
                                 onPress={() => {
@@ -527,9 +568,9 @@ export default function AccountInfoPage() {
                                 }}
                                 className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-lg py-3"
                             >
-                                <StyledText className="text-slate-900 dark:text-white font-n-bold text-center">
+                                <ThemedText className="text-slate-900 dark:text-white font-n-bold text-center">
                                     Cancel
-                                </StyledText>
+                                </ThemedText>
                             </StyledTouchableOpacity>
                             <StyledTouchableOpacity
                                 onPress={handleEmailConfirm}
@@ -552,16 +593,19 @@ export default function AccountInfoPage() {
                 onRequestClose={() => setRegionConfirmModal(false)}
             >
                 <StyledView className="flex-1 bg-black/50 justify-center items-center px-6">
-                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm">
-                        <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white mb-4">
+                    <StyledView
+                        className="rounded-2xl p-6 w-full max-w-sm"
+                        style={{ backgroundColor: surfaceColor }}
+                    >
+                        <ThemedText size="xl" className="font-n-bold mb-4">
                             Change Region?
-                        </StyledText>
-                        <StyledText className="text-slate-600 dark:text-slate-300 mb-4">
-                            Changing from <StyledText className="font-n-bold">{getRegionName(originalRegion)}</StyledText> to <StyledText className="font-n-bold">{getRegionName(region)}</StyledText> will change the questions you receive.
-                        </StyledText>
-                        <StyledText className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                        </ThemedText>
+                        <ThemedText className="mb-4 opacity-80">
+                            Changing from <ThemedText className="font-n-bold">{getRegionName(originalRegion)}</ThemedText> to <ThemedText className="font-n-bold">{getRegionName(region)}</ThemedText> will change the questions you receive.
+                        </ThemedText>
+                        <ThemedText className="text-sm mb-6 opacity-60">
                             Note: You can only change your region once every few days.
-                        </StyledText>
+                        </ThemedText>
                         <StyledView className="flex-row gap-3">
                             <StyledTouchableOpacity
                                 onPress={() => {
@@ -570,9 +614,9 @@ export default function AccountInfoPage() {
                                 }}
                                 className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-lg py-3"
                             >
-                                <StyledText className="text-slate-900 dark:text-white font-n-bold text-center">
+                                <ThemedText className="text-slate-900 dark:text-white font-n-bold text-center">
                                     Cancel
-                                </StyledText>
+                                </ThemedText>
                             </StyledTouchableOpacity>
                             <StyledTouchableOpacity
                                 onPress={handleRegionConfirm}
@@ -595,16 +639,19 @@ export default function AccountInfoPage() {
                 onRequestClose={() => setPostcodeConfirmModal(false)}
             >
                 <StyledView className="flex-1 bg-black/50 justify-center items-center px-6">
-                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm">
-                        <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white mb-4">
+                    <StyledView
+                        className="rounded-2xl p-6 w-full max-w-sm"
+                        style={{ backgroundColor: surfaceColor }}
+                    >
+                        <ThemedText size="xl" className="font-n-bold mb-4">
                             Change Postcode?
-                        </StyledText>
-                        <StyledText className="text-slate-600 dark:text-slate-300 mb-4">
+                        </ThemedText>
+                        <ThemedText className="mb-4 opacity-80">
                             Changing your postcode will update the location-based questions you receive in the personal edition of the game.
-                        </StyledText>
-                        <StyledText className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+                        </ThemedText>
+                        <ThemedText className="text-sm mb-6 opacity-60">
                             Note: You can only change your postcode once every few days.
-                        </StyledText>
+                        </ThemedText>
                         <StyledView className="flex-row gap-3">
                             <StyledTouchableOpacity
                                 onPress={() => {
@@ -613,9 +660,9 @@ export default function AccountInfoPage() {
                                 }}
                                 className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-lg py-3"
                             >
-                                <StyledText className="text-slate-900 dark:text-white font-n-bold text-center">
+                                <ThemedText className="text-slate-900 dark:text-white font-n-bold text-center">
                                     Cancel
-                                </StyledText>
+                                </ThemedText>
                             </StyledTouchableOpacity>
                             <StyledTouchableOpacity
                                 onPress={handlePostcodeConfirm}
@@ -638,13 +685,16 @@ export default function AccountInfoPage() {
                 onRequestClose={() => setRestrictionModal(false)}
             >
                 <StyledView className="flex-1 bg-black/50 justify-center items-center px-6">
-                    <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm">
+                    <StyledView
+                        className="rounded-2xl p-6 w-full max-w-sm"
+                        style={{ backgroundColor: surfaceColor }}
+                    >
                         <StyledText className="text-xl font-n-bold text-red-600 dark:text-red-400 mb-4">
                             Change Restricted
                         </StyledText>
-                        <StyledText className="text-slate-600 dark:text-slate-300 mb-6">
+                        <ThemedText className="mb-6 opacity-80">
                             {restrictionMessage}
-                        </StyledText>
+                        </ThemedText>
                         <StyledTouchableOpacity
                             onPress={() => setRestrictionModal(false)}
                             className="bg-blue-500 rounded-lg py-3"
@@ -666,11 +716,17 @@ export default function AccountInfoPage() {
             >
                 <StyledView className="flex-1 bg-black/50" onTouchEnd={() => setRegionModalVisible(false)}>
                     <StyledView className="flex-1 justify-end">
-                        <StyledView className="bg-white dark:bg-slate-800 rounded-t-3xl max-h-[70%]">
-                            <StyledView className="p-4 border-b border-slate-200 dark:border-slate-700">
-                                <StyledText className="text-xl font-n-bold text-slate-900 dark:text-white text-center">
+                        <StyledView
+                            className="rounded-t-3xl max-h-[70%]"
+                            style={{ backgroundColor: surfaceColor }}
+                        >
+                            <StyledView
+                                className="p-4 border-b"
+                                style={{ borderColor: borderColor }}
+                            >
+                                <ThemedText size="xl" className="font-n-bold text-center">
                                     Select Region
-                                </StyledText>
+                                </ThemedText>
                             </StyledView>
                             <FlatList
                                 data={regions}
@@ -681,11 +737,12 @@ export default function AccountInfoPage() {
                                             setRegion(item.code);
                                             setRegionModalVisible(false);
                                         }}
-                                        className="px-4 py-4 border-b border-slate-100 dark:border-slate-700"
+                                        className="px-4 py-4 border-b"
+                                        style={{ borderColor: borderColor }}
                                     >
-                                        <StyledText className={`font-n-medium ${region === item.code ? 'text-blue-600 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}>
+                                        <ThemedText className={`font-n-medium ${region === item.code ? 'text-blue-600' : ''}`}>
                                             {item.name}
-                                        </StyledText>
+                                        </ThemedText>
                                     </StyledTouchableOpacity>
                                 )}
                             />
@@ -693,6 +750,6 @@ export default function AccountInfoPage() {
                     </StyledView>
                 </StyledView>
             </Modal>
-        </StyledView>
+        </ThemedView>
     );
 }

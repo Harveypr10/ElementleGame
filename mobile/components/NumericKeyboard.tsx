@@ -5,6 +5,7 @@ import { Delete, RotateCcw } from 'lucide-react-native';
 import hapticsManager from '../lib/hapticsManager';
 import soundManager from '../lib/soundManager';
 import { ThemedText } from './ThemedText';
+import { useOptions } from '../lib/options';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -29,6 +30,8 @@ export function NumericKeyboard({
     keyStates,
     canSubmit,
 }: NumericKeyboardProps) {
+    const { darkMode } = useOptions();
+
     // Responsive button height - smaller on small screens
     const buttonHeight = useMemo(() => {
         const screenHeight = Dimensions.get('window').height;
@@ -37,49 +40,58 @@ export function NumericKeyboard({
         return 56; // Large screens (h-14)
     }, []);
 
-    const getKeyClasses = (digit: string) => {
+    const getKeyStyles = (digit: string) => {
         const state = keyStates[digit] || "default";
         switch (state) {
             case "correct":
-                return "bg-game-correct border-game-correct";
+                return { className: "bg-game-correct border-game-correct" };
             case "inSequence":
-                return "bg-game-inSequence border-game-inSequence";
+                return { className: "bg-game-inSequence border-game-inSequence" };
             case "ruledOut":
-                return "bg-gray-500 border-gray-500";
+                return { className: "bg-gray-500 border-gray-500" };
             default:
-                return "bg-slate-200 border-slate-300 dark:bg-slate-700 dark:border-slate-600";
+                // Manual theme logic
+                return {
+                    className: "",
+                    style: { backgroundColor: darkMode ? '#334155' : '#e2e8f0', borderColor: darkMode ? '#475569' : '#cbd5e1', borderWidth: 1 }
+                };
         }
     };
 
-    const getKeyTextClasses = (digit: string) => {
+    const getKeyTextColors = (digit: string) => {
         const state = keyStates[digit] || "default";
         switch (state) {
             case "correct":
             case "inSequence":
             case "ruledOut":
-                return "text-white";
+                return { color: 'white' };
             default:
-                return "text-slate-800 dark:text-white";
+                return { color: darkMode ? 'white' : '#1e293b' };
         }
     };
 
 
 
-    const renderKey = (digit: string) => (
-        <StyledTouchableOpacity
-            key={digit}
-            testID={`keyboard-digit-${digit}`}
-            onPress={() => {
-                hapticsManager.light();
-                soundManager.play('tap');
-                onDigitPress(digit);
-            }}
-            className={`flex-1 m-1 rounded-md justify-center items-center active:bg-slate-300 ${getKeyClasses(digit)}`}
-            style={{ height: buttonHeight }}
-        >
-            <ThemedText className={`font-nunito ${getKeyTextClasses(digit)}`} size="xl">{digit}</ThemedText>
-        </StyledTouchableOpacity>
-    );
+    const renderKey = (digit: string) => {
+        const styleInfo = getKeyStyles(digit);
+        const textInfo = getKeyTextColors(digit);
+
+        return (
+            <StyledTouchableOpacity
+                key={digit}
+                testID={`keyboard-digit-${digit}`}
+                onPress={() => {
+                    hapticsManager.light();
+                    soundManager.play('tap');
+                    onDigitPress(digit);
+                }}
+                className={`flex-1 m-1 rounded-md justify-center items-center active:bg-slate-300 ${styleInfo.className}`}
+                style={[{ height: buttonHeight }, styleInfo.style]}
+            >
+                <ThemedText style={textInfo} className="font-nunito" size="xl">{digit}</ThemedText>
+            </StyledTouchableOpacity>
+        );
+    };
 
     return (
         <View className="w-full px-2 pb-6">
@@ -108,10 +120,13 @@ export function NumericKeyboard({
                         hapticsManager.medium();
                         onClear();
                     }}
-                    className="w-20 m-1 rounded-md justify-center items-center bg-slate-200 dark:bg-slate-700"
-                    style={{ height: buttonHeight }}
+                    className="w-20 m-1 rounded-md justify-center items-center"
+                    style={{
+                        height: buttonHeight,
+                        backgroundColor: darkMode ? '#334155' : '#e2e8f0'
+                    }}
                 >
-                    <RotateCcw size={24} color="#64748b" />
+                    <RotateCcw size={24} color={darkMode ? '#94a3b8' : '#64748b'} />
                 </StyledTouchableOpacity>
 
                 <StyledTouchableOpacity
@@ -120,10 +135,13 @@ export function NumericKeyboard({
                         hapticsManager.medium();
                         onDelete();
                     }}
-                    className="w-20 m-1 rounded-md justify-center items-center bg-slate-200 dark:bg-slate-700"
-                    style={{ height: buttonHeight }}
+                    className="w-20 m-1 rounded-md justify-center items-center"
+                    style={{
+                        height: buttonHeight,
+                        backgroundColor: darkMode ? '#334155' : '#e2e8f0'
+                    }}
                 >
-                    <Delete size={24} color="#64748b" />
+                    <Delete size={24} color={darkMode ? '#94a3b8' : '#64748b'} />
                 </StyledTouchableOpacity>
             </View>
         </View>

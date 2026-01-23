@@ -15,6 +15,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 
 import { ThemedText } from '../../components/ThemedText';
+import { ThemedView } from '../../components/ThemedView';
+import { useThemeColor } from '../../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
@@ -208,112 +210,112 @@ export default function CategorySelectionScreen() {
         }
     };
 
+    const surfaceColor = useThemeColor({}, 'surface');
+    const backgroundColor = useThemeColor({}, 'background');
+    const textColor = useThemeColor({}, 'text');
+    const iconColor = useThemeColor({}, 'icon');
+    const surfaceHighlight = useThemeColor({}, 'surface'); // Or specific highlight color if needed
+
     if (loading) {
         return (
-            <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center">
+            <ThemedView className="flex-1 items-center justify-center">
                 <ActivityIndicator size="large" color="#3b82f6" />
-                <ThemedText className="text-slate-600 dark:text-slate-400 mt-4" size="base">
+                <ThemedText className="mt-4" size="base" style={{ opacity: 0.6 }}>
                     Loading categories...
                 </ThemedText>
-            </SafeAreaView>
+            </ThemedView>
         );
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
-            {/* Back Button */}
-            <StyledTouchableOpacity
-                onPress={() => router.back()}
-                className="absolute left-4 top-12 z-10 w-12 h-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800"
-            >
-                <ChevronLeft size={28} color="#1e293b" />
-            </StyledTouchableOpacity>
+        <ThemedView className="flex-1">
+            <SafeAreaView className="flex-1">
+                {/* Back Button */}
+                <StyledTouchableOpacity
+                    onPress={() => router.back()}
+                    className="absolute left-4 top-12 z-10 w-12 h-12 items-center justify-center rounded-full shadow-sm border"
+                    style={{ backgroundColor: surfaceColor, borderColor: useThemeColor({}, 'border') }}
+                >
+                    <ChevronLeft size={28} color={iconColor} />
+                </StyledTouchableOpacity>
 
-            {/* Hamster Image */}
-            <StyledView className="absolute right-4 top-8 z-10">
-                <Image
-                    source={require('../../assets/Question-Hamster-Cutout.png')}
-                    style={{ width: 80, height: 80 }}
-                    resizeMode="contain"
-                />
-            </StyledView>
-
-            <StyledView className="flex-1 px-6">
-                <StyledView className="py-6 pt-20">
-                    <ThemedText className="font-n-bold text-slate-900 dark:text-white mb-2 text-center" size="3xl">
-                        Select Your{'\n'}Categories
-                    </ThemedText>
-                    <ThemedText className="text-slate-600 dark:text-slate-400 font-n-medium text-center" size="base">
-                        Choose at least 3 categories
-                    </ThemedText>
+                {/* Hamster Image */}
+                <StyledView className="absolute right-4 top-8 z-10">
+                    <Image
+                        source={require('../../assets/ui/webp_assets/Question-Hamster-v2.webp')}
+                        style={{ width: 80, height: 80 }}
+                        resizeMode="contain"
+                    />
                 </StyledView>
 
-                {/* Categories Grid */}
-                <StyledScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                    <StyledView className="flex-row flex-wrap gap-2 pb-6">
-                        {categories.map(category => {
-                            const isSelected = selectedCategories.includes(category.id);
-
-                            return (
-                                <StyledTouchableOpacity
-                                    key={category.id}
-                                    onPress={() => toggleCategory(category.id)}
-                                    style={{ minHeight: 56 }}
-                                    className={`
-                                        flex-1 min-w-[48%] px-4 py-3 rounded-xl items-center justify-center
-                                        ${isSelected
-                                            ? 'bg-blue-500 dark:bg-blue-600'
-                                            : 'bg-slate-200 dark:bg-slate-700'
-                                        }
-                                    `}
-                                >
-                                    <ThemedText className={`
-                                        font-n-bold text-center
-                                        ${isSelected ? 'text-white' : 'text-slate-700 dark:text-slate-300'}
-                                    `} size="sm">
-                                        {category.name}
-                                    </ThemedText>
-                                </StyledTouchableOpacity>
-                            );
-                        })}
+                <StyledView className="flex-1 px-6">
+                    <StyledView className="py-6 pt-20">
+                        <ThemedText className="font-n-bold mb-2 text-center" size="3xl">
+                            Select Your{'\n'}Categories
+                        </ThemedText>
+                        <ThemedText className="font-n-medium text-center opacity-60" size="base">
+                            Choose at least 3 categories
+                        </ThemedText>
                     </StyledView>
-                </StyledScrollView>
 
-                {/* Bottom Action */}
-                <StyledView className="py-4">
-                    <ThemedText className="text-slate-500 dark:text-slate-400 mb-3 text-center font-n-medium" size="sm">
-                        {selectedCategories.length} {selectedCategories.length === 1 ? 'Category' : 'Categories'} Selected
-                    </ThemedText>
+                    {/* Categories Grid */}
+                    <StyledScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+                        <StyledView className="flex-row flex-wrap gap-2 pb-6">
+                            {categories.map(category => {
+                                const isSelected = selectedCategories.includes(category.id);
+                                const itemBg = isSelected ? '#3b82f6' : surfaceColor; // Blue 500 or Surface
+                                const itemBorder = isSelected ? '#3b82f6' : useThemeColor({}, 'border');
 
-                    <StyledTouchableOpacity
-                        onPress={handleContinue}
-                        disabled={!canGenerate || saving || generating}
-                        className={`
-                            py-4 rounded-full items-center
-                            ${canGenerate && !saving && !generating
-                                ? 'bg-blue-500 dark:bg-blue-600'
-                                : 'bg-slate-300 dark:bg-slate-700'
-                            }
-                        `}
-                    >
-                        {saving || generating ? (
-                            <StyledView className="flex-row items-center">
-                                <Loader2 size={20} color="white" className="mr-2" />
-                                <ThemedText className="text-white font-n-bold" size="lg">
-                                    {generating ? 'Generating...' : 'Saving...'}
+                                return (
+                                    <StyledTouchableOpacity
+                                        key={category.id}
+                                        onPress={() => toggleCategory(category.id)}
+                                        style={{ minHeight: 56, backgroundColor: itemBg, borderColor: itemBorder }}
+                                        className={`flex-1 min-w-[48%] px-4 py-3 rounded-xl items-center justify-center border`}
+                                    >
+                                        <ThemedText
+                                            className={`font-n-bold text-center ${isSelected ? 'text-white' : ''}`}
+                                            size="sm"
+                                        >
+                                            {category.name}
+                                        </ThemedText>
+                                    </StyledTouchableOpacity>
+                                );
+                            })}
+                        </StyledView>
+                    </StyledScrollView>
+
+                    {/* Bottom Action */}
+                    <StyledView className="py-4">
+                        <ThemedText className="mb-3 text-center font-n-medium opacity-60" size="sm">
+                            {selectedCategories.length} {selectedCategories.length === 1 ? 'Category' : 'Categories'} Selected
+                        </ThemedText>
+
+                        <StyledTouchableOpacity
+                            onPress={handleContinue}
+                            disabled={!canGenerate || saving || generating}
+                            className={`py-4 rounded-full items-center`}
+                            style={{
+                                backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : useThemeColor({}, 'border'),
+                                opacity: canGenerate && !saving && !generating ? 1 : 0.7
+                            }}
+                        >
+                            {saving || generating ? (
+                                <StyledView className="flex-row items-center">
+                                    <Loader2 size={20} color="white" className="mr-2" />
+                                    <ThemedText className="text-white font-n-bold" size="lg">
+                                        {generating ? 'Generating...' : 'Saving...'}
+                                    </ThemedText>
+                                </StyledView>
+                            ) : (
+                                <ThemedText className={`font-n-bold ${canGenerate ? 'text-white' : 'text-slate-500'}`} size="lg">
+                                    {initialCategories.length === 0 ? 'Generate' : 'Re-Generate'}
                                 </ThemedText>
-                            </StyledView>
-                        ) : (
-                            <ThemedText className={`
-                                font-n-bold
-                                ${canGenerate ? 'text-white' : 'text-slate-500 dark:text-slate-400'}
-                            `} size="lg">
-                                {initialCategories.length === 0 ? 'Generate' : 'Re-Generate'}
-                            </ThemedText>
-                        )}
-                    </StyledTouchableOpacity>
+                            )}
+                        </StyledTouchableOpacity>
+                    </StyledView>
                 </StyledView>
-            </StyledView>
-        </SafeAreaView>
+            </SafeAreaView>
+        </ThemedView>
     );
 }

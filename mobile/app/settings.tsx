@@ -6,6 +6,9 @@ import { styled } from 'nativewind';
 import { Settings, User as UserIcon, Crown, List, ChevronRight, LogOut, Info, ChevronLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../lib/auth';
+import { ThemedView } from '../components/ThemedView';
+import { ThemedText } from '../components/ThemedText';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -15,6 +18,10 @@ const StyledTouchableOpacity = styled(TouchableOpacity);
 export default function SettingsScreen() {
     const router = useRouter();
     const { user, signOut } = useAuth();
+    const iconColor = useThemeColor({}, 'icon');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const borderColor = useThemeColor({}, 'border');
+    const textColor = useThemeColor({}, 'text');
 
     // Mock Subscription State (TODO: Hook up to real subscription logic)
     const isPro = false;
@@ -27,16 +34,21 @@ export default function SettingsScreen() {
     const MenuItem = ({ icon: Icon, title, subtitle, onPress, isDestructive = false, isProFeature = false }: any) => (
         <StyledTouchableOpacity
             onPress={onPress}
-            className={`flex-row items-center p-4 bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700 active:bg-slate-50 dark:active:bg-slate-700`}
+            className="flex-row items-center p-4 border-b"
+            style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
         >
-            <StyledView className={`w-10 h-10 rounded-full items-center justify-center mr-4 ${isDestructive ? 'bg-red-50' : 'bg-slate-100 dark:bg-slate-700'}`}>
-                <Icon size={20} color={isDestructive ? '#ef4444' : '#64748b'} />
+            <StyledView className={`w-10 h-10 rounded-full items-center justify-center mr-4 ${isDestructive ? 'bg-red-50' : ''}`}
+                style={!isDestructive ? { backgroundColor: borderColor } : undefined}
+            >
+                <Icon size={20} color={isDestructive ? '#ef4444' : iconColor} />
             </StyledView>
             <StyledView className="flex-1">
                 <StyledView className="flex-row items-center">
-                    <StyledText className={`text-base font-semibold ${isDestructive ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>
+                    <ThemedText className={`text-base font-semibold ${isDestructive ? 'text-red-600' : ''}`}
+                        style={!isDestructive ? { color: textColor } : undefined}
+                    >
                         {title}
-                    </StyledText>
+                    </ThemedText>
                     {isProFeature && (
                         <StyledView className="ml-2 bg-amber-100 px-2 py-0.5 rounded-full">
                             <StyledText className="text-[10px] font-n-bold text-amber-600">PRO</StyledText>
@@ -45,23 +57,23 @@ export default function SettingsScreen() {
                 </StyledView>
                 {subtitle && <StyledText className="text-sm text-slate-500 mt-0.5">{subtitle}</StyledText>}
             </StyledView>
-            <ChevronRight size={20} color="#cbd5e1" />
+            <ChevronRight size={20} color={borderColor} />
         </StyledTouchableOpacity>
     );
 
     return (
-        <StyledView className="flex-1 bg-slate-50 dark:bg-slate-900">
+        <ThemedView className="flex-1">
             {/* Header */}
-            <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900 z-50">
-                <StyledView className="items-center relative pb-2 bg-white dark:bg-slate-900 z-50">
+            <SafeAreaView edges={['top']} className="z-50" style={{ backgroundColor: surfaceColor }}>
+                <StyledView className="items-center relative pb-2 z-50" style={{ backgroundColor: surfaceColor }}>
                     <StyledView className="absolute left-4 top-2">
                         <StyledTouchableOpacity onPress={() => router.back()}>
-                            <ChevronLeft size={28} color="#1e293b" />
+                            <ChevronLeft size={28} color={iconColor} />
                         </StyledTouchableOpacity>
                     </StyledView>
-                    <StyledText className="text-4xl font-n-bold text-slate-900 dark:text-white mb-6 pt-2 font-heading">
+                    <ThemedText size="4xl" className="font-n-bold mb-6 pt-2 font-heading">
                         Settings
-                    </StyledText>
+                    </ThemedText>
                 </StyledView>
             </SafeAreaView>
 
@@ -69,7 +81,7 @@ export default function SettingsScreen() {
 
                 {/* Account Section */}
                 <StyledText className="px-6 py-2 text-sm font-n-bold text-slate-500 uppercase mt-6">Account</StyledText>
-                <StyledView className="bg-white dark:bg-slate-800 border-y border-slate-100 dark:border-slate-700">
+                <StyledView className="border-y" style={{ backgroundColor: surfaceColor, borderColor: borderColor }}>
                     <MenuItem
                         icon={UserIcon}
                         title="Profile"
@@ -86,7 +98,7 @@ export default function SettingsScreen() {
 
                 {/* Game Settings */}
                 <StyledText className="px-6 py-2 text-sm font-n-bold text-slate-500 uppercase mt-6">Game</StyledText>
-                <StyledView className="bg-white dark:bg-slate-800 border-y border-slate-100 dark:border-slate-700">
+                <StyledView className="border-y" style={{ backgroundColor: surfaceColor, borderColor: borderColor }}>
                     <MenuItem
                         icon={Settings}
                         title="Game Options"
@@ -107,7 +119,7 @@ export default function SettingsScreen() {
 
                 {/* Support */}
                 <StyledText className="px-6 py-2 text-sm font-n-bold text-slate-500 uppercase mt-6">Support</StyledText>
-                <StyledView className="bg-white dark:bg-slate-800 border-y border-slate-100 dark:border-slate-700">
+                <StyledView className="border-y" style={{ backgroundColor: surfaceColor, borderColor: borderColor }}>
                     <MenuItem
                         icon={Info}
                         title="About Elementle"
@@ -137,6 +149,6 @@ export default function SettingsScreen() {
                 </StyledView>
 
             </StyledScrollView>
-        </StyledView>
+        </ThemedView>
     );
 }

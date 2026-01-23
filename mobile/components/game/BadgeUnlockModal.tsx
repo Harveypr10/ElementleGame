@@ -19,6 +19,25 @@ interface BadgeUnlockModalProps {
     showCloseButton?: boolean;
 }
 
+// MAPPING LOGIC (Duplicated from BadgeSlot to keep it self-contained for now)
+const HAMSTER_IMAGE = require('../../assets/hamster.png');
+const BADGE_IMAGES: Record<string, Record<number, any>> = {
+    streak: {
+        7: require('../../assets/badges/webp_assets/Badge - Streak 7 - White.webp'),
+        14: require('../../assets/badges/webp_assets/Badge - Streak 14 - White.webp'),
+        30: require('../../assets/badges/webp_assets/Badge - Streak 30 - White.webp'),
+        50: require('../../assets/badges/webp_assets/Badge - Streak 50 - White.webp'),
+        75: require('../../assets/badges/webp_assets/Badge - Streak 75 - White.webp'),
+        100: require('../../assets/badges/webp_assets/Bade - Streak 100 - White.webp'),
+        150: require('../../assets/badges/webp_assets/Badge - Streak 150 - White.webp'),
+        250: require('../../assets/badges/webp_assets/Badge - Streak 250 - White.webp'),
+        365: require('../../assets/badges/webp_assets/Badge - Streak 365 - White.webp'),
+        500: require('../../assets/badges/webp_assets/Badge - Streak 500 - White.webp'),
+        750: require('../../assets/badges/webp_assets/Badge - Streak 750 - White.webp'),
+        1000: require('../../assets/badges/webp_assets/Badge - Streak 1000 - White.webp'),
+    }
+};
+
 export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = false }: BadgeUnlockModalProps) {
     const scale = useRef(new Animated.Value(0)).current;
 
@@ -37,7 +56,7 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
 
     if (!visible || !badge) return null;
 
-    // Helper for Icon/Color (Duplicated logic from BadgeSlot, could be shared util)
+    // Helper for Icon/Color
     const getBadgeColor = () => {
         const { category, threshold } = badge;
         const catLower = category.toLowerCase();
@@ -66,6 +85,17 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
         if (catLower.includes('elementle')) return <Target size={size} color={color} />;
         if (catLower.includes('streak')) return <Flame size={size} color={color} fill={color} />;
         return <Percent size={size} color={color} />;
+    };
+
+    const getBadgeImage = () => {
+        const threshold = badge.threshold;
+        const catLower = badge.category.toLowerCase();
+
+        if (catLower.includes('streak') && BADGE_IMAGES.streak[threshold]) {
+            return BADGE_IMAGES.streak[threshold];
+        }
+        // TODO: Could not auto-resolve correct badge image for non-streak categories
+        return HAMSTER_IMAGE;
     };
 
     const badgeColor = getBadgeColor();
@@ -108,7 +138,7 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
                         </StyledText>
 
                         <Image
-                            source={require('../../assets/hamster.png')}
+                            source={getBadgeImage()}
                             className="w-32 h-32 mb-4"
                             resizeMode="contain"
                         />

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useThemeColor } from '../../hooks/useThemeColor';
 import { View, Text, Modal, TouchableOpacity, Image, Animated, Alert } from 'react-native';
 import { styled } from 'nativewind';
 import { format } from 'date-fns';
@@ -6,10 +7,8 @@ import { useRouter } from 'expo-router';
 import { useOptions } from '../../lib/options';
 import { ChevronLeft } from 'lucide-react-native';
 import { ThemedText } from '../ThemedText';
-// Fallback to png as SVG not found in migration
-const WelcomeHamster = require('../../assets/hamster.png');
-import StreakHamster from '../../assets/Streak-Hamster-Black.svg';
 
+import StreakHamster from '../../assets/ui/webp_assets/Streak-Hamster-Black.webp';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -40,12 +39,18 @@ export function IntroScreen({
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const { cluesEnabled, streakSaverActive } = useOptions();
 
+    // Theme Colors
+    const backgroundColor = useThemeColor({}, 'background');
+    const iconColor = useThemeColor({}, 'icon');
+    // For text usage if ThemedText isn't sufficient or for specific overrides
+    const textColor = useThemeColor({}, 'text');
+
     useEffect(() => {
         if (visible) {
             Animated.timing(fadeAnim, {
                 toValue: 1,
                 duration: 500,
-                useNativeDriver: true,
+                useNativeDriver: true, // Native driver supports opacity
             }).start();
         } else {
             fadeAnim.setValue(0);
@@ -57,20 +62,12 @@ export function IntroScreen({
     // Handle back button press - warn if streak saver game
     const handleBack = () => {
         if (isStreakSaverGame && streakSaverActive) {
-            // Show warning that exiting will reset streak without using saver
             Alert.alert(
                 'Streak Saver',
                 'To keep your streak going you must win this puzzle from yesterday. Exiting will reset your streak, without using your streak saver.',
                 [
-                    {
-                        text: 'Continue Playing',
-                        style: 'cancel'
-                    },
-                    {
-                        text: 'Exit and Lose Streak',
-                        style: 'destructive',
-                        onPress: () => router.back()
-                    }
+                    { text: 'Continue Playing', style: 'cancel' },
+                    { text: 'Exit and Lose Streak', style: 'destructive', onPress: () => router.back() }
                 ]
             );
         } else {
@@ -89,7 +86,11 @@ export function IntroScreen({
 
     return (
         <Modal transparent visible={visible} animationType="fade">
-            <StyledView className={`flex-1 justify-center items-center p-4 ${isStreakGame ? 'bg-black' : 'bg-white dark:bg-slate-900'}`}>
+            {/* Use ThemedView style for background, override for Streak Game (Force Black) */}
+            <StyledView
+                className="flex-1 justify-center items-center p-4"
+                style={{ backgroundColor: isStreakGame ? '#000000' : backgroundColor }}
+            >
                 {/* Back Arrow - Always Visible */}
                 <StyledView className="absolute top-12 left-4 z-10">
                     <StyledTouchableOpacity
@@ -101,7 +102,7 @@ export function IntroScreen({
                     >
                         <ChevronLeft
                             size={28}
-                            color={isStreakGame ? '#ffffff' : '#1e293b'}
+                            color={isStreakGame ? '#ffffff' : iconColor}
                         />
                     </StyledTouchableOpacity>
                 </StyledView>
@@ -112,14 +113,18 @@ export function IntroScreen({
                     <StyledView className="mb-8 items-center justify-center h-48 w-48">
                         {isStreakGame ? (
                             <View className="relative w-full h-full justify-center items-center">
-                                <StreakHamster width={180} height={180} />
+                                <Image
+                                    source={require('../../assets/ui/webp_assets/Streak-Hamster-Black.webp')}
+                                    style={{ width: 180, height: 180 }}
+                                    resizeMode="contain"
+                                />
                                 <ThemedText className="absolute text-red-600 font-display font-bold shadow-lg" size="4xl" style={{ paddingTop: 40 }}>
                                     {currentStreak}
                                 </ThemedText>
                             </View>
                         ) : (
                             <Image
-                                source={WelcomeHamster}
+                                source={require('../../assets/ui/webp_assets/Question-Hamster-v2.webp')}
                                 style={{ width: 160, height: 160 }}
                                 resizeMode="contain"
                             />
@@ -128,7 +133,11 @@ export function IntroScreen({
 
                     {/* Text Content */}
                     <StyledView className="items-center mb-8 space-y-4 px-4">
-                        <ThemedText className={`text-center font-body ${isStreakGame ? 'text-white' : 'text-slate-700 dark:text-slate-200'}`} size="lg">
+                        <ThemedText
+                            className="text-center font-body"
+                            style={{ color: isStreakGame ? '#ffffff' : textColor }}
+                            size="lg"
+                        >
                             {isStreakGame ? "Continue your streak!" : promptText}
                         </ThemedText>
 
@@ -153,7 +162,7 @@ export function IntroScreen({
 
                     {/* Date Footer */}
                     {formattedDate && (
-                        <ThemedText className="text-slate-400 mt-8 font-body" size="sm">
+                        <ThemedText className="text-slate-500 dark:text-slate-400 mt-8 font-body opacity-80" size="sm">
                             Puzzle date: {formattedDate}
                         </ThemedText>
                     )}

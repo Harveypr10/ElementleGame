@@ -3,6 +3,8 @@ import { View, Text, Animated, Easing } from 'react-native';
 import { styled } from 'nativewind';
 import { ArrowUp, ArrowDown } from 'lucide-react-native';
 import { ThemedText } from './ThemedText';
+import { useThemeColor } from '../hooks/useThemeColor';
+import { useOptions } from '../lib/options';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -35,9 +37,14 @@ interface AnimatedCellProps {
     delay?: number; // Delay for restoration animation
     animateSubmission?: boolean; // For sequential digit animation on submission
     cellIndex?: number; // Index for sequential delay calculation
+    themeColors: {
+        active: { bg: string, border: string },
+        default: { bg: string, border: string },
+        text: { active: string, default: string }
+    };
 }
 
-function AnimatedCell({ cell, isPlaceholder, placeholder, isActiveRow, animateEntry, delay = 0, animateSubmission, cellIndex = 0 }: AnimatedCellProps) {
+function AnimatedCell({ cell, isPlaceholder, placeholder, isActiveRow, animateEntry, delay = 0, animateSubmission, cellIndex = 0, themeColors }: AnimatedCellProps) {
     // Opacity for restoration fade-in
     // Start at 0 if we expect animation, 1 otherwise to prevent flash
     const opacityAnim = useRef(new Animated.Value(animateEntry ? 0 : 1)).current;
@@ -109,27 +116,32 @@ function AnimatedCell({ cell, isPlaceholder, placeholder, isActiveRow, animateEn
 
     const hasDigit = !!cell.digit;
 
-    const getCellClasses = (state: CellState, hasDigit: boolean) => {
+    const getCellStyles = (state: CellState, hasDigit: boolean) => {
         switch (state) {
             case "correct":
-                return "bg-game-correct border-game-correct border-0";
+                return { className: "bg-game-correct border-game-correct border-0" };
             case "inSequence":
-                return "bg-game-inSequence border-game-inSequence border-0";
+                return { className: "bg-game-inSequence border-game-inSequence border-0" };
             case "notInSequence":
-                return "bg-game-notInSequence border-game-notInSequence border-0";
+                return { className: "bg-game-notInSequence border-game-notInSequence border-0" };
             default:
-                // Active input state logic - Always white background as requested
                 if (hasDigit) {
-                    return "bg-white border-black border-2 dark:bg-slate-900 dark:border-white";
+                    return {
+                        className: "border-2",
+                        style: { backgroundColor: themeColors.active.bg, borderColor: themeColors.active.border }
+                    };
                 }
-                return "bg-white border-slate-200 border-2 dark:bg-slate-900 dark:border-slate-700";
+                return {
+                    className: "border-2",
+                    style: { backgroundColor: themeColors.default.bg, borderColor: themeColors.default.border }
+                };
         }
     };
 
     const getCellTextColors = (state: CellState, hasDigit: boolean) => {
         if (state !== 'empty') return 'text-white';
-        // Bold black text for input
-        return hasDigit ? 'text-slate-900 dark:text-white' : 'text-slate-300 dark:text-slate-600';
+        // Bold black text for input (or white in dark mode manually)
+        return { color: hasDigit ? themeColors.text.active : themeColors.text.default };
     };
 
     let content = "";
@@ -138,21 +150,28 @@ function AnimatedCell({ cell, isPlaceholder, placeholder, isActiveRow, animateEn
 
 
 
+    const cellStyleInfo = getCellStyles(cell.state, hasDigit);
+    const textStyleInfo = getCellTextColors(cell.state, hasDigit);
+
     return (
         <StyledAnimatedView
-            style={{
-                transform: [
-                    { scale: scaleAnim }
-                ],
-                opacity: opacityAnim,
-                flexBasis: 0,
-                flexShrink: 1,
-                flexGrow: 1
-            }}
-            className={`min-h-[60px] max-w-[54px] mx-0.5 my-1 rounded-md justify-center pt-1 items-center ${getCellClasses(cell.state, hasDigit)}`}
+            style={[
+                {
+                    transform: [
+                        { scale: scaleAnim }
+                    ],
+                    opacity: opacityAnim,
+                    flexBasis: 0,
+                    flexShrink: 1,
+                    flexGrow: 1
+                },
+                cellStyleInfo.style
+            ]}
+            className={`min-h-[60px] max-w-[54px] mx-0.5 my-1 rounded-md justify-center pt-1 items-center ${cellStyleInfo.className}`}
         >
             <ThemedText
-                className={`font-nunito ${hasDigit ? '' : 'opacity-30'} ${getCellTextColors(cell.state, hasDigit)}`}
+                className={`font-nunito ${hasDigit ? '' : 'opacity-30'} ${typeof textStyleInfo === 'string' ? textStyleInfo : ''}`}
+                style={typeof textStyleInfo !== 'string' ? textStyleInfo : undefined}
                 size={hasDigit ? '3xl' : '2xl'}
             >
                 {content}
@@ -208,6 +227,23 @@ export function InputGrid({
     invalidShake = 0,
     isRestored = false
 }: InputGridProps) {
+    const { darkMode } = useOptions();
+    // Manual Theme Def because cells use dynamic conditions
+    const themeColors = {
+        active: {
+            bg: darkMode ? '#0f172a' : '#ffffff',
+            border: darkMode ? '#ffffff' : '#000000'
+        },
+        default: {
+            bg: darkMode ? '#0f172a' : '#ffffff',
+            border: darkMode ? '#334155' : '#e2e8f0'
+        },
+        text: {
+            active: darkMode ? '#ffffff' : '#0f172a',
+            default: darkMode ? '#475569' : '#cbd5e1'
+        }
+    };
+
     const numCells = placeholders.length;
     const prevGuessesLengthRef = useRef(guesses.length);
     const [newlySubmittedRowIndex, setNewlySubmittedRowIndex] = useState<number | null>(null);
@@ -272,6 +308,7 @@ export function InputGrid({
                                             isPlaceholder={isPlaceholder}
                                             placeholder={placeholders[cellIdx]}
                                             isActiveRow={isActiveRow}
+                                            themeColors={themeColors}
                                         />
                                     );
                                 })}
@@ -308,6 +345,7 @@ export function InputGrid({
                                     isActiveRow={false}
                                     animateEntry={shouldAnimate}
                                     delay={totalDelay}
+                                    themeColors={themeColors}
                                 />
                             );
                         })}

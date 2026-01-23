@@ -20,6 +20,7 @@ interface HomeCardProps {
     className?: string; // Additional classes
     children?: React.ReactNode;
     testID?: string; // Test identifier
+    iconStyle?: any; // Optional custom icon style
 }
 
 export function HomeCard({
@@ -31,7 +32,8 @@ export function HomeCard({
     height = 160,
     className = "",
     children,
-    testID
+    testID,
+    iconStyle
 }: HomeCardProps) {
 
 
@@ -60,6 +62,7 @@ export function HomeCard({
                     source={icon}
                     className="w-24 h-24 ml-4"
                     resizeMode="contain"
+                    style={iconStyle}
                 />
             )}
         </StyledTouchableOpacity>

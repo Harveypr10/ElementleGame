@@ -11,6 +11,9 @@ const WinHamsterImg = require('../assets/hamster.png');
 const StatsHamsterImg = require('../assets/Maths-Hamster-Green_1760977182003.png');
 const HomeHamsterImg = require('../assets/Historian-Hamster-Blue_1760977182002.png');
 const ArchiveHamsterImg = require('../assets/Librarian-Hamster-Yellow_1760977182002.png');
+import { ThemedView } from '../components/ThemedView';
+import { ThemedText } from '../components/ThemedText';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -52,6 +55,11 @@ export default function GameResultScreen() {
 
     const shareText = `I ${isWin ? 'solved' : 'tried'} today's Elementle puzzle!\n${eventTitle}\n${formattedDate}\n${isWin ? `Guessed in ${guessesCount}/${maxGuesses}` : `Used all ${maxGuesses} guesses`}`;
 
+    const surfaceColor = useThemeColor({}, 'surface');
+    const borderColor = useThemeColor({}, 'border');
+    const backgroundColor = useThemeColor({}, 'background');
+    const textColor = useThemeColor({}, 'text');
+
     const handleShare = async () => {
         try {
             await Share.share({ message: shareText });
@@ -61,16 +69,16 @@ export default function GameResultScreen() {
     };
 
     return (
-        <StyledView className="flex-1 bg-white dark:bg-slate-900">
+        <ThemedView className="flex-1">
             <SafeAreaView edges={['top', 'bottom']} className="flex-1">
                 <StyledView className="flex-1 px-6 pt-8 pb-6 justify-between">
                     {/* Scrollable Content */}
                     <View className="flex-1 items-center w-full">
                         {/* Header */}
                         <StyledView className="items-center mb-4">
-                            <StyledText style={{ fontSize: 28 * textScale }} className="font-n-bold text-slate-800 dark:text-white text-center">
+                            <ThemedText style={{ fontSize: 28 * textScale }} className="font-n-bold text-center">
                                 {isWin ? "Congratulations!" : "Unlucky!"}
-                            </StyledText>
+                            </ThemedText>
                         </StyledView>
 
                         {/* Hamster Image - Reduced height */}
@@ -84,26 +92,29 @@ export default function GameResultScreen() {
 
                         {/* Date */}
                         <StyledView className="items-center mb-2">
-                            <StyledText style={{ fontSize: 22 * textScale }} className="font-n-bold text-slate-700 dark:text-slate-200 text-center">
+                            <ThemedText style={{ fontSize: 22 * textScale }} className="font-n-bold text-center opacity-90">
                                 {formattedDate}
-                            </StyledText>
+                            </ThemedText>
                         </StyledView>
 
                         {/* Description Box - Reduced padding */}
-                        <StyledView className="bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl w-full mb-2 border border-slate-200 dark:border-slate-700">
-                            <StyledText style={{ fontSize: 16 * textScale }} className="font-n-semibold text-slate-900 dark:text-white text-center mb-1">
+                        <StyledView
+                            className="p-3 rounded-2xl w-full mb-2 border"
+                            style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        >
+                            <ThemedText style={{ fontSize: 16 * textScale }} className="font-n-semibold text-center mb-1">
                                 {eventTitle}
-                            </StyledText>
-                            <StyledText style={{ fontSize: 13 * textScale }} className="text-slate-500 dark:text-slate-400 text-center">
+                            </ThemedText>
+                            <ThemedText style={{ fontSize: 13 * textScale }} className="text-center opacity-60">
                                 {eventDescription || "A historic day to remember!"}
-                            </StyledText>
+                            </ThemedText>
                         </StyledView>
 
                         {/* Guesses text - Reduced margin */}
                         {isWin && (
-                            <StyledText className="text-sm text-slate-500 dark:text-slate-400 text-center font-n-medium mb-2">
+                            <ThemedText className="text-sm text-center font-n-medium mb-2 opacity-60">
                                 You solved it in {guessesCount} {guessesCount === 1 ? 'guess' : 'guesses'}!
-                            </StyledText>
+                            </ThemedText>
                         )}
                     </View>
 
@@ -181,6 +192,6 @@ export default function GameResultScreen() {
                     </StyledView>
                 </StyledView>
             </SafeAreaView>
-        </StyledView>
+        </ThemedView>
     );
 }

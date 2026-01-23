@@ -16,6 +16,24 @@ const StyledImage = styled(Image);
 // Found hamster.png in assets root
 const HAMSTER_IMAGE = require('../../assets/hamster.png');
 
+// Static mapping for WebP badges (Scenario B: Matching Logic + Scenario A: Typo handling)
+const BADGE_IMAGES: Record<string, Record<number, any>> = {
+    streak: {
+        7: require('../../assets/badges/webp_assets/Badge - Streak 7 - White.webp'),
+        14: require('../../assets/badges/webp_assets/Badge - Streak 14 - White.webp'),
+        30: require('../../assets/badges/webp_assets/Badge - Streak 30 - White.webp'),
+        50: require('../../assets/badges/webp_assets/Badge - Streak 50 - White.webp'),
+        75: require('../../assets/badges/webp_assets/Badge - Streak 75 - White.webp'),
+        100: require('../../assets/badges/webp_assets/Bade - Streak 100 - White.webp'), // Typo in filename
+        150: require('../../assets/badges/webp_assets/Badge - Streak 150 - White.webp'),
+        250: require('../../assets/badges/webp_assets/Badge - Streak 250 - White.webp'),
+        365: require('../../assets/badges/webp_assets/Badge - Streak 365 - White.webp'),
+        500: require('../../assets/badges/webp_assets/Badge - Streak 500 - White.webp'),
+        750: require('../../assets/badges/webp_assets/Badge - Streak 750 - White.webp'),
+        1000: require('../../assets/badges/webp_assets/Badge - Streak 1000 - White.webp'),
+    }
+};
+
 interface BadgeSlotProps {
     category: 'elementle' | 'streak' | 'percentile';
     badge: any | null; // UserBadgeWithDetails logic
@@ -83,6 +101,21 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false }:
         return '#10b981';
     };
 
+    // Smart Asset Resolution
+    const getBadgeImage = () => {
+        if (!badge) return HAMSTER_IMAGE;
+
+        const threshold = badge.badge?.threshold || badge.threshold;
+
+        if (category === 'streak' && BADGE_IMAGES.streak[threshold]) {
+            return BADGE_IMAGES.streak[threshold];
+        }
+
+        // Fallback for Elementle/Percentile or missing streaks
+        // TODO: Could not auto-resolve correct badge image for non-streak categories
+        return HAMSTER_IMAGE;
+    };
+
     const scale = React.useRef(new Animated.Value(0.1)).current;
     const opacity = React.useRef(new Animated.Value(0)).current;
 
@@ -120,9 +153,9 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false }:
                 animatedStyle
             ]}>
                 <StyledView className="relative flex-1 items-center justify-center">
-                    {/* Hexagon Background could be an SVG here, or just use the image for now */}
+                    {/* Badge Image (Dynamic) */}
                     <StyledImage
-                        source={HAMSTER_IMAGE}
+                        source={getBadgeImage()}
                         style={{ width: currentSize.width * 0.8, height: currentSize.height * 0.8, opacity: isEmpty ? 0.3 : 1 }}
                         resizeMode="contain"
                     />

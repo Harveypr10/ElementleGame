@@ -11,6 +11,8 @@ import {
     useColorScheme,
 } from 'react-native';
 
+import { useThemeColor } from '../hooks/useThemeColor';
+
 interface PostcodeAutocompleteProps extends Omit<TextInputProps, 'value' | 'onChangeText' | 'onChange'> {
     value: string;
     onChange: (value: string) => void;
@@ -170,15 +172,19 @@ export function PostcodeAutocomplete({
         };
     }, []);
 
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const backgroundColor = useThemeColor({}, 'background');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const borderColor = useThemeColor({}, 'border');
+    const textColor = useThemeColor({}, 'text');
+    const invertedTextColor = useThemeColor({ light: '#fff', dark: '#000' }, 'text');
+    const tintColor = useThemeColor({}, 'tint');
 
     return (
         <View style={styles.container}>
             <View style={[
                 styles.inputContainer,
                 !isValid && styles.inputContainerInvalid,
-                isDark && styles.inputContainerDark
+                { backgroundColor: backgroundColor, borderColor: borderColor }
             ]}>
                 <TextInput
                     ref={inputRef}
@@ -186,10 +192,10 @@ export function PostcodeAutocomplete({
                     onChangeText={handleInputChange}
                     onBlur={handleBlur}
                     onFocus={handleFocus}
-                    style={[styles.input, isDark && styles.inputDark]}
+                    style={[styles.input, { color: textColor }]}
                     className="text-base font-nunito"
                     placeholder={props.placeholder || 'Enter postcode'}
-                    placeholderTextColor="#999"
+                    placeholderTextColor="#94a3b8"
                     autoCapitalize="characters"
                     autoCorrect={false}
                     autoComplete="off"
@@ -197,18 +203,18 @@ export function PostcodeAutocomplete({
                 />
 
                 {loading && (
-                    <ActivityIndicator size="small" color="#666" style={styles.loader} />
+                    <ActivityIndicator size="small" color={textColor} style={styles.loader} />
                 )}
             </View>
 
-            {errorMessage && (
+            {errorMessage ? (
                 <Text style={styles.errorText}>
                     {errorMessage}
                 </Text>
-            )}
+            ) : null}
 
             {showSuggestions && suggestions.length > 0 && (
-                <View style={styles.suggestionsContainer}>
+                <View style={[styles.suggestionsContainer, { backgroundColor: surfaceColor, borderColor: borderColor }]}>
                     <FlatList
                         data={suggestions}
                         keyExtractor={(item, index) => `${item}-${index}`}
@@ -217,10 +223,11 @@ export function PostcodeAutocomplete({
                                 onPressIn={() => selectSuggestion(item)}
                                 style={[
                                     styles.suggestionItem,
-                                    selectedIndex === index && styles.suggestionItemSelected
+                                    selectedIndex === index && { backgroundColor: borderColor },
+                                    { borderBottomColor: borderColor }
                                 ]}
                             >
-                                <Text style={styles.suggestionText}>{item}</Text>
+                                <Text style={[styles.suggestionText, { color: textColor }]}>{item}</Text>
                             </TouchableOpacity>
                         )}
                         style={styles.suggestionsList}
@@ -240,9 +247,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#cbd5e1',
         borderRadius: 8,
-        backgroundColor: '#f8fafc',
         paddingHorizontal: 12,
         paddingVertical: 0,
         minHeight: 48,
@@ -255,15 +260,7 @@ const styles = StyleSheet.create({
         paddingVertical: 0,
         paddingTop: 0,
         paddingBottom: 0,
-        color: '#1e293b',
         textAlignVertical: 'center',
-    },
-    inputDark: {
-        color: '#ffffff',
-    },
-    inputContainerDark: {
-        backgroundColor: '#334155',
-        borderColor: '#475569',
     },
     loader: {
         marginLeft: 8,
@@ -276,13 +273,11 @@ const styles = StyleSheet.create({
     },
     suggestionsContainer: {
         position: 'absolute',
-        top: 44,
+        top: 48,
         left: 0,
         right: 0,
         maxHeight: 240,
-        backgroundColor: '#fff',
         borderWidth: 1,
-        borderColor: '#d1d5db',
         borderRadius: 8,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -298,16 +293,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#f3f4f6',
         minHeight: 44,
         justifyContent: 'center',
     },
-    suggestionItemSelected: {
-        backgroundColor: '#f3f4f6',
-    },
     suggestionText: {
         fontSize: 14,
-        color: '#000',
         fontFamily: 'Nunito',
     },
 });

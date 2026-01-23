@@ -32,6 +32,8 @@ const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 
 import { ThemedText } from '../../components/ThemedText';
+import { ThemedView } from '../../components/ThemedView';
+import { useThemeColor } from '../../hooks/useThemeColor';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -144,9 +146,12 @@ export default function HomeScreen() {
 
             const { data: statsReg } = await supabase
                 .from('user_stats_region')
-                .select('cumulative_monthly_percentile')
+                .select('cumulative_monthly_percentile, current_streak, games_played, games_won, guess_distribution')
                 .eq('user_id', user.id)
                 .single();
+
+            // Set Region Stats State
+            const regionStats = statsReg || { current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {}, cumulative_monthly_percentile: null };
             if (statsReg) setPercentileRegion(statsReg.cumulative_monthly_percentile);
 
             // ==========================================
@@ -175,10 +180,27 @@ export default function HomeScreen() {
 
             const { data: statsUser } = await supabase
                 .from('user_stats_user')
-                .select('cumulative_monthly_percentile')
+                .select('cumulative_monthly_percentile, current_streak, games_played, games_won, guess_distribution')
                 .eq('user_id', user.id)
                 .single();
+
+            // Set User Stats State
+            const userStats = statsUser || { current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {}, cumulative_monthly_percentile: null };
             if (statsUser) setPercentileUser(statsUser.cumulative_monthly_percentile);
+
+            // Store stats in state for render
+            setStatsRegionData({
+                current_streak: regionStats.current_streak ?? 0,
+                games_played: regionStats.games_played ?? 0,
+                games_won: regionStats.games_won ?? 0,
+                guess_distribution: regionStats.guess_distribution ?? {}
+            });
+            setStatsUserData({
+                current_streak: userStats.current_streak ?? 0,
+                games_played: userStats.games_played ?? 0,
+                games_won: userStats.games_won ?? 0,
+                guess_distribution: userStats.guess_distribution ?? {}
+            });
 
             // Fetch Profile Name
             const { data: profile } = await supabase
@@ -241,10 +263,61 @@ export default function HomeScreen() {
         }
     };
 
+    // New State for holding full stats objects
+    interface StatsData {
+        current_streak: number;
+        games_played: number;
+        games_won: number;
+        guess_distribution: any; // Using any for JSONB
+    }
+    const [statsRegionData, setStatsRegionData] = useState<StatsData>({ current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {} });
+    const [statsUserData, setStatsUserData] = useState<StatsData>({ current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {} });
+
+    // Helper to calculate total guesses from distribution
+    const calculateTotalGuesses = (distribution: any, gamesWon: number, gamesPlayed: number) => {
+        if (!distribution) return 0;
+        let total = 0;
+        // Sum guesses for wins
+        Object.entries(distribution).forEach(([guesses, count]) => {
+            total += parseInt(guesses) * (count as number);
+        });
+        // Add guesses for losses (assuming 6 guesses for a loss)
+        const losses = gamesPlayed - gamesWon;
+        // The distribution usually only tracks wins in some systems, but let's stick to wins for "average guesses" 
+        // usually average guesses is for WON games only.
+        return total;
+    };
+
+
     const renderGameContent = (isRegion: boolean) => {
         const todayStatus = isRegion ? todayStatusRegion : todayStatusUser;
         const totalGames = isRegion ? totalGamesRegion : totalGamesUser;
         const guesses = isRegion ? guessesRegion : guessesUser;
+        const stats = isRegion ? statsRegionData : statsUserData;
+
+        // Logic for Daily Puzzle Subtitle
+        let dailySubtitle = todayStatus === 'solved'
+            ? `Solved in ${guesses} guesses`
+            : "Good luck!";
+
+        if (todayStatus === 'solved' && stats.current_streak >= 2) {
+            dailySubtitle = `Solved in ${guesses} guesses - Streak extended to ${stats.current_streak}`;
+        }
+
+        // Logic for Archive Subtitle
+        const archiveSubtitle = `${totalGames} total ${totalGames === 1 ? 'game' : 'games'} played`;
+
+        // Logic for Stats Subtitle
+        let statsSubtitle = "View your performance history";
+        if (stats.games_played > 0) {
+            const winRate = stats.games_played > 0 ? ((stats.games_won / stats.games_played) * 100).toFixed(0) : 0;
+
+            // Calculate average guesses for WON games
+            const totalGuesses = calculateTotalGuesses(stats.guess_distribution, stats.games_won, stats.games_played);
+            const avgGuesses = stats.games_won > 0 ? (totalGuesses / stats.games_won).toFixed(1) : "0.0";
+
+            statsSubtitle = `You've won ${winRate}% of games, with a ${avgGuesses} guess average`;
+        }
 
         // Colors from Web App
         const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
@@ -298,9 +371,7 @@ export default function HomeScreen() {
                     <HomeCard
                         testID="home-card-play"
                         title={todayStatus === 'solved' ? "Today's puzzle solved!" : "Play Today"}
-                        subtitle={todayStatus === 'solved'
-                            ? `Solved in ${guesses} guesses`
-                            : "Good luck!"}
+                        subtitle={dailySubtitle}
                         icon={playIcon}
                         backgroundColor={playColor}
                         onPress={() => {
@@ -308,13 +379,14 @@ export default function HomeScreen() {
                             router.push(isRegion ? '/game/REGION/today' : '/game/USER/next');
                         }}
                         height={160}
+                        iconStyle={{ width: 77, height: 77 }} // 20% smaller than 96
                     />
 
                     {/* 2. ARCHIVE BUTTON */}
                     <HomeCard
                         testID="home-card-archive"
                         title="Archive"
-                        subtitle={`${totalGames} total games played`}
+                        subtitle={archiveSubtitle}
                         icon={archiveIcon}
                         backgroundColor={archiveColor}
                         onPress={() => {
@@ -322,13 +394,14 @@ export default function HomeScreen() {
                             router.push('/archive');
                         }}
                         height={100}
+                        iconStyle={{ width: 62, height: 62 }} // 35% smaller than 96
                     />
 
                     {/* 3. STATS BUTTON (Full Width) */}
                     <HomeCard
                         testID="home-card-stats"
                         title={isRegion ? "UK Stats" : "Personal Stats"}
-                        subtitle="View your performance history"
+                        subtitle={statsSubtitle}
                         icon={statsIcon}
                         backgroundColor={isRegion ? '#A4DB57' : '#93cd78'}
                         onPress={() => {
@@ -336,34 +409,42 @@ export default function HomeScreen() {
                             router.push(`/stats?mode=${isRegion ? 'REGION' : 'USER'}`);
                         }}
                         height={100}
+                        iconStyle={{ width: 62, height: 62 }} // 35% smaller than 96
                     />
                 </View>
             </ScrollView>
         );
     };
 
+    const backgroundColor = useThemeColor({}, 'background');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const iconColor = useThemeColor({}, 'icon');
+
     return (
         <AdBannerContext.Provider value={true}>
-            <View className="flex-1 bg-white dark:bg-slate-900" style={{ paddingBottom: isPro ? 0 : 50 }}>
-                <SafeAreaView edges={['top']} className="bg-white dark:bg-slate-900 z-50">
+            <ThemedView className="flex-1" style={{ paddingBottom: isPro ? 0 : 50 }}>
+                <SafeAreaView edges={['top']} className="z-50" style={{ backgroundColor: backgroundColor }}>
                     {/* Header - Fixed & Safe Area Adjusted */}
-                    <StyledView className="items-center relative pb-2 bg-white dark:bg-slate-900 z-50">
+                    <StyledView
+                        className="items-center relative pb-2 z-50"
+                        style={{ backgroundColor: backgroundColor }}
+                    >
 
                         {/* Top Left Icon (Help) */}
                         <StyledView className="absolute left-4 top-2">
                             <StyledTouchableOpacity onPress={() => setHelpVisible(true)}>
-                                <HelpCircle size={28} className="text-slate-800 dark:text-white" />
+                                <HelpCircle size={28} color={iconColor} />
                             </StyledTouchableOpacity>
                         </StyledView>
 
                         {/* Top Right: Settings Icon */}
                         <StyledView className="absolute right-4 top-2">
                             <StyledTouchableOpacity onPress={() => router.push('/settings')}>
-                                <Settings size={28} className="text-slate-800 dark:text-white" />
+                                <Settings size={28} color={iconColor} />
                             </StyledTouchableOpacity>
                         </StyledView>
 
-                        <ThemedText className="font-n-bold text-slate-900 dark:text-white mb-6 pt-2 font-heading" size="4xl">
+                        <ThemedText className="font-n-bold mb-6 pt-2 font-heading" size="4xl">
                             Elementle
                         </ThemedText>
 
@@ -388,7 +469,7 @@ export default function HomeScreen() {
                                     }}
                                 />
                             </StyledView>
-                            <ThemedText className="font-n-bold text-slate-900 dark:text-white" size="xl">
+                            <ThemedText className="font-n-bold" size="xl">
                                 {getGreeting()}
                             </ThemedText>
                         </StyledView>
@@ -424,7 +505,7 @@ export default function HomeScreen() {
 
                 {/* Ad Banner - shows at bottom for non-Pro users */}
                 <AdBanner />
-            </View>
+            </ThemedView>
         </AdBannerContext.Provider>
     );
 }

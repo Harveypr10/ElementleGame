@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, useColorScheme } from 'react-native';
 import { formatCanonicalDateWithOrdinal } from '../lib/dateFormat';
+import { ThemedView } from './ThemedView';
+import { ThemedText } from './ThemedText';
 
 interface OnboardingScreenProps {
     eventTitle: string;
@@ -31,17 +33,18 @@ export function OnboardingScreen({
     const secondaryTextColor = isDarkMode ? 'rgba(255, 255, 255, 0.6)' : '#999';
 
     return (
-        <View
-            style={[styles.container, { backgroundColor }]}
+        <ThemedView
+            style={styles.container}
             testID="onboarding-screen"
         >
             <View style={styles.content}>
-                <Text
-                    style={[styles.title, { color: textColor }]}
+                <ThemedText
+                    baseSize={36}
+                    style={styles.title}
                     testID="text-onboarding-title"
                 >
                     Elementle
-                </Text>
+                </ThemedText>
 
                 <View style={styles.hamsterContainer}>
                     <Image
@@ -53,19 +56,21 @@ export function OnboardingScreen({
                 </View>
 
                 <View style={styles.textContainer}>
-                    <Text
-                        style={[styles.prompt, { color: textColor }]}
+                    <ThemedText
+                        baseSize={18}
+                        style={styles.prompt}
                         testID="text-onboarding-prompt"
                     >
                         On what date did this historical event occur?
-                    </Text>
+                    </ThemedText>
 
-                    <Text
-                        style={[styles.eventTitle, { color: textColor }]}
+                    <ThemedText
+                        baseSize={20}
+                        style={styles.eventTitle}
                         testID="text-onboarding-event"
                     >
                         {eventTitle}
-                    </Text>
+                    </ThemedText>
                 </View>
 
                 <View style={styles.buttonsContainer}>
@@ -97,14 +102,16 @@ export function OnboardingScreen({
                     </TouchableOpacity>
                 </View>
 
-                <Text
-                    style={[styles.dateText, { color: secondaryTextColor }]}
+                <ThemedText
+                    baseSize={14}
+                    className="opacity-60"
+                    style={styles.dateText}
                     testID="text-onboarding-date"
                 >
                     Puzzle date: {displayDate}
-                </Text>
+                </ThemedText>
             </View>
-        </View>
+        </ThemedView>
     );
 }
 
@@ -122,7 +129,6 @@ const styles = StyleSheet.create({
         gap: 24,
     },
     title: {
-        fontSize: 36,
         fontWeight: 'bold',
         fontFamily: 'Nunito-Bold',
         textAlign: 'center',
@@ -143,13 +149,11 @@ const styles = StyleSheet.create({
     },
     prompt: {
         fontWeight: 'bold',
-        fontSize: 18,
         fontFamily: 'Nunito-Bold',
         textAlign: 'center',
         maxWidth: 280,
     },
     eventTitle: {
-        fontSize: 20,
         fontWeight: 'bold',
         fontFamily: 'Nunito-Bold',
         textAlign: 'center',
@@ -183,7 +187,6 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito-Bold',
     },
     dateText: {
-        fontSize: 14,
         fontFamily: 'Nunito',
         paddingTop: 16,
         textAlign: 'center',

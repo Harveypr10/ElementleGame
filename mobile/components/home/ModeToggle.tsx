@@ -1,14 +1,13 @@
 
-import { View, Text, TouchableOpacity, Animated, LayoutChangeEvent } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, LayoutChangeEvent, useColorScheme } from 'react-native';
 import { styled } from 'nativewind';
 import { useRef, useState, useEffect } from 'react';
+import { ThemedText } from '../ThemedText';
+import { useThemeColor } from '../../hooks/useThemeColor';
 
 const StyledView = styled(View);
-const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledAnimatedView = styled(Animated.View);
-
-import { ThemedText } from '../ThemedText';
 
 interface ModeToggleProps {
     mode: 'REGION' | 'USER';
@@ -22,6 +21,12 @@ interface ModeToggleProps {
 export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel, regionLabel = 'UK Edition' }: ModeToggleProps) {
     const [containerWidth, setContainerWidth] = useState(0);
     const [activeMode, setActiveMode] = useState(mode);
+
+    // Theme colors
+    const containerBg = useThemeColor({ light: '#f1f5f9', dark: '#1e293b' }, 'background'); // Slate 100 / Slate 800
+    const indicatorBg = useThemeColor({ light: '#ffffff', dark: '#334155' }, 'surface'); // White / Slate 700
+    const activeText = useThemeColor({ light: '#0f172a', dark: '#ffffff' }, 'text'); // Slate 900 / White
+    const inactiveText = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'text'); // Slate 500 / Slate 400
 
     // Sync activeMode with prop mode (for clicks)
     useEffect(() => {
@@ -56,7 +61,8 @@ export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel
 
     return (
         <StyledView
-            className="flex-row bg-slate-100 dark:bg-slate-800 p-1 rounded-full mb-6 relative w-64 mx-auto h-12"
+            className="flex-row p-1 rounded-full mb-6 relative w-64 mx-auto h-12"
+            style={{ backgroundColor: containerBg }}
             onLayout={onLayout}
         >
             {/* Animated Indicator Background */}
@@ -70,7 +76,7 @@ export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel
                         top: 4,
                         left: 4,
                         borderRadius: 9999,
-                        backgroundColor: 'white',
+                        backgroundColor: indicatorBg,
                         shadowColor: '#000',
                         shadowOffset: { width: 0, height: 1 },
                         shadowOpacity: 0.1,
@@ -80,8 +86,6 @@ export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel
                 />
             )}
 
-
-
             {/* Region Tab */}
             <StyledTouchableOpacity
                 className="flex-1 items-center justify-center z-10"
@@ -90,9 +94,15 @@ export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel
                     onModeChange('REGION');
                 }}
             >
-                <ThemedText className={`${activeMode === 'REGION' ? 'font-n-bold text-slate-900' : 'font-n-medium text-slate-500'}`} size="base">
+                <Text
+                    style={{
+                        color: activeMode === 'REGION' ? activeText : inactiveText,
+                        fontFamily: activeMode === 'REGION' ? 'Nunito-Bold' : 'Nunito-Medium',
+                        fontSize: 16
+                    }}
+                >
                     {regionLabel}
-                </ThemedText>
+                </Text>
             </StyledTouchableOpacity>
 
             {/* User Tab */}
@@ -103,9 +113,15 @@ export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel
                     onModeChange('USER');
                 }}
             >
-                <ThemedText className={`${activeMode === 'USER' ? 'font-n-bold text-slate-900' : 'font-n-medium text-slate-500'}`} size="base">
+                <Text
+                    style={{
+                        color: activeMode === 'USER' ? activeText : inactiveText,
+                        fontFamily: activeMode === 'USER' ? 'Nunito-Bold' : 'Nunito-Medium',
+                        fontSize: 16
+                    }}
+                >
                     {userLabel}
-                </ThemedText>
+                </Text>
             </StyledTouchableOpacity>
         </StyledView>
     );

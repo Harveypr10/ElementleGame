@@ -6,8 +6,12 @@ import { getScaledSize, TEXT_SIZES } from '../lib/textScaling';
 
 const StyledText = styled(Text);
 
+import { useThemeColor } from '../hooks/useThemeColor';
+
 export interface ThemedTextProps extends TextProps {
     className?: string;
+    lightColor?: string;
+    darkColor?: string;
     size?: keyof typeof TEXT_SIZES; // 'sm', 'base', 'lg', etc.
     baseSize?: number; // Manual override
 }
@@ -15,12 +19,15 @@ export interface ThemedTextProps extends TextProps {
 export function ThemedText({
     className,
     style,
+    lightColor,
+    darkColor,
     size = 'base',
     baseSize,
     children,
     ...props
 }: ThemedTextProps) {
     const { textSize } = useOptions();
+    const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
 
     // Determine the base font size to scale
     // If 'baseSize' is provided, scale it directly. Otherwise use the preset size.
@@ -61,6 +68,7 @@ export function ThemedText({
         <StyledText
             className={className}
             style={[
+                { color },
                 style,
                 { fontSize: finalFontSize }
             ]}

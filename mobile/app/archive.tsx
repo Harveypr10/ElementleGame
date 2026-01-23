@@ -25,6 +25,9 @@ import { useOptions } from '../lib/options';
 import { MonthSelectModal } from '../components/archive/MonthSelectModal';
 import { GuestRestrictionModal } from '../components/GuestRestrictionModal';
 import { hasFeatureAccess } from '../lib/featureGates';
+import { ThemedView } from '../components/ThemedView';
+import { ThemedText } from '../components/ThemedText';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -45,48 +48,34 @@ interface DayStatus {
 const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Date, isActive: boolean, gameMode: string }) => {
     const router = useRouter();
     const { user } = useAuth();
+    const { darkMode } = useOptions();
+    const borderColorTheme = useThemeColor({}, 'border');
+    // Local State
     const [loading, setLoading] = useState(true);
-    const [monthData, setMonthData] = useState<Record<string, DayStatus>>({});
     const [hasFetched, setHasFetched] = useState(false);
     const [dataReady, setDataReady] = useState(false);
-    const prevModeRef = useRef(gameMode);
+    const [monthData, setMonthData] = useState<Record<string, DayStatus>>({});
 
-    // Load cached data immediately for instant display
+    // Fetch data when active
     useEffect(() => {
-        const loadCachedData = async () => {
-            try {
-                const monthKey = `${format(monthDate, 'yyyy-MM')}`;
-                const cacheKey = `archive-${gameMode}-${monthKey}`;
-                const cached = await AsyncStorage.getItem(cacheKey);
-
-                if (cached) {
-                    const parsedCache = JSON.parse(cached);
-                    console.log('[Archive] Loaded cached data for', monthKey, ':', parsedCache);
-                    setMonthData(parsedCache);
-                    setLoading(false); // Show cached data immediately
-                }
-            } catch (e) {
-                console.error('[Archive] Cache read error:', e);
-            }
-        };
-
-        loadCachedData();
-    }, [monthDate, gameMode]); // Keep gameMode here for correct cache key
-
-    // Handle mode changes separately (no refetch, just reset animation state)
-    useEffect(() => {
-        if (prevModeRef.current !== gameMode) {
-            console.log('[Archive] Mode changed to', gameMode, '- showing cached data');
-            setDataReady(false); // Trigger fade effect for smooth transition
-            prevModeRef.current = gameMode;
+        if (isActive && !hasFetched) {
+            fetchData();
         }
-    }, [gameMode]);
+    }, [isActive, hasFetched, monthDate, gameMode]);
 
-    // Fetch fresh data only on month/user changes (not on mode changes)
-    useEffect(() => {
-        setHasFetched(false);
-        fetchData(); // Background refresh
-    }, [monthDate, user]); // Removed gameMode dependency
+
+    const themeColors = useMemo(() => {
+        return {
+            default: { bg: darkMode ? '#1e293b' : '#f8fafc', text: darkMode ? '#e2e8f0' : '#0f172a' },
+            won: { bg: darkMode ? 'rgba(20, 83, 45, 0.4)' : '#dcfce7', text: darkMode ? '#4ade80' : '#15803d' },
+            lost: { bg: darkMode ? 'rgba(127, 29, 29, 0.4)' : '#fee2e2', text: darkMode ? '#f87171' : '#b91c1c' },
+            played: { bg: darkMode ? 'rgba(30, 58, 138, 0.4)' : '#dbeafe', text: darkMode ? '#60a5fa' : '#1d4ed8' },
+            future: { bg: darkMode ? 'rgba(30, 41, 59, 0.5)' : '#f8fafc', text: darkMode ? '#475569' : '#cbd5e1' },
+            empty: { bg: 'transparent', text: 'transparent' }
+        };
+    }, [darkMode]);
+
+
 
     // Trigger fade-in after data is loaded (matching web app's badge pattern)
     useEffect(() => {
@@ -119,10 +108,6 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
             if (isRegion) {
                 query = query.eq('region', 'UK');
             } else {
-                // User mode likely filtered by user_id if it's personal allocation?
-                // The user said "game_attempts_user links to questions_allocated_user on allocated_user_id".
-                // If allocated_user is per user, we need .eq('user_id', user.id).
-                // I will add this safety check.
                 query = query.eq('user_id', user.id);
             }
 
@@ -143,15 +128,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
                     .eq('user_id', user.id)
                     .in(idColumn, puzzleIds);
 
-                console.log('[Archive] Attempts query result:', {
-                    table: ATTEMPTS_TABLE,
-                    count: userAttempts?.length,
-                    error: attemptError,
-                    sample: userAttempts?.[0]
-                });
-
                 if (attemptError) {
-                    console.error('[Archive] Attempt fetch error:', attemptError);
                     throw attemptError;
                 }
                 attempts = userAttempts || [];
@@ -161,9 +138,6 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
             const statusMap: Record<string, DayStatus> = {};
             const idColumn = isRegion ? 'allocated_region_id' : 'allocated_user_id';
 
-            console.log('[Archive] Mapping puzzles to status. Sample puzzle:', puzzles?.[0]);
-            console.log('[Archive] Sample attempt:', attempts?.[0]);
-
             puzzles?.forEach(puzzle => {
                 const dateKey = format(new Date(puzzle.puzzle_date), 'yyyy-MM-dd');
                 const attempt = attempts.find(a => a[idColumn] === puzzle.id);
@@ -171,8 +145,6 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
                 if (attempt) {
                     status = attempt.result === 'won' ? 'won' : (attempt.result === 'lost' ? 'lost' : 'played');
                 }
-
-                console.log(`[Archive] Date ${dateKey}: puzzle=${puzzle.id}, attempt found=${!!attempt}, result=${attempt?.result}, status=${status}, guesses=${attempt?.num_guesses}`);
 
                 statusMap[dateKey] = {
                     date: dateKey,
@@ -187,12 +159,11 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
             setMonthData(statusMap);
             setHasFetched(true);
 
-            // Cache the data for instant load next time
+            // Cache the data 
             try {
                 const monthKey = `${format(monthDate, 'yyyy-MM')}`;
                 const cacheKey = `archive-${gameMode}-${monthKey}`;
                 await AsyncStorage.setItem(cacheKey, JSON.stringify(statusMap));
-                console.log('[Archive] Cached data for', monthKey);
             } catch (e) {
                 console.error('[Archive] Cache write error:', e);
             }
@@ -212,38 +183,26 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
         if (!dayData.hasPuzzle || dayData.isFuture || !dayData.puzzleId) {
             return;
         }
-        // Pass ID directly to Game Screen. Appending mode for safety/clarity in URL though route params handle it.
-        const modeSegment = gameMode; // 'REGION' or 'USER'
+        const modeSegment = gameMode;
         router.push(`/game/${modeSegment}/${dayData.puzzleId}`);
     };
 
     return (
         <StyledView style={{ width }} className="px-4">
-            {/* Fixed height container to prevent layout shift */}
             <StyledView className="relative" style={{ minHeight: 300 }}>
-                {/* Loading Spinner - fades out when data is ready */}
                 <StyledView
                     className="absolute inset-0 flex items-center justify-center"
                     style={{
                         position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        paddingTop: 60,
-                        opacity: dataReady ? 0 : 1,
-                        pointerEvents: dataReady ? 'none' : 'auto'
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        justifyContent: 'center', alignItems: 'center', paddingTop: 60,
+                        opacity: dataReady ? 0 : 1, pointerEvents: dataReady ? 'none' : 'auto'
                     }}
                 >
                     <ActivityIndicator size="large" color="#94a3b8" />
                 </StyledView>
 
-                {/* Calendar Grid - fades in when ready */}
-                <Animated.View
-                    style={{ opacity: dataReady ? 1 : 0 }}
-                >
+                <Animated.View style={{ opacity: dataReady ? 1 : 0 }}>
                     <StyledView className="flex-row flex-wrap">
                         {days.map((day) => {
                             const dateKey = format(day, 'yyyy-MM-dd');
@@ -255,46 +214,35 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
                                 return <StyledView key={dateKey} className="w-[14%] aspect-square p-1" />;
                             }
 
-                            let bgColor = "bg-slate-50 dark:bg-slate-800"; // Greyish default
-                            let textColor = "text-slate-900 dark:text-slate-200";
-                            let borderColor = "border-transparent";
-
+                            // Determine Colors from Manual Theme
+                            let colors = themeColors.default;
                             if (data) {
-                                if (data.status === 'won') {
-                                    bgColor = "bg-green-100 dark:bg-green-900/40";
-                                    textColor = "text-green-700 dark:text-green-400";
-                                } else if (data.status === 'lost') {
-                                    bgColor = "bg-red-100 dark:bg-red-900/40";
-                                    textColor = "text-red-700 dark:text-red-400";
-                                } else if (data.status === 'played') {
-                                    bgColor = "bg-blue-100 dark:bg-blue-900/40";
-                                    textColor = "text-blue-700 dark:text-blue-400";
-                                } else if (data.isFuture) {
-                                    bgColor = "bg-slate-50 dark:bg-slate-800/50";
-                                    textColor = "text-slate-300 dark:text-slate-600";
-                                }
+                                if (data.status === 'won') colors = themeColors.won;
+                                else if (data.status === 'lost') colors = themeColors.lost;
+                                else if (data.status === 'played') colors = themeColors.played;
+                                else if (data.isFuture) colors = themeColors.future;
                             } else {
-                                // No Data
-                                bgColor = "bg-slate-50 dark:bg-slate-800/50";
-                                textColor = "text-slate-300 dark:text-slate-600";
+                                colors = themeColors.future; // No data = default/future look
                             }
 
-                            if (isToday) borderColor = "border-slate-400 dark:border-slate-500";
+                            const borderColor = isToday ? borderColorTheme : 'transparent';
+                            // Manual background overrides tailwind class
 
                             return (
                                 <StyledView key={dateKey} className="w-[14%] aspect-square p-1">
                                     <StyledTouchableOpacity
                                         onPress={() => data && handleDayPress(data)}
                                         disabled={!data || !data.hasPuzzle || data.isFuture}
-                                        className={`flex-1 items-center justify-center rounded-lg border-2 ${bgColor} ${borderColor}`}
+                                        className="flex-1 items-center justify-center rounded-lg border-2"
+                                        style={{ backgroundColor: colors.bg, borderColor: borderColor }}
                                     >
-                                        <StyledText className={`text-sm font-n-semibold ${textColor}`}>
+                                        <Text style={{ fontFamily: 'Nunito-SemiBold', fontSize: 14, color: colors.text }}>
                                             {format(day, 'd')}
-                                        </StyledText>
+                                        </Text>
                                         {data && data.status !== 'not-played' && (
-                                            <StyledText className="text-[10px] mt-0.5 opacity-80 font-n-medium" style={{ color: textColor }}>
+                                            <Text style={{ fontFamily: 'Nunito-Medium', fontSize: 10, marginTop: 2, opacity: 0.8, color: colors.text }}>
                                                 {data.status === 'won' ? `✓ ${data.guesses}` : (data.status === 'lost' ? '✗' : '-')}
-                                            </StyledText>
+                                            </Text>
                                         )}
                                     </StyledTouchableOpacity>
                                 </StyledView>
@@ -309,7 +257,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
 
 export default function ArchiveScreen() {
     const router = useRouter();
-    const { gameMode, textScale } = useOptions();
+    const { gameMode, textScale, darkMode } = useOptions();
     const flatListRef = useRef<FlatList>(null);
     const { user, isGuest } = useAuth();
 
@@ -469,28 +417,28 @@ export default function ArchiveScreen() {
 
     if (initializing) {
         return (
-            <StyledView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center">
+            <ThemedView className="flex-1 items-center justify-center">
                 <ActivityIndicator size="large" color="#7DAAE8" />
-            </StyledView>
+            </ThemedView>
         );
     }
 
     return (
-        <StyledView className="flex-1 bg-white dark:bg-slate-900">
-            <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-white dark:bg-slate-900">
+        <ThemedView className="flex-1">
+            <SafeAreaView edges={['top', 'bottom']} className="flex-1">
 
                 {/* Header matches HomeScreen exactly */}
-                <StyledView className="items-center relative pb-2 bg-white dark:bg-slate-900 z-50">
+                <ThemedView className="items-center relative pb-2 z-50">
                     <StyledView className="absolute left-4 top-2">
                         <StyledTouchableOpacity onPress={() => router.back()}>
-                            <ChevronLeft size={28} color="#1e293b" />
+                            <ChevronLeft size={28} color="#94a3b8" />
                         </StyledTouchableOpacity>
                     </StyledView>
 
-                    <StyledText style={{ fontSize: 36 * textScale }} className="font-n-bold text-slate-900 dark:text-white mb-2 pt-2 font-heading">
+                    <ThemedText baseSize={36} className="font-n-bold mb-2 pt-2 font-heading">
                         Archive
-                    </StyledText>
-                </StyledView>
+                    </ThemedText>
+                </ThemedView>
 
                 {/* Navigation Controls */}
                 <StyledView className="flex-row items-center justify-between px-6 py-6 border-b border-transparent">
@@ -498,28 +446,32 @@ export default function ArchiveScreen() {
                     <StyledTouchableOpacity
                         onPress={handlePrev}
                         disabled={isPrevDisabled}
-                        className={`p-3 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 ${isPrevDisabled ? 'opacity-30' : 'opacity-100'}`}
+                        className={`p-3 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 ${isPrevDisabled ? 'opacity-30' : 'opacity-100'}`}
+                        style={{ backgroundColor: darkMode ? '#1e293b' : '#ffffff' }}
                     >
-                        <ChevronLeft size={24} color="#7DAAE8" />
+                        <ChevronLeft size={24} color={darkMode ? '#ffffff' : '#7DAAE8'} />
                     </StyledTouchableOpacity>
 
                     {/* Month Title Button */}
-                    <StyledTouchableOpacity
-                        onPress={() => setModalVisible(true)}
-                        className="bg-slate-50 dark:bg-slate-800 px-4 py-2 rounded-xl"
+                    <ThemedView
+                        variant="surface"
+                        className="px-4 py-2 rounded-xl"
                     >
-                        <StyledText style={{ fontSize: 24 * textScale }} className="font-n-bold text-slate-900 dark:text-white">
-                            {currentTitle}
-                        </StyledText>
-                    </StyledTouchableOpacity>
+                        <TouchableOpacity onPress={() => setModalVisible(true)}>
+                            <ThemedText baseSize={27} className="font-n-bold">
+                                {currentTitle}
+                            </ThemedText>
+                        </TouchableOpacity>
+                    </ThemedView>
 
                     {/* Right Arrow */}
                     <StyledTouchableOpacity
                         onPress={handleNext}
                         disabled={isNextDisabled}
-                        className={`p-3 bg-white dark:bg-slate-800 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 ${isNextDisabled ? 'opacity-30' : 'opacity-100'}`}
+                        className={`p-3 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 ${isNextDisabled ? 'opacity-30' : 'opacity-100'}`}
+                        style={{ backgroundColor: darkMode ? '#1e293b' : '#ffffff' }}
                     >
-                        <ChevronRight size={24} color="#7DAAE8" />
+                        <ChevronRight size={24} color={darkMode ? '#ffffff' : '#7DAAE8'} />
                     </StyledTouchableOpacity>
                 </StyledView>
 
@@ -554,14 +506,16 @@ export default function ArchiveScreen() {
                 {/* Return to Today Button (Bottom Floating/Fixed) */}
                 {!isTodaySelected && (
                     <StyledView className="absolute bottom-10 left-0 right-0 items-center z-10">
-                        <StyledTouchableOpacity
-                            onPress={returnToToday}
-                            className="bg-white dark:bg-slate-800 px-6 py-3 rounded-full shadow-lg border border-slate-100 dark:border-slate-700"
+                        <ThemedView
+                            variant="surface"
+                            className="px-6 py-3 rounded-full shadow-lg border border-slate-100 dark:border-slate-700"
                         >
-                            <StyledText style={{ fontSize: 16 * textScale }} className="text-[#7DAAE8] font-n-bold">
-                                Return to today
-                            </StyledText>
-                        </StyledTouchableOpacity>
+                            <TouchableOpacity onPress={returnToToday}>
+                                <ThemedText style={{ fontSize: 16 * textScale }} className="text-[#7DAAE8] font-n-bold">
+                                    Return to today
+                                </ThemedText>
+                            </TouchableOpacity>
+                        </ThemedView>
                     </StyledView>
                 )}
 
@@ -584,6 +538,6 @@ export default function ArchiveScreen() {
                     description="Sign up to access past puzzles and track your history!"
                 />
             </SafeAreaView>
-        </StyledView>
+        </ThemedView>
     );
 }

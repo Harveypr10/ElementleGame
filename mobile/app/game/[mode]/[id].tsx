@@ -9,8 +9,16 @@ import { useAuth } from '../../../lib/auth';
 import { useOptions } from '../../../lib/options';
 import { supabase } from '../../../lib/supabase';
 import { format } from 'date-fns';
+import { ThemedView } from '../../../components/ThemedView';
+import { ThemedText } from '../../../components/ThemedText';
+import { useThemeColor } from '../../../hooks/useThemeColor';
 
 export default function GameScreen() {
+    const backgroundColor = useThemeColor({}, 'background');
+    const iconColor = useThemeColor({}, 'icon');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const textColor = useThemeColor({}, 'text');
+
     const { mode, id } = useLocalSearchParams();
     const router = useRouter();
     const { user } = useAuth();
@@ -51,6 +59,9 @@ export default function GameScreen() {
 
                 if (puzzleIdParam === 'today') {
                     regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', today);
+                } else if (/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)) {
+                    // It's a specific date string, query by date not ID
+                    regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', puzzleIdParam);
                 } else {
                     regionQuery = regionQuery.eq('id', puzzleIdParam).eq('region', 'UK');
                 }
@@ -219,9 +230,9 @@ export default function GameScreen() {
     }
 
     return (
-        <View className="flex-1 bg-slate-50 dark:bg-slate-800">
-            <SafeAreaView edges={['top']} className="z-10 bg-slate-50 dark:bg-slate-800">
-                <View className="relative items-center pb-2 z-50 bg-slate-50 dark:bg-slate-800">
+        <ThemedView className="flex-1">
+            <SafeAreaView edges={['top']} className="z-10" style={{ backgroundColor: surfaceColor }}>
+                <View className="relative items-center pb-2 z-50" style={{ backgroundColor: surfaceColor }}>
 
                     {/* Left: Back Arrow */}
                     <View className="absolute left-4 top-2">
@@ -229,14 +240,14 @@ export default function GameScreen() {
                             onPress={() => router.back()}
                             className="items-center justify-center bg-transparent"
                         >
-                            <ChevronLeft size={28} color="#1e293b" className="dark:text-white" />
+                            <ChevronLeft size={28} color={iconColor} />
                         </TouchableOpacity>
                     </View>
 
                     {/* Center: Title */}
-                    <Text className="text-4xl font-n-bold text-slate-900 dark:text-white mb-2 pt-2 font-heading tracking-tight text-center">
+                    <ThemedText size="4xl" className="font-n-bold mb-2 pt-2 font-heading tracking-tight text-center">
                         Elementle
-                    </Text>
+                    </ThemedText>
 
                     {/* Right: Help */}
                     <View className="absolute right-4 top-2">
@@ -244,7 +255,7 @@ export default function GameScreen() {
                             onPress={() => Alert.alert("How to Play", "Guess the date of the historic event!\n\n• Green = Correct\n• Yellow = Close (within 10 years/days)\n• Arrows indicate if you need to go Higher or Lower.")}
                             className="items-center justify-center bg-transparent"
                         >
-                            <HelpCircle size={28} className="text-slate-800 dark:text-white" />
+                            <HelpCircle size={28} color={iconColor} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -255,9 +266,9 @@ export default function GameScreen() {
                 <ActiveGame
                     puzzle={puzzle}
                     gameMode={modeStr}
-                    backgroundColor="#FAFAFA"
+                    backgroundColor={backgroundColor}
                 />
             </View>
-        </View>
+        </ThemedView>
     );
 }
