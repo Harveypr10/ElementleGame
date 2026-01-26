@@ -315,9 +315,9 @@ export default function StatsScreen() {
                         </StyledView>
 
                         {/* Right Column: Streak & Percentile */}
-                        <StyledView className="flex-1 gap-3 self-start">
+                        <StyledView className="flex-1 gap-3">
                             {/* Streak Box */}
-                            <StyledView className="flex-1 rounded-3xl p-4 shadow-sm relative overflow-hidden justify-start" style={{ backgroundColor: theme.cardBg }}>
+                            <StyledView className="flex-1 rounded-3xl p-4 shadow-sm relative overflow-hidden" style={{ backgroundColor: theme.cardBg }}>
                                 <ThemedText baseSize={18} className="font-n-bold text-slate-900 mb-4">Streak</ThemedText>
                                 <StyledView className="gap-2 w-full">
                                     <StyledView className="items-center justify-center p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
