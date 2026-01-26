@@ -278,46 +278,52 @@ export default function StatsScreen() {
             ) : (
                 <StyledScrollView showsVerticalScrollIndicator={false} className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 40 }}>
 
-                    {/* Top Grid */}
-                    <StyledView className="flex-row gap-3 mb-6 items-start">
-                        {/* Left Column: Stats */}
-                        <StyledView className="flex-1 rounded-3xl p-4 shadow-sm relative overflow-hidden" style={{ backgroundColor: theme.cardBg }}>
-                            <ThemedText baseSize={18} className="font-n-bold mb-4 text-slate-900">{theme.hamsterTitle}</ThemedText>
+                    {/* Top Grid - Completely decoupled Left/Right columns sharing a center line */}
+                    <StyledView className="flex-row items-stretch mb-6 mt-4">
 
-                            <StyledView className="space-y-3 relative z-10 w-full">
-                                {/* Played Inlay */}
-                                <StyledView className="flex-row items-center justify-between p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                    <ThemedText className="text-white font-n-medium text-sm ml-1">Played</ThemedText>
-                                    <ThemedText className="text-white font-n-bold text-xl mr-1">{stats.played}</ThemedText>
+                        {/* LEFT COLUMN: UK/Personal Edition - The "Master" for height */}
+                        <StyledView className="flex-1 mr-2 rounded-3xl p-4 pb-6 shadow-sm relative overflow-hidden justify-between" style={{ backgroundColor: theme.cardBg }}>
+                            <StyledView className="w-full">
+                                <ThemedText baseSize={18} className="font-n-bold mb-2 text-slate-900">{theme.hamsterTitle}</ThemedText>
+
+                                {/* Hamster Image - Moved Up with extra spacing */}
+                                <StyledView className="items-center mt-3 mb-5">
+                                    <StyledImage
+                                        source={MathsHamsterGreen}
+                                        className="w-24 h-24 z-20"
+                                        resizeMode="contain"
+                                    />
                                 </StyledView>
 
-                                {/* Win % Inlay */}
-                                <StyledView className="flex-row items-center justify-between p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                    <ThemedText className="text-white font-n-medium text-sm ml-1">Win %</ThemedText>
-                                    <ThemedText className="text-white font-n-bold text-xl mr-1">{winPercentage}%</ThemedText>
-                                </StyledView>
+                                <StyledView className="space-y-3 relative z-10 w-full">
+                                    {/* Played Inlay */}
+                                    <StyledView className="flex-row items-center justify-between p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
+                                        <ThemedText className="text-white font-n-medium text-sm ml-1">Played</ThemedText>
+                                        <ThemedText className="text-white font-n-bold text-xl mr-1">{stats.played}</ThemedText>
+                                    </StyledView>
 
-                                {/* Avg Inlay */}
-                                <StyledView className="flex-row items-center justify-between p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                    <ThemedText className="text-white font-n-medium text-sm ml-1">Avg</ThemedText>
-                                    <ThemedText className="text-white font-n-bold text-xl mr-1">{averageGuesses}</ThemedText>
+                                    {/* Win % Inlay */}
+                                    <StyledView className="flex-row items-center justify-between p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
+                                        <ThemedText className="text-white font-n-medium text-sm ml-1">Win %</ThemedText>
+                                        <ThemedText className="text-white font-n-bold text-xl mr-1">{winPercentage}%</ThemedText>
+                                    </StyledView>
+
+                                    {/* Avg Inlay */}
+                                    <StyledView className="flex-row items-center justify-between p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
+                                        <ThemedText className="text-white font-n-medium text-sm ml-1">Avg</ThemedText>
+                                        <ThemedText className="text-white font-n-bold text-xl mr-1">{averageGuesses}</ThemedText>
+                                    </StyledView>
                                 </StyledView>
                             </StyledView>
-
-                            {/* Hamster Image - Flex Center in remaining space */}
-                            <StyledView className="flex-1 justify-center items-center mt-2">
-                                <StyledImage
-                                    source={MathsHamsterGreen}
-                                    className="w-24 h-24 z-20"
-                                    resizeMode="contain"
-                                />
-                            </StyledView>
+                            {/* Empty view for bottom spacing balance if needed, but justify-between handles it */}
+                            <StyledView />
                         </StyledView>
 
-                        {/* Right Column: Streak & Percentile */}
-                        <StyledView className="flex-1 gap-3 self-start">
-                            {/* Streak Box */}
-                            <StyledView className="flex-1 rounded-3xl p-4 shadow-sm relative overflow-hidden justify-start" style={{ backgroundColor: theme.cardBg }}>
+                        {/* RIGHT COLUMN: Streak & Percentile - Stretches to match Left, spaced apart */}
+                        <StyledView className="flex-1 ml-2 justify-between">
+
+                            {/* Streak Box - Anchored Top */}
+                            <StyledView className="w-full rounded-3xl p-4 shadow-sm relative overflow-hidden" style={{ backgroundColor: theme.cardBg }}>
                                 <ThemedText baseSize={18} className="font-n-bold text-slate-900 mb-4">Streak</ThemedText>
                                 <StyledView className="gap-2 w-full">
                                     <StyledView className="items-center justify-center p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
@@ -331,8 +337,8 @@ export default function StatsScreen() {
                                 </StyledView>
                             </StyledView>
 
-                            {/* Percentile Box */}
-                            <StyledView className="flex-1 rounded-3xl p-4 shadow-sm justify-between" style={{ backgroundColor: theme.cardBg }}>
+                            {/* Percentile Box - Anchored Bottom (via justify-between on parent) */}
+                            <StyledView className="w-full rounded-3xl p-4 shadow-sm" style={{ backgroundColor: theme.cardBg }}>
                                 <StyledView className="flex-row justify-between items-center mb-1">
                                     <ThemedText className="font-n-bold text-lg text-slate-900">Percentile</ThemedText>
                                     <TouchableOpacity onPress={() => setShowPercentileInfo(true)} hitSlop={10}>
