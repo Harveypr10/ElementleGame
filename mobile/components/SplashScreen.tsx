@@ -67,9 +67,9 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     image: {
-        width: width * 0.8,
-        height: width * 0.8,
-        maxWidth: 320,
-        maxHeight: 320,
+        width: width * 0.56,
+        height: width * 0.56,
+        maxWidth: 224,
+        maxHeight: 224,
     },
 });

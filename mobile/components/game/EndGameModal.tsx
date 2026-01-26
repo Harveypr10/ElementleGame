@@ -15,8 +15,16 @@ import { useToast } from '../../contexts/ToastContext';
 
 import { ThemedText } from '../../components/ThemedText';
 
-// Fallback to PNG due to SVG transformer issues
-const WinHamsterImg = require('../../assets/ui/webp_assets/Win-Hamster-Blue.webp');
+import { ConfettiOverlay } from './ConfettiOverlay';
+import { RainOverlay } from './RainOverlay';
+
+// Updated Image Assets (Transparent UI versions)
+const WinHamsterImg = require('../../assets/ui/Celebration-Hamster-Grey.png');
+const LoseHamsterImg = require('../../assets/ui/Commiseration-Hamster-Grey.png');
+const ShareHamsterImg = require('../../assets/ui/Login-Hamster-White.png');
+const StatsHamsterImg = require('../../assets/ui/Maths-Hamster.png');
+const HomeHamsterImg = require('../../assets/ui/Historian-Hamster.png');
+const ArchiveHamsterImg = require('../../assets/ui/Librarian-Hamster-Yellow.png');
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -126,20 +134,24 @@ export function EndGameModal({
                 <StyledView className="flex-1 bg-white dark:bg-slate-900 px-6 pt-12 pb-6 justify-between">
 
                     {/* Scrollable Content Container */}
-                    <View className="flex-1 items-center w-full">
+                    <View className="flex-1 items-center w-full z-10">
+
+                        {/* Overlays - Positioned Absolutely within the modal content area if possible, or relative to this container */}
+                        {isWin && <ConfettiOverlay />}
+                        {!isWin && <RainOverlay />}
 
                         {/* Header: Congratulations */}
-                        <StyledView className="items-center mb-6 relative w-full">
+                        <StyledView className="items-center mb-6 relative w-full z-20">
                             <ThemedText size="3xl" className="font-bold text-center">
                                 {isWin ? "Congratulations!" : "Unlucky!"}
                             </ThemedText>
                         </StyledView>
 
                         {/* Hamster Image (Centred) */}
-                        <StyledView className="items-center mb-6 z-10 h-48 justify-center">
+                        <StyledView className="items-center mb-6 z-20 h-48 justify-center">
                             <Animated.View style={{ opacity: fadeAnim, transform: [{ scale: fadeAnim }] }}>
                                 <StyledImage
-                                    source={WinHamsterImg}
+                                    source={isWin ? WinHamsterImg : LoseHamsterImg}
                                     className="w-56 h-56"
                                     resizeMode="contain"
                                 />
@@ -147,14 +159,14 @@ export function EndGameModal({
                         </StyledView>
 
                         {/* Date */}
-                        <StyledView className="items-center mb-4">
+                        <StyledView className="items-center mb-4 z-20">
                             <ThemedText size="2xl" className="font-bold text-center opacity-80">
                                 {formattedDate}
                             </ThemedText>
                         </StyledView>
 
                         {/* Description Box */}
-                        <StyledView className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl w-full mb-4 border border-slate-200 dark:border-slate-700">
+                        <StyledView className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl w-full mb-4 border border-slate-200 dark:border-slate-700 z-20">
                             <ThemedText size="lg" className="font-semibold text-center mb-2">
                                 {eventTitle}
                             </ThemedText>
@@ -164,14 +176,14 @@ export function EndGameModal({
                         </StyledView>
 
                         {isWin && (
-                            <ThemedText size="sm" className="text-center font-medium mb-4 opacity-60">
+                            <ThemedText size="sm" className="text-center font-medium mb-4 opacity-60 z-20">
                                 You solved it in {guessesCount} {guessesCount === 1 ? 'guess' : 'guesses'}!
                             </ThemedText>
                         )}
                     </View>
 
                     {/* Buttons Stack (Bottom Fixed) */}
-                    <StyledView className="w-full space-y-3 mb-4">
+                    <StyledView className="w-full space-y-3 mb-4 z-20">
                         {/* Stats Button (Green) */}
                         <StyledTouchableOpacity
                             className="w-full h-20 flex-row items-center justify-between px-6 rounded-3xl shadow-sm active:opacity-90"
@@ -180,14 +192,8 @@ export function EndGameModal({
                         >
                             <ThemedText size="xl" className="font-n-bold text-slate-800" style={{ color: '#1e293b' }}>Stats</ThemedText>
                             <View className="w-16 h-16 justify-center items-center">
-                                {/* Placeholder for specific hamster if needed, or re-use existing with tint/style? 
-                                For now using simple fallback or if we have specific PNGs use them. 
-                                The user wants images on the right. 
-                            */}
-                                {/* <StatsHamster width={50} height={50} /> Using Image for safety */}
-                                {/* Use PNG hamster images only to avoid React Native freeze errors */}
                                 <StyledImage
-                                    source={require('../../assets/ui/webp_assets/Maths-Hamster.webp')}
+                                    source={StatsHamsterImg}
                                     className="w-14 h-14"
                                     resizeMode="contain"
                                 />
@@ -205,7 +211,7 @@ export function EndGameModal({
                                 <ThemedText size="xl" className="font-n-bold text-slate-800" style={{ color: '#1e293b' }}>Home</ThemedText>
                                 <View className="w-12 h-12 justify-center items-center">
                                     <StyledImage
-                                        source={require('../../assets/ui/webp_assets/Historian-Hamster.webp')}
+                                        source={HomeHamsterImg}
                                         className="w-12 h-12"
                                         resizeMode="contain"
                                     />
@@ -221,13 +227,30 @@ export function EndGameModal({
                                 <ThemedText size="xl" className="font-n-bold text-slate-800" style={{ color: '#1e293b' }}>Archive</ThemedText>
                                 <View className="w-12 h-12 justify-center items-center">
                                     <StyledImage
-                                        source={require('../../assets/ui/webp_assets/Librarian-Hamster-Yellow.webp')}
+                                        source={ArchiveHamsterImg}
                                         className="w-12 h-12"
                                         resizeMode="contain"
                                     />
                                 </View>
                             </StyledTouchableOpacity>
                         </StyledView>
+
+                        {/* Share Button (Purple) - Added Per Request */}
+                        <StyledTouchableOpacity
+                            className="w-full h-20 flex-row items-center justify-between px-6 rounded-3xl shadow-sm active:opacity-90 mt-2"
+                            style={{ backgroundColor: '#e879f9' }}
+                            onPress={() => shareGameResult(isWin, guessesCount, maxGuesses, answerDateCanonical, eventTitle, isLocalMode ? 'USER' : 'REGION')}
+                        >
+                            <ThemedText size="xl" className="font-n-bold text-slate-800" style={{ color: '#1e293b' }}>Share</ThemedText>
+                            <View className="w-16 h-16 justify-center items-center">
+                                <StyledImage
+                                    source={ShareHamsterImg}
+                                    className="w-14 h-14"
+                                    resizeMode="contain"
+                                />
+                            </View>
+                        </StyledTouchableOpacity>
+
                     </StyledView>
 
                 </StyledView>

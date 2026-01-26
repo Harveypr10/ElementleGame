@@ -1,28 +1,26 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { SplashScreen } from '../components/SplashScreen';
 import { useAuth } from '../lib/auth';
+import { View, ActivityIndicator } from 'react-native';
 
 export default function Index() {
     const router = useRouter();
     const { user, loading } = useAuth();
-    const [showSplash, setShowSplash] = useState(true);
 
-    const handleSplashComplete = () => {
-        setShowSplash(false);
-        if (loading) return; // Wait for auth to load if it's still loading (though 3s should be enough)
+    useEffect(() => {
+        if (loading) return;
 
         if (user) {
             router.replace('/(tabs)');
         } else {
-            // Redirect to the onboarding landing page
+            // Guests or unauthenticated users start at onboarding
             router.replace('/(auth)/onboarding');
         }
-    };
+    }, [user, loading]);
 
-    if (showSplash) {
-        return <SplashScreen onComplete={handleSplashComplete} />;
-    }
-
-    return null; // Logic handled in onComplete, or we could render a loader here if auth is still pending
+    return (
+        <View style={{ flex: 1, backgroundColor: '#7DAAE8' }}>
+            {/* Show empty view matching splash bg to prevent white flash during redirect */}
+        </View>
+    );
 }

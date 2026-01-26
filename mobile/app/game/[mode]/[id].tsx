@@ -22,6 +22,24 @@ export default function GameScreen() {
     const { mode, id } = useLocalSearchParams();
     const router = useRouter();
     const { user } = useAuth();
+
+    // -- FIXED: HOOKS MOVED TO TOP LEVEL --
+    const [gameState, setGameState] = useState<'loading' | 'playing' | 'won' | 'lost'>('loading');
+    const isGuest = !user;
+
+    const handleBack = () => {
+        if (isGuest) {
+            if (router.canGoBack()) {
+                router.back();
+            } else {
+                router.replace('/(auth)/onboarding');
+            }
+        } else {
+            router.back();
+        }
+    };
+    // -------------------------------------
+
     const [loading, setLoading] = useState(true);
     const [puzzle, setPuzzle] = useState<any>(null);
     const [debugInfo, setDebugInfo] = useState<string>("");
@@ -35,6 +53,7 @@ export default function GameScreen() {
 
     useEffect(() => {
         if (!hasFetched.current) {
+            console.log('[GameScreen] Fetching puzzle. Params:', { mode, id });
             hasFetched.current = true;
             fetchPuzzle();
         }
@@ -63,7 +82,14 @@ export default function GameScreen() {
                     // It's a specific date string, query by date not ID
                     regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', puzzleIdParam);
                 } else {
-                    regionQuery = regionQuery.eq('id', puzzleIdParam).eq('region', 'UK');
+                    const idInt = parseInt(puzzleIdParam, 10);
+                    if (!isNaN(idInt)) {
+                        regionQuery = regionQuery.eq('id', idInt).eq('region', 'UK');
+                    } else {
+                        console.error("Invalid puzzle ID:", puzzleIdParam);
+                        // Handle error or return
+                        setPuzzle(null); setLoading(false); return;
+                    }
                 }
 
                 const { data: allocRes, error: allocError } = await regionQuery.maybeSingle();
@@ -121,7 +147,13 @@ export default function GameScreen() {
                 if (puzzleIdParam === 'next') {
                     query = query.eq('user_id', user.id).eq('puzzle_date', today);
                 } else {
-                    query = query.eq('id', puzzleIdParam).eq('user_id', user.id);
+                    const idInt = parseInt(puzzleIdParam, 10);
+                    if (!isNaN(idInt)) {
+                        query = query.eq('id', idInt).eq('user_id', user.id);
+                    } else {
+                        // Fallback or error
+                        setPuzzle(null); setLoading(false); return;
+                    }
                 }
 
                 const { data: allocRes, error: allocError } = await query.maybeSingle();
@@ -229,20 +261,24 @@ export default function GameScreen() {
         );
     }
 
+
+
     return (
         <ThemedView className="flex-1">
             <SafeAreaView edges={['top']} className="z-10" style={{ backgroundColor: surfaceColor }}>
                 <View className="relative items-center pb-2 z-50" style={{ backgroundColor: surfaceColor }}>
 
-                    {/* Left: Back Arrow */}
-                    <View className="absolute left-4 top-2">
-                        <TouchableOpacity
-                            onPress={() => router.back()}
-                            className="items-center justify-center bg-transparent"
-                        >
-                            <ChevronLeft size={28} color={iconColor} />
-                        </TouchableOpacity>
-                    </View>
+                    {/* Left: Back Arrow - Hidden if game OVER and Guest */}
+                    {!(isGuest && (gameState === 'won' || gameState === 'lost')) && (
+                        <View className="absolute left-4 top-2">
+                            <TouchableOpacity
+                                onPress={handleBack}
+                                className="items-center justify-center bg-transparent"
+                            >
+                                <ChevronLeft size={28} color={iconColor} />
+                            </TouchableOpacity>
+                        </View>
+                    )}
 
                     {/* Center: Title */}
                     <ThemedText size="4xl" className="font-n-bold mb-2 pt-2 font-heading tracking-tight text-center">
@@ -267,6 +303,7 @@ export default function GameScreen() {
                     puzzle={puzzle}
                     gameMode={modeStr}
                     backgroundColor={backgroundColor}
+                    onGameStateChange={setGameState}
                 />
             </View>
         </ThemedView>

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, Animated, TouchableOpacity, Image } from 'react-native';
 import { styled } from 'nativewind';
 import { X } from 'lucide-react-native';
-const StreakHamsterImg = require('../../assets/ui/webp_assets/Streak-Hamster-Black.webp');
+const StreakHamsterImg = require('../../assets/ui/Streak-Hamster-Black.png');
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -41,8 +41,9 @@ export function StreakCelebration({ visible, streak, onClose, showCloseButton = 
 
     return (
         <Modal transparent visible={visible} animationType="fade">
+            {/* CHANGED: Solid black background to match screenshot */}
             <StyledTouchableOpacity
-                className="flex-1 bg-black/90 justify-center items-center relative"
+                className="flex-1 bg-black justify-center items-center relative"
                 activeOpacity={1}
                 onPress={onClose}
             >
@@ -64,7 +65,13 @@ export function StreakCelebration({ visible, streak, onClose, showCloseButton = 
                             resizeMode="contain"
                         />
                         <View className="absolute inset-0 justify-center items-center pt-16">
-                            <StyledText className="text-red-600 font-black text-6xl shadow-lg border-white" style={{ textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 }}>
+                            {/* Number Styling - matched to screenshot as best as possible */}
+                            <StyledText className="text-red-600 font-black text-6xl"
+                                style={{
+                                    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+                                    textShadowOffset: { width: 0, height: 0 },
+                                    textShadowRadius: 10
+                                }}>
                                 {streak}
                             </StyledText>
                         </View>
@@ -83,7 +90,7 @@ export function StreakCelebration({ visible, streak, onClose, showCloseButton = 
                     </StyledView>
 
                     <StyledText className="text-white/40 text-sm absolute bottom-20">
-                        Tap anywhere to dismiss
+                        Click anywhere to dismiss
                     </StyledText>
 
                 </Animated.View>

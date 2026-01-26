@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, Image, TouchableOpacity, Animated } from 'react-native';
 import { styled } from 'nativewind';
 import { Target, Flame, Percent, X } from 'lucide-react-native';
+import LottieView from 'lottie-react-native';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -19,8 +20,10 @@ interface BadgeUnlockModalProps {
     showCloseButton?: boolean;
 }
 
-// MAPPING LOGIC (Duplicated from BadgeSlot to keep it self-contained for now)
-const HAMSTER_IMAGE = require('../../assets/hamster.png');
+// MAPPING LOGIC
+const HAMSTER_IMAGE = require('../../assets/ui/Streak-Hamster-Black.png'); // Default to black streak hamster as requested
+const TROPHY_ANIMATION = require('../../assets/animation/Trophy.json');
+
 const BADGE_IMAGES: Record<string, Record<number, any>> = {
     streak: {
         7: require('../../assets/badges/webp_assets/Badge - Streak 7 - White.webp'),
@@ -40,6 +43,8 @@ const BADGE_IMAGES: Record<string, Record<number, any>> = {
 
 export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = false }: BadgeUnlockModalProps) {
     const scale = useRef(new Animated.Value(0)).current;
+    // Animation ref
+    const animationRef = useRef<LottieView>(null);
 
     useEffect(() => {
         if (visible) {
@@ -49,6 +54,11 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
                 tension: 40,
                 useNativeDriver: true,
             }).start();
+
+            // Play Lottie animation
+            setTimeout(() => {
+                animationRef.current?.play();
+            }, 300);
         } else {
             scale.setValue(0);
         }
@@ -78,13 +88,13 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
     };
 
     const getIcon = () => {
-        const color = 'white';
-        const size = 32;
-        const catLower = badge.category.toLowerCase();
-
-        if (catLower.includes('elementle')) return <Target size={size} color={color} />;
-        if (catLower.includes('streak')) return <Flame size={size} color={color} fill={color} />;
-        return <Percent size={size} color={color} />;
+        const color = getBadgeColor(); // Use element color for icon if we want it to match or white. 
+        // Screenshot implies we don't have the round icon at the top in the new design. 
+        // Logic: "Then add the animation Trophy.json that above the hamster image". 
+        // I will hide the old icon logic if it conflicts, or remove it. 
+        // The screenshot shows ONLY Trophy -> Hamster/Badge -> Text.
+        // So I will remove the old floating icon header.
+        return null;
     };
 
     const getBadgeImage = () => {
@@ -94,7 +104,11 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
         if (catLower.includes('streak') && BADGE_IMAGES.streak[threshold]) {
             return BADGE_IMAGES.streak[threshold];
         }
-        // TODO: Could not auto-resolve correct badge image for non-streak categories
+        // For Elementle In 1 / 2, use the Streak Hamster Black with fire if available, or just the default.
+        // The screenshot shows a hamster with fire. Let's stick with the default HAMSTER_IMAGE (Streak Black)
+        // OR if they have specific "Elementle In 1" images we should use those.
+        // Since I don't see them mapped, I will use the default HAMSTER_IMAGE which I updated to Streak-Hamster-Black.png
+
         return HAMSTER_IMAGE;
     };
 
@@ -102,61 +116,61 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
 
     return (
         <Modal transparent visible={visible} animationType="fade">
-            <StyledView className="flex-1 bg-black/70 justify-center items-center p-4">
-                <Animated.View style={{ transform: [{ scale }] }}>
-                    <StyledView className="bg-white dark:bg-slate-800 rounded-3xl p-6 items-center w-80 shadow-2xl relative overflow-visible">
+            {/* Solid Black Background */}
+            <StyledTouchableOpacity
+                className="flex-1 bg-black justify-center items-center relative"
+                activeOpacity={1}
+                onPress={onClose}
+            >
+                {showCloseButton && (
+                    <StyledTouchableOpacity
+                        onPress={onClose}
+                        className="absolute right-6 top-12 z-50 p-2 bg-white/20 rounded-full"
+                    >
+                        <X size={24} color="white" />
+                    </StyledTouchableOpacity>
+                )}
 
-                        {showCloseButton && (
-                            <StyledTouchableOpacity
-                                onPress={onClose}
-                                className="absolute right-2 top-2 z-10 p-2 bg-slate-100 dark:bg-slate-700 rounded-full"
-                            >
-                                <X size={20} className="text-slate-500 dark:text-slate-400" />
-                            </StyledTouchableOpacity>
-                        )}
+                <Animated.View style={{ transform: [{ scale }], alignItems: 'center', width: '100%' }}>
 
-                        {/* Shimmer/Background Effect */}
-                        <StyledView
-                            className="absolute inset-0 bg-white/5 rounded-3xl"
-                            style={{ borderColor: badgeColor, borderWidth: 2, opacity: 0.3 }}
+                    {/* Trophy Animation */}
+                    <View style={{ width: 250, height: 250, marginBottom: -40, zIndex: 10 }}>
+                        <LottieView
+                            ref={animationRef}
+                            source={TROPHY_ANIMATION}
+                            style={{ width: '100%', height: '100%' }}
+                            autoPlay
+                            loop={false}
                         />
+                    </View>
 
-                        {/* Floating Icon Header */}
-                        <StyledView
-                            className="-mt-12 p-5 rounded-full border-4 border-white dark:border-slate-800 mb-6 shadow-lg"
-                            style={{ backgroundColor: badgeColor }}
-                        >
-                            {getIcon()}
-                        </StyledView>
+                    {/* Badge/Hamster Image */}
+                    <Image
+                        source={getBadgeImage()}
+                        className="w-48 h-48 mb-6"
+                        resizeMode="contain"
+                    />
 
-                        <StyledText className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-1">
-                            New Badge Unlocked!
-                        </StyledText>
+                    {/* Badge Name */}
+                    <StyledText className="text-3xl font-black text-white mb-2 text-center tracking-wide" style={{ color: getBadgeColor() }}>
+                        {badge.name}
+                    </StyledText>
 
-                        <StyledText className="text-2xl font-black text-slate-900 dark:text-white mb-2 text-center leading-tight">
-                            {badge.name}
-                        </StyledText>
+                    {/* Description */}
+                    <StyledText className="text-white font-medium text-lg text-center mb-8 px-8 leading-6">
+                        {badge.description}
+                    </StyledText>
 
-                        <Image
-                            source={getBadgeImage()}
-                            className="w-32 h-32 mb-4"
-                            resizeMode="contain"
-                        />
+                    <StyledText className="text-white/40 text-sm opacity-60 mt-12">
+                        Badge Earned
+                    </StyledText>
 
-                        <StyledText className="text-slate-600 dark:text-slate-300 text-center mb-8 px-4">
-                            {badge.description}
-                        </StyledText>
+                    <StyledText className="text-white/40 text-sm absolute bottom-[-100px]">
+                        Click anywhere to dismiss
+                    </StyledText>
 
-                        <StyledTouchableOpacity
-                            onPress={onClose}
-                            className="w-full py-4 rounded-xl items-center shadow-md active:opacity-90"
-                            style={{ backgroundColor: badgeColor }}
-                        >
-                            <StyledText className="text-white font-bold text-lg tracking-wide">Awesome!</StyledText>
-                        </StyledTouchableOpacity>
-                    </StyledView>
                 </Animated.View>
-            </StyledView>
+            </StyledTouchableOpacity>
         </Modal>
     );
 }

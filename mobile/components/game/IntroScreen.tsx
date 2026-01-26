@@ -23,6 +23,7 @@ interface IntroScreenProps {
     isStreakSaverGame?: boolean;
     currentStreak?: number;
     eventTitle?: string;
+    isGuest?: boolean;
 }
 
 export function IntroScreen({
@@ -33,7 +34,8 @@ export function IntroScreen({
     isStreakGame,
     isStreakSaverGame,
     currentStreak,
-    eventTitle
+    eventTitle,
+    isGuest = false
 }: IntroScreenProps) {
     const router = useRouter();
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -149,16 +151,40 @@ export function IntroScreen({
                         )}
                     </StyledView>
 
-                    {/* Play Button */}
-                    <StyledTouchableOpacity
-                        onPress={onStart}
-                        className={`w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center ${gameMode === 'USER' ? 'bg-[#66becb]' : 'bg-[#7DAAE8]'
-                            }`}
-                    >
-                        <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
-                            Play
-                        </ThemedText>
-                    </StyledTouchableOpacity>
+                    {/* Buttons */}
+                    <View className="w-full items-center space-y-3">
+                        <StyledTouchableOpacity
+                            onPress={onStart}
+                            className={`w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center ${gameMode === 'USER' ? 'bg-[#66becb]' : 'bg-[#7DAAE8]'
+                                }`}
+                        >
+                            <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
+                                Play
+                            </ThemedText>
+                        </StyledTouchableOpacity>
+
+                        {isGuest && (
+                            <>
+                                <StyledTouchableOpacity
+                                    onPress={() => router.push('/(auth)/login')}
+                                    className="w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center bg-slate-600"
+                                >
+                                    <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
+                                        Log in
+                                    </ThemedText>
+                                </StyledTouchableOpacity>
+
+                                <StyledTouchableOpacity
+                                    onPress={() => router.push('/(auth)/subscription-flow')}
+                                    className="w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center bg-slate-400"
+                                >
+                                    <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
+                                        Subscribe
+                                    </ThemedText>
+                                </StyledTouchableOpacity>
+                            </>
+                        )}
+                    </View>
 
                     {/* Date Footer */}
                     {formattedDate && (

@@ -2,12 +2,14 @@
 import React, { useEffect } from 'react';
 import { View, Text, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
 import { styled } from 'nativewind';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { HelpCircle } from 'lucide-react-native';
 
 import { InputGrid } from '../InputGrid';
 import { NumericKeyboard } from '../NumericKeyboard';
 import { useGameEngine } from '../../hooks/useGameEngine';
+import { useAuth } from '../../lib/auth';
+import { useInterstitialAd } from '../../hooks/useInterstitialAd';
 import { StreakCelebration } from './StreakCelebration';
 import { BadgeUnlockModal } from './BadgeUnlockModal';
 import { IntroScreen } from './IntroScreen';
@@ -40,11 +42,16 @@ interface ActiveGameProps {
     puzzle: PuzzleData;
     gameMode: 'REGION' | 'USER';
     backgroundColor?: string;
+    onGameStateChange?: (state: 'loading' | 'playing' | 'won' | 'lost') => void;
 }
 
-export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: ActiveGameProps) {
+export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGameStateChange }: ActiveGameProps) {
     const router = useRouter();
-    const { dateLength, cluesEnabled, dateFormatOrder } = useOptions(); // Get dateLength, cluesEnabled, and dateFormatOrder
+    const { mode, id, skipIntro } = useLocalSearchParams();
+    const { dateLength, cluesEnabled, dateFormatOrder } = useOptions();
+    const { user } = useAuth();
+    const isGuest = !user;
+    const { showAd } = useInterstitialAd();
     const surfaceColor = useThemeColor({}, 'surface');
 
     // Pass the correct props to useGameEngine
@@ -102,6 +109,15 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
     const [showStreakCelebration, setShowStreakCelebration] = React.useState(false);
     const [streakToDisplay, setStreakToDisplay] = React.useState(0);
 
+    console.log('[ActiveGame] Render Check:', {
+        gameState,
+        isLoading,
+        showIntro,
+        skipIntro,
+        guessesLen: guesses.length,
+        isRestored
+    });
+
     // Badge Queue System
     const [newBadgesQueue, setNewBadgesQueue] = React.useState<Badge[]>([]);
     const [currentBadge, setCurrentBadge] = React.useState<Badge | null>(null);
@@ -114,6 +130,9 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
     useEffect(() => {
         if (gameState === 'loading') return;
 
+        // Notify parent of state change
+        if (onGameStateChange) onGameStateChange(gameState);
+
         const startTime = Date.now();
         const MINIMUM_LOADING_TIME = 1500; // 1.5 seconds
 
@@ -122,13 +141,14 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
 
             // After loading completes, determine whether to show intro
             // Only show intro for fresh games (playing, no guesses, not restored)
-            if (gameState === 'playing' && guesses.length === 0 && !isRestored) {
+            // AND only if skipIntro param is NOT present
+            if (gameState === 'playing' && guesses.length === 0 && !isRestored && skipIntro !== 'true') {
                 setShowIntro(true);
             }
         }, Math.max(0, MINIMUM_LOADING_TIME - (Date.now() - startTime)));
 
         return () => clearTimeout(timer);
-    }, [gameState, guesses.length, isRestored]);
+    }, [gameState, guesses.length, isRestored, skipIntro]);
 
     // -- Side Effects --
 
@@ -156,18 +176,20 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
 
             // 3. Show celebration after delay
             const timer = setTimeout(() => {
-                setShowStreakCelebration(true);
+                if (!isGuest) {
+                    setShowStreakCelebration(true);
 
-                // 4. Check Badges
-                checkBadgesForWin(guesses.length, displayStreak, gameMode, puzzle.id.toString())
-                    .then(badges => {
-                        if (badges && badges.length > 0) {
-                            setNewBadgesQueue(badges);
-                        }
-                    });
+                    // 4. Check Badges
+                    checkBadgesForWin(guesses.length, displayStreak, gameMode, puzzle.id.toString())
+                        .then(badges => {
+                            if (badges && badges.length > 0) {
+                                setNewBadgesQueue(badges);
+                            }
+                        });
 
-                // Refetch stats to be sure
-                refetchStats();
+                    // Refetch stats to be sure
+                    refetchStats();
+                }
             }, 500);
 
             return () => clearTimeout(timer);
@@ -177,23 +199,27 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
             // Update Stats (reset streak, etc.)
             updateStats(false);
 
-            // No celebration, just navigate to result after delay
-            const timer = setTimeout(() => {
-                router.replace({
-                    pathname: '/game-result',
-                    params: {
-                        isWin: 'false',
-                        guessesCount: guesses.length.toString(),
-                        maxGuesses: '5',
-                        answerDateCanonical: puzzle.solutionDate,
-                        eventTitle: puzzle.title,
-                        eventDescription: puzzle.eventDescription || '',
-                        gameMode,
-                        puzzleId: puzzle.id.toString(),
-                    }
-                });
-            }, 1000);
-            return () => clearTimeout(timer);
+            // No celebration, just navigate to result after delay (ONLY for users)
+            // Guests must click "Continue" manually
+            if (!isGuest) {
+                const timer = setTimeout(() => {
+                    router.replace({
+                        pathname: '/game-result',
+                        params: {
+                            isWin: 'false',
+                            guessesCount: guesses.length.toString(),
+                            maxGuesses: '5',
+                            answerDateCanonical: puzzle.solutionDate,
+                            eventTitle: puzzle.title,
+                            eventDescription: puzzle.eventDescription || '',
+                            gameMode,
+                            puzzleId: puzzle.id.toString(),
+                            isGuest: isGuest ? 'true' : 'false',
+                        }
+                    });
+                }, 1000);
+                return () => clearTimeout(timer);
+            }
         }
     }, [gameState, isRestored]); // Added isRestored to deps
 
@@ -228,6 +254,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                     eventDescription: puzzle.eventDescription || '',
                     gameMode,
                     puzzleId: puzzle.id.toString(),
+                    isGuest: isGuest ? 'true' : 'false',
                 }
             });
         }
@@ -262,6 +289,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                     eventDescription: puzzle.eventDescription || '',
                     gameMode,
                     puzzleId: puzzle.id.toString(),
+                    isGuest: isGuest ? 'true' : 'false',
                 }
             });
         }
@@ -344,6 +372,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                                                 eventDescription: puzzle.eventDescription || '',
                                                 gameMode,
                                                 puzzleId: puzzle.id.toString(),
+                                                isGuest: isGuest ? 'true' : 'false',
                                             }
                                         });
                                     }}
@@ -364,11 +393,17 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA' }: Ac
                 <IntroScreen
                     visible={showIntro}
                     gameMode={gameMode}
-                    onStart={() => setShowIntro(false)}
+                    onStart={() => {
+                        if (isGuest) {
+                            showAd();
+                        }
+                        setShowIntro(false);
+                    }}
                     puzzleDate={puzzle.date}
                     eventTitle={puzzle.title}
                     currentStreak={stats?.current_streak || 0}
-                    isStreakGame={false} // Todo: Determine if we are in streak mode logic
+                    isStreakGame={false}
+                    isGuest={isGuest}
                 />
             )}
 

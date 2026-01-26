@@ -1,9 +1,11 @@
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'nativewind';
-import { Home, Settings as SettingsIcon, SlidersHorizontal } from 'lucide-react-native';
+import { Home, Settings as SettingsIcon, SlidersHorizontal, Shield } from 'lucide-react-native';
+import { useProfile } from '../../hooks/useProfile';
 
 export default function TabLayout() {
     const { colorScheme } = useColorScheme();
+    const { isAdmin } = useProfile();
     const isDark = colorScheme === 'dark';
 
     return (
@@ -56,6 +58,17 @@ export default function TabLayout() {
                     tabBarLabel: 'Settings',
                     tabBarIcon: ({ color, size }) => (
                         <SettingsIcon size={26} color={color} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
+                name="settings/admin"
+                options={{
+                    title: 'Admin',
+                    tabBarLabel: 'Admin',
+                    href: isAdmin ? '/settings/admin' : null,
+                    tabBarIcon: ({ color, size }) => (
+                        <Shield size={26} color={color} />
                     ),
                 }}
             />

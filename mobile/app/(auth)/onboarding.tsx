@@ -3,20 +3,52 @@ import { useRouter } from 'expo-router';
 import { OnboardingScreen } from '../../components/OnboardingScreen';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
-import { format } from 'date-fns';
+import { useInterstitialAd } from '../../hooks/useInterstitialAd';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
 
 export default function OnboardingPage() {
     const router = useRouter();
-    const { signInAnonymously } = useAuth();
+    const { signOut } = useAuth();
+    const { showAd, isLoaded, isClosed } = useInterstitialAd();
     const [eventTitle, setEventTitle] = useState('Loading...');
     const [puzzleDate, setPuzzleDate] = useState('');
     const [loading, setLoading] = useState(true);
+    const [waitingForAd, setWaitingForAd] = useState(false);
+
+    // ... (useEffect hooks remain same)
+
+    const handleDevReset = async () => {
+        try {
+            await signOut();
+            await AsyncStorage.clear();
+            Alert.alert(
+                "Data Nuked",
+                "Please close and restart the app to test as a fresh user."
+            );
+        } catch (e) {
+            console.error('Nuke failed', e);
+        }
+    };
+
+    // Watch for Ad Closure to navigate
+    useEffect(() => {
+        if (waitingForAd && isClosed) {
+            const targetDate = puzzleDate || 'today';
+            router.replace({
+                pathname: `/game/REGION/${targetDate}`,
+                params: { skipIntro: 'true' }
+            });
+            setWaitingForAd(false);
+        }
+    }, [waitingForAd, isClosed, puzzleDate]);
 
     useEffect(() => {
         fetchTodaysPuzzle();
     }, []);
 
     const fetchTodaysPuzzle = async () => {
+        // ... existing implementation ...
         try {
             const today = new Date().toISOString().split('T')[0];
 
@@ -73,12 +105,19 @@ export default function OnboardingPage() {
     };
 
     const handlePlay = async () => {
-        // Play as guest - set guest mode first to bypass NavigationGuard
-        await signInAnonymously();
-        // Navigate to the SPECIFIC date found (or today if fallback)
-        // This ensures the game screen loads an actual puzzle even if it's from yesterday
-        const targetDate = puzzleDate || 'today';
-        router.push(`/game/REGION/${targetDate}`);
+        // Play as guest
+        // Trigger Ad if loaded
+        if (isLoaded) {
+            setWaitingForAd(true);
+            showAd();
+        } else {
+            // No ad ready? Proceed anyway
+            const targetDate = puzzleDate || 'today';
+            router.replace({
+                pathname: `/game/REGION/${targetDate}`,
+                params: { skipIntro: 'true' }
+            });
+        }
     };
 
     const handleLogin = () => {
@@ -94,6 +133,11 @@ export default function OnboardingPage() {
         return null;
     }
 
+    // Prevent flash of onboarding screen when ad closes by rendering empty view/loading state
+    if (waitingForAd) {
+        return <React.Fragment />;
+    }
+
     return (
         <OnboardingScreen
             eventTitle={eventTitle}
@@ -101,6 +145,7 @@ export default function OnboardingPage() {
             onPlay={handlePlay}
             onLogin={handleLogin}
             onSubscribe={handleSubscribe}
+            onDevReset={handleDevReset}
         />
     );
 }

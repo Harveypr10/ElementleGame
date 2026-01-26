@@ -5,6 +5,7 @@ import { styled } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Shield, Clock, CalendarClock, Zap, Layers, ChevronRight } from 'lucide-react-native';
 import { useOptions } from '../../../../lib/options';
+import { useProfile } from '../../../../hooks/useProfile';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -14,6 +15,22 @@ const StyledScrollView = styled(ScrollView);
 export default function AdminDashboard() {
     const router = useRouter();
     const { textScale } = useOptions();
+    const { isAdmin, isLoading } = useProfile();
+
+    // Security Check
+    React.useEffect(() => {
+        if (!isLoading && !isAdmin) {
+            router.replace('/');
+        }
+    }, [isAdmin, isLoading]);
+
+    if (isLoading || !isAdmin) {
+        return (
+            <StyledView className="flex-1 bg-white dark:bg-slate-900 items-center justify-center">
+                <StyledText className="text-slate-500">Loading...</StyledText>
+            </StyledView>
+        );
+    }
 
     const menuItems = [
         {

@@ -301,61 +301,71 @@ export default function GeneratingQuestionsScreen() {
             spawnTimeouts.push(intervalTimeout);
 
             // Step 2 & 3: Fetch locations (in parallel)
-            if (postcode) {
+            if (userId) { // Postcode might not be available, but userId is
                 try {
-                    console.log('[GeneratingQuestions] Calling populate_user_locations RPC');
+                    console.log('[GeneratingQuestions] Fetching locations for user:', userId);
 
-                    // Mock location fetching
-                    await new Promise((resolve) => setTimeout(resolve, 2000));
+                    // Query location_allocation for this user
+                    // Expecting populated_places relation
+                    const { data: allocationData, error: allocError } = await supabase
+                        .from('location_allocation')
+                        .select('populated_places(name1)')
+                        .eq('user_id', userId)
+                        .limit(20);
 
-                    // Mock locations
-                    const mockLocations = [
-                        'Shiplake Cross',
-                        'Wargrave',
-                        'Henley-on-Thames',
-                        'Marlow',
-                        'Caversham',
-                        'Reading',
-                        'Sonning',
-                        'Twyford',
-                        'Maidenhead',
-                        'Windsor',
-                    ];
+                    let locationNames: string[] = [];
 
-                    const shuffled = mockLocations.sort(() => Math.random() - 0.5);
-                    const locationNames = shuffled.map((name) => name + '...');
+                    if (allocError) {
+                        console.error('[GeneratingQuestions] Error fetching locations:', allocError);
+                        // Fallback to generic UK cities if specific query fails (e.g. table issue)
+                        locationNames = ['London', 'Manchester', 'Birmingham', 'Glasgow', 'Liverpool', 'Bristol', 'Edinburgh', 'Leeds'].map(n => n + '...');
+                    } else if (allocationData && allocationData.length > 0) {
+                        // Extract names
+                        locationNames = allocationData
+                            .map((item: any) => item.populated_places?.name1)
+                            .filter((n: any) => n)
+                            .map((n: string) => n + '...');
 
-                    console.log('[GeneratingQuestions] Location names fetched:', locationNames.length);
-
-                    // Interleave locations into queue
-                    const insertIndex = Math.min(
-                        Math.max(0, INITIAL_TITLES - initialConsumed),
-                        streamQueue.length
-                    );
-                    const front = streamQueue.slice(0, insertIndex);
-                    const tail = streamQueue.slice(insertIndex);
-
-                    const interleaved: string[] = [];
-                    const maxTakeFromTail = Math.max(0, Math.min(tail.length, Math.floor((shuffled.length + tail.length) / 2)));
-                    let iPlace = 0;
-                    let iTail = 0;
-
-                    while (iPlace < shuffled.length || iTail < maxTakeFromTail) {
-                        if (iPlace < shuffled.length) {
-                            interleaved.push(locationNames[iPlace++]);
-                        }
-                        if (iTail < maxTakeFromTail) {
-                            interleaved.push(tail[iTail++]);
-                        }
+                        console.log('[GeneratingQuestions] Fetched real locations:', locationNames.length);
+                    } else {
+                        console.log('[GeneratingQuestions] No locations found for user, using generic');
+                        locationNames = ['London', 'Manchester', 'Birmingham', 'Liverpool'].map(n => n + '...');
                     }
 
-                    const remainingTail = tail.slice(iTail);
-                    const newQueue = front.concat(interleaved, remainingTail);
+                    if (locationNames.length > 0) {
+                        const shuffled = locationNames.sort(() => Math.random() - 0.5);
 
-                    streamQueue.length = 0;
-                    streamQueue.push(...newQueue);
+                        // Interleave locations into queue
+                        const insertIndex = Math.min(
+                            Math.max(0, INITIAL_TITLES - initialConsumed),
+                            streamQueue.length
+                        );
+                        const front = streamQueue.slice(0, insertIndex);
+                        const tail = streamQueue.slice(insertIndex);
 
-                    console.log('[GeneratingQuestions] Interleaved locations, queue length:', streamQueue.length);
+                        const interleaved: string[] = [];
+                        const maxTakeFromTail = Math.max(0, Math.min(tail.length, Math.floor((shuffled.length + tail.length) / 2)));
+                        let iPlace = 0;
+                        let iTail = 0;
+
+                        while (iPlace < shuffled.length || iTail < maxTakeFromTail) {
+                            if (iPlace < shuffled.length) {
+                                interleaved.push(shuffled[iPlace++]);
+                            }
+                            if (iTail < maxTakeFromTail) {
+                                interleaved.push(tail[iTail++]);
+                            }
+                        }
+
+                        const remainingTail = tail.slice(iTail);
+                        const newQueue = front.concat(interleaved, remainingTail);
+
+                        streamQueue.length = 0;
+                        streamQueue.push(...newQueue);
+
+                        console.log('[GeneratingQuestions] Interleaved locations, queue length:', streamQueue.length);
+                    }
+
                 } catch (err) {
                     console.error('[GeneratingQuestions] Error fetching locations:', err);
                 }

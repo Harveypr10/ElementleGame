@@ -68,9 +68,8 @@ export function ThemedText({
         <StyledText
             className={className}
             style={[
-                { color },
+                { color, fontSize: finalFontSize },
                 style,
-                { fontSize: finalFontSize }
             ]}
             {...props}
         >

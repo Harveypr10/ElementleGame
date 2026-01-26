@@ -40,7 +40,7 @@ export function HomeCard({
     return (
         <StyledTouchableOpacity
             testID={testID}
-            className={`w-full rounded-3xl flex-row items-center justify-between px-6 overflow-hidden mb-4 ${className}`}
+            className={`w-full rounded-3xl flex-row items-center justify-between px-5 overflow-hidden mb-4 ${className}`}
             style={{ backgroundColor, height, ...getCardShadow('md') }}
             onPress={onPress}
             activeOpacity={0.9}
@@ -60,7 +60,7 @@ export function HomeCard({
             {icon && (
                 <StyledImage
                     source={icon}
-                    className="w-24 h-24 ml-4"
+                    className="w-24 h-24 ml-2"
                     resizeMode="contain"
                     style={iconStyle}
                 />

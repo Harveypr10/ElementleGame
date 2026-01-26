@@ -57,70 +57,148 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
             return { success: true, migratedGames: 0 };
         }
 
-        // Retrieve guest game data
-        const guestDataStr = await AsyncStorage.getItem(GUEST_GAMES_KEY);
-        if (!guestDataStr) {
+        console.log('[GuestMigration] starting migration scan...');
+
+        // 1. Scan all keys for guest games
+        const allKeys = await AsyncStorage.getAllKeys();
+        const guestGameKeys = allKeys.filter(key => key.startsWith('guest_game_'));
+
+        console.log(`[GuestMigration] Found ${guestGameKeys.length} guest game keys`);
+
+        if (guestGameKeys.length === 0) {
             console.log('[GuestMigration] No guest data to migrate');
             await AsyncStorage.setItem(MIGRATION_COMPLETE_KEY, 'true');
             return { success: true, migratedGames: 0 };
         }
 
-        const guestGames: GuestGameData[] = JSON.parse(guestDataStr);
-        console.log(`[GuestMigration] Found ${guestGames.length} guest games to migrate`);
-
         let migratedCount = 0;
 
-        // Migrate each game
-        for (const game of guestGames) {
+        // 2. Iterate and migrate each game
+        for (const key of guestGameKeys) {
             try {
-                const table = game.mode === 'REGION' ? 'game_attempts_region' : 'game_attempts_user';
+                console.log(`[GuestMigration] Processing key: ${key}`);
 
-                // Check if this game already exists for the user
-                const { data: existingAttempt } = await supabase
-                    .from(table)
-                    .select('id')
-                    .eq('user_id', userId)
-                    .eq('puzzle_date', game.puzzleDate)
-                    .maybeSingle();
-
-                if (existingAttempt) {
-                    console.log(`[GuestMigration] Skipping ${game.puzzleDate} - already exists`);
+                // Key format: guest_game_{mode}_{puzzleId}
+                // e.g. guest_game_REGION_123 or guest_game_USER_456
+                const parts = key.split('_');
+                // parts[0]=guest, parts[1]=game, parts[2]=MODE, parts[3]=ID
+                if (parts.length < 4) {
+                    console.log(`[GuestMigration] Skipping ${key}: Invalid format parts=${parts.length}`);
                     continue;
                 }
 
-                // Insert game attempt
-                const { error: insertError } = await supabase
+                const mode = parts[2] as 'REGION' | 'USER';
+                // puzzleId might be numeric but AsyncStorage keys are strings
+                const puzzleIdRaw = parts[3];
+
+                const storedValue = await AsyncStorage.getItem(key);
+                if (!storedValue) {
+                    console.log(`[GuestMigration] Skipping ${key}: No stored value`);
+                    continue;
+                }
+
+                const gameData = JSON.parse(storedValue);
+                // Expected: { result, guesses: string[], updatedAt }
+
+                if (!gameData.guesses || !Array.isArray(gameData.guesses)) {
+                    console.log(`[GuestMigration] Invalid data for ${key}`, gameData);
+                    continue;
+                }
+
+                // Determine table and puzzle Link
+                const table = mode === 'REGION' ? 'game_attempts_region' : 'game_attempts_user';
+                const puzzleIdField = mode === 'REGION' ? 'allocated_region_id' : 'allocated_user_id';
+                const guessesTable = mode === 'REGION' ? 'guesses_region' : 'guesses_user';
+
+                // 1. Get Date
+                let puzzleDate = gameData.puzzleDate;
+                if (!puzzleDate) {
+                    console.log(`[GuestMigration] Date missing in data, fetching from DB for ${puzzleIdRaw}...`);
+                    const allocationTable = mode === 'REGION' ? 'questions_allocated_region' : 'questions_allocated_user';
+                    const { data: allocData } = await supabase.from(allocationTable).select('puzzle_date').eq('id', puzzleIdRaw).single();
+                    puzzleDate = allocData?.puzzle_date;
+                }
+                if (!puzzleDate) {
+                    console.log(`[GuestMigration] Skipping ${key}: Could not resolve puzzleDate`);
+                    continue;
+                }
+
+                // 2. Check existence
+                console.log(`[GuestMigration] Checking existence for user=${userId} puzzle=${puzzleIdRaw} in ${table}...`);
+                const { data: existing } = await supabase
+                    .from(table)
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq(puzzleIdField, puzzleIdRaw)
+                    .maybeSingle();
+
+                if (existing) {
+                    console.log(`[GuestMigration] Skipping ${key}: Attempt exists (id=${existing.id})`);
+                    // If it exists, we assume migration is done for this one. 
+                    await AsyncStorage.removeItem(key);
+                    continue;
+                }
+
+                console.log(`[GuestMigration] Inserting attempt for ${key} date=${puzzleDate} result=${gameData.result}`);
+
+                // 3. Insert Attempt
+                const { data: newAttempt, error: insertError } = await supabase
                     .from(table)
                     .insert({
                         user_id: userId,
-                        puzzle_date: game.puzzleDate,
-                        result: game.result === 'in_progress' ? null : game.result,
-                        num_guesses: game.numGuesses || game.guesses.length,
-                        guesses: game.guesses,
-                        created_at: (game as any).savedAt || new Date().toISOString(),
-                        updated_at: new Date().toISOString(),
-                    });
+                        [puzzleIdField]: parseInt(puzzleIdRaw),
+                        // puzzle_date removed: column does not exist on attempts table
+                        result: gameData.result === 'in_progress' ? null : gameData.result,
+                        num_guesses: gameData.guesses.length,
+                        started_at: gameData.updatedAt || new Date().toISOString(),
+                        completed_at: gameData.result ? (gameData.updatedAt || new Date().toISOString()) : null,
+                        digits: '8', // Defaulting to 8, unable to know for sure from guest data unless saved
+                        streak_day_status: gameData.result === 'won' ? 1 : null // Set streak legacy status
+                    })
+                    .select('id')
+                    .single();
 
-                if (insertError) {
-                    console.error(`[GuestMigration] Error migrating game ${game.puzzleDate}:`, insertError);
-                } else {
-                    migratedCount++;
-                    console.log(`[GuestMigration] Migrated game ${game.puzzleDate}`);
+                if (insertError || !newAttempt) {
+                    console.error(`[GuestMigration] Failed to insert attempt ${key}`, insertError);
+                    continue;
                 }
-            } catch (gameError) {
-                console.error('[GuestMigration] Error migrating individual game:', gameError);
+
+                console.log(`[GuestMigration] Attempt created: ${newAttempt.id}. Inserting guesses...`);
+
+                // 4. Insert Guesses
+                if (gameData.guesses.length > 0) {
+                    console.log(`[GuestMigration] Inserting ${gameData.guesses.length} guesses for attempt ${newAttempt.id}`);
+                    const guessRows = gameData.guesses.map((g: string) => ({
+                        game_attempt_id: newAttempt.id,
+                        guess_value: g,
+                        guessed_at: gameData.updatedAt || new Date().toISOString() // Ensure timestamp is present
+                    }));
+
+                    const { error: guessInsertError } = await supabase.from(guessesTable).insert(guessRows);
+                    if (guessInsertError) {
+                        console.error(`[GuestMigration] Failed to insert guesses for ${newAttempt.id}`, guessInsertError);
+                    } else {
+                        console.log(`[GuestMigration] Successfully inserted guesses for ${newAttempt.id}`);
+                    }
+                } else {
+                    console.log(`[GuestMigration] No guesses to insert for ${key}`);
+                }
+
+                migratedCount++;
+                // Remove key
+                await AsyncStorage.removeItem(key);
+                console.log(`[GuestMigration] Removed key ${key}`);
+            } catch (innerError) {
+                console.error(`[GuestMigration] processing error for ${key}`, innerError);
             }
         }
 
         // Mark migration as complete
         await AsyncStorage.setItem(MIGRATION_COMPLETE_KEY, 'true');
 
-        // Optionally clear guest data after successful migration
-        await AsyncStorage.removeItem(GUEST_GAMES_KEY);
-
-        console.log(`[GuestMigration] Migration complete: ${migratedCount}/${guestGames.length} games migrated`);
-
+        console.log(`[GuestMigration] Migration complete: ${migratedCount} games migrated`);
         return { success: true, migratedGames: migratedCount };
+
     } catch (error: any) {
         console.error('[GuestMigration] Migration failed:', error);
         return {

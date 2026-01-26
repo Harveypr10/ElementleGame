@@ -227,22 +227,57 @@ export function useGameEngine({
                 statsData.region = userRegion;
             }
 
-            // Upsert with proper conflict resolution
-            // For REGION mode: conflict on (user_id, region)
-            // For USER mode: conflict on (user_id)
-            const { error: upsertError } = await supabase
-                .from(STATS_TABLE)
-                .upsert(statsData, {
-                    onConflict: mode === 'REGION' ? 'user_id,region' : 'user_id'
-                });
+            // Manual Upsert Logic to avoid unique constraint race conditions
+            const matchCriteria = mode === 'REGION' ? { user_id: user.id, region: userRegion } : { user_id: user.id };
 
-            if (upsertError) {
-                console.error('[GameEngine] Failed to upsert stats:', upsertError);
-                return 0; // Return 0 streak on error
-            } else {
-                console.log(`[GameEngine] Updated ${STATS_TABLE} for user ${user.id}`, statsData);
-                return currentStreak; // Return the new current streak for badge checks
+            // 1. Try to find existing record
+            const { data: existingStats, error: fetchError } = await supabase
+                .from(STATS_TABLE)
+                .select('id')
+                .match(matchCriteria)
+                .maybeSingle();
+
+            if (fetchError) {
+                console.error('[GameEngine] Error checking existing stats:', fetchError);
+                return 0;
             }
+
+            if (existingStats) {
+                // 2. Update existing
+                const { error: updateError } = await supabase
+                    .from(STATS_TABLE)
+                    .update(statsData)
+                    .eq('id', existingStats.id);
+
+                if (updateError) {
+                    console.error('[GameEngine] Failed to update stats:', updateError);
+                    return 0;
+                }
+            } else {
+                // 3. Insert new
+                // Remove 'id' if present in statsData (it shouldn't be)
+                const { error: insertError } = await supabase
+                    .from(STATS_TABLE)
+                    .insert(statsData);
+
+                if (insertError) {
+                    // If insert fails (maybe race condition), try update one last time
+                    console.error('[GameEngine] Failed to insert stats:', insertError);
+                    // Fallback check
+                    if (insertError.code === '23505') { // Duplicate key
+                        const { error: retryUpdate } = await supabase
+                            .from(STATS_TABLE)
+                            .update(statsData)
+                            .match(matchCriteria);
+                        if (retryUpdate) return 0;
+                    } else {
+                        return 0;
+                    }
+                }
+            }
+
+            console.log(`[GameEngine] Updated ${STATS_TABLE} for user ${user.id}`, statsData);
+            return currentStreak;
         } catch (error) {
             console.error('[GameEngine] Failed to recalculate user stats:', error);
             return 0; // Return 0 streak on error
@@ -255,14 +290,14 @@ export function useGameEngine({
 
     // Load game state
     useEffect(() => {
-        if ((!user && !isGuest) || !puzzleId) return;
+        if (!puzzleId) return;
 
         const loadGame = async () => {
             try {
                 setGameState('loading');
 
                 // 1. Check for existing attempt
-                if (isGuest) {
+                if (!user) {
                     const savedState = await AsyncStorage.getItem(`guest_game_${mode}_${puzzleId}`);
                     if (savedState) {
                         const parsed = JSON.parse(savedState);
@@ -510,14 +545,18 @@ export function useGameEngine({
             hapticsManager.success(); // Victory haptic
             soundManager.play('game_win'); // Victory sound
             setGameState('won');
-            // Show interstitial ad after delay
-            setTimeout(() => showInterstitialAd(), 3000);
+            // Show interstitial ad after delay (SKIP FOR GUESTS - they watched one at start)
+            if (user) {
+                setTimeout(() => showInterstitialAd(), 3000);
+            }
         } else if (newGuesses.length >= maxGuesses) {
             hapticsManager.error(); // Lost game haptic
             soundManager.play('game_lose'); // Lost game sound
             setGameState('lost');
-            // Show interstitial ad after delay
-            setTimeout(() => showInterstitialAd(), 3000);
+            // Show interstitial ad after delay (SKIP FOR GUESTS)
+            if (!isGuest) {
+                setTimeout(() => showInterstitialAd(), 3000);
+            }
         } else {
             hapticsManager.warning(); // Incorrect guess but game continues
             soundManager.play('guess_entered'); // Guess submitted sound
@@ -525,24 +564,26 @@ export function useGameEngine({
 
         // 2. Persist to DB
         if (!user) {
-            if (isGuest) {
-                try {
-                    // Guest logic
-                    const canonicalGuesses = newGuesses.map(g => {
-                        const rawDigits = g.map(c => c.digit).join('');
-                        return parseUserDateWithContext(rawDigits, dateFormat, answerDateCanonical) || rawDigits;
-                    });
+            try {
+                // Guest logic
+                const canonicalGuesses = newGuesses.map(g => {
+                    const rawDigits = g.map(c => c.digit).join('');
+                    return parseUserDateWithContext(rawDigits, dateFormat, answerDateCanonical) || rawDigits;
+                });
 
-                    const stateToSave = {
-                        result: isWin ? 'won' : (newGuesses.length >= maxGuesses ? 'lost' : null),
-                        guesses: canonicalGuesses,
-                        updatedAt: new Date().toISOString()
-                    };
+                const stateToSave = {
+                    puzzleId, // ID for allocation table link
+                    puzzleDate: answerDateCanonical, // Canonical date for DB
+                    result: isWin ? 'won' : (newGuesses.length >= maxGuesses ? 'lost' : null),
+                    guesses: canonicalGuesses,
+                    updatedAt: new Date().toISOString()
+                };
 
-                    await AsyncStorage.setItem(`guest_game_${mode}_${puzzleId}`, JSON.stringify(stateToSave));
-                } catch (e) {
-                    console.error("Failed to save guest game", e);
-                }
+                await AsyncStorage.setItem(`guest_game_${mode}_${puzzleId}`, JSON.stringify(stateToSave));
+                // Add console log to verify saving
+                console.log(`[GameEngine] Saved guest game data for ${mode} ${puzzleId}`, stateToSave);
+            } catch (e) {
+                console.error("Failed to save guest game", e);
             }
             return;
         }
@@ -589,6 +630,7 @@ export function useGameEngine({
                     .update({
                         result: isWin ? 'won' : 'lost',
                         num_guesses: newGuesses.length,
+                        streak_day_status: 1, // Mark as played
                         completed_at: new Date().toISOString()
                     })
                     .eq('id', currentAttemptId);

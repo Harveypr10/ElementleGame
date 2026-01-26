@@ -1,4 +1,4 @@
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { styled } from 'nativewind';
 import { ThemedView } from '../components/ThemedView';
@@ -18,6 +18,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ConversionPromptModal } from '../components/ConversionPromptModal';
 import mobileAds from 'react-native-google-mobile-ads';
 import { initializeRevenueCat } from '../lib/RevenueCat';
+import { SplashScreen } from '../components/SplashScreen';
 import '../lib/typography'; // Global Font Patch
 
 /* 
@@ -44,52 +45,77 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     const segments = useSegments();
     const router = useRouter();
 
-    useEffect(() => {
-        if (loading) return;
+    // 1. Minimum Splash Time State
+    const [isSplashMinTimeMet, setSplashMinTimeMet] = useState(false);
 
-        const inAuthGroup = segments[0] === '(auth)';
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setSplashMinTimeMet(true);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
+
+    // 2. Logic to determine if splash should show
+    const showSplash = loading || !isSplashMinTimeMet;
+
+    // 3. Navigation Side Effects
+    useEffect(() => {
+        if (showSplash) return; // Wait until ready
+
+        const inAuthGroup = segments.includes('(auth)') || segments.includes('login');
+        const inTabsGroup = segments[0] === '(tabs)';
         const inPersonaliseFlow =
             segments.includes('personalise') ||
             segments.includes('generating-questions') ||
             segments.includes('category-selection') ||
             segments.includes('subscription') ||
             segments.includes('manage-subscription') ||
-            segments.includes('subscription-flow');
+            segments.includes('subscription-flow') ||
+            segments.includes('onboarding');
 
-        console.log('[NavGuard] Session:', !!session, 'Guest:', isGuest, 'Segments:', segments);
+        const inGameFlow = segments[0] === 'game' || segments[0] === 'game-result';
+        const inRootIndex = segments.length === 0 || segments[0] === 'index';
 
-        if (!session && !isGuest && !inAuthGroup) {
-            // Not signed in, not guest, and not in auth group -> Redirect to onboarding
-            setTimeout(() => {
+        console.log('[NavGuard] Session:', !!session, 'Guest:', isGuest, 'Segments:', segments, 'InAuth:', inAuthGroup);
+
+        // Guests should NOT access tabs/home
+        if (isGuest && inTabsGroup) {
+            console.log('[NavGuard] Guest tried to access tabs -> Redirecting to onboarding');
+            router.replace('/(auth)/onboarding');
+            return;
+        }
+
+        if (!session && !isGuest && !inAuthGroup && !inGameFlow) {
+            if (!inRootIndex) {
+                console.log('[NavGuard] Unauthorized access -> Redirecting to onboarding');
                 router.replace('/(auth)/onboarding');
-            }, 0);
+            }
         } else if (session) {
-            // User is authenticated
             const completedFirstLogin = hasCompletedFirstLogin();
 
-            // Only redirect to personalise if NOT already in auth group
             if (!completedFirstLogin && !inAuthGroup) {
                 console.log('[NavGuard] User needs to complete profile setup');
-                setTimeout(() => {
-                    router.replace('/(auth)/personalise');
-                }, 0);
+                router.replace('/(auth)/personalise');
             } else if (inAuthGroup && completedFirstLogin && !inPersonaliseFlow) {
-                // User is in auth screens but has completed setup, redirect to app
                 console.log('[NavGuard] Redirecting authenticated user to app');
                 router.replace('/(tabs)');
             }
         }
-    }, [session, isGuest, loading, segments, hasCompletedFirstLogin]);
+    }, [session, isGuest, showSplash, segments, hasCompletedFirstLogin]);
 
-    if (loading) {
-        return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }}>
-                <ActivityIndicator size="large" color="#3b82f6" />
-            </View>
-        );
-    }
+    return (
+        <View style={{ flex: 1 }}>
+            {/* Always render children (Navigator) so router can work */}
+            {children}
 
-    return <>{children}</>;
+            {/* Overlay Splash Screen */}
+            {showSplash && (
+                <View style={{ ...StyleSheet.absoluteFillObject, zIndex: 99999 }}>
+                    <SplashScreen onComplete={() => { }} />
+                </View>
+            )}
+        </View>
+    );
 }
 
 export default function Layout() {
@@ -120,12 +146,27 @@ export default function Layout() {
         initializeRevenueCat();
     }, []);
 
+    // Global Splash Screen State
+    const [isSplashComplete, setSplashComplete] = useState(false);
+    const [isReady, setIsReady] = useState(false);
+
+    // Check readiness (Fonts + AdMob + Auth loaded)
+    // We access Auth loading state here by NOT rendering AuthProvider yet? 
+    // Wait, AuthProvider is inside. We can't access useAuth() here.
+    // Solution: We keep the Splash logic simple here (Fonts/AdMob) AND 
+    // we make NavigationGuard handle the "Auth Loading" by showing Splash too?
+    // OR we just wait for Fonts/AdMob here.
+
+    // Better approach:
+    // Render the App, but overlay Splash until everything is ready.
+    // However, AuthProvider needs to mount to check auth.
+    // So we must render children.
+
+    // Let's modify NavigationGuard to show SplashScreen while loading.
+
     if (!fontsLoaded || !adMobInitialized) {
-        return (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' }}>
-                <ActivityIndicator size="large" color="#3b82f6" />
-            </View>
-        );
+        // Show Splash while system dependencies load
+        return <SplashScreen onComplete={() => { }} />;
     }
 
     return (
@@ -174,3 +215,5 @@ export default function Layout() {
         </ErrorBoundary>
     );
 }
+
+

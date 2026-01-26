@@ -149,14 +149,17 @@ export default function SettingsScreen() {
                     className="flex-row items-center justify-between px-4 py-3 border-b"
                     style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
                 >
-                    <StyledTouchableOpacity
-                        onPress={() => router.back()}
-                        className="w-10 h-10 items-center justify-center"
-                    >
-                        <ChevronLeft size={28} color={iconColor} />
-                    </StyledTouchableOpacity>
-                    <ThemedText style={{ fontSize: 24 * textScale }} className="font-n-bold">Settings</ThemedText>
-                    <StyledView className="w-10" />
+                    <StyledView className="flex-row items-center justify-center relative flex-1">
+                        <StyledTouchableOpacity
+                            onPress={() => router.back()}
+                            className="absolute left-0 z-10 p-2"
+                        >
+                            <ChevronLeft size={28} color={iconColor} />
+                        </StyledTouchableOpacity>
+                        <ThemedText size="2xl" className="font-n-bold text-center">
+                            Settings
+                        </ThemedText>
+                    </StyledView>
                 </StyledView>
             </SafeAreaView>
 

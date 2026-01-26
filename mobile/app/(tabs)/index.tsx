@@ -22,10 +22,10 @@ import { GoProButton } from '../../components/GoProButton';
 import { AdBanner } from '../../components/AdBanner';
 import { AdBannerContext } from '../../contexts/AdBannerContext';
 
-// Import hamster images - using PNG versions to avoid React Native freeze errors with SVG
-const HistorianHamsterBlue = require('../../assets/Historian-Hamster-Blue_1760977182002.png');
-const LibrarianHamsterYellow = require('../../assets/Librarian-Hamster-Yellow_1760977182002.png');
-const MathsHamsterGreen = require('../../assets/Maths-Hamster-Green_1760977182003.png');
+// Import hamster images - trying UI folder versions which appear to be transparent
+const HistorianHamsterBlue = require('../../assets/ui/Historian-Hamster.png');
+const LibrarianHamsterYellow = require('../../assets/ui/Librarian-Hamster-Yellow.png');
+const MathsHamsterGreen = require('../../assets/ui/Maths-Hamster.png');
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -295,33 +295,20 @@ export default function HomeScreen() {
         const guesses = isRegion ? guessesRegion : guessesUser;
         const stats = isRegion ? statsRegionData : statsUserData;
 
-        // Logic for Daily Puzzle Subtitle
-        let dailySubtitle = todayStatus === 'solved'
-            ? `Solved in ${guesses} guesses`
-            : "Good luck!";
-
-        if (todayStatus === 'solved' && stats.current_streak >= 2) {
-            dailySubtitle = `Solved in ${guesses} guesses - Streak extended to ${stats.current_streak}`;
-        }
-
-        // Logic for Archive Subtitle
-        const archiveSubtitle = `${totalGames} total ${totalGames === 1 ? 'game' : 'games'} played`;
-
-        // Logic for Stats Subtitle
-        let statsSubtitle = "View your performance history";
-        if (stats.games_played > 0) {
-            const winRate = stats.games_played > 0 ? ((stats.games_won / stats.games_played) * 100).toFixed(0) : 0;
-
-            // Calculate average guesses for WON games
-            const totalGuesses = calculateTotalGuesses(stats.guess_distribution, stats.games_won, stats.games_played);
-            const avgGuesses = stats.games_won > 0 ? (totalGuesses / stats.games_won).toFixed(1) : "0.0";
-
-            statsSubtitle = `You've won ${winRate}% of games, with a ${avgGuesses} guess average`;
-        }
-
         // Colors from Web App
         const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
         const archiveColor = isRegion ? '#FFD429' : '#fdab58'; // Yellow (Region) vs Orange (User)
+        const statsColor = isRegion ? '#A4DB57' : '#93cd78';
+
+        // Stats Box Colors
+        const playBoxColor = isRegion ? '#7099d0' : '#5babb6';
+        const archiveBoxColor = isRegion ? '#e5be24' : '#e3994f';
+        const statsBoxColor = isRegion ? '#93c54e' : '#84b86c';
+
+        // Stats Calculations
+        const winRate = stats.games_played > 0 ? ((stats.games_won / stats.games_played) * 100).toFixed(0) : "0";
+        const totalGuesses = calculateTotalGuesses(stats.guess_distribution, stats.games_won, stats.games_played);
+        const avgGuesses = stats.games_won > 0 ? (totalGuesses / stats.games_won).toFixed(1) : "0.0";
 
         // Percentile Logic
         const dayOfMonth = new Date().getDate();
@@ -340,7 +327,6 @@ export default function HomeScreen() {
             if (isRegion) {
                 percentileMessage = "Play the archive to boost your ranking";
             } else {
-                // User mode fallback - always show a message
                 percentileMessage = "Play the archive to boost your ranking";
             }
         }
@@ -371,46 +357,79 @@ export default function HomeScreen() {
                     <HomeCard
                         testID="home-card-play"
                         title={todayStatus === 'solved' ? "Today's puzzle solved!" : "Play Today"}
-                        subtitle={dailySubtitle}
+                        subtitle={todayStatus !== 'solved' ? "Good luck!" : undefined}
                         icon={playIcon}
                         backgroundColor={playColor}
                         onPress={() => {
                             incrementInteraction();
                             router.push(isRegion ? '/game/REGION/today' : '/game/USER/next');
                         }}
-                        height={160}
-                        iconStyle={{ width: 77, height: 77 }} // 20% smaller than 96
-                    />
+                        height={144}
+                        iconStyle={{ width: 89, height: 89 }} // Increased 15% (77->89)
+                    >
+                        {todayStatus === 'solved' && (
+                            <View className="flex-row gap-2 mt-1 w-full">
+                                {/* Solved In Box */}
+                                <View className="rounded-xl p-2 items-center justify-center" style={{ backgroundColor: playBoxColor, width: 95 }}>
+                                    <ThemedText className="text-white font-n-medium text-sm">Solved in</ThemedText>
+                                    <ThemedText className="text-white font-n-bold text-xl">{guesses}</ThemedText>
+                                </View>
+                                {/* Streak Box */}
+                                <View className="rounded-xl p-2 items-center justify-center" style={{ backgroundColor: playBoxColor, width: 95 }}>
+                                    <ThemedText className="text-white font-n-medium text-sm">Streak</ThemedText>
+                                    <ThemedText className="text-white font-n-bold text-xl">{stats.current_streak}</ThemedText>
+                                </View>
+                            </View>
+                        )}
+                    </HomeCard>
 
                     {/* 2. ARCHIVE BUTTON */}
                     <HomeCard
                         testID="home-card-archive"
                         title="Archive"
-                        subtitle={archiveSubtitle}
                         icon={archiveIcon}
                         backgroundColor={archiveColor}
                         onPress={() => {
                             incrementInteraction();
                             router.push('/archive');
                         }}
-                        height={100}
-                        iconStyle={{ width: 62, height: 62 }} // 35% smaller than 96
-                    />
+                        height={120}
+                        iconStyle={{ width: 78, height: 78 }}
+                    >
+                        {/* Games Played Box - Under Title */}
+                        <View className="mt-2 rounded-xl p-2 items-center justify-center" style={{ backgroundColor: archiveBoxColor, width: 135 }}>
+                            <ThemedText className="text-white font-n-medium text-sm">Games played</ThemedText>
+                            <ThemedText className="text-white font-n-bold text-xl">{totalGames}</ThemedText>
+                        </View>
+                    </HomeCard>
 
-                    {/* 3. STATS BUTTON (Full Width) */}
+                    {/* 3. STATS BUTTON */}
                     <HomeCard
                         testID="home-card-stats"
                         title={isRegion ? "UK Stats" : "Personal Stats"}
-                        subtitle={statsSubtitle}
                         icon={statsIcon}
-                        backgroundColor={isRegion ? '#A4DB57' : '#93cd78'}
+                        backgroundColor={statsColor}
                         onPress={() => {
                             incrementInteraction();
                             router.push(`/stats?mode=${isRegion ? 'REGION' : 'USER'}`);
                         }}
-                        height={100}
-                        iconStyle={{ width: 62, height: 62 }} // 35% smaller than 96
-                    />
+                        height={120} // Increased by 20% (100 -> 120)
+                        iconStyle={{ width: 78, height: 78 }}
+                    >
+                        {/* Stats Boxes */}
+                        <View className="flex-row gap-2 mt-1 w-full">
+                            {/* % Won Box */}
+                            <View className="rounded-xl p-1.5 items-center justify-center" style={{ backgroundColor: statsBoxColor, width: 95 }}>
+                                <ThemedText className="text-white font-n-medium text-sm">% Won</ThemedText>
+                                <ThemedText className="text-white font-n-bold text-xl">{winRate}%</ThemedText>
+                            </View>
+                            {/* Guess Avg Box */}
+                            <View className="rounded-xl p-1.5 items-center justify-center" style={{ backgroundColor: statsBoxColor, width: 95 }}>
+                                <ThemedText className="text-white font-n-medium text-sm">Guess avg</ThemedText>
+                                <ThemedText className="text-white font-n-bold text-xl">{avgGuesses}</ThemedText>
+                            </View>
+                        </View>
+                    </HomeCard>
                 </View>
             </ScrollView>
         );

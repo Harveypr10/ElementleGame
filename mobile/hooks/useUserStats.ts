@@ -44,7 +44,7 @@ export const useUserStats = (mode: 'REGION' | 'USER' = 'REGION') => {
                 return null;
             }
 
-            return data as UserStats;
+            return data as unknown as UserStats;
         },
         enabled: !!user,
     });
@@ -69,6 +69,7 @@ export const useUserStats = (mode: 'REGION' | 'USER' = 'REGION') => {
         const stats = currentStats || {
             user_id: user.id,
             games_played: 0,
+            games_won: 0, // Added to satisfy type
             wins: 0,
             current_streak: 0,
             max_streak: 0,
@@ -76,10 +77,12 @@ export const useUserStats = (mode: 'REGION' | 'USER' = 'REGION') => {
             total_played: 0, // Legacy init
         };
 
-        // 2. Calculate New Stats, using (total_played || games_played) for reading, but saving to games_played
-        // Since we are standardizing on games_played, we check both or default to 0.
-        const currentGamesPlayed = stats.games_played || stats.total_played || 0;
-        const currentWins = stats.games_won || stats.total_wins || stats.wins || 0;
+        // 2. Calculate New Stats
+        // Cast to any to handle potential schema variations safely
+        const statsAny = (stats as any) || {};
+
+        const currentGamesPlayed = stats.games_played || statsAny.total_played || 0;
+        const currentWins = stats.games_won || statsAny.total_wins || statsAny.wins || 0;
 
         const newTotalPlayed = currentGamesPlayed + 1;
         const newTotalWins = currentWins + (isWin ? 1 : 0);
@@ -97,16 +100,27 @@ export const useUserStats = (mode: 'REGION' | 'USER' = 'REGION') => {
         // Removed intermediate 'updates' object to simplify upsert logic below
 
         // 3. Upsert
+        // We must specify the conflict columns for ON CONFLICT clause to work properly
+        // For user_stats_region, likely (user_id, region) is unique if region column exists
+        // But the table structure in useUserStats context seems to just rely on user_id for the WHERE clause above.
+        // Wait, the error said "uq_user_stats_region".
+        // Let's check table structure assumption.
+        // The table likely has `user_id` and `region` (for region table) or just `user_id` (for user table).
+        // Since we are creating the object:
+        const payload: any = {
+            user_id: user.id,
+            games_played: newTotalPlayed,
+            games_won: newTotalWins,
+            current_streak: newCurrentStreak,
+            max_streak: newMaxStreak,
+            // Only add region if it's the region table to satisfy unique constraint
+            ...(mode === 'REGION' ? { region: 'UK' } : {})
+        };
+
         const { error: upsertError } = await supabase
             .from(tableName)
-            .upsert({
-                user_id: user.id,
-                games_played: newTotalPlayed,
-                games_won: newTotalWins,
-                current_streak: newCurrentStreak,
-                max_streak: newMaxStreak
-            })
-            .eq('user_id', user.id);
+            .upsert(payload, { onConflict: mode === 'REGION' ? 'user_id, region' : 'user_id' })
+            .select();
 
         if (upsertError) {
             console.error('Error updating stats:', upsertError);

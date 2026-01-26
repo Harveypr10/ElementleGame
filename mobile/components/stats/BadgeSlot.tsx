@@ -39,9 +39,11 @@ interface BadgeSlotProps {
     badge: any | null; // UserBadgeWithDetails logic
     size?: 'sm' | 'md' | 'lg' | 'xl';
     isAnimating?: boolean;
+    minimal?: boolean;
 }
 
-export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false }: BadgeSlotProps) {
+export function BadgeSlot(props: BadgeSlotProps) {
+    const { category, badge, size = 'xl', isAnimating = false } = props;
     const isEmpty = !badge;
 
     // Size mappings (approximate to web implementation scale)
@@ -143,6 +145,22 @@ export function BadgeSlot({ category, badge, size = 'xl', isAnimating = false }:
         transform: [{ scale }],
         opacity
     };
+
+    if (props.minimal) {
+        return (
+            <Animated.View style={[
+                { width: currentSize.width, height: currentSize.height },
+                animatedStyle,
+                { alignItems: 'center', justifyContent: 'center' }
+            ]}>
+                <StyledImage
+                    source={getBadgeImage()}
+                    style={{ width: currentSize.width, height: currentSize.height, opacity: isEmpty ? 0.3 : 1 }}
+                    resizeMode="contain"
+                />
+            </Animated.View>
+        );
+    }
 
     return (
         <StyledView className="flex-col items-center gap-1">

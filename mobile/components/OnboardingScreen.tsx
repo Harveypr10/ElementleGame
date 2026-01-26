@@ -10,6 +10,7 @@ interface OnboardingScreenProps {
     onPlay: () => void;
     onLogin: () => void;
     onSubscribe: () => void;
+    onDevReset?: () => void;
 }
 
 export function OnboardingScreen({
@@ -18,6 +19,7 @@ export function OnboardingScreen({
     onPlay,
     onLogin,
     onSubscribe,
+    onDevReset,
 }: OnboardingScreenProps) {
     const colorScheme = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
@@ -110,6 +112,18 @@ export function OnboardingScreen({
                 >
                     Puzzle date: {displayDate}
                 </ThemedText>
+
+                {/* Developer Tools - Temporary */}
+                {onDevReset && (
+                    <TouchableOpacity
+                        onPress={onDevReset}
+                        style={{ marginTop: 24, padding: 8 }}
+                    >
+                        <Text style={{ color: '#ef4444', fontSize: 12, opacity: 0.8, fontFamily: 'Nunito-Bold' }}>
+                            [DEV] Nuke User Data
+                        </Text>
+                    </TouchableOpacity>
+                )}
             </View>
         </ThemedView>
     );

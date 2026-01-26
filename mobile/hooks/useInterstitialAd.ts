@@ -5,7 +5,7 @@
  * Uses Google AdMob for real ads
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { useSubscription } from './useSubscription';
 import { AD_UNITS } from '../lib/adConfig';
@@ -14,6 +14,8 @@ export function useInterstitialAd() {
     const { isPro } = useSubscription();
     const interstitialRef = useRef<InterstitialAd | null>(null);
     const isLoadedRef = useRef(false);
+    const [isLoaded, setIsLoaded] = useState(false);
+    const [isClosed, setIsClosed] = useState(false);
 
     // Initialize interstitial ad
     useEffect(() => {
@@ -31,17 +33,22 @@ export function useInterstitialAd() {
         const unsubscribeLoaded = interstitial.addAdEventListener(AdEventType.LOADED, () => {
             console.log('[InterstitialAd] Ad loaded and ready to show');
             isLoadedRef.current = true;
+            setIsLoaded(true);
         });
 
         const unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
             console.log('[InterstitialAd] Ad closed, loading new ad...');
             isLoadedRef.current = false;
+            setIsLoaded(false);
+            setIsClosed(true);
+            setTimeout(() => setIsClosed(false), 500); // Reset closed state
             interstitial.load();
         });
 
         const unsubscribeError = interstitial.addAdEventListener(AdEventType.ERROR, (error) => {
             console.log('[InterstitialAd] Error loading ad:', error);
             isLoadedRef.current = false;
+            setIsLoaded(false);
         });
 
         // Load the ad
@@ -73,8 +80,9 @@ export function useInterstitialAd() {
         }
 
         console.log('[InterstitialAd] Showing interstitial ad');
+        setIsClosed(false); // Reset before showing
         interstitialRef.current.show();
     };
 
-    return { showAd };
+    return { showAd, isLoaded, isClosed };
 }

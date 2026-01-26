@@ -303,7 +303,11 @@ export default function LoginPage() {
 
     const handleBack = () => {
         if (step === 'email') {
-            router.back();
+            if (router.canGoBack()) {
+                router.back();
+            } else {
+                router.replace('/(auth)/onboarding'); // Fallback to Onboarding
+            }
         } else {
             setStep('email');
             setPassword('');

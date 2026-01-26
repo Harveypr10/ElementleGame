@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Dimensions, Animated } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { styled } from 'nativewind';
 import { ChevronLeft, ChevronRight, Settings, HelpCircle, ArrowLeft } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -45,7 +46,7 @@ interface DayStatus {
 }
 
 // Sub-component for individual month page
-const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Date, isActive: boolean, gameMode: string }) => {
+const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }: { monthDate: Date, isActive: boolean, gameMode: string, isScreenFocused: boolean }) => {
     const router = useRouter();
     const { user } = useAuth();
     const { darkMode } = useOptions();
@@ -56,12 +57,12 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode }: { monthDate: Da
     const [dataReady, setDataReady] = useState(false);
     const [monthData, setMonthData] = useState<Record<string, DayStatus>>({});
 
-    // Fetch data when active
+    // Fetch data when active and screen is focsued
     useEffect(() => {
-        if (isActive && !hasFetched) {
+        if (isActive && isScreenFocused && !hasFetched) {
             fetchData();
         }
-    }, [isActive, hasFetched, monthDate, gameMode]);
+    }, [isActive, hasFetched, monthDate, gameMode, isScreenFocused]);
 
 
     const themeColors = useMemo(() => {
@@ -260,6 +261,7 @@ export default function ArchiveScreen() {
     const { gameMode, textScale, darkMode } = useOptions();
     const flatListRef = useRef<FlatList>(null);
     const { user, isGuest } = useAuth();
+    const isFocused = useIsFocused();
 
     // Initial Loading State for MinDate
     const [initializing, setInitializing] = useState(true);
@@ -365,20 +367,57 @@ export default function ArchiveScreen() {
         if (!initializing && months.length > 0) {
             const todayIndex = months.length - 1;
             setActiveIndex(todayIndex);
-            // Use timeout to ensure FlatList is ready after data change
-            setTimeout(() => {
-                flatListRef.current?.scrollToIndex({
-                    index: todayIndex,
-                    animated: false
-                });
-            }, 100);
+
+            // Only scroll if screen is visible/focused
+            if (isFocused) {
+                // Use timeout to ensure FlatList is ready after data change
+                setTimeout(() => {
+                    flatListRef.current?.scrollToIndex({
+                        index: todayIndex,
+                        animated: false
+                    });
+                }, 100);
+            }
         }
-    }, [gameMode, months.length, initializing]);
+    }, [gameMode, months.length, initializing]); // Removed isFocused to prevent reset on every focus
+
+    // Keep activeIndexRef in sync for stable callbacks
+    const activeIndexRef = useRef(activeIndex);
+    useEffect(() => {
+        activeIndexRef.current = activeIndex;
+    }, [activeIndex]);
+
+    // Ensure we sync scroll position when returning to the screen
+    useFocusEffect(
+        React.useCallback(() => {
+            if (months.length > 0) {
+                setTimeout(() => {
+                    // Use ref to avoid dependency loop
+                    const targetIndex = activeIndexRef.current;
+                    flatListRef.current?.scrollToIndex({
+                        index: targetIndex,
+                        animated: false
+                    });
+                }, 100);
+            }
+        }, [months.length]) // Removed activeIndex from deps
+    );
+
+    // Sync initializing state to ref for stable callback usage
+    const initializingRef = useRef(initializing);
+    useEffect(() => {
+        initializingRef.current = initializing;
+    }, [initializing]);
 
     const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+        // Prevent updates during initialization or if empty
+        // Use ref because this callback is created once and never recreated
+        if (initializingRef.current) return;
+
         if (viewableItems && viewableItems.length > 0) {
             const index = viewableItems[0].index;
             if (index !== null && index !== undefined) {
+                // Debounce or immediate update? Immediate is fine if initialized.
                 setActiveIndex(index);
             }
         }
@@ -496,10 +535,16 @@ export default function ArchiveScreen() {
                         { length: width, offset: width * index, index }
                     )}
                     renderItem={({ item }) => (
-                        <MonthPage monthDate={item} isActive={true} gameMode={gameMode} />
+                        <MonthPage monthDate={item} isActive={true} gameMode={gameMode} isScreenFocused={isFocused} />
                     )}
                     onViewableItemsChanged={onViewableItemsChanged}
                     viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+                    onScrollToIndexFailed={(info) => {
+                        const wait = new Promise(resolve => setTimeout(resolve, 500));
+                        wait.then(() => {
+                            flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+                        });
+                    }}
                     showsHorizontalScrollIndicator={false}
                 />
 

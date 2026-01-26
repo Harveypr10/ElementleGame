@@ -13,7 +13,6 @@ type AuthContextType = {
     loading: boolean;
     signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
     signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>;
-    signInAnonymously: () => Promise<void>;
     signOut: () => Promise<void>;
     hasCompletedFirstLogin: () => boolean;
     markFirstLoginCompleted: () => Promise<void>;
@@ -27,7 +26,6 @@ const AuthContext = createContext<AuthContextType>({
     loading: true,
     signInWithEmail: async () => ({ error: null }),
     signUpWithEmail: async () => ({ error: null }),
-    signInAnonymously: async () => { },
     signOut: async () => { },
     hasCompletedFirstLogin: () => false,
     markFirstLoginCompleted: async () => { },
@@ -129,10 +127,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const signInWithEmail = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
+
+        if (!error && data.user) {
+            // Always check for guest data to migrate on login
+            // The migration function handles checking if there is data and avoiding duplicates
+            try {
+                console.log('[Auth] Checking for guest data to migrate (login):', data.user.id);
+                const migrationResult = await migrateGuestDataToUser(data.user.id);
+                if (migrationResult.success && migrationResult.migratedGames > 0) {
+                    console.log(`[Auth] Guest migration successful: ${migrationResult.migratedGames} games migrated`);
+                }
+            } catch (migrationError) {
+                console.error('[Auth] Error during guest migration (login):', migrationError);
+            }
+        }
+
         return { error };
     };
 
@@ -188,10 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const signInAnonymously = async () => {
-        setIsGuest(true);
-        await AsyncStorage.setItem('is_guest', 'true');
-    };
+
 
     const signOut = async () => {
         console.log('[Auth] Signing out...');
@@ -236,7 +246,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 loading,
                 signInWithEmail,
                 signUpWithEmail,
-                signInAnonymously,
                 signOut,
                 hasCompletedFirstLogin,
                 markFirstLoginCompleted
