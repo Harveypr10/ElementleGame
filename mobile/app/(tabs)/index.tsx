@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, Image, ScrollView, RefreshControl, Animated, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { styled } from 'nativewind';
 import { useAuth } from '../../lib/auth';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
@@ -23,9 +23,9 @@ import { AdBanner } from '../../components/AdBanner';
 import { AdBannerContext } from '../../contexts/AdBannerContext';
 
 // Import hamster images - trying UI folder versions which appear to be transparent
-const HistorianHamsterBlue = require('../../assets/ui/Historian-Hamster.png');
-const LibrarianHamsterYellow = require('../../assets/ui/Librarian-Hamster-Yellow.png');
-const MathsHamsterGreen = require('../../assets/ui/Maths-Hamster.png');
+const HistorianHamsterBlue = require('../../assets/ui/webp_assets/Historian-Hamster.webp');
+const LibrarianHamsterYellow = require('../../assets/ui/webp_assets/Librarian-Hamster-Yellow.webp');
+const MathsHamsterGreen = require('../../assets/ui/webp_assets/Maths-Hamster.webp');
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -220,9 +220,14 @@ export default function HomeScreen() {
         }
     }, [user, refetchPending]);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    // Initial Fetch & Focus Refresh (Fixes stale data on back nav)
+    useFocusEffect(
+        useCallback(() => {
+            if (user) {
+                fetchData();
+            }
+        }, [user, fetchData])
+    );
 
     // Initial Scroll Position based on GameMode
     useEffect(() => {

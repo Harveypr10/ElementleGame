@@ -15,6 +15,7 @@ interface GuestGameData {
     result: 'won' | 'lost' | 'in_progress';
     puzzleDate: string;
     numGuesses?: number;
+    digits?: number; // Added digits field
 }
 
 const GUEST_GAMES_KEY = 'guest_games_data';
@@ -115,7 +116,7 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
                 if (!puzzleDate) {
                     console.log(`[GuestMigration] Date missing in data, fetching from DB for ${puzzleIdRaw}...`);
                     const allocationTable = mode === 'REGION' ? 'questions_allocated_region' : 'questions_allocated_user';
-                    const { data: allocData } = await supabase.from(allocationTable).select('puzzle_date').eq('id', puzzleIdRaw).single();
+                    const { data: allocData } = await supabase.from(allocationTable).select('puzzle_date').eq('id', parseInt(puzzleIdRaw)).single();
                     puzzleDate = allocData?.puzzle_date;
                 }
                 if (!puzzleDate) {
@@ -152,7 +153,7 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
                         num_guesses: gameData.guesses.length,
                         started_at: gameData.updatedAt || new Date().toISOString(),
                         completed_at: gameData.result ? (gameData.updatedAt || new Date().toISOString()) : null,
-                        digits: '8', // Defaulting to 8, unable to know for sure from guest data unless saved
+                        digits: gameData.digits ? gameData.digits.toString() : '8', // Use saved digits or default
                         streak_day_status: gameData.result === 'won' ? 1 : null // Set streak legacy status
                     })
                     .select('id')

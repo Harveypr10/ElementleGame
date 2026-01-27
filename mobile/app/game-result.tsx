@@ -10,10 +10,10 @@ import { useOptions } from '../lib/options';
 // Hamster images
 const WinHamsterImg = require('../assets/ui/Celebration-Hamster-Grey.png');
 const LoseHamsterImg = require('../assets/ui/Commiseration-Hamster-Grey.png');
-const StatsHamsterImg = require('../assets/Maths-Hamster-Green_1760977182003.png');
-const HomeHamsterImg = require('../assets/Historian-Hamster-Blue_1760977182002.png');
-const ArchiveHamsterImg = require('../assets/Librarian-Hamster-Yellow_1760977182002.png');
-const ShareHamsterImg = require('../assets/ui/Login-Hamster-White.png');
+const StatsHamsterImg = require('../assets/ui/webp_assets/Maths-Hamster.webp');
+const HomeHamsterImg = require('../assets/ui/webp_assets/Historian-Hamster.webp');
+const ArchiveHamsterImg = require('../assets/ui/webp_assets/Librarian-Hamster-Yellow.webp');
+const ShareHamsterImg = require('../assets/ui/webp_assets/Login-Hamster-White.webp');
 
 import { ThemedView } from '../components/ThemedView';
 import { ThemedText } from '../components/ThemedText';

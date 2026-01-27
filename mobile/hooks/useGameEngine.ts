@@ -394,8 +394,25 @@ export function useGameEngine({
                             let newKeyStates: Record<string, KeyState> = {};
 
                             // CRITICAL: Use the digit format that was used when the guess was made (from attempts.digits)
-                            // Not the current user preference, to preserve historical guesses correctly
-                            const originalDigits = parseInt(attempts.digits || '8');
+                            // If missing (legacy/migration error), fallback to current user preference (numDigits) and HEAL the record
+                            let originalDigits = 8;
+
+                            if (attempts.digits) {
+                                originalDigits = parseInt(attempts.digits);
+                            } else {
+                                // HEAL: Missing digits field in DB. Update it now using current preference as best guess.
+                                originalDigits = numDigits;
+                                console.log('[useGameEngine] Healing missing digits for attempt:', attempts.id, 'setting to:', originalDigits);
+
+                                supabase
+                                    .from(ATTEMPTS_TABLE)
+                                    .update({ digits: originalDigits.toString() })
+                                    .eq('id', attempts.id)
+                                    .then(({ error }) => {
+                                        if (error) console.error('[useGameEngine] Failed to heal digits:', error);
+                                        else console.log('[useGameEngine] Healed digits successfully');
+                                    });
+                            }
 
                             // LOCK the game to this mode for the UI
                             setGameDigits(originalDigits);
@@ -576,7 +593,8 @@ export function useGameEngine({
                     puzzleDate: answerDateCanonical, // Canonical date for DB
                     result: isWin ? 'won' : (newGuesses.length >= maxGuesses ? 'lost' : null),
                     guesses: canonicalGuesses,
-                    updatedAt: new Date().toISOString()
+                    updatedAt: new Date().toISOString(),
+                    digits: numDigits // Save digits so migration can use it
                 };
 
                 await AsyncStorage.setItem(`guest_game_${mode}_${puzzleId}`, JSON.stringify(stateToSave));

@@ -36,7 +36,12 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         <View style={styles.container}>
             <StatusBar style="light" />
             <Animated.View style={[styles.content, animatedStyle]}>
-                <ThemedText className="font-n-bold text-white mb-8" size="4xl">
+                <ThemedText
+                    className="font-n-bold text-white mb-8"
+                    size="4xl"
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                >
                     Elementle
                 </ThemedText>
 
@@ -46,7 +51,12 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
                     resizeMode="contain"
                 />
 
-                <ThemedText className="font-n-medium text-white mt-8" size="3xl">
+                <ThemedText
+                    className="font-n-medium text-white mt-8"
+                    size="3xl"
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                >
                     Welcome back
                 </ThemedText>
             </Animated.View>

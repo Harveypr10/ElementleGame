@@ -22,9 +22,9 @@ import { RainOverlay } from './RainOverlay';
 const WinHamsterImg = require('../../assets/ui/Celebration-Hamster-Grey.png');
 const LoseHamsterImg = require('../../assets/ui/Commiseration-Hamster-Grey.png');
 const ShareHamsterImg = require('../../assets/ui/Login-Hamster-White.png');
-const StatsHamsterImg = require('../../assets/ui/Maths-Hamster.png');
-const HomeHamsterImg = require('../../assets/ui/Historian-Hamster.png');
-const ArchiveHamsterImg = require('../../assets/ui/Librarian-Hamster-Yellow.png');
+const StatsHamsterImg = require('../../assets/ui/webp_assets/Maths-Hamster.webp');
+const HomeHamsterImg = require('../../assets/ui/webp_assets/Historian-Hamster.webp');
+const ArchiveHamsterImg = require('../../assets/ui/webp_assets/Librarian-Hamster-Yellow.webp');
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -239,7 +239,13 @@ export function EndGameModal({
                         <StyledTouchableOpacity
                             className="w-full h-20 flex-row items-center justify-between px-6 rounded-3xl shadow-sm active:opacity-90 mt-2"
                             style={{ backgroundColor: '#e879f9' }}
-                            onPress={() => shareGameResult(isWin, guessesCount, maxGuesses, answerDateCanonical, eventTitle, isLocalMode ? 'USER' : 'REGION')}
+                            onPress={() => shareGameResult({
+                                result: isWin ? 'won' : 'lost',
+                                guesses: guessesCount,
+                                date: answerDateCanonical,
+                                eventTitle,
+                                mode: isLocalMode ? 'USER' : 'REGION'
+                            })}
                         >
                             <ThemedText size="xl" className="font-n-bold text-slate-800" style={{ color: '#1e293b' }}>Share</ThemedText>
                             <View className="w-16 h-16 justify-center items-center">

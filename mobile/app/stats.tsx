@@ -25,7 +25,7 @@ const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
 const StyledImage = styled(Image);
 
-const MathsHamsterGreen = require('../assets/ui/Maths-Hamster.png');
+const MathsHamsterGreen = require('../assets/ui/webp_assets/Maths-Hamster.webp');
 
 interface GameStats {
     played: number;

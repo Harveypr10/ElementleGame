@@ -164,7 +164,7 @@ export default function Layout() {
 
     // Let's modify NavigationGuard to show SplashScreen while loading.
 
-    if (!fontsLoaded || !adMobInitialized) {
+    if (!fontsLoaded) {
         // Show Splash while system dependencies load
         return <SplashScreen onComplete={() => { }} />;
     }
