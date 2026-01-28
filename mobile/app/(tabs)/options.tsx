@@ -135,25 +135,27 @@ export default function OptionsScreen() {
 
     return (
         <AdBannerContext.Provider value={true}>
-            <ThemedView className="flex-1" style={{ paddingBottom: 50 }}>
-                {/* Compact Header */}
+            <ThemedView className="flex-1" style={{ paddingBottom: 0 }}>
                 <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
                     <StyledView
-                        className="flex-row items-center justify-between px-4 py-3 border-b"
-                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        className="flex-row items-center justify-between px-4 py-3"
+                        style={{ backgroundColor: surfaceColor }}
                     >
-                        <StyledTouchableOpacity
-                            onPress={() => router.back()}
-                            className="w-10 h-10 items-center justify-center"
-                        >
-                            <ChevronLeft size={28} color={iconColor} />
-                        </StyledTouchableOpacity>
-                        <ThemedText className="font-n-bold" size="2xl">Options</ThemedText>
-                        <StyledView className="w-10" />
+                        <StyledView className="flex-row items-center justify-center relative flex-1">
+                            <StyledTouchableOpacity
+                                onPress={() => router.back()}
+                                className="absolute left-0 z-10 p-2"
+                            >
+                                <ChevronLeft size={28} color={iconColor} />
+                            </StyledTouchableOpacity>
+                            <ThemedText size="2xl" className="font-n-bold text-center">
+                                Options
+                            </ThemedText>
+                        </StyledView>
                     </StyledView>
                 </SafeAreaView>
 
-                <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 40 }}>
+                <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 100 }}>
                     {/* Display Options Card */}
                     <StyledView
                         className="rounded-2xl p-4 mb-3 border"

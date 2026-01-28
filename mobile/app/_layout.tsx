@@ -12,6 +12,7 @@ import { OptionsProvider } from '../lib/options';
 import { StreakSaverProvider } from '../contexts/StreakSaverContext';
 import { ToastProvider } from '../contexts/ToastContext';
 import { ConversionPromptProvider } from '../contexts/ConversionPromptContext';
+import { AppReadinessProvider } from '../contexts/AppReadinessContext';
 import { GuessCacheProvider } from '../contexts/GuessCacheContext';
 import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -103,10 +104,13 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         }
     }, [session, isGuest, showSplash, segments, hasCompletedFirstLogin]);
 
+    // 4. Wrap children in Readiness Context so screens know when to trigger modals
     return (
         <View style={{ flex: 1 }}>
-            {/* Always render children (Navigator) so router can work */}
-            {children}
+            <AppReadinessProvider isReady={!showSplash}>
+                {/* Always render children (Navigator) so router can work */}
+                {children}
+            </AppReadinessProvider>
 
             {/* Overlay Splash Screen */}
             {showSplash && (

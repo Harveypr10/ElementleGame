@@ -6,10 +6,11 @@ import { supabase } from './supabase';
  * @param durationDays Number of days to protect (up to 14)
  * @returns Success status and message
  */
-export async function activateHolidayMode(userId: string, durationDays: number) {
+export async function activateHolidayMode(userId: string, durationDays: number, startDate?: string) {
     const { data, error } = await supabase.rpc('activate_holiday_mode_mobile', {
         p_user_id: userId,
-        p_duration_days: durationDays
+        p_duration_days: durationDays,
+        p_start_date: startDate
     });
 
     if (error) throw error;
@@ -70,6 +71,17 @@ async function getUserBadge(userId: string, badgeId: number, region: string, gam
     return data;
 }
 
+export interface BadgeResult {
+    id: number;
+    badge_name: string;
+    is_awarded: boolean;
+    description?: string;
+    category?: string;
+    threshold?: number;
+    badge_count?: number; // Added
+    [key: string]: any;
+}
+
 /**
  * Checks and awards a streak badge if user qualifies
  */
@@ -78,10 +90,11 @@ export async function checkAndAwardStreakBadge(
     streak: number,
     gameType: 'REGION' | 'USER',
     region: string
-): Promise<any> {
+): Promise<BadgeResult | null> {
     try {
         // 1. Find Badge Definition
-        const badge = await getBadgeByCriteria('streak', streak);
+        // [FIX] Category is 'Streak' (Capitalized) in DB
+        const badge = await getBadgeByCriteria('Streak', streak);
         if (!badge) return null; // No badge for this streak count
 
         // 2. Check if user already has it
@@ -144,14 +157,57 @@ export async function checkAndAwardElementleBadge(
     guessCount: number,
     gameType: 'REGION' | 'USER',
     region: string
-): Promise<any> {
+): Promise<BadgeResult | null> {
     try {
-        const badge = await getBadgeByCriteria('elementle', guessCount);
+        // [FIX] Category is 'Elementle In' in DB
+        const badge = await getBadgeByCriteria('Elementle In', guessCount);
         if (!badge) return null;
 
-        const existing = await getUserBadge(userId, badge.id, region, gameType);
-        if (existing) return null;
+        const { data: existing } = await supabase
+            .from('user_badges')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('badge_id', badge.id)
+            .eq('region', region) // Strict region match
+            .eq('game_type', gameType)
+            .maybeSingle(); // Use maybeSingle to get object or null
 
+        if (existing) {
+            // [FIX] Re-Award Logic
+            // Increment count, Reset is_awarded -> true (wait, we want to show it popup? So false?)
+            // Previous logic inserted with false. 
+            // We want the popup to trigger. Popup triggers if it finds pending badges (is_awarded=false).
+            // So we set is_awarded = false.
+
+            const newCount = (existing.badge_count || 1) + 1;
+            console.log(`[BadgeLogic] Re-awarding elementle badge (Count: ${newCount})`);
+
+            const { data: updatedBadge, error: updateError } = await supabase
+                .from('user_badges')
+                .update({
+                    badge_count: newCount,
+                    is_awarded: false,
+                    awarded_at: new Date().toISOString()
+                })
+                .eq('id', existing.id)
+                .select()
+                .single();
+
+            if (updateError) {
+                console.error('[BadgeLogic] Failed to update existing badge:', updateError);
+                return null;
+            }
+
+            return {
+                ...updatedBadge,
+                badge_name: badge.name,
+                description: `You solved today's Elementle in ${guessCount} guess${guessCount > 1 ? 'es' : ''}!`,
+                category: badge.category,
+                threshold: badge.threshold
+            };
+        }
+
+        // New Badge Insert
         const { data: newBadge, error: insertError } = await supabase
             .from('user_badges')
             .insert({

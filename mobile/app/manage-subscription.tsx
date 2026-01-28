@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { styled } from 'nativewind';
-import { ChevronLeft, Crown, Calendar, Flame, Umbrella } from 'lucide-react-native';
+import { ChevronLeft, Crown, Flame, Umbrella } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSubscription } from '../hooks/useSubscription';
 import { useStreakSaverStatus } from '../hooks/useStreakSaverStatus';
@@ -11,6 +11,7 @@ import { useOptions } from '../lib/options';
 import { ThemedView } from '../components/ThemedView';
 import { ThemedText } from '../components/ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { HolidayActivationModal } from '../components/game/HolidayActivationModal';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -19,10 +20,13 @@ const StyledScrollView = styled(ScrollView);
 
 export default function ManageSubscriptionScreen() {
     const router = useRouter();
-    const { subscription, isPro, tierName, tierType, streakSavers, holidaySavers, holidayDurationDays } = useSubscription();
-    const { status, holidayActive, holidayStartDate, holidayEndDate, endHoliday, startHoliday } = useStreakSaverStatus();
+    const { subscription, isPro, tierType, streakSavers, holidaySavers, holidayDurationDays } = useSubscription();
+    const { status, holidayActive, holidayStartDate, holidayEndDate, endHoliday, startHoliday, hasAnyValidStreakForHoliday } = useStreakSaverStatus();
     const { profile } = useProfile();
     const { textScale } = useOptions();
+
+    const [animationVisible, setAnimationVisible] = useState(false);
+    const [filledDates, setFilledDates] = useState<string[]>([]);
 
     const handleEndHoliday = () => {
         Alert.alert(
@@ -35,7 +39,7 @@ export default function ManageSubscriptionScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await endHoliday();
+                            await endHoliday(false);
                         } catch (error) {
                             console.error('Failed to end holiday:', error);
                             Alert.alert('Error', 'Failed to end holiday mode. Please try again.');
@@ -61,7 +65,9 @@ export default function ManageSubscriptionScreen() {
                     text: 'Start Holiday',
                     onPress: async () => {
                         try {
-                            await startHoliday();
+                            const dates = await startHoliday();
+                            setFilledDates(dates || []);
+                            setAnimationVisible(true);
                         } catch (error) {
                             console.error('Failed to start holiday:', error);
                             Alert.alert('Error', 'Failed to start holiday mode. Please try again.');
@@ -78,6 +84,11 @@ export default function ManageSubscriptionScreen() {
     const regionUsed = status?.region?.streakSaversUsedMonth ?? 0;
     const userUsed = status?.user?.streakSaversUsedMonth ?? 0;
     const effectiveStreakSavers = streakSavers ?? (isPro ? 3 : 1);
+
+    // Holiday calculations
+    const holidaysUsed = status?.user?.holidaysUsedYear ?? 0;
+    const holidaysTotal = holidaySavers ?? 0;
+    const holidaysRemaining = Math.max(0, holidaysTotal - holidaysUsed);
 
     const formatDate = (dateStr: string | null): string => {
         if (!dateStr) return 'N/A';
@@ -97,8 +108,8 @@ export default function ManageSubscriptionScreen() {
             <ThemedView className="flex-1">
                 <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
                     <StyledView
-                        className="flex-row items-center justify-between px-4 py-3 border-b"
-                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        className="flex-row items-center justify-between px-4 py-3"
+                        style={{ backgroundColor: surfaceColor }}
                     >
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
@@ -143,10 +154,10 @@ export default function ManageSubscriptionScreen() {
                             <StyledView className="flex-1">
                                 <ThemedText baseSize={16} className="font-n-bold mb-1">Streak Savers</ThemedText>
                                 <ThemedText baseSize={14} className="opacity-80 mb-1">
-                                    {regionLabel}: <ThemedText className="font-n-semibold">{Math.max(0, 1 - regionUsed)} of 1 remaining</ThemedText>
+                                    {regionLabel}: <ThemedText className="font-n-semibold">{Math.max(0, effectiveStreakSavers - regionUsed)} of {effectiveStreakSavers} remaining</ThemedText>
                                 </ThemedText>
                                 <ThemedText baseSize={14} className="opacity-80">
-                                    Personal: <ThemedText className="font-n-semibold">{Math.max(0, 1 - userUsed)} of 1 remaining</ThemedText>
+                                    Personal: <ThemedText className="font-n-semibold">{Math.max(0, effectiveStreakSavers - userUsed)} of {effectiveStreakSavers} remaining</ThemedText>
                                 </ThemedText>
                             </StyledView>
                         </StyledView>
@@ -158,7 +169,7 @@ export default function ManageSubscriptionScreen() {
                             </StyledView>
                             <StyledView className="flex-1">
                                 <ThemedText baseSize={16} className="font-n-bold opacity-50 mb-1">Holiday Mode</ThemedText>
-                                <ThemedText baseSize={14} className="opacity-60">14-day protection: 0 of 0 remaining</ThemedText>
+                                <ThemedText baseSize={14} className="opacity-60">{holidayDurationDays}-day protection: Locked</ThemedText>
                                 <ThemedText baseSize={12} className="opacity-50 mt-1">Pro members can pause their streak</ThemedText>
                             </StyledView>
                         </StyledView>
@@ -263,7 +274,7 @@ export default function ManageSubscriptionScreen() {
                         <StyledView className="flex-1">
                             <ThemedText size="base" className="font-n-bold mb-1">Holiday Mode</ThemedText>
                             <ThemedText size="sm" className="opacity-80">
-                                {holidayDurationDays}-day protection: <ThemedText className="font-n-semibold">{holidaySavers} of {holidaySavers} remaining</ThemedText>
+                                {holidayDurationDays}-day protection: <ThemedText className="font-n-semibold">{holidaysRemaining} of {holidaysTotal} remaining</ThemedText>
                             </ThemedText>
                         </StyledView>
                     </StyledView>
@@ -301,14 +312,24 @@ export default function ManageSubscriptionScreen() {
                         </StyledView>
                     ) : (
                         <StyledTouchableOpacity
-                            onPress={handleStartHoliday}
+                            onPress={hasAnyValidStreakForHoliday ? handleStartHoliday : undefined}
+                            disabled={!hasAnyValidStreakForHoliday}
                             className="bg-blue-600 rounded-xl py-3 px-4"
+                            style={{ opacity: hasAnyValidStreakForHoliday ? 1 : 0.5 }}
                         >
-                            <StyledText className="text-center font-n-bold text-white">Start Holiday Mode</StyledText>
+                            <StyledText className="text-center font-n-bold text-white">
+                                {hasAnyValidStreakForHoliday ? 'Start holiday mode' : 'No streak to protect'}
+                            </StyledText>
                         </StyledTouchableOpacity>
                     )}
                 </StyledView>
             </StyledScrollView>
+
+            <HolidayActivationModal
+                visible={animationVisible}
+                filledDates={filledDates}
+                onClose={() => setAnimationVisible(false)}
+            />
         </ThemedView>
     );
 }

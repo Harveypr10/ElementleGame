@@ -11,6 +11,9 @@ import { checkAndAwardStreakBadge, checkAndAwardElementleBadge, checkAndAwardPer
 import hapticsManager from '../lib/hapticsManager';
 import soundManager from '../lib/soundManager';
 import { useInterstitialAd } from './useInterstitialAd';
+import { useStreakSaver } from '../contexts/StreakSaverContext';
+import { useStreakSaverStatus } from './useStreakSaverStatus';
+import { useQueryClient } from '@tanstack/react-query'; // Import QueryClient
 
 export type GameState = 'loading' | 'playing' | 'won' | 'lost';
 export type GameMode = 'REGION' | 'USER';
@@ -18,26 +21,36 @@ export type GameMode = 'REGION' | 'USER';
 export interface UseGameEngineProps {
     puzzleId: number;
     answerDateCanonical: string; // YYYY-MM-DD
+    puzzleDate?: string; // Calendar Date of the puzzle (YYYY-MM-DD)
     maxGuesses?: number;
     mode?: GameMode;
+    preserveStreakStatus?: boolean;
 }
 
 export function useGameEngine({
     puzzleId,
     answerDateCanonical,
+    puzzleDate,
     maxGuesses = 5,
-    mode = 'REGION'
+    mode = 'REGION',
+    preserveStreakStatus = false
 }: UseGameEngineProps) {
     const { user, session, isGuest } = useAuth();
     const [gameState, setGameState] = useState<GameState>('loading');
     const [currentInput, setCurrentInput] = useState('');
     const [guesses, setGuesses] = useState<CellFeedback[][]>([]);
+    // Track streak day status from the fetched attempt
+    const [streakDayStatus, setStreakDayStatus] = useState<number | null>(null);
     const [keyStates, setKeyStates] = useState<Record<string, KeyState>>({});
     const [attemptId, setAttemptId] = useState<number | null>(null);
     const [wrongGuessCount, setWrongGuessCount] = useState(0);
     const [invalidShake, setInvalidShake] = useState(0); // Counter to trigger shake
     const [isRestored, setIsRestored] = useState(false);
     const { showAd: showInterstitialAd } = useInterstitialAd();
+    const { streakSaverSession } = useStreakSaver();
+    const { holidayActive } = useStreakSaverStatus();
+    const [finalStreak, setFinalStreak] = useState<number | null>(null);
+    const queryClient = useQueryClient(); // Initialize QueryClient
 
 
 
@@ -59,16 +72,23 @@ export function useGameEngine({
     // For Region, the puzzle link is 'allocated_region_id'. For User, it is 'allocated_user_id'.
     const PUZZLE_ID_FIELD = mode === 'REGION' ? 'allocated_region_id' : 'allocated_user_id';
     const STATS_TABLE = mode === 'REGION' ? 'user_stats_region' : 'user_stats_user';
-    const REGION_FIELD = mode === 'REGION' ? 'region' : null;
+    // Remove REGION_FIELD definition if unused or redefine later
+
+    // Helper to get region
+    const getUserRegion = async () => {
+        if (mode !== 'REGION' || !user?.id) return null;
+        const { data: profile } = await supabase.from('user_profiles').select('region').eq('id', user.id).single();
+        return profile?.region || 'UK';
+    };
 
     // Helper function to update user stats after game completion
     // This mimics the backend recalculateUserStatsRegion/User functions
     // Returns the current streak value for badge checks
-    const updateUserStats = async (isWin: boolean, numGuesses: number): Promise<number> => {
+    const updateUserStats = async (isWin: boolean, numGuesses: number, anchorDate: string): Promise<number> => {
         if (!user?.id) return 0;
 
         try {
-            console.log(`[GameEngine] Recalculating stats for ${STATS_TABLE}...`);
+            console.log(`[GameEngine] Recalculating stats for ${STATS_TABLE}... (Anchor: ${anchorDate})`);
 
             // Get user's region if in REGION mode
             let userRegion = 'UK';
@@ -81,7 +101,7 @@ export function useGameEngine({
                 userRegion = profile?.region || 'UK';
             }
 
-            // Fetch ALL completed game attempts for this user/mode
+            // Fetch ALL attempts that have either a result OR a streak status (to catch holidays)
             // CRITICAL: Must join with allocated tables to get puzzle_date and filter by region
             let query = supabase
                 .from(ATTEMPTS_TABLE)
@@ -93,8 +113,8 @@ export function useGameEngine({
                     streak_day_status,
                     ${mode === 'REGION' ? 'questions_allocated_region(puzzle_date, region)' : 'questions_allocated_user(puzzle_date)'}
                 `)
-                .eq('user_id', user.id)
-                .not('result', 'is', null);
+                .eq('user_id', user.id);
+            // REMOVED .not('result', 'is', null) to ensure we get Holiday rows (status=0, result=null)
 
             const { data: allAttempts, error: attemptsError } = await query;
 
@@ -109,19 +129,29 @@ export function useGameEngine({
             }
 
             // Filter by region for REGION mode (backend does this via join)
-            const filteredAttempts = mode === 'REGION'
+            // Filter to ensure we only have relevant rows (either has result OR has streak status)
+            const filteredAttempts = (mode === 'REGION'
                 ? allAttempts.filter((a: any) => a.questions_allocated_region?.region === userRegion)
-                : allAttempts;
+                : allAttempts).filter((a: any) => a.result !== null || (a.streak_day_status !== null && a.streak_day_status !== undefined));
 
             console.log(`[GameEngine] Recalculating from ${filteredAttempts.length} attempts`);
 
-            // Calculate stats from ALL attempts
-            const gamesPlayed = filteredAttempts.length;
-            const gamesWon = filteredAttempts.filter((a: any) => a.result === 'won').length;
+            // DEBUG: Log attempt details to confirm we have the holidays
+            console.log('[GameEngine] Attempt Details:', filteredAttempts.map((a: any) => ({
+                id: a.id,
+                result: a.result,
+                date: mode === 'REGION' ? a.questions_allocated_region?.puzzle_date : a.questions_allocated_user?.puzzle_date,
+                status: a.streak_day_status
+            })));
+
+            // Calculate stats from attempts that have a RESULT (actual played games)
+            const playedGames = filteredAttempts.filter((a: any) => a.result !== null);
+            const gamesPlayed = playedGames.length;
+            const gamesWon = playedGames.filter((a: any) => a.result === 'won').length;
 
             // Calculate guess distribution (only from won games)
             const guessDistribution: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
-            filteredAttempts.forEach((attempt: any) => {
+            playedGames.forEach((attempt: any) => {
                 if (attempt.result === 'won' && attempt.num_guesses >= 1 && attempt.num_guesses <= 5) {
                     const key = attempt.num_guesses.toString();
                     guessDistribution[key] = (guessDistribution[key] || 0) + 1;
@@ -140,6 +170,8 @@ export function useGameEngine({
 
                 if (puzzleDate) {
                     const streakStatus = (attempt as any).streak_day_status;
+
+                    // We prioritize the existing status
                     if (streakStatus !== null && streakStatus !== undefined) {
                         dateMap.set(puzzleDate, {
                             result: (attempt as any).result,
@@ -155,24 +187,40 @@ export function useGameEngine({
                 }
             }
 
-            // Calculate current streak (from today backwards)
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const todayStr = today.toISOString().split('T')[0];
+            // Calculate current streak (using explicit Anchor Date)
+            // Ensures we start counting from the game just played!
+            // [FIX] Anchor should be the LATEST valid date found in attempts (e.g. Today) 
+            // even if we just played an Archive game. 
+            // Otherwise, we calculate streak ending at Archive Date, ignoring subsequeny days.
 
-            let checkDate = new Date(today);
-            if (!dateMap.has(todayStr)) {
-                // Start from yesterday if no game played today
-                checkDate.setDate(checkDate.getDate() - 1);
-            }
+            let maxDateStr = anchorDate;
+            filteredAttempts.forEach((a: any) => {
+                const d = mode === 'REGION' ? a.questions_allocated_region?.puzzle_date : a.questions_allocated_user?.puzzle_date;
+                if (d && d > maxDateStr) {
+                    maxDateStr = d;
+                }
+            });
 
+            console.log(`[GameEngine] Streak Anchor Calculation: Provided=${anchorDate}, MaxFound=${maxDateStr}`);
+
+            let checkDate = new Date(maxDateStr);
             let currentStreak = 0;
+
+            console.log(`[GameEngine] Starting streak check from Anchor: ${maxDateStr}`);
+
             while (true) {
                 const dateStr = checkDate.toISOString().split('T')[0];
                 const dayData = dateMap.get(dateStr);
 
+                console.log(`[GameEngine] Checking Date: ${dateStr}, Found: ${!!dayData}, Status: ${dayData?.streakDayStatus}`);
+
                 if (!dayData) break; // No row - streak broken
-                if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) break; // NULL breaks chain
+
+                // CRITICAL: Stop if status is NULL or Undefined (break in chain)
+                if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) {
+                    console.log(`[GameEngine] NULL status at ${dateStr} - Streak Broken`);
+                    break;
+                }
 
                 // Add the streakDayStatus value (1 for played/won, 0 for holiday)
                 currentStreak += dayData.streakDayStatus;
@@ -197,7 +245,7 @@ export function useGameEngine({
 
                 // Check for date gap (more than 1 day between entries)
                 if (prevDate) {
-                    const dayDiff = Math.round((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+                    const dayDiff = Math.ceil((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
                     if (dayDiff > 1) {
                         tempStreak = 0; // Gap in dates - streak breaks
                     }
@@ -370,6 +418,11 @@ export function useGameEngine({
                             setIsRestored(true);
                         } else {
                             setGameState('playing');
+                        }
+
+                        // Load Streak Day Status from DB (0 = Holiday, etc)
+                        if (attempts.streak_day_status !== undefined) {
+                            setStreakDayStatus(attempts.streak_day_status);
                         }
 
                         // 2. Load guesses for this attempt
@@ -610,6 +663,7 @@ export function useGameEngine({
             let currentAttemptId = attemptId;
 
             // Create attempt if needed
+            // Create attempt if needed
             if (!currentAttemptId) {
                 // Dynamic Insert
                 const insertData: any = {
@@ -618,6 +672,22 @@ export function useGameEngine({
                     digits: numDigits.toString()
                 };
                 insertData[PUZZLE_ID_FIELD] = puzzleId;
+
+                // HOLIDAY LOGIC ON INSERT
+                // If Holiday active and playing TODAY'S puzzle, force status to 0 (Protected) immediately.
+                // This satisfies: "if it's today's puzzle then make streak_day_status = 0... no matter whether it's partially played"
+                const _today = new Date();
+                _today.setHours(0, 0, 0, 0);
+                const _todayStr = _today.toISOString().split('T')[0];
+                const _isTodayPuzzle = (puzzleDate || answerDateCanonical) === _todayStr;
+
+                if (holidayActive && _isTodayPuzzle) {
+                    console.log('[GameEngine] New Game during Holiday: Setting initial status to 0');
+                    insertData['streak_day_status'] = 0;
+                } else if (_isTodayPuzzle && preserveStreakStatus) {
+                    console.log('[GameEngine] Preserved Status Game: Setting initial status to 0');
+                    insertData['streak_day_status'] = 0;
+                }
 
                 const { data: newAttempt, error: createError } = await supabase
                     .from(ATTEMPTS_TABLE)
@@ -643,20 +713,189 @@ export function useGameEngine({
 
             // Update attempt if game over
             if (isWin || newGuesses.length >= maxGuesses) {
+
+
+
+                // ... (rest of state)
+
+                // ...
+
+                // Update submitGuess to use preserveStreakStatus
+                // Calculate Streak Day Status
+                // Logic: 1 = Contributes to streak (Today OR Valid Streak Saver Game)
+                //        0 = Holiday (Protected)
+                //        null = Archive game (does not affect streak)
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const todayStr = today.toISOString().split('T')[0];
+
+                let newStreakDayStatus: number | null = null;
+                const isTodayPuzzle = (puzzleDate || answerDateCanonical) === todayStr;
+
+                // HOLIDAY / PRESERVE LOGIC
+                // If explicitly preserving (from params) OR Holiday Mode is active
+                if (preserveStreakStatus || (holidayActive && isTodayPuzzle)) {
+                    // Check if this was a PRE-EXISTING attempt (loaded from DB)
+                    // If we had an attemptId at start of hook text (not created just now)
+                    // We can check if streakDayStatus state was set (not null/undefined implies existing)
+                    // BUT streakDayStatus state is initialized to null. 
+                    // Better check: Did we create the attempts row just now?
+                    // We can rely on `streakDayStatus` state. If it was populated from load, it's existing.
+                    // If it was null, it's likely new (or was null in DB).
+                    // User Rule: "When a row exists... do not change."
+                    // User Rule: "If no existing row... if today... make 0."
+
+                    if (streakDayStatus !== null && streakDayStatus !== undefined) {
+                        console.log('[GameEngine] Holiday/Preserve Mode: Keeping existing streak status:', streakDayStatus);
+                        newStreakDayStatus = streakDayStatus;
+                    } else {
+                        // New Row (or previously NULL status)
+                        if (isTodayPuzzle) {
+                            console.log('[GameEngine] Holiday/Preserve Mode: New Today Game -> Setting Holiday Status (0)');
+                            newStreakDayStatus = 0;
+                        } else {
+                            console.log('[GameEngine] Holiday/Preserve Mode: Archive Game -> Setting NULL');
+                            newStreakDayStatus = null;
+                        }
+                    }
+                }
+                // NORMAL GAME LOGIC
+                else if (isWin) {
+                    console.log('[GameEngine] WIN detected. Checking Streak Saver Status:', {
+                        answerDate: answerDateCanonical,
+                        puzzleDate,
+                        todayStr,
+                        hasSession: !!streakSaverSession,
+                        sessionDate: streakSaverSession?.puzzleDate,
+                        match: streakSaverSession?.puzzleDate === (puzzleDate || answerDateCanonical)
+                    });
+
+
+                    const compareDate = puzzleDate || answerDateCanonical;
+
+
+                    if (compareDate === todayStr) {
+                        newStreakDayStatus = 1;
+                    } else if (streakSaverSession && streakSaverSession.puzzleDate === compareDate) {
+                        // Check if this is the active streak saver game
+                        console.log('[GameEngine] Valid Streak Saver game WON for:', compareDate);
+                        newStreakDayStatus = 1;
+                    } else {
+                        console.log('[GameEngine] Archive or non-streak game won.');
+                        // [FIX] Do NOT overwrite if we already have a status (e.g. 0 for Holiday)
+                        // If status is 0, keeping it 0 is safer than null (gap vs protected).
+                        // If I play a Holiday game, it shouldn't break the streak (null) but stay protected (0) OR become played (1)?
+                        // User request: "it should have left the streak_day_status on whatever it was set to"
+                        if (streakDayStatus !== null && streakDayStatus !== undefined) {
+                            console.log('[GameEngine] Preserving existing status for Archive Win:', streakDayStatus);
+                            newStreakDayStatus = streakDayStatus;
+                        } else {
+                            newStreakDayStatus = null;
+                        }
+                    }
+                } else {
+                    console.log('[GameEngine] Game LOST. Status remains NULL (Streak breaks/resets)');
+                    // If we had a previous status (e.g. replaying a won game?), we might want to keep it?
+                    // But usually you can't replay won games.
+                    // If you replay a Holiday game (0) and LOSE?
+                    // "do not change".
+                    if (streakDayStatus !== null && streakDayStatus !== undefined) {
+                        newStreakDayStatus = streakDayStatus;
+                    } else {
+                        newStreakDayStatus = null;
+                    }
+                }
+
                 const { error: updateError } = await supabase
                     .from(ATTEMPTS_TABLE)
                     .update({
                         result: isWin ? 'won' : 'lost',
                         num_guesses: newGuesses.length,
-                        streak_day_status: 1, // Mark as played
-                        completed_at: new Date().toISOString()
+                        streak_day_status: newStreakDayStatus, // Use the new status
+                        completed_at: new Date().toISOString(),
+                        digits: numDigits.toString() // [FIX] Ensure digits are updated/saved on win
                     })
                     .eq('id', currentAttemptId);
 
                 if (updateError) throw updateError;
 
+                // Update local state
+                setStreakDayStatus(newStreakDayStatus);
+
                 // Update user stats and get the new current streak
-                const newCurrentStreak = await updateUserStats(isWin, newGuesses.length);
+                // Only update stats if we represent a REAL win (status=1)
+                // If status=0 (Holiday), we shouldn't increment streak count? 
+                // Wait, playing a holiday game doesn't extend streak, so updateUserStats might need to know?
+                // updateUserStats calculates from DB, so if DB has 0, it counts as maintains.
+                // If DB has 1, it counts as +1. 
+                // So calling it is safe.
+
+                // CRITICAL FIX: Use explicit anchor date for stats calculation to avoid timezone issues.
+                // If this is a streak-extending game (Today or Streak Saver), anchor to specific Puzzle Date.
+                // Otherwise (Archive), anchor to Today (to verify current status).
+                const todayForStats = new Date();
+                todayForStats.setHours(0, 0, 0, 0);
+                const todayStrForStats = todayForStats.toISOString().split('T')[0];
+
+                // Use the puzzle date if it matches playing conditions, otherwise verify from today
+                let anchorDate = todayStrForStats;
+                if (newStreakDayStatus !== null) {
+                    // If we just set a status (1 or 0), we want to make sure stats sees it.
+                    // So we must anchor to AT LEAST this puzzle date.
+                    // If puzzle date is "Today", it matches.
+                    // If puzzle date is "Yesterday" (Streak Saver), we anchor there to ensure it counts.
+                    anchorDate = puzzleDate || answerDateCanonical;
+                }
+
+                const newCurrentStreak = await updateUserStats(isWin, newGuesses.length, anchorDate);
+                if (isWin) setFinalStreak(newCurrentStreak); // Store authoritative streak
+
+
+                // STREAK SAVER LOGIC: Explicitly update DB flags if this was a saver game
+                // ONLY if we are NOT in holiday preserve mode (which shouldn't happen for savers anyway, but safety first)
+                if (isWin && !preserveStreakStatus && streakSaverSession && streakSaverSession.puzzleDate === (puzzleDate || answerDateCanonical)) {
+                    console.log('[GameEngine] STREAK SAVER WON! Updating stats flags...');
+                    try {
+                        const targetRegion = await getUserRegion();
+                        const matchQuery = mode === 'REGION'
+                            ? { user_id: user.id, region: targetRegion }
+                            : { user_id: user.id };
+
+                        // 1. Fetch current stats correctly
+                        const missedFlagCol = mode === 'REGION' ? 'missed_yesterday_flag_region' : 'missed_yesterday_flag_user';
+
+                        const { data: currentStats, error: fetchStatsError } = await supabase
+                            .from(STATS_TABLE)
+                            .select(`id, streak_savers_used_month, ${missedFlagCol}`)
+                            .match(matchQuery)
+                            .maybeSingle();
+
+                        if (currentStats) {
+                            const statsAny = currentStats as any;
+                            const usedCount = statsAny.streak_savers_used_month || 0;
+                            console.log(`[GameEngine] Current Stats: Used=${usedCount}`);
+
+                            // 2. Update stats using ID to be safe
+                            const { error: statsUpdateError } = await supabase
+                                .from(STATS_TABLE)
+                                .update({
+                                    [missedFlagCol]: false,
+                                    streak_savers_used_month: usedCount + 1
+                                })
+                                .eq('id', statsAny.id);
+
+                            if (statsUpdateError) {
+                                console.error('[GameEngine] Failed to update Streak Saver stats:', statsUpdateError);
+                            } else {
+                                console.log('[GameEngine] Streak Saver stats updated successfully (Flag cleared, Count incremented)');
+                            }
+                        } else {
+                            console.error('[GameEngine] Could not find stats record to update for Streak Saver');
+                        }
+                    } catch (ssError) {
+                        console.error('[GameEngine] Error in Streak Saver update block:', ssError);
+                    }
+                }
 
                 // Award badges if user won
                 if (isWin && user && newCurrentStreak > 0) {
@@ -686,6 +925,8 @@ export function useGameEngine({
                             REGION
                         );
 
+                        console.log('[GameEngine] Streak badge check result:', streakBadge);
+
                         if (streakBadge && !streakBadge.is_awarded) {
                             console.log('[GameEngine] New streak badge awarded:', streakBadge.badge_name);
                         }
@@ -699,6 +940,8 @@ export function useGameEngine({
                                 REGION
                             );
 
+                            console.log('[GameEngine] Elementle badge check result:', elementleBadge);
+
                             if (elementleBadge && !elementleBadge.is_awarded) {
                                 console.log('[GameEngine] New elementle badge awarded:', elementleBadge.badge_name);
                             }
@@ -710,6 +953,8 @@ export function useGameEngine({
                             GAME_TYPE,
                             REGION
                         );
+
+                        console.log('[GameEngine] Percentile badge check result:', percentileBadge);
 
                         if (percentileBadge && !percentileBadge.is_awarded) {
                             console.log('[GameEngine] New percentile badge awarded:', percentileBadge.badge_name);
@@ -730,6 +975,16 @@ export function useGameEngine({
 
         } catch (e) {
             console.error('Error saving progress:', e);
+        } finally {
+            // Invalidate Stats Queries to ensure Index screen is fresh on return
+            console.log('[GameEngine] Invalidating queries to refresh stats...');
+            // Invalidate both region and user stats to be safe
+            queryClient.invalidateQueries({ queryKey: ['user_stats'] });
+            queryClient.invalidateQueries({ queryKey: ['user_stats_region'] });
+            queryClient.invalidateQueries({ queryKey: ['user_stats_user'] });
+            queryClient.invalidateQueries({ queryKey: ['streak_saver_status'] });
+            // Also invalidate pending badges if any
+            queryClient.invalidateQueries({ queryKey: ['pending_badges'] });
         }
     };
 
@@ -756,6 +1011,8 @@ export function useGameEngine({
         guesses,
         keyStates,
         submitGuess,
+        finalStreak, // Expose authoritative calculated streak
+        streakDayStatus, // Expose status for UI
         handleDigitPress,
         handleDelete,
         handleClear,

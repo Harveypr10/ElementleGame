@@ -57,12 +57,15 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
 
             // Play Lottie animation
             setTimeout(() => {
+                loopCount.current = 0; // Reset loop count
                 animationRef.current?.play();
             }, 300);
         } else {
             scale.setValue(0);
         }
     }, [visible]);
+
+    const loopCount = useRef(0);
 
     if (!visible || !badge) return null;
 
@@ -134,13 +137,19 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
                 <Animated.View style={{ transform: [{ scale }], alignItems: 'center', width: '100%' }}>
 
                     {/* Trophy Animation */}
-                    <View style={{ width: 250, height: 250, marginBottom: -40, zIndex: 10 }}>
+                    <View style={{ width: 250, height: 250, marginBottom: 20, zIndex: 10 }}>
                         <LottieView
                             ref={animationRef}
                             source={TROPHY_ANIMATION}
                             style={{ width: '100%', height: '100%' }}
-                            autoPlay
+                            autoPlay={false}
                             loop={false}
+                            onAnimationFinish={() => {
+                                if (loopCount.current < 1) {
+                                    loopCount.current += 1;
+                                    animationRef.current?.play();
+                                }
+                            }}
                         />
                     </View>
 
@@ -164,6 +173,16 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
                     <StyledText className="text-white/40 text-sm opacity-60 mt-12">
                         Badge Earned
                     </StyledText>
+
+                    {/* [FIX] Show Multiplier if earned multiple times */}
+                    {/* @ts-ignore - badge_count might be injected */}
+                    {badge.badge_count > 1 && (
+                        <StyledView className="mt-2 bg-white/20 px-3 py-1 rounded-full">
+                            <StyledText className="text-white font-n-bold text-sm">
+                                Earned x{badge.badge_count}
+                            </StyledText>
+                        </StyledView>
+                    )}
 
                     <StyledText className="text-white/40 text-sm absolute bottom-[-100px]">
                         Click anywhere to dismiss

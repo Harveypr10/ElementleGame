@@ -12,6 +12,9 @@ import { format } from 'date-fns';
 import { ThemedView } from '../../../components/ThemedView';
 import { ThemedText } from '../../../components/ThemedText';
 import { useThemeColor } from '../../../hooks/useThemeColor';
+import { useStreakSaver } from '../../../contexts/StreakSaverContext';
+import { useStreakSaverStatus } from '../../../hooks/useStreakSaverStatus';
+import { StreakSaverExitWarning } from '../../../components/StreakSaverExitWarning';
 
 export default function GameScreen() {
     const backgroundColor = useThemeColor({}, 'background');
@@ -19,7 +22,25 @@ export default function GameScreen() {
     const surfaceColor = useThemeColor({}, 'surface');
     const textColor = useThemeColor({}, 'text');
 
-    const { mode, id } = useLocalSearchParams();
+    const params = useLocalSearchParams();
+    // Safely parse params which might be arrays
+    const modeParam = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+    const idParam = Array.isArray(params.id) ? params.id[0] : params.id;
+
+    // Explicitly cast to string for subsequent logic
+    const mode = modeParam as string;
+    const id = idParam as string;
+
+    // GUARD: If params are not ready, show loading.
+    // This Prevents "Cross-Contamination" where undefined 'mode' defaults to 'USER' logic.
+    if (!mode || !id) {
+        return (
+            <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 justify-center items-center">
+                <ActivityIndicator size="large" color="#3b82f6" />
+            </SafeAreaView>
+        );
+    }
+
     const router = useRouter();
     const { user } = useAuth();
 
@@ -27,7 +48,23 @@ export default function GameScreen() {
     const [gameState, setGameState] = useState<'loading' | 'playing' | 'won' | 'lost'>('loading');
     const isGuest = !user;
 
-    const handleBack = () => {
+    // Streak Saver Integration
+    const { isInStreakSaverMode } = useStreakSaver();
+    const { declineStreakSaver } = useStreakSaverStatus();
+    const [showExitWarning, setShowExitWarning] = useState(false);
+
+    // Intercept back navigation
+    const handleBack = async () => {
+        if (isInStreakSaverMode && gameState !== 'won' && gameState !== 'lost') {
+            // If in streak saver and game is active, show warning
+            setShowExitWarning(true);
+            return;
+        }
+
+        performBackNavigation();
+    };
+
+    const performBackNavigation = () => {
         if (isGuest) {
             if (router.canGoBack()) {
                 router.back();
@@ -36,6 +73,21 @@ export default function GameScreen() {
             }
         } else {
             router.back();
+        }
+    };
+
+    const handleConfirmExit = async () => {
+        // User chose to exit and lose streak
+        setShowExitWarning(false);
+        try {
+            // Decline/Cancel the streak saver for this mode
+            // We need to know which mode we are in (REGION or USER)
+            const gameType = mode === 'REGION' ? 'REGION' : 'USER';
+            await declineStreakSaver(gameType);
+        } catch (e) {
+            console.error('[GameScreen] Error declining streak saver:', e);
+        } finally {
+            performBackNavigation();
         }
     };
     // -------------------------------------
@@ -146,6 +198,9 @@ export default function GameScreen() {
 
                 if (puzzleIdParam === 'next') {
                     query = query.eq('user_id', user.id).eq('puzzle_date', today);
+                } else if (/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)) {
+                    // Support loading by specific date string (e.g. for Streak Saver)
+                    query = query.eq('user_id', user.id).eq('puzzle_date', puzzleIdParam);
                 } else {
                     const idInt = parseInt(puzzleIdParam, 10);
                     if (!isNaN(idInt)) {
@@ -304,8 +359,18 @@ export default function GameScreen() {
                     gameMode={modeStr}
                     backgroundColor={backgroundColor}
                     onGameStateChange={setGameState}
+                    isStreakSaverGame={isInStreakSaverMode}
+                    onStreakSaverExit={handleConfirmExit}
                 />
             </View>
+
+            {/* Streak Saver Exit Warning */}
+            <StreakSaverExitWarning
+                visible={showExitWarning}
+                onClose={() => setShowExitWarning(false)}
+                onContinuePlaying={() => setShowExitWarning(false)}
+                onCancelAndLoseStreak={handleConfirmExit}
+            />
         </ThemedView>
     );
 }

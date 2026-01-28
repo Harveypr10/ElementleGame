@@ -67,21 +67,22 @@ export default function StatsScreen() {
     const iconColor = useThemeColor({}, 'icon');
     const textColor = useThemeColor({}, 'text');
 
-    // Theme Colors based on Mode
-    const theme = mode === 'REGION' ? {
-        cardBg: '#A4DB57',
-        inlayBg: '#93c54e',
-        lostBar: '#7099d0',
-        lostTrack: '#a4c3ee',
-        hamsterTitle: `${userRegion} Edition`,
-        accentText: '#93c54e' // Added for correct text coloring in distribution
-    } : {
-        cardBg: '#93cd78',
-        inlayBg: '#84b86c',
-        lostBar: '#5babb6',
-        lostTrack: '#bde3e7',
-        hamsterTitle: 'Personal Edition',
-        accentText: '#84b86c'
+    // Theme Colors - Redesigned for Light Grey/White cleanliness
+    const brandColor = mode === 'REGION' ? '#A4DB57' : '#93cd78';  // The Green
+
+    // Define chart tracks
+    const brandGreenLight = mode === 'REGION' ? '#E3F5CB' : '#E0F0D5'; // Very pale version of brand color
+
+    const theme = {
+        pageBg: '#f8fafc', // Slate 50
+        cardBg: '#ffffff',
+        textLabel: '#64748b', // Slate 500
+        textValue: '#0f172a', // Slate 900
+        chartBar: brandColor,
+        chartTrack: brandGreenLight,
+        lostBar: '#f59e0b', // Amber/Orange
+        lostTrack: '#fff7ed', // Light orange bg
+        hamsterTitle: mode === 'REGION' ? `${userRegion} Edition` : 'Personal Edition',
     };
 
     // Check for guest mode on mount
@@ -179,8 +180,9 @@ export default function StatsScreen() {
             // Let's assume started_at is close enough for the "Last 30 Days" chart visual.
             const thirtyDaysAgo = subDays(new Date(), 30);
 
+            const ATTEMPTS_TABLE_NAME = mode === 'REGION' ? 'game_attempts_region' : 'game_attempts_user';
             const { data: attempts, error: attemptsError } = await supabase
-                .from('game_attempts_region')
+                .from(ATTEMPTS_TABLE_NAME)
                 .select('result, num_guesses, started_at')
                 .eq('user_id', user.id)
                 .gte('started_at', thirtyDaysAgo.toISOString())
@@ -258,13 +260,13 @@ export default function StatsScreen() {
 
 
     return (
-        <ThemedView className="flex-1">
-            <SafeAreaView edges={['top']} className="px-4 pb-2" style={{ backgroundColor: useThemeColor({}, 'background') }}>
+        <ThemedView className="flex-1" style={{ backgroundColor: theme.pageBg }}>
+            <SafeAreaView edges={['top']} className="px-4 pb-2" style={{ backgroundColor: theme.pageBg }}>
                 <StyledView className="flex-row items-center justify-between py-2">
                     <StyledTouchableOpacity onPress={() => router.back()} className="p-2 -ml-2">
-                        <ChevronLeft size={28} color={iconColor} />
+                        <ChevronLeft size={28} color={theme.textValue} />
                     </StyledTouchableOpacity>
-                    <ThemedText baseSize={36} className="font-n-bold font-heading">
+                    <ThemedText baseSize={36} className="font-n-bold font-heading" style={{ color: theme.textValue }}>
                         Statistics
                     </ThemedText>
                     <StyledView className="w-10" />
@@ -278,80 +280,79 @@ export default function StatsScreen() {
             ) : (
                 <StyledScrollView showsVerticalScrollIndicator={false} className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 40 }}>
 
-                    {/* Top Grid - Completely decoupled Left/Right columns sharing a center line */}
+                    {/* Top Grid - Decoupled Left/Right columns */}
                     <StyledView className="flex-row items-stretch mb-6 mt-4">
 
-                        {/* LEFT COLUMN: UK/Personal Edition - The "Master" for height */}
-                        <StyledView className="flex-1 mr-2 rounded-3xl p-4 pb-6 shadow-sm relative overflow-hidden justify-between" style={{ backgroundColor: theme.cardBg }}>
+                        {/* LEFT COLUMN: Edition Stats */}
+                        <StyledView className="flex-1 mr-2 rounded-3xl p-5 shadow-sm relative overflow-hidden justify-between" style={{ backgroundColor: theme.cardBg }}>
                             <StyledView className="w-full">
-                                <ThemedText baseSize={18} className="font-n-bold mb-2 text-slate-900">{theme.hamsterTitle}</ThemedText>
+                                <ThemedText baseSize={18} className="font-n-bold mb-4 text-slate-900">{theme.hamsterTitle}</ThemedText>
 
-                                {/* Hamster Image - Moved Up with extra spacing */}
-                                <StyledView className="items-center mt-3 mb-5">
-                                    <StyledImage
-                                        source={MathsHamsterGreen}
-                                        className="w-24 h-24 z-20"
-                                        resizeMode="contain"
-                                    />
-                                </StyledView>
-
-                                <StyledView className="space-y-3 relative z-10 w-full">
-                                    {/* Played Inlay */}
-                                    <StyledView className="flex-row items-center justify-between p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                        <ThemedText className="text-white font-n-medium text-sm ml-1">Played</ThemedText>
-                                        <ThemedText className="text-white font-n-bold text-xl mr-1">{stats.played}</ThemedText>
+                                <StyledView className="space-y-6 w-full">
+                                    {/* Played */}
+                                    <StyledView className="flex-row items-center justify-between w-full">
+                                        <ThemedText className="font-n-medium text-sm" style={{ color: theme.textLabel }}>Played</ThemedText>
+                                        <ThemedText className="font-n-bold text-xl" style={{ color: theme.textValue }}>{stats.played}</ThemedText>
                                     </StyledView>
 
-                                    {/* Win % Inlay */}
-                                    <StyledView className="flex-row items-center justify-between p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                        <ThemedText className="text-white font-n-medium text-sm ml-1">Win %</ThemedText>
-                                        <ThemedText className="text-white font-n-bold text-xl mr-1">{winPercentage}%</ThemedText>
+                                    {/* Win % */}
+                                    <StyledView className="flex-row items-center justify-between w-full">
+                                        <ThemedText className="font-n-medium text-sm" style={{ color: theme.textLabel }}>Win %</ThemedText>
+                                        <ThemedText className="font-n-bold text-xl" style={{ color: theme.textValue }}>{winPercentage}%</ThemedText>
                                     </StyledView>
 
-                                    {/* Avg Inlay */}
-                                    <StyledView className="flex-row items-center justify-between p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                        <ThemedText className="text-white font-n-medium text-sm ml-1">Avg</ThemedText>
-                                        <ThemedText className="text-white font-n-bold text-xl mr-1">{averageGuesses}</ThemedText>
+                                    {/* Avg */}
+                                    <StyledView className="flex-row items-center justify-between w-full" style={{ marginTop: 20 }}>
+                                        <View>
+                                            <ThemedText className="font-n-medium text-sm leading-tight" style={{ color: theme.textLabel }}>Average</ThemedText>
+                                            <ThemedText className="font-n-medium text-sm leading-tight" style={{ color: theme.textLabel }}>Guesses</ThemedText>
+                                        </View>
+                                        <ThemedText className="font-n-bold text-xl" style={{ color: theme.textValue }}>{averageGuesses}</ThemedText>
                                     </StyledView>
                                 </StyledView>
                             </StyledView>
-                            {/* Empty view for bottom spacing balance if needed, but justify-between handles it */}
-                            <StyledView />
                         </StyledView>
 
-                        {/* RIGHT COLUMN: Streak & Percentile - Stretches to match Left, spaced apart */}
+                        {/* RIGHT COLUMN: Streak & Percentile */}
                         <StyledView className="flex-1 ml-2 justify-between">
 
-                            {/* Streak Box - Anchored Top */}
-                            <StyledView className="w-full rounded-3xl p-4 shadow-sm relative overflow-hidden" style={{ backgroundColor: theme.cardBg }}>
+                            {/* Streak Box */}
+                            <StyledView className="w-full rounded-3xl p-5 shadow-sm relative overflow-hidden" style={{ backgroundColor: theme.cardBg }}>
                                 <ThemedText baseSize={18} className="font-n-bold text-slate-900 mb-4">Streak</ThemedText>
-                                <StyledView className="gap-2 w-full">
-                                    <StyledView className="items-center justify-center p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                        <ThemedText className="text-white font-n-medium text-xs mb-1">Current</ThemedText>
-                                        <ThemedText className="text-white font-n-bold text-xl leading-none">{stats.currentStreak}</ThemedText>
+                                <StyledView className="gap-4 w-full">
+                                    <StyledView className="flex-row items-center justify-between w-full">
+                                        <ThemedText className="font-n-medium text-sm" style={{ color: theme.textLabel }}>Current</ThemedText>
+                                        <ThemedText className="font-n-bold text-xl" style={{ color: theme.textValue }}>{stats.currentStreak}</ThemedText>
                                     </StyledView>
-                                    <StyledView className="items-center justify-center p-2 rounded-xl w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                        <ThemedText className="text-white font-n-medium text-xs mb-1">Best</ThemedText>
-                                        <ThemedText className="text-white font-n-bold text-xl leading-none">{stats.maxStreak}</ThemedText>
+                                    <StyledView className="flex-row items-center justify-between w-full">
+                                        <ThemedText className="font-n-medium text-sm" style={{ color: theme.textLabel }}>Best</ThemedText>
+                                        <ThemedText className="font-n-bold text-xl" style={{ color: theme.textValue }}>{stats.maxStreak}</ThemedText>
                                     </StyledView>
                                 </StyledView>
                             </StyledView>
 
-                            {/* Percentile Box - Anchored Bottom (via justify-between on parent) */}
-                            <StyledView className="w-full rounded-3xl p-4 shadow-sm" style={{ backgroundColor: theme.cardBg }}>
-                                <StyledView className="flex-row justify-between items-center mb-1">
-                                    <ThemedText className="font-n-bold text-lg text-slate-900">Percentile</ThemedText>
-                                    <TouchableOpacity onPress={() => setShowPercentileInfo(true)} hitSlop={10}>
-                                        <Info size={21} color="#1e293b" opacity={0.6} />
+                            {/* PERCENTILE BOX - Fixed Spacing Logic */}
+                            {/* We use 'mt-4' here to separate from Streak Box instead of relying on justify-between gap which was flaky */}
+                            <StyledView className="w-full rounded-3xl p-5 shadow-sm flex-1 mt-4 justify-between" style={{ backgroundColor: theme.cardBg }}>
+                                <StyledView className="flex-row justify-between items-start mb-2">
+                                    <ThemedText className="font-n-bold text-lg text-slate-900 mr-1">Percentile</ThemedText>
+                                    <TouchableOpacity onPress={() => setShowPercentileInfo(true)} hitSlop={10} className="mt-1">
+                                        <Info size={18} color={theme.textLabel} />
                                     </TouchableOpacity>
                                 </StyledView>
 
-                                <StyledView className="items-center justify-center p-2 rounded-xl w-[90%] self-center mt-1" style={{ backgroundColor: theme.inlayBg }}>
-                                    <ThemedText className="text-white font-n-medium text-xs mb-1">Month to Date</ThemedText>
-                                    <ThemedText className="text-white font-n-bold text-lg leading-none text-center">
-                                        {getPercentileText(stats.cumulativeMonthlyPercentile)}
+                                <StyledView className="flex-row items-end justify-between mt-auto">
+                                    <View>
+                                        <ThemedText className="font-n-medium text-sm leading-tight" style={{ color: theme.textLabel }}>Month to</ThemedText>
+                                        <ThemedText className="font-n-medium text-sm leading-tight" style={{ color: theme.textLabel }}>Date</ThemedText>
+                                    </View>
+                                    <ThemedText className="font-n-bold text-xl leading-none text-right" style={{ color: theme.textValue }}>
+                                        {getPercentileText(stats.cumulativeMonthlyPercentile) === "NA" ? "NA" : getPercentileText(stats.cumulativeMonthlyPercentile).replace('Top ', '')}
                                     </ThemedText>
                                 </StyledView>
+                                {getPercentileText(stats.cumulativeMonthlyPercentile) !== "NA" && (
+                                    <ThemedText className="text-xs font-n-medium text-right mt-1 opacity-60 text-slate-900">Top {getPercentileText(stats.cumulativeMonthlyPercentile).replace('Top ', '')}</ThemedText>
+                                )}
                             </StyledView>
                         </StyledView>
                     </StyledView>
@@ -359,64 +360,59 @@ export default function StatsScreen() {
 
 
                     {/* Badges Section */}
-                    <StyledView className="mb-6 rounded-3xl p-4 shadow-sm" style={{ backgroundColor: theme.cardBg }}>
+                    <StyledView className="mb-6 rounded-3xl p-5 shadow-sm" style={{ backgroundColor: theme.cardBg }}>
                         <StyledView className="flex-row justify-between items-center mb-4">
                             <StyledView className="flex-row items-center gap-2">
-                                <Award size={20} color="#1e293b" />
+                                <Award size={22} color={theme.textValue} />
                                 <ThemedText baseSize={18} className="font-n-bold text-slate-900">Badges</ThemedText>
                             </StyledView>
-                            <StyledTouchableOpacity onPress={() => setShowBadgesModal(true)} className="mr-2">
-                                <ThemedText baseSize={16} className="text-blue-600 font-n-bold">See All</ThemedText>
+                            <StyledTouchableOpacity onPress={() => setShowBadgesModal(true)} className="flex-row items-center">
+                                <ThemedText baseSize={15} className="font-n-semibold text-blue-500 mr-0.5">View all</ThemedText>
+                                <ChevronLeft size={16} color="#3b82f6" style={{ transform: [{ rotate: '180deg' }] }} />
                             </StyledTouchableOpacity>
                         </StyledView>
 
-                        <StyledView className="flex-row justify-around py-2 gap-2">
+                        <StyledView className="flex-row justify-around py-2 gap-4">
                             {/* Elementle Badge */}
-                            <StyledTouchableOpacity className="flex-1" onPress={() => { setSelectedCategory('elementle'); setShowBadgesModal(true); }}>
-                                <StyledView className="rounded-xl p-3 items-center w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                    <ThemedText className="text-white font-n-medium text-xs mb-1">Won in</ThemedText>
-                                    <BadgeSlot
-                                        category="elementle"
-                                        badge={highestBadges.elementle}
-                                        minimal={true}
-                                        size="md"
-                                    />
-                                    <ThemedText className="text-white font-n-bold text-[10px] text-center mt-1" numberOfLines={1}>
-                                        {highestBadges.elementle?.badge?.name || "None"}
-                                    </ThemedText>
-                                </StyledView>
+                            <StyledTouchableOpacity className="flex-1 items-center" onPress={() => { setSelectedCategory('elementle'); setShowBadgesModal(true); }}>
+                                <ThemedText className="font-n-medium text-sm mb-3" style={{ color: theme.textLabel }}>Won In</ThemedText>
+                                <BadgeSlot
+                                    category="elementle"
+                                    badge={highestBadges.elementle}
+                                    minimal={true}
+                                    size="lg"
+                                />
+                                <ThemedText className="font-n-medium text-xs text-center mt-2 opacity-80 text-slate-900" numberOfLines={1}>
+                                    {highestBadges.elementle?.badge?.name || "None"}
+                                </ThemedText>
                             </StyledTouchableOpacity>
 
                             {/* Streak Badge */}
-                            <StyledTouchableOpacity className="flex-1" onPress={() => { setSelectedCategory('streak'); setShowBadgesModal(true); }}>
-                                <StyledView className="rounded-xl p-3 items-center w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                    <ThemedText className="text-white font-n-medium text-xs mb-1">Streak</ThemedText>
-                                    <BadgeSlot
-                                        category="streak"
-                                        badge={highestBadges.streak}
-                                        minimal={true}
-                                        size="md"
-                                    />
-                                    <ThemedText className="text-white font-n-bold text-[10px] text-center mt-1" numberOfLines={1}>
-                                        {highestBadges.streak?.badge?.name || "None"}
-                                    </ThemedText>
-                                </StyledView>
+                            <StyledTouchableOpacity className="flex-1 items-center" onPress={() => { setSelectedCategory('streak'); setShowBadgesModal(true); }}>
+                                <ThemedText className="font-n-medium text-sm mb-3" style={{ color: theme.textLabel }}>Streak</ThemedText>
+                                <BadgeSlot
+                                    category="streak"
+                                    badge={highestBadges.streak}
+                                    minimal={true}
+                                    size="lg"
+                                />
+                                <ThemedText className="font-n-medium text-xs text-center mt-2 opacity-80 text-slate-900" numberOfLines={1}>
+                                    {highestBadges.streak?.badge?.name || "None"}
+                                </ThemedText>
                             </StyledTouchableOpacity>
 
                             {/* Percentile Badge */}
-                            <StyledTouchableOpacity className="flex-1" onPress={() => { setSelectedCategory('percentile'); setShowBadgesModal(true); }}>
-                                <StyledView className="rounded-xl p-3 items-center w-full" style={{ backgroundColor: theme.inlayBg }}>
-                                    <ThemedText className="text-white font-n-medium text-xs mb-1">Top %</ThemedText>
-                                    <BadgeSlot
-                                        category="percentile"
-                                        badge={highestBadges.percentile}
-                                        minimal={true}
-                                        size="md"
-                                    />
-                                    <ThemedText className="text-white font-n-bold text-[10px] text-center mt-1" numberOfLines={1}>
-                                        {highestBadges.percentile?.badge?.name || "None"}
-                                    </ThemedText>
-                                </StyledView>
+                            <StyledTouchableOpacity className="flex-1 items-center" onPress={() => { setSelectedCategory('percentile'); setShowBadgesModal(true); }}>
+                                <ThemedText className="font-n-medium text-sm mb-3" style={{ color: theme.textLabel }}>Top %</ThemedText>
+                                <BadgeSlot
+                                    category="percentile"
+                                    badge={highestBadges.percentile}
+                                    minimal={true}
+                                    size="lg"
+                                />
+                                <ThemedText className="font-n-medium text-xs text-center mt-2 opacity-80 text-slate-900" numberOfLines={1}>
+                                    {highestBadges.percentile?.badge?.name || "None"}
+                                </ThemedText>
                             </StyledTouchableOpacity>
                         </StyledView>
                     </StyledView>
@@ -431,25 +427,23 @@ export default function StatsScreen() {
 
                     {/* Last 30 Days Chart */}
                     {recentActivity.length > 0 && (
-                        <StyledView className="mb-6 rounded-3xl p-4 shadow-sm" style={{ backgroundColor: theme.cardBg }}>
-                            <StyledView className="flex-row items-center gap-2 mb-4">
-                                <TrendingUp size={20} color="#1e293b" />
+                        <StyledView className="mb-6 rounded-3xl p-5 shadow-sm" style={{ backgroundColor: theme.cardBg }}>
+                            <StyledView className="flex-row items-center gap-2 mb-6">
+                                <TrendingUp size={22} color={theme.textValue} />
                                 <ThemedText baseSize={18} className="font-n-bold text-slate-900">Last 30 Days</ThemedText>
                             </StyledView>
 
-                            <StyledView className="flex-row gap-2">
+                            <StyledView className="flex-row gap-4 items-start">
                                 {/* Axis */}
-                                <StyledView className="py-4 justify-between h-auto">
-                                    <StyledView className="h-32 justify-between items-end -my-1">
-                                        {['X', '5', '4', '3', '2', '1', '0'].map(label => (
-                                            <ThemedText key={label} className="text-xs font-n-medium text-white leading-none">{label}</ThemedText>
-                                        ))}
-                                    </StyledView>
+                                <StyledView className="h-[8.5rem] justify-between items-end pb-0 pt-0.5">
+                                    {['X', '5', '4', '3', '2', '1', '0'].map(label => (
+                                        <ThemedText key={label} className="text-xs font-n-bold text-slate-400 leading-none">{label}</ThemedText>
+                                    ))}
                                 </StyledView>
 
                                 {/* Chart */}
-                                <StyledView className="flex-1 rounded-xl p-4" style={{ backgroundColor: theme.inlayBg }}>
-                                    <StyledView className="flex-row h-32 items-end gap-0.5">
+                                <StyledView className="flex-1 h-32 relative">
+                                    <StyledView className="flex-row h-32 items-end gap-[3px]">
                                         {recentActivity.map((day, idx) => {
                                             const isLost = !day.won || day.guesses >= 6;
                                             return (
@@ -458,7 +452,7 @@ export default function StatsScreen() {
                                                     className="flex-1 rounded-sm"
                                                     style={{
                                                         height: `${Math.min((day.guesses / 6) * 100, 100)}%`,
-                                                        backgroundColor: isLost ? theme.lostBar : '#ffffff',
+                                                        backgroundColor: isLost ? theme.lostBar : theme.chartBar,
                                                         opacity: 1
                                                     }}
                                                 />
@@ -467,7 +461,8 @@ export default function StatsScreen() {
                                     </StyledView>
                                 </StyledView>
                             </StyledView>
-                            <ThemedText baseSize={12} className="font-n-medium text-center opacity-80 mt-2 text-white">
+                            {/* Axis Label */}
+                            <ThemedText baseSize={12} className="font-n-medium text-center opacity-40 mt-3 text-slate-500">
                                 Bar height = guesses
                             </ThemedText>
                         </StyledView>
@@ -475,32 +470,33 @@ export default function StatsScreen() {
 
 
                     {/* Guess Distribution Chart */}
-                    <StyledView className="rounded-3xl p-4 shadow-sm mb-6" style={{ backgroundColor: theme.cardBg }}>
-                        <StyledView className="flex-row items-center gap-2 mb-4">
-                            <BarChart3 size={20} color="#1e293b" />
+                    <StyledView className="rounded-3xl p-5 shadow-sm mb-6" style={{ backgroundColor: theme.cardBg }}>
+                        <StyledView className="flex-row items-center gap-2 mb-6">
+                            <BarChart3 size={22} color={theme.textValue} />
                             <ThemedText className="font-n-bold text-lg text-slate-900">Guess Distribution</ThemedText>
                         </StyledView>
 
-                        <StyledView className="rounded-xl p-4" style={{ backgroundColor: theme.inlayBg }}>
-                            <StyledView className="space-y-1.5">
+                        <StyledView className="p-0">
+                            <StyledView className="space-y-4">
                                 {['1', '2', '3', '4', '5'].map((guessNum) => {
                                     const count = stats.guessDistribution[guessNum] || 0;
                                     const percentage = maxGuesses > 0 ? (count / maxGuesses) * 100 : 0;
 
                                     return (
                                         <StyledView key={guessNum} className="flex-row items-center gap-3">
-                                            <ThemedText className="w-4 text-sm font-n-medium opacity-100 text-white">{guessNum}</ThemedText>
-                                            {/* Track (Grey Bar) */}
-                                            <StyledView className="flex-1 h-8 rounded-sm overflow-hidden flex-row bg-slate-200/30 items-center">
+                                            <ThemedText className="w-4 text-sm font-n-bold text-slate-500">{guessNum}</ThemedText>
+                                            {/* Track */}
+                                            <StyledView className="flex-1 h-8 rounded-md overflow-hidden flex-row items-center" style={{ backgroundColor: theme.chartTrack }}>
                                                 {count > 0 ? (
                                                     <StyledView
-                                                        className="h-full justify-center items-end pr-2 bg-white"
-                                                        style={{ width: `${Math.max(percentage, 10)}%` }}
+                                                        className="h-full justify-center items-end pr-2"
+                                                        style={{ width: `${Math.max(percentage, 5)}%`, backgroundColor: theme.chartBar }}
                                                     >
-                                                        <ThemedText className="text-xs font-n-bold shadow-sm" style={{ color: theme.inlayBg }}>{count}</ThemedText>
+                                                        <ThemedText className="text-xs font-n-bold text-white shadow-sm">{count}</ThemedText>
                                                     </StyledView>
                                                 ) : (
-                                                    <ThemedText className="text-xs font-n-bold text-white/50 ml-2">0</ThemedText>
+                                                    // Empty transparent bar, maybe show 0 inside? Not usually.
+                                                    <View />
                                                 )}
                                             </StyledView>
                                         </StyledView>
@@ -509,17 +505,17 @@ export default function StatsScreen() {
 
                                 {/* Lost Row */}
                                 <StyledView className="flex-row items-center gap-3">
-                                    <ThemedText className="w-4 text-sm font-n-medium opacity-100 text-white relative bottom-0">X</ThemedText>
-                                    <StyledView className="flex-1 h-8 rounded-sm overflow-hidden flex-row items-center" style={{ backgroundColor: theme.lostTrack }}>
+                                    <ThemedText className="w-4 text-sm font-n-bold text-slate-500">X</ThemedText>
+                                    <StyledView className="flex-1 h-8 rounded-md overflow-hidden flex-row items-center" style={{ backgroundColor: theme.lostTrack }}>
                                         {losses > 0 ? (
                                             <StyledView
                                                 className="h-full justify-center items-end pr-2"
-                                                style={{ width: `${Math.max((losses / maxGuesses) * 100, 10)}%`, backgroundColor: theme.lostBar }}
+                                                style={{ width: `${Math.max((losses / maxGuesses) * 100, 5)}%`, backgroundColor: theme.lostBar }}
                                             >
                                                 <ThemedText className="text-xs font-n-bold text-white shadow-sm">{losses}</ThemedText>
                                             </StyledView>
                                         ) : (
-                                            <ThemedText className="text-xs font-n-bold text-white/50 ml-2">0</ThemedText>
+                                            <View />
                                         )}
                                     </StyledView>
                                 </StyledView>

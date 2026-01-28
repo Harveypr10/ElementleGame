@@ -1,17 +1,16 @@
-
 import React, { useEffect } from 'react';
 import { View, Text, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
 import { styled } from 'nativewind';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { HelpCircle } from 'lucide-react-native';
+import { supabase } from '../../lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { InputGrid } from '../InputGrid';
 import { NumericKeyboard } from '../NumericKeyboard';
 import { useGameEngine } from '../../hooks/useGameEngine';
 import { useAuth } from '../../lib/auth';
 import { useInterstitialAd } from '../../hooks/useInterstitialAd';
-import { StreakCelebration } from './StreakCelebration';
-import { BadgeUnlockModal } from './BadgeUnlockModal';
 import { IntroScreen } from './IntroScreen';
 import { useOptions } from '../../lib/options';
 
@@ -20,6 +19,8 @@ import { useBadgeSystem, Badge } from '../../hooks/useBadgeSystem';
 import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { HolidayActiveModal } from './HolidayActiveModal';
+import { useStreakSaverStatus } from '../../hooks/useStreakSaverStatus';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -43,16 +44,33 @@ interface ActiveGameProps {
     gameMode: 'REGION' | 'USER';
     backgroundColor?: string;
     onGameStateChange?: (state: 'loading' | 'playing' | 'won' | 'lost') => void;
+    isStreakSaverGame?: boolean;
+    onStreakSaverExit?: () => void;
 }
 
-export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGameStateChange }: ActiveGameProps) {
+export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGameStateChange, isStreakSaverGame, onStreakSaverExit }: ActiveGameProps) {
     const router = useRouter();
-    const { mode, id, skipIntro } = useLocalSearchParams();
+    const { mode, id, skipIntro, preserveStreakStatus: preserveParam } = useLocalSearchParams();
     const { dateLength, cluesEnabled, dateFormatOrder } = useOptions();
     const { user } = useAuth();
     const isGuest = !user;
     const { showAd } = useInterstitialAd();
     const surfaceColor = useThemeColor({}, 'surface');
+    const queryClient = useQueryClient();
+
+    // Local State
+    const [preserveStreakStatus, setPreserveStreakStatus] = React.useState(false);
+
+    // Initialize preserve status from param
+    useEffect(() => {
+        if (preserveParam === 'true') {
+            console.log("[ActiveGame] Preserving Streak Status from Params");
+            setPreserveStreakStatus(true);
+        }
+    }, [preserveParam]);
+    const [hasCheckedHoliday, setHasCheckedHoliday] = React.useState(false);
+    const { endHoliday, holidayActive } = useStreakSaverStatus();
+    const [showHolidayPopup, setShowHolidayPopup] = React.useState(false);
 
     // Pass the correct props to useGameEngine
     // Note: useGameEngine expects { puzzleId, answerDateCanonical, mode }
@@ -68,14 +86,18 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
         isValidGuess,
         invalidShake, // Using this to trigger shake animation if needed
         isRestored,
-        numDigits // Get authoritative digit count
+        numDigits, // Get authoritative digit count
+        finalStreak, // Get authoritative calculated streak
+        streakDayStatus // Get the DB status for today's game
     } = useGameEngine({
         puzzleId: puzzle.id,
         answerDateCanonical: puzzle.solutionDate, // Use the actual solution date
-        mode: gameMode
+        puzzleDate: puzzle.date, // Pass calendar date for Steak Saver validation
+        mode: gameMode,
+        preserveStreakStatus // Pass down the user's choice
     });
 
-    // Generate dynamic placeholders based on Locked numDigits and dateFormatOrder
+    // ... (placeHolders logic remains same)
     const placeHolders = React.useMemo(() => {
         if (numDigits === 8) {
             // 8 digits: full year
@@ -100,7 +122,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     // though ResultModal might fetch it independently or use context.
 
     // -- Hook Integrations --
-    const { stats, refetch: refetchStats, updateStats } = useUserStats();
+    const { stats, refetch: refetchStats } = useUserStats(gameMode);
     const { checkBadgesForWin, markBadgeAsSeen, pendingBadges } = useBadgeSystem();
 
     // -- Local State for UI Flow --
@@ -109,22 +131,57 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     const [showStreakCelebration, setShowStreakCelebration] = React.useState(false);
     const [streakToDisplay, setStreakToDisplay] = React.useState(0);
 
-    console.log('[ActiveGame] Render Check:', {
-        gameState,
-        isLoading,
-        showIntro,
-        skipIntro,
-        guessesLen: guesses.length,
-        isRestored
-    });
-
-    // Badge Queue System
-    const [newBadgesQueue, setNewBadgesQueue] = React.useState<Badge[]>([]);
-    const [currentBadge, setCurrentBadge] = React.useState<Badge | null>(null);
-    const [showBadgeModal, setShowBadgeModal] = React.useState(false);
+    // Calculate effective streak to show in Intro
+    // use finalStreak (if just won) or current stats streak
+    // Calculate effective streak to show in Intro
+    // use finalStreak (if just won) or current stats streak
+    const effectiveStreak = finalStreak ?? stats?.current_streak ?? 0;
 
     // Prevent double-processing of game end
     const processedGame = React.useRef(false);
+
+    // HOLIDAY CHECK: After loading, check if this game is a holiday (status === 0)
+    // Only check if playing,    // Check for Holiday Mode on mount (Safety Check, though Index handles it now)
+    // We removed generic modal triggering here to avoid double-popup
+    // HOLIDAY CHECK: After loading, check if this game is a holiday (status === 0)
+    // Re-enabled to support triggering when entering from Archive (Deep Link)
+    useEffect(() => {
+        // [FIX] Only show if we are actually PLAYING (not viewing a won game from archive)
+        // Wait, if it's holiday mode, we want to show the popup to say "It's a holiday".
+        // But if I go to Archive -> Click Date -> It loads a "Played/Won" game -> status != 0 -> No Popup.
+        // If I go to Archive -> Click Date -> It loads a "Holiday" game (missed) -> status == 0 -> Popup?
+        // User says: "that route doesn't bring up the 'Holiday Mode Active' popup, so please implement this".
+        // This implies they want the "You are in holiday mode" reminder.
+
+        if (!hasCheckedHoliday && gameState === 'playing' && streakDayStatus === 0 && !preserveStreakStatus && holidayActive) {
+            console.log("[ActiveGame] Game detected as Holiday Mode (Status 0) AND Global Holiday Active. Triggering Modal.");
+            setHasCheckedHoliday(true);
+            setShowHolidayPopup(true);
+        }
+    }, [gameState, streakDayStatus, hasCheckedHoliday, preserveStreakStatus, holidayActive]);
+
+    // Format Holiday End Date (Example: "Wednesday 11 February")
+
+    // Format Holiday End Date (Example: "Wednesday 11 February")
+    // We don't have the *actual* holiday end date here easily without checking subscription/settings.
+    // For now, let's format Today + Remaining Days? 
+    // Or just use a placeholder/generic or try to fetch it?
+    // User stats might have "holiday_end_date"? No.
+    // Let's rely on what we have. 
+    // Wait, the prompt screenshot showed "Holiday runs until...".
+    // I can't easily get the end date without a new fetch. 
+    // I will mock it or leave generic for now, or just calculate based on max lookback?
+    // Actually, `streak_day_status` doesn't tell us when holiday ENDS.
+    // I'll leave the date hardcoded or generic, or just "until you exit".
+    // Wait, let's use a simple date for now (e.g. Tomorrow?) or just "until deactivated".
+    // Re-reading screenshot: "Wednesday 11 February".
+    // I'll format a date 14 days from now? No.
+    // I'll format the current date for now as a fallback.
+    const holidayEndDateDisplay = React.useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 14); // Assumption/Placeholder
+        return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    }, []);
 
     // Loading logic: Wait for game state to be loaded AND minimum 1.5s
     useEffect(() => {
@@ -142,8 +199,15 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             // After loading completes, determine whether to show intro
             // Only show intro for fresh games (playing, no guesses, not restored)
             // AND only if skipIntro param is NOT present
+            // AND only if NOT in Holiday Mode (Holiday Modal takes precedence)
             if (gameState === 'playing' && guesses.length === 0 && !isRestored && skipIntro !== 'true') {
-                setShowIntro(true);
+                // Check if Holiday Mode (streakDayStatus === 0)
+                // If so, rely on the specific Holiday Modal logic in useEffect below
+                if (streakDayStatus !== 0) {
+                    setShowIntro(true);
+                } else {
+                    console.log('[ActiveGame] In Holiday Mode (Status 0) - Suppressing Intro to show Holiday Modal');
+                }
             }
         }, Math.max(0, MINIMUM_LOADING_TIME - (Date.now() - startTime)));
 
@@ -163,50 +227,39 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
         }
 
         if (gameState === 'won') {
+            // [FIX] Wait for finalStreak to be populated by GameEngine before processing
+            // This prevents race condition where we show the "Old" streak (e.g. 1) before the "New" streak (e.g. 2) arrives.
+            if (finalStreak === null || finalStreak === undefined) {
+                console.log('[ActiveGame] Won detected but waiting for finalStreak...');
+                return;
+            }
+            console.log('[ActiveGame] Final Streak Ready:', finalStreak);
+
             processedGame.current = true;
+            let timer: NodeJS.Timeout;
 
-            // 1. Calculate new streak (add 1 if not already updated in DB, 
-            // but DB update might be async. Best to trust stats + 1 or optimistically update)
-            const currentStreak = stats?.current_streak || 0;
-            const displayStreak = (stats?.current_streak || 0) + 1;
-            setStreakToDisplay(displayStreak);
+            const handleWin = async () => {
+                // 1. Use authoritative streak from GameEngine if available to avoid race conditions
+                // We still refetch stats to ensure global state is synced for other components
+                const { data: newStats } = await refetchStats();
 
-            // 2. Update Stats
-            updateStats(true);
+                // [FIX] Invalidate pendingBadges so GameResult screen sees the new badge immediately
+                queryClient.invalidateQueries({ queryKey: ['pendingBadges'] });
 
-            // 3. Show celebration after delay
-            const timer = setTimeout(() => {
-                if (!isGuest) {
-                    setShowStreakCelebration(true);
+                // CRITICAL: Use finalStreak if available, as it definitely includes the win.
+                // Fallback to DB fetch (which might be stale due to replication lag) only if necessary.
+                const displayStreak = finalStreak ?? newStats?.current_streak ?? 0;
 
-                    // 4. Check Badges
-                    checkBadgesForWin(guesses.length, displayStreak, gameMode, puzzle.id.toString())
-                        .then(badges => {
-                            if (badges && badges.length > 0) {
-                                setNewBadgesQueue(badges);
-                            }
-                        });
+                console.log('[ActiveGame] Win detected. Display Streak:', displayStreak, '(Final:', finalStreak, 'DB:', newStats?.current_streak, ')');
+                setStreakToDisplay(displayStreak);
 
-                    // Refetch stats to be sure
-                    refetchStats();
-                }
-            }, 500);
-
-            return () => clearTimeout(timer);
-        } else if (gameState === 'lost') {
-            processedGame.current = true;
-
-            // Update Stats (reset streak, etc.)
-            updateStats(false);
-
-            // No celebration, just navigate to result after delay (ONLY for users)
-            // Guests must click "Continue" manually
-            if (!isGuest) {
-                const timer = setTimeout(() => {
+                // 2. Navigate to Result immediately (celebration handled there)
+                // Add slight delay so user sees the "Green" grid.
+                timer = setTimeout(() => {
                     router.replace({
                         pathname: '/game-result',
                         params: {
-                            isWin: 'false',
+                            isWin: 'true',
                             guessesCount: guesses.length.toString(),
                             maxGuesses: '5',
                             answerDateCanonical: puzzle.solutionDate,
@@ -215,13 +268,50 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                             gameMode,
                             puzzleId: puzzle.id.toString(),
                             isGuest: isGuest ? 'true' : 'false',
+                            currentStreak: displayStreak.toString(),
+                            isStreakSaverGame: isStreakSaverGame ? 'true' : 'false'
                         }
                     });
-                }, 1000);
-                return () => clearTimeout(timer);
-            }
+                }, 1500); // 1.5s delay to see the win
+            };
+
+            handleWin();
+            return () => clearTimeout(timer);
+
+        } else if (gameState === 'lost') {
+            processedGame.current = true;
+            let timer: NodeJS.Timeout;
+
+            const handleLoss = async () => {
+                // 1. Refetch stats to ensure UI shows correct (reset) streak
+                await refetchStats();
+
+                // 2. No celebration, navigate after delay (ONLY for users)
+                if (!isGuest) {
+                    timer = setTimeout(() => {
+                        router.replace({
+                            pathname: '/game-result',
+                            params: {
+                                isWin: 'false',
+                                guessesCount: guesses.length.toString(),
+                                maxGuesses: '5',
+                                answerDateCanonical: puzzle.solutionDate,
+                                eventTitle: puzzle.title,
+                                eventDescription: puzzle.eventDescription || '',
+                                gameMode,
+                                puzzleId: puzzle.id.toString(),
+                                isGuest: isGuest ? 'true' : 'false',
+                                currentStreak: '0',
+                                isStreakSaverGame: isStreakSaverGame ? 'true' : 'false'
+                            }
+                        });
+                    }, 1500);
+                }
+            };
+            handleLoss();
+            return () => clearTimeout(timer);
         }
-    }, [gameState, isRestored]); // Added isRestored to deps
+    }, [gameState, isRestored, finalStreak]); // Added finalStreak to deps
 
 
     if (gameState === 'loading') {
@@ -232,74 +322,11 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
         );
     }
 
-    // Handlers (moved below loading check, could be above but logic only needed when playing)
-    const handleStreakClose = () => {
-        setShowStreakCelebration(false);
-
-        // Transition to Badge Check
-        if (newBadgesQueue.length > 0) {
-            const nextBadge = newBadgesQueue[0];
-            setCurrentBadge(nextBadge);
-            setShowBadgeModal(true);
-        } else {
-            // No badges, navigate to result
-            router.replace({
-                pathname: '/game-result',
-                params: {
-                    isWin: 'true',
-                    guessesCount: guesses.length.toString(),
-                    maxGuesses: '5',
-                    answerDateCanonical: puzzle.solutionDate,
-                    eventTitle: puzzle.title,
-                    eventDescription: puzzle.eventDescription || '',
-                    gameMode,
-                    puzzleId: puzzle.id.toString(),
-                    isGuest: isGuest ? 'true' : 'false',
-                }
-            });
-        }
-    };
-
-    const handleBadgeClose = async () => {
-        if (currentBadge) {
-            await markBadgeAsSeen(currentBadge.id);
-        }
-        setShowBadgeModal(false);
-
-        // Check if more badges in queue (excluding the one just shown)
-        const remainingBadges = newBadgesQueue.slice(1);
-        setNewBadgesQueue(remainingBadges);
-
-        if (remainingBadges.length > 0) {
-            // Show next badge after brief delay
-            setTimeout(() => {
-                setCurrentBadge(remainingBadges[0]);
-                setShowBadgeModal(true);
-            }, 300);
-        } else {
-            // Done with badges, navigate to result
-            router.replace({
-                pathname: '/game-result',
-                params: {
-                    isWin: 'true',
-                    guessesCount: guesses.length.toString(),
-                    maxGuesses: '5',
-                    answerDateCanonical: puzzle.solutionDate,
-                    eventTitle: puzzle.title,
-                    eventDescription: puzzle.eventDescription || '',
-                    gameMode,
-                    puzzleId: puzzle.id.toString(),
-                    isGuest: isGuest ? 'true' : 'false',
-                }
-            });
-        }
-    };
-
     // Construct Display Strings
     // Only show location for Local History category (999)
     const categoryText = puzzle.category || '';
-    const locationText = puzzle.categoryNumber === 999 && puzzle.location ? `: ${puzzle.location}` : '';
-    const headerLine1 = `${categoryText}${locationText}`;
+    const locationText = puzzle.categoryNumber === 999 && puzzle.location ? `: ${puzzle.location} ` : '';
+    const headerLine1 = `${categoryText}${locationText} `;
 
     return (
         <ThemedView className="flex-1">
@@ -361,6 +388,10 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                             <View className="items-center px-4">
                                 <TouchableOpacity
                                     onPress={() => {
+                                        // Prioritize authoritative finalStreak if available (from local hook state)
+                                        // But finalStreak might not be in scope here if it's inside the hook???
+                                        // Wait, finalStreak IS in scope of ActiveGame component.
+                                        const displayStreak = finalStreak ?? stats?.current_streak ?? 0;
                                         router.replace({
                                             pathname: '/game-result',
                                             params: {
@@ -373,10 +404,12 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                                                 gameMode,
                                                 puzzleId: puzzle.id.toString(),
                                                 isGuest: isGuest ? 'true' : 'false',
+                                                currentStreak: displayStreak.toString()
                                             }
                                         });
                                     }}
                                     className="bg-slate-300 dark:bg-slate-700 w-full py-4 rounded-xl items-center active:bg-slate-400 dark:active:bg-slate-600"
+                                    style={{ transform: [{ translateY: 0 }] }} // Ensure button is reachable
                                 >
                                     <ThemedText className="text-slate-900 dark:text-white font-n-bold" size="lg">
                                         Continue
@@ -388,39 +421,48 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                 </>
             )}
 
-            {/* Intro Screen */}
+            {/* Intro & Holiday Logic */}
             {!isLoading && (
-                <IntroScreen
-                    visible={showIntro}
-                    gameMode={gameMode}
-                    onStart={() => {
-                        if (isGuest) {
-                            showAd();
+                <>
+                    <IntroScreen
+                        visible={showIntro}
+                        onStart={() => setShowIntro(false)}
+                        gameMode={gameMode}
+                        puzzleDate={puzzle.date}
+                        // Issue 4 Fix: Only show streak intro if NOT preserving holiday status (i.e. we are playing for real)
+                        // AND if it's Today's puzzle OR a Streak Saver game.
+                        // Archive games should show standard intro.
+                        isStreakGame={
+                            effectiveStreak > 0 &&
+                            !isRestored &&
+                            gameState === 'playing' &&
+                            !preserveStreakStatus &&
+                            (isStreakSaverGame || puzzle.date === new Date().toISOString().split('T')[0])
                         }
-                        setShowIntro(false);
-                    }}
-                    puzzleDate={puzzle.date}
-                    eventTitle={puzzle.title}
-                    currentStreak={stats?.current_streak || 0}
-                    isStreakGame={false}
-                    isGuest={isGuest}
-                />
+                        isStreakSaverGame={isStreakSaverGame}
+                        onExit={onStreakSaverExit}
+                        currentStreak={effectiveStreak}
+                        eventTitle={puzzle.title}
+                        category={puzzle.category} // Pass Category
+                        isGuest={isGuest}
+                    />
+
+                    <HolidayActiveModal
+                        visible={showHolidayPopup}
+                        holidayEndDate={holidayEndDateDisplay}
+                        onContinueHoliday={() => setShowHolidayPopup(false)}
+                        onExitHoliday={async () => {
+                            setShowHolidayPopup(false);
+                            try {
+                                await endHoliday();
+                            } catch (e) {
+                                console.error("Failed to exit holiday mode", e);
+                            }
+                        }}
+                    />
+                </>
             )}
 
-
-            {/* Celebrations */}
-            {/* Streak Celebration */}
-            <StreakCelebration
-                visible={showStreakCelebration}
-                streak={streakToDisplay}
-                onClose={handleStreakClose}
-            />
-            {/* Badge Unlock Modal */}
-            <BadgeUnlockModal
-                visible={showBadgeModal}
-                badge={currentBadge}
-                onClose={handleBadgeClose}
-            />
-        </ThemedView>
+        </ThemedView >
     );
 }

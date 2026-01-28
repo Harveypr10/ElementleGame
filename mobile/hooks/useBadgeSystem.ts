@@ -63,12 +63,45 @@ export const useBadgeSystem = () => {
                 // Check if already owns this badge
                 const { data: existing } = await supabase
                     .from('user_badges')
-                    .select('id')
+                    .select('id, badge_count')
                     .eq('user_id', user.id)
                     .eq('badge_id', definition.id)
+                    .eq('region', region === 'UK' ? 'UK' : 'GLOBAL') // [FIX] Ensure we match region properly if table is stringent
+                    // Actually, the insert block below uses 'region' var. 
+                    // Let's assume we match on badge_id + user_id + maybe game_type if needed?
+                    // User request says: "region version of the UK game... update existing row... region=UK"
+                    // Existing logic below inserts with `region: gameType === 'REGION' ? region : 'GLOBAL'`.
+                    // So we must match that.
+                    .eq('region', gameType === 'REGION' ? region : 'GLOBAL')
+                    .eq('game_type', gameType)
                     .single();
 
-                if (!existing) {
+                if (existing) {
+                    // [FIX] RE-AWARD: Increment count and reset is_awarded to false
+                    const newCount = (existing.badge_count || 1) + 1;
+                    console.log(`[BadgeSystem] Re-awarding badge ${definition.name} (Count: ${newCount})`);
+
+                    const { error: updateError } = await supabase
+                        .from('user_badges')
+                        .update({
+                            badge_count: newCount,
+                            is_awarded: false, // Reset to trigger popup
+                            awarded_at: new Date().toISOString() // Update timestamp
+                        })
+                        .eq('id', existing.id);
+
+                    if (!updateError) {
+                        // Add to list so UI sees it
+                        newBadges.push({
+                            ...definition,
+                            // @ts-ignore - appending runtime property for UI
+                            badge_count: newCount
+                        });
+                        // Invalidate pending so it shows up
+                        queryClient.invalidateQueries({ queryKey: ['pendingBadges'] });
+                    }
+                } else {
+                    // Award New
                     newBadges.push(definition);
                 }
             }
@@ -93,11 +126,15 @@ export const useBadgeSystem = () => {
             }
         }
 
-        // C. Award New Badges (Insert to DB with is_awarded=false initially for safety, 
-        // or true if we handle display immediately. 
-        // Plan: Insert is_awarded=false. Return them to UI. UI shows them. UI calls markAsAwarded.
-        if (newBadges.length > 0) {
-            const inserts = newBadges.map(b => ({
+        // C. Award New Badges (Insert to DB)
+        // [FIX] Filter out badges that were already handled via update (re-awarded)
+        // We can just check if they have 'badge_count' > 1 (which we injected above)
+        // Or better, track inserts separate from returns.
+
+        const badgesToInsert = newBadges.filter((b: any) => !b.badge_count || b.badge_count === 1);
+
+        if (badgesToInsert.length > 0) {
+            const inserts = badgesToInsert.map(b => ({
                 user_id: user.id,
                 badge_id: b.id,
                 is_awarded: false, // Pending display
@@ -113,23 +150,32 @@ export const useBadgeSystem = () => {
             queryClient.invalidateQueries({ queryKey: ['userBadges'] });
         }
 
-        return newBadges;
+        return newBadges; // Return all (including re-awarded) for UI feedback if needed (though UI uses pendingBadges query usually)
 
     }, [user, badgeDefinitions, queryClient]);
 
 
     // 3. Mark Badge as Awarded (Visualized)
-    const markBadgeAsSeen = async (badgeId: number) => {
+    const markBadgeAsSeen = async (userBadgeId: number) => {
         if (!user) return;
 
-        // We update based on badge_id for this user
-        await supabase
+        console.log(`[BadgeSystem] Marking badge ${userBadgeId} as seen...`);
+
+        // We update based on the specific row ID (user_badges.id)
+        const { error, data } = await supabase
             .from('user_badges')
             .update({ is_awarded: true })
-            .eq('user_id', user.id)
-            .eq('badge_id', badgeId);
+            .eq('id', userBadgeId)
+            .select();
 
-        queryClient.invalidateQueries({ queryKey: ['pendingBadges'] });
+        if (error) {
+            console.error('[BadgeSystem] Failed to mark badge seen:', error);
+            // This strongly suggests RLS if "PGRST..." or permission error
+        } else {
+            console.log('[BadgeSystem] Successfully marked badge seen.', data);
+            // Only invalidate if successful
+            queryClient.invalidateQueries({ queryKey: ['pendingBadges'] });
+        }
     };
 
     // 4. Fetch Pending Badges (Inbox)
@@ -144,7 +190,15 @@ export const useBadgeSystem = () => {
                 .eq('is_awarded', false);
 
             if (error) return [];
-            return data as UserBadge[]; // Returns joined data
+
+            // Inject badge_count into the badge definition object so UI can see it easily
+            return data.map((ub: any) => ({
+                ...ub,
+                badge: {
+                    ...ub.badge,
+                    badge_count: ub.badge_count // Pass count to the display object
+                }
+            })) as UserBadge[];
         },
         enabled: !!user,
         refetchOnWindowFocus: true

@@ -21,9 +21,11 @@ interface IntroScreenProps {
     puzzleDate?: string;
     isStreakGame?: boolean;
     isStreakSaverGame?: boolean;
+    onExit?: () => void;
     currentStreak?: number;
     eventTitle?: string;
     isGuest?: boolean;
+    category?: string; // Added category prop
 }
 
 export function IntroScreen({
@@ -33,8 +35,10 @@ export function IntroScreen({
     puzzleDate,
     isStreakGame,
     isStreakSaverGame,
+    onExit,
     currentStreak,
     eventTitle,
+    category, // Destructure category
     isGuest = false
 }: IntroScreenProps) {
     const router = useRouter();
@@ -63,13 +67,24 @@ export function IntroScreen({
 
     // Handle back button press - warn if streak saver game
     const handleBack = () => {
-        if (isStreakSaverGame && streakSaverActive) {
+        if (isStreakSaverGame) {
+            // Note: Removed 'streakSaverActive' check as we rely on the prop passed from parent context
             Alert.alert(
                 'Streak Saver',
                 'To keep your streak going you must win this puzzle from yesterday. Exiting will reset your streak, without using your streak saver.',
                 [
                     { text: 'Continue Playing', style: 'cancel' },
-                    { text: 'Exit and Lose Streak', style: 'destructive', onPress: () => router.back() }
+                    {
+                        text: 'Exit and Lose Streak',
+                        style: 'destructive',
+                        onPress: () => {
+                            if (onExit) {
+                                onExit();
+                            } else {
+                                router.back();
+                            }
+                        }
+                    }
                 ]
             );
         } else {
@@ -112,7 +127,7 @@ export function IntroScreen({
                 <Animated.View style={{ opacity: fadeAnim, width: '100%', maxWidth: 400, alignItems: 'center' }}>
 
                     {/* Mascot */}
-                    <StyledView className="mb-8 items-center justify-center h-48 w-48">
+                    <StyledView className="mb-8 items-center justify-center h-48 w-48 relative">
                         {isStreakGame ? (
                             <View className="relative w-full h-full justify-center items-center">
                                 <Image
@@ -120,13 +135,23 @@ export function IntroScreen({
                                     style={{ width: 180, height: 180 }}
                                     resizeMode="contain"
                                 />
-                                <ThemedText className="absolute text-red-600 font-display font-bold shadow-lg" size="4xl" style={{ paddingTop: 40 }}>
-                                    {currentStreak}
-                                </ThemedText>
+                                {/* Overlay Number - Centered on Mascot - Matched to StreakCelebration */}
+                                <View className="absolute inset-x-0 bottom-8 items-center">
+                                    <ThemedText
+                                        className={`text-red-600 font-extrabold shadow-lg ${(currentStreak || 0).toString().length === 1 ? 'text-4xl' : (currentStreak || 0).toString().length === 2 ? 'text-3xl' : 'text-2xl'}`}
+                                        style={{
+                                            textShadowColor: 'rgba(255, 255, 255, 0.8)',
+                                            textShadowOffset: { width: 0, height: 0 },
+                                            textShadowRadius: 10
+                                        }}
+                                    >
+                                        {currentStreak || 0}
+                                    </ThemedText>
+                                </View>
                             </View>
                         ) : (
                             <Image
-                                source={require('../../assets/ui/webp_assets/Question-Hamster-v2.webp')}
+                                source={require('../../assets/ui/webp_assets/Sherlock-Hamster.webp')}
                                 style={{ width: 160, height: 160 }}
                                 resizeMode="contain"
                             />
@@ -134,20 +159,40 @@ export function IntroScreen({
                     </StyledView>
 
                     {/* Text Content */}
-                    <StyledView className="items-center mb-8 space-y-4 px-4">
-                        <ThemedText
-                            className="text-center font-body"
-                            style={{ color: isStreakGame ? '#ffffff' : textColor }}
-                            size="lg"
-                        >
-                            {isStreakGame ? "Continue your streak!" : promptText}
-                        </ThemedText>
+                    <StyledView className="items-center mb-8 space-y-4 px-4 w-full">
+                        <StyledView className="max-w-[270px]">
+                            {isStreakGame ? (
+                                <Text className="text-center font-body text-red-500 text-lg font-bold">
+                                    Continue your streak!
+                                </Text>
+                            ) : (
+                                <ThemedText
+                                    className="text-center font-body text-slate-500"
+                                    size="lg"
+                                >
+                                    {promptText}
+                                </ThemedText>
+                            )}
+                        </StyledView>
 
-                        {/* Title (e.g. "Hagia Sophia...") - only show if clues enabled */}
-                        {cluesEnabled && eventTitle && !isStreakGame && (
-                            <ThemedText className="text-center font-display font-bold text-brand-blue dark:text-blue-400 mt-2" size="xl">
-                                {eventTitle}
-                            </ThemedText>
+                        {/* Event Category & Title - Show even if streak game (if clues enabled) */}
+                        {cluesEnabled && (
+                            <>
+                                {category && (
+                                    <Text className={`text-center font-display font-bold text-xl mt-2 ${isStreakGame ? 'text-yellow-400' : 'text-blue-900'}`}>
+                                        {category}
+                                    </Text>
+                                )}
+                                {eventTitle && (
+                                    <ThemedText
+                                        className="text-center font-display font-bold mt-2 text-slate-500"
+                                        size="xl"
+                                        style={isStreakGame ? { color: '#ffffff' } : undefined}
+                                    >
+                                        {eventTitle}
+                                    </ThemedText>
+                                )}
+                            </>
                         )}
                     </StyledView>
 
@@ -155,7 +200,7 @@ export function IntroScreen({
                     <View className="w-full items-center space-y-3">
                         <StyledTouchableOpacity
                             onPress={onStart}
-                            className={`w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center ${gameMode === 'USER' ? 'bg-[#66becb]' : 'bg-[#7DAAE8]'
+                            className={`w-3/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center ${gameMode === 'USER' ? 'bg-[#66becb]' : 'bg-[#7DAAE8]'
                                 }`}
                         >
                             <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">

@@ -290,8 +290,8 @@ export default function AccountInfoPage() {
             <SafeAreaView edges={['top']} className="flex-1" style={{ backgroundColor: surfaceColor }}>
                 {/* Header */}
                 <StyledView
-                    className="px-4 py-3 border-b"
-                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                    className="px-4 py-3"
+                    style={{ backgroundColor: surfaceColor }}
                 >
                     <StyledView className="flex-row items-center justify-center relative">
                         <StyledTouchableOpacity

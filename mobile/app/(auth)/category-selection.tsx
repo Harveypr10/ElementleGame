@@ -5,11 +5,12 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, Modal } from 'react-native';
 import { styled } from 'nativewind';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, Loader2, ChevronLeft } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { hapticsManager } from '../../lib/hapticsManager';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -38,6 +39,39 @@ export default function CategorySelectionScreen() {
     const [saving, setSaving] = useState(false);
     const [generating, setGenerating] = useState(false);
     const [hasSyncedFromApi, setHasSyncedFromApi] = useState(false);
+    const [welcomeVisible, setWelcomeVisible] = useState(false);
+
+    // Theme hook calls must be at top level
+    const surfaceColor = useThemeColor({}, 'surface');
+    const backgroundColor = useThemeColor({}, 'background');
+    const textColor = useThemeColor({}, 'text');
+    const iconColor = useThemeColor({}, 'icon');
+    const borderColor = useThemeColor({}, 'border');
+    const surfaceHighlight = useThemeColor({}, 'surface');
+
+    // Check for welcome popup (new Pro user)
+    useEffect(() => {
+        const checkWelcome = async () => {
+            try {
+                const pending = await AsyncStorage.getItem('streak_saver_upgrade_pending');
+                if (pending === 'true') {
+                    setWelcomeVisible(true);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        checkWelcome();
+    }, []);
+
+    const handleCloseWelcome = async () => {
+        setWelcomeVisible(false);
+        try {
+            await AsyncStorage.removeItem('streak_saver_upgrade_pending');
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     // Fetch categories and user's selections on mount
     useEffect(() => {
@@ -55,8 +89,10 @@ export default function CategorySelectionScreen() {
             if (error) {
                 console.error('[CategorySelection] Error fetching categories:', error);
             } else if (data) {
-                console.log('[CategorySelection] Loaded categories:', data.length);
-                setCategories(data);
+                // Filter out "Local History" (id 999)
+                const filteredData = data.filter(cat => cat.id !== 999);
+                console.log('[CategorySelection] Loaded categories:', filteredData.length);
+                setCategories(filteredData);
             }
         } catch (err) {
             console.error('[CategorySelection] Fetch error:', err);
@@ -210,11 +246,21 @@ export default function CategorySelectionScreen() {
         }
     };
 
-    const surfaceColor = useThemeColor({}, 'surface');
-    const backgroundColor = useThemeColor({}, 'background');
-    const textColor = useThemeColor({}, 'text');
-    const iconColor = useThemeColor({}, 'icon');
-    const surfaceHighlight = useThemeColor({}, 'surface'); // Or specific highlight color if needed
+    // Colors moved to top
+
+    const handleExit = async () => {
+        try {
+            await AsyncStorage.removeItem('streak_saver_upgrade_pending');
+        } catch (e) {
+            console.error(e);
+        }
+
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            router.replace('/(tabs)/');
+        }
+    };
 
     if (loading) {
         return (
@@ -230,32 +276,33 @@ export default function CategorySelectionScreen() {
     return (
         <ThemedView className="flex-1">
             <SafeAreaView className="flex-1">
-                {/* Back Button */}
-                <StyledTouchableOpacity
-                    onPress={() => router.back()}
-                    className="absolute left-4 top-12 z-10 w-12 h-12 items-center justify-center rounded-full shadow-sm border"
-                    style={{ backgroundColor: surfaceColor, borderColor: useThemeColor({}, 'border') }}
-                >
-                    <ChevronLeft size={28} color={iconColor} />
-                </StyledTouchableOpacity>
-
-                {/* Hamster Image */}
-                <StyledView className="absolute right-4 top-8 z-10">
-                    <Image
-                        source={require('../../assets/ui/webp_assets/Question-Hamster-v2.webp')}
-                        style={{ width: 80, height: 80 }}
-                        resizeMode="contain"
-                    />
+                {/* Header Spacer for Back Arrow Alignment (Matches Settings) */}
+                <StyledView className="px-4 py-3 relative z-20">
+                    <StyledTouchableOpacity
+                        onPress={handleExit}
+                        className="absolute left-4 top-3 p-2"
+                    >
+                        <ChevronLeft size={28} color={iconColor} />
+                    </StyledTouchableOpacity>
                 </StyledView>
 
                 <StyledView className="flex-1 px-6">
-                    <StyledView className="py-6 pt-20">
+                    <StyledView className="py-2 mt-0 relative">
                         <ThemedText className="font-n-bold mb-2 text-center" size="3xl">
                             Select Your{'\n'}Categories
                         </ThemedText>
                         <ThemedText className="font-n-medium text-center opacity-60" size="base">
                             Choose at least 3 categories
                         </ThemedText>
+
+                        {/* Hamster Image - Positioned relative to Title */}
+                        <StyledView className="absolute right-0 top-0">
+                            <Image
+                                source={require('../../assets/ui/webp_assets/Question-Hamster-v2.webp')}
+                                style={{ width: 80, height: 80 }}
+                                resizeMode="contain"
+                            />
+                        </StyledView>
                     </StyledView>
 
                     {/* Categories Grid */}
@@ -264,7 +311,7 @@ export default function CategorySelectionScreen() {
                             {categories.map(category => {
                                 const isSelected = selectedCategories.includes(category.id);
                                 const itemBg = isSelected ? '#3b82f6' : surfaceColor; // Blue 500 or Surface
-                                const itemBorder = isSelected ? '#3b82f6' : useThemeColor({}, 'border');
+                                const itemBorder = isSelected ? '#3b82f6' : borderColor;
 
                                 return (
                                     <StyledTouchableOpacity
@@ -296,7 +343,7 @@ export default function CategorySelectionScreen() {
                             disabled={!canGenerate || saving || generating}
                             className={`py-4 rounded-full items-center`}
                             style={{
-                                backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : useThemeColor({}, 'border'),
+                                backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : borderColor,
                                 opacity: canGenerate && !saving && !generating ? 1 : 0.7
                             }}
                         >
@@ -316,6 +363,36 @@ export default function CategorySelectionScreen() {
                     </StyledView>
                 </StyledView>
             </SafeAreaView>
-        </ThemedView>
+
+            {/* Welcome Pro Modal */}
+            <Modal
+                visible={welcomeVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={handleCloseWelcome}
+            >
+                <View className="flex-1 bg-black/70 justify-center items-center px-6">
+                    <StyledView
+                        className="rounded-2xl p-6 w-full max-w-sm shadow-2xl"
+                        style={{ backgroundColor: surfaceColor }}
+                    >
+                        <ThemedText className="text-2xl font-n-bold text-center mb-4 text-slate-900" style={{ color: textColor }}>
+                            Welcome Pro User!
+                        </ThemedText>
+                        <ThemedText className="text-center font-n-medium mb-6 opacity-80" size="base">
+                            Now you're a Pro user you can select the categories for your personalised questions. Hammie the hamster will then generate new puzzles for you, adding limitless questions to the archive whenever you run low. Enjoy!
+                        </ThemedText>
+                        <StyledTouchableOpacity
+                            onPress={handleCloseWelcome}
+                            className="bg-black active:bg-slate-800 rounded-2xl py-3"
+                        >
+                            <ThemedText className="text-white font-n-bold text-center text-lg">
+                                Ok
+                            </ThemedText>
+                        </StyledTouchableOpacity>
+                    </StyledView>
+                </View>
+            </Modal>
+        </ThemedView >
     );
 }

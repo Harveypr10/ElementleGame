@@ -165,6 +165,7 @@ export default function PersonalisePage() {
                 .select('id, tier, tier_type')
                 .ilike('tier', 'standard')
                 .eq('tier_type', 'lifetime')
+                .eq('region', region) // Filter by selected region
                 .limit(1);
 
             let tierIdToUse = null;

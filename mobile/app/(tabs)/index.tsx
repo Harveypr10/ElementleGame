@@ -5,16 +5,22 @@ import { useAuth } from '../../lib/auth';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { HelpCircle, Settings } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useOptions } from '../../lib/options';
 import { HomeCard } from '../../components/home/HomeCard';
 import { ModeToggle } from '../../components/home/ModeToggle';
 import { HelpModal } from '../../components/HelpModal';
 import { BadgeUnlockModal } from '../../components/game/BadgeUnlockModal';
 import { StreakSaverPopup } from '../../components/game/StreakSaverPopup';
-import { HolidayModePopup } from '../../components/game/HolidayModePopup';
-import { HolidayModeIndicator } from '../../components/HolidayModeIndicator';
-import { useBadgeSystem } from '../../hooks/useBadgeSystem';
+import { useStreakSaver } from '../../contexts/StreakSaverContext';
 import { useStreakSaverStatus } from '../../hooks/useStreakSaverStatus';
+import { HolidayActiveModal } from '../../components/game/HolidayActiveModal';
+import { endHolidayMode } from '../../lib/supabase-rpc'; // Import RPC helper
+import { HolidayModePopup } from '../../components/game/HolidayModePopup';
+import { HolidayEndedPopup } from '../../components/game/HolidayEndedPopup';
+import { HolidayModeIndicator } from '../../components/HolidayModeIndicator';
+import { HolidayActivationModal } from '../../components/game/HolidayActivationModal';
+import { useBadgeSystem } from '../../hooks/useBadgeSystem';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useConversionPrompt } from '../../contexts/ConversionPromptContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +30,7 @@ import { AdBannerContext } from '../../contexts/AdBannerContext';
 
 // Import hamster images - trying UI folder versions which appear to be transparent
 const HistorianHamsterBlue = require('../../assets/ui/webp_assets/Historian-Hamster.webp');
+const WinHamsterBlue = require('../../assets/ui/webp_assets/Win-Hamster-Blue.webp');
 const LibrarianHamsterYellow = require('../../assets/ui/webp_assets/Librarian-Hamster-Yellow.webp');
 const MathsHamsterGreen = require('../../assets/ui/webp_assets/Maths-Hamster.webp');
 
@@ -34,6 +41,8 @@ const StyledTouchableOpacity = styled(TouchableOpacity);
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useIsFocused } from '@react-navigation/native';
+import { useAppReadiness } from '../../contexts/AppReadinessContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -42,9 +51,29 @@ export default function HomeScreen() {
     const { user } = useAuth();
     const { gameMode, setGameMode } = useOptions();
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
-    const { status: streakSaverStatus, hasMissedRegion, hasMissedUser, regionCanUseStreakSaver, userCanUseStreakSaver } = useStreakSaverStatus();
+    const [showHolidayModal, setShowHolidayModal] = useState(false);
+    // Track which mode triggered the Holiday Modal (to route correctly on Continue/Exit)
+    const [holidayModalMode, setHolidayModalMode] = useState<'REGION' | 'USER'>('USER');
+
+    const {
+        status: streakSaverStatus,
+        isLoading: isStreakSaverLoading,
+        regionCanUseStreakSaver,
+        userCanUseStreakSaver,
+        userOfferStreakSaver,
+        regionOfferStreakSaver,
+        holidayActive, // Get holiday status
+        holidayEndDate, // Get end date for modal
+        refetch: refetchStreakStatus,
+        hasMissedRegion,
+        hasMissedUser
+    } = useStreakSaverStatus();
     const { isPro } = useSubscription();
     const { incrementInteraction } = useConversionPrompt();
+
+    // Contexts for Timing and Focus
+    const { isAppReady } = useAppReadiness();
+    const isFocused = useIsFocused();
 
     // Data States
     const [loading, setLoading] = useState(true);
@@ -57,28 +86,75 @@ export default function HomeScreen() {
     // Streak Saver Popup State
     const [streakSaverVisible, setStreakSaverVisible] = useState(false);
     const [holidayModeVisible, setHolidayModeVisible] = useState(false);
+    const [isRescueMode, setIsRescueMode] = useState(false);
+
+    // Context for suppression
+    const { isJustCompleted } = useStreakSaver();
+
+    const [holidayEndedVisible, setHolidayEndedVisible] = useState(false);
+
+    // Holiday Ended Check
+    useEffect(() => {
+        if (streakSaverStatus?.user?.holidayEnded) {
+            setHolidayEndedVisible(true);
+        }
+    }, [streakSaverStatus?.user?.holidayEnded]);
 
     // Sync modal visibility with pending badges
     useEffect(() => {
-        if (pendingBadges && pendingBadges.length > 0) {
+        // [FIX] Only show badges when App is fully ready (Splash gone)
+        if (isAppReady && pendingBadges && pendingBadges.length > 0) {
             setBadgeModalVisible(true);
         } else {
             setBadgeModalVisible(false);
         }
-    }, [pendingBadges]);
+    }, [pendingBadges, isAppReady]);
+
+    // Track which mode triggered the popup (Region or User)
+    const [popupMode, setPopupMode] = useState<'REGION' | 'USER'>('REGION');
+    const [dismissedPopup, setDismissedPopup] = useState(false);
+
+    // User Animation Chaining State
+    const [userAnimationVisible, setUserAnimationVisible] = useState(false);
 
     // Check for streak saver eligibility and show popup
     useEffect(() => {
-        // Only show popup when not loading and user hasn't already been prompted
-        if (!loading && user) {
-            // Check based on current game mode
-            if (gameMode === 'REGION' && regionCanUseStreakSaver) {
-                setStreakSaverVisible(true);
-            } else if (gameMode === 'USER' && userCanUseStreakSaver) {
-                setStreakSaverVisible(true);
+        // Only show popup when app is ready, screen is focused, loaded, and not dismissed
+        if (isAppReady && isFocused && !loading && user && !dismissedPopup) {
+
+            // Extract new flags from status (default to false if loading/null)
+            const regionOfferStreakSaver = streakSaverStatus?.region?.offerStreakSaver ?? false;
+            const regionOfferHolidayRescue = streakSaverStatus?.region?.offerHolidayRescue ?? false;
+
+            const userOfferStreakSaver = streakSaverStatus?.user?.offerStreakSaver ?? false;
+            const userOfferHolidayRescue = streakSaverStatus?.user?.offerHolidayRescue ?? false;
+
+            // GLOBAL CHECK (Independent of current tab)
+            // Prioritize Region, then User
+
+            // 1. Region Checks
+            if (!isJustCompleted('REGION')) {
+                if (regionOfferHolidayRescue || regionOfferStreakSaver) {
+                    setPopupMode('REGION');
+                    setStreakSaverVisible(true);
+                    return;
+                }
+            }
+
+            // 2. User Checks
+            if (!isJustCompleted('USER')) {
+                if (userOfferHolidayRescue || userOfferStreakSaver) {
+                    setPopupMode('USER');
+                    setStreakSaverVisible(true);
+                    return;
+                }
             }
         }
-    }, [loading, gameMode, regionCanUseStreakSaver, userCanUseStreakSaver, user]);
+    }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup]);
+
+
+
+
 
     const handleBadgeClose = async () => {
         if (pendingBadges && pendingBadges.length > 0) {
@@ -87,7 +163,8 @@ export default function HomeScreen() {
             setBadgeModalVisible(false);
 
             // Mark as seen, triggering query update
-            await markBadgeAsSeen(badgeToMark.badge_id);
+            // [FIX] Use the ROW ID (id) not the badge definition ID (badge_id)
+            await markBadgeAsSeen(badgeToMark.id);
             // The useEffect will make it visible again if there are more
         }
     };
@@ -120,19 +197,27 @@ export default function HomeScreen() {
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
 
+            const todayStr = new Date().toISOString().split('T')[0];
+
             // ==========================================
             // 1. REGION DATA (Global)
             // ==========================================
             const { data: attemptsReg } = await supabase
                 .from('game_attempts_region')
-                .select('*')
+                .select('*, questions_allocated_region(puzzle_date)')
                 .eq('user_id', user.id)
                 .gte('updated_at', startOfDay.toISOString());
 
             if (attemptsReg && attemptsReg.length > 0) {
-                const won = attemptsReg.some(a => a.result === 'won');
-                setTodayStatusRegion(won ? 'solved' : 'not-played');
-                if (won) setGuessesRegion(attemptsReg.find(a => a.result === 'won')?.num_guesses || 0);
+                // Filter for ACTUAL today's puzzle
+                const todayAttempt = attemptsReg.find((a: any) => a.questions_allocated_region?.puzzle_date === todayStr);
+
+                if (todayAttempt) {
+                    setTodayStatusRegion(todayAttempt.result === 'won' ? 'solved' : (todayAttempt.result === 'lost' ? 'failed' : 'not-played'));
+                    if (todayAttempt.result === 'won') setGuessesRegion(todayAttempt.num_guesses);
+                } else {
+                    setTodayStatusRegion('not-played');
+                }
             } else {
                 setTodayStatusRegion('not-played');
             }
@@ -159,14 +244,20 @@ export default function HomeScreen() {
             // ==========================================
             const { data: attemptsUser } = await supabase
                 .from('game_attempts_user')
-                .select('*')
+                .select('*, questions_allocated_user(puzzle_date)')
                 .eq('user_id', user.id)
                 .gte('updated_at', startOfDay.toISOString());
 
             if (attemptsUser && attemptsUser.length > 0) {
-                const won = attemptsUser.some(a => a.result === 'won');
-                setTodayStatusUser(won ? 'solved' : 'not-played');
-                if (won) setGuessesUser(attemptsUser.find(a => a.result === 'won')?.num_guesses || 0);
+                // Filter for ACTUAL today's puzzle
+                const todayAttempt = attemptsUser.find((a: any) => a.questions_allocated_user?.puzzle_date === todayStr);
+
+                if (todayAttempt) {
+                    setTodayStatusUser(todayAttempt.result === 'won' ? 'solved' : (todayAttempt.result === 'lost' ? 'failed' : 'not-played'));
+                    if (todayAttempt.result === 'won') setGuessesUser(todayAttempt.num_guesses);
+                } else {
+                    setTodayStatusUser('not-played');
+                }
             } else {
                 setTodayStatusUser('not-played');
             }
@@ -219,6 +310,30 @@ export default function HomeScreen() {
             setRefreshing(false);
         }
     }, [user, refetchPending]);
+
+    // Check if we need to redirect new Pro users to category selection
+    // Defer until loading complete & ensure no missed streaks pending (let popup handle those)
+    useEffect(() => {
+        const checkPendingUpgrade = async () => {
+            if (loading || !user || !isFocused) return;
+
+            // If user has missed streaks, STICK HERE so StreakSaverPopup can show.
+            // The popup flow will handle redirection if they Reset/Holiday,
+            // or loop back here (where this check will pass) if they Play/Win.
+            if (hasMissedRegion || hasMissedUser) return;
+
+            try {
+                const pending = await AsyncStorage.getItem('streak_saver_upgrade_pending');
+                if (pending === 'true') {
+                    router.replace('/category-selection');
+                }
+            } catch (e) {
+                console.error('Error checking pending upgrade:', e);
+            }
+        };
+
+        checkPendingUpgrade();
+    }, [loading, user, isFocused, hasMissedRegion, hasMissedUser]);
 
     // Initial Fetch & Focus Refresh (Fixes stale data on back nav)
     useFocusEffect(
@@ -303,7 +418,8 @@ export default function HomeScreen() {
         // Colors from Web App
         const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
         const archiveColor = isRegion ? '#FFD429' : '#fdab58'; // Yellow (Region) vs Orange (User)
-        const statsColor = isRegion ? '#A4DB57' : '#93cd78';
+        // Green: Match the overlay box color
+        const statsColor = isRegion ? '#93c54e' : '#84b86c';
 
         // Stats Box Colors
         const playBoxColor = isRegion ? '#7099d0' : '#5babb6';
@@ -337,7 +453,7 @@ export default function HomeScreen() {
         }
 
         // Use same hamster images for both modes (PNG only to avoid React Native freeze errors)
-        const playIcon = HistorianHamsterBlue;
+        const playIcon = todayStatus === 'solved' ? WinHamsterBlue : HistorianHamsterBlue;
         const archiveIcon = LibrarianHamsterYellow;
         const statsIcon = MathsHamsterGreen;
 
@@ -367,22 +483,29 @@ export default function HomeScreen() {
                         backgroundColor={playColor}
                         onPress={() => {
                             incrementInteraction();
-                            router.push(isRegion ? '/game/REGION/today' : '/game/USER/next');
+                            if (holidayActive) {
+                                // If Holiday Active -> Show Modal (For both Region and User)
+                                setHolidayModalMode(isRegion ? 'REGION' : 'USER');
+                                setShowHolidayModal(true);
+                            } else {
+                                // Normal Flow
+                                router.push(isRegion ? '/game/REGION/today' : '/game/USER/next');
+                            }
                         }}
                         height={144}
                         iconStyle={{ width: 89, height: 89 }} // Increased 15% (77->89)
                     >
                         {todayStatus === 'solved' && (
-                            <View className="flex-row gap-2 mt-1 w-full">
+                            <View className="flex-row gap-2 mt-0 w-full">
                                 {/* Solved In Box */}
-                                <View className="rounded-xl p-2 items-center justify-center" style={{ backgroundColor: playBoxColor, width: 95 }}>
-                                    <ThemedText className="text-white font-n-medium text-sm">Solved in</ThemedText>
-                                    <ThemedText className="text-white font-n-bold text-xl">{guesses}</ThemedText>
+                                <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                                    <ThemedText className="text-slate-700 font-n-medium text-sm">Solved in</ThemedText>
+                                    <ThemedText className="text-slate-700 font-n-bold text-xl">{guesses}</ThemedText>
                                 </View>
                                 {/* Streak Box */}
-                                <View className="rounded-xl p-2 items-center justify-center" style={{ backgroundColor: playBoxColor, width: 95 }}>
-                                    <ThemedText className="text-white font-n-medium text-sm">Streak</ThemedText>
-                                    <ThemedText className="text-white font-n-bold text-xl">{stats.current_streak}</ThemedText>
+                                <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                                    <ThemedText className="text-slate-700 font-n-medium text-sm">Streak</ThemedText>
+                                    <ThemedText className="text-slate-700 font-n-bold text-xl">{stats.current_streak}</ThemedText>
                                 </View>
                             </View>
                         )}
@@ -391,7 +514,7 @@ export default function HomeScreen() {
                     {/* 2. ARCHIVE BUTTON */}
                     <HomeCard
                         testID="home-card-archive"
-                        title="Archive"
+                        title={isRegion ? "UK Archive" : "Personal Archive"}
                         icon={archiveIcon}
                         backgroundColor={archiveColor}
                         onPress={() => {
@@ -402,9 +525,11 @@ export default function HomeScreen() {
                         iconStyle={{ width: 78, height: 78 }}
                     >
                         {/* Games Played Box - Under Title */}
-                        <View className="mt-2 rounded-xl p-2 items-center justify-center" style={{ backgroundColor: archiveBoxColor, width: 135 }}>
-                            <ThemedText className="text-white font-n-medium text-sm">Games played</ThemedText>
-                            <ThemedText className="text-white font-n-bold text-xl">{totalGames}</ThemedText>
+                        <View className="flex-row w-full">
+                            <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                                <ThemedText className="text-slate-700 font-n-medium text-sm">Played</ThemedText>
+                                <ThemedText className="text-slate-700 font-n-bold text-xl">{totalGames}</ThemedText>
+                            </View>
                         </View>
                     </HomeCard>
 
@@ -422,16 +547,16 @@ export default function HomeScreen() {
                         iconStyle={{ width: 78, height: 78 }}
                     >
                         {/* Stats Boxes */}
-                        <View className="flex-row gap-2 mt-1 w-full">
-                            {/* % Won Box */}
-                            <View className="rounded-xl p-1.5 items-center justify-center" style={{ backgroundColor: statsBoxColor, width: 95 }}>
-                                <ThemedText className="text-white font-n-medium text-sm">% Won</ThemedText>
-                                <ThemedText className="text-white font-n-bold text-xl">{winRate}%</ThemedText>
+                        <View className="flex-row gap-2 w-full">
+                            {/* % Won */}
+                            <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                                <ThemedText className="text-slate-700 font-n-medium text-sm">% Won</ThemedText>
+                                <ThemedText className="text-slate-700 font-n-bold text-xl">{winRate}%</ThemedText>
                             </View>
-                            {/* Guess Avg Box */}
-                            <View className="rounded-xl p-1.5 items-center justify-center" style={{ backgroundColor: statsBoxColor, width: 95 }}>
-                                <ThemedText className="text-white font-n-medium text-sm">Guess avg</ThemedText>
-                                <ThemedText className="text-white font-n-bold text-xl">{avgGuesses}</ThemedText>
+                            {/* Guess Avg */}
+                            <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                                <ThemedText className="text-slate-700 font-n-medium text-sm">Guess avg</ThemedText>
+                                <ThemedText className="text-slate-700 font-n-bold text-xl">{avgGuesses}</ThemedText>
                             </View>
                         </View>
                     </HomeCard>
@@ -527,9 +652,88 @@ export default function HomeScreen() {
                     onClose={handleBadgeClose}
                 />
 
+                <StreakSaverPopup
+                    visible={streakSaverVisible}
+                    onClose={(action) => {
+                        setStreakSaverVisible(false);
+                        if (action === 'dismiss') setDismissedPopup(true);
+
+                        // Chain User Animation if Region Holiday was just activated
+                        // Use timeout to ensure first modal is fully closed/unmounted
+                        if (action === 'holiday' && popupMode === 'REGION') {
+                            setTimeout(() => setUserAnimationVisible(true), 500);
+                        }
+                    }}
+                    currentStreak={popupMode === 'REGION' ? statsRegionData.current_streak : statsUserData.current_streak}
+                    gameType={popupMode}
+                />
+
+                {/* Chained User Animation Modal */}
+                <HolidayActivationModal
+                    visible={userAnimationVisible}
+                    onClose={() => setUserAnimationVisible(false)}
+                    filledDates={[new Date().toISOString().split('T')[0]]}
+                    gameType="USER"
+                />
                 {/* Ad Banner - shows at bottom for non-Pro users */}
                 <AdBanner />
             </ThemedView>
+            {/* Holiday Active Modal (Home Screen Intercept) */}
+            <HolidayActiveModal
+                visible={showHolidayModal}
+                holidayEndDate={holidayEndDate || "Unknown Date"}
+                onExitHoliday={async () => {
+                    console.log(`[Home] Exiting Holiday Mode for ${holidayModalMode}`);
+                    try {
+                        // 1. Deactivate Holiday Mode via RPC
+                        await endHolidayMode(user?.id || '', true);
+                        console.log("[Home] Holiday Deactivated. Refetching stats...");
+
+                        // 2. Refetch Stats to ensure game sees updated status
+                        await Promise.all([
+                            refetchStreakStatus(),
+                            supabase.from('user_stats_user').select('holiday_active').eq('user_id', user.id).single(),
+                            supabase.from('user_stats_region').select('holiday_active').eq('user_id', user.id).single()
+                        ]);
+
+                        // 3. Navigate to Game (Standard Mode)
+                        setShowHolidayModal(false);
+                        setTimeout(() => {
+                            if (holidayModalMode === 'REGION') {
+                                router.push('/game/REGION/today');
+                            } else {
+                                router.push('/game/USER/next');
+                            }
+                        }, 100);
+                    } catch (e) {
+                        console.error("[Home] Failed to deactivate holiday:", e);
+                        setShowHolidayModal(false);
+                        // Fallback navigation
+                        if (holidayModalMode === 'REGION') {
+                            router.push('/game/REGION/today');
+                        } else {
+                            router.push('/game/USER/next');
+                        }
+                    }
+                }}
+                onContinueHoliday={() => {
+                    console.log(`[Home] Continuing in Holiday Mode for ${holidayModalMode}`);
+                    setShowHolidayModal(false);
+                    // Navigate with flag to preserve status
+                    if (holidayModalMode === 'REGION') {
+                        router.push({
+                            pathname: '/game/REGION/today',
+                            params: { preserveStreakStatus: 'true' }
+                        });
+                    } else {
+                        router.push({
+                            pathname: '/game/USER/next',
+                            params: { preserveStreakStatus: 'true' }
+                        });
+                    }
+                }}
+            />
+
         </AdBannerContext.Provider>
     );
 }

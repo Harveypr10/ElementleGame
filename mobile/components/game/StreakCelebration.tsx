@@ -64,9 +64,11 @@ export function StreakCelebration({ visible, streak, onClose, showCloseButton = 
                             className="w-full h-full"
                             resizeMode="contain"
                         />
-                        <View className="absolute inset-0 justify-center items-center pt-16">
+                        <View className="absolute inset-x-0 bottom-12 items-center">
                             {/* Number Styling - matched to screenshot as best as possible */}
-                            <StyledText className="text-red-600 font-black text-6xl"
+                            {/* Dynamic Sizing based on digits: 1 digit: 6xl, 2 digits: 5xl, 3+ digits: 4xl */}
+                            <StyledText
+                                className={`text-red-600 font-black ${streak.toString().length === 1 ? 'text-6xl' : streak.toString().length === 2 ? 'text-5xl' : 'text-4xl'}`}
                                 style={{
                                     textShadowColor: 'rgba(255, 255, 255, 0.8)',
                                     textShadowOffset: { width: 0, height: 0 },
@@ -89,11 +91,12 @@ export function StreakCelebration({ visible, streak, onClose, showCloseButton = 
                         </StyledText>
                     </StyledView>
 
-                    <StyledText className="text-white/40 text-sm absolute bottom-20">
-                        Click anywhere to dismiss
-                    </StyledText>
-
                 </Animated.View>
+
+                {/* Dismiss Text - Moved out to be absolute bottom of screen */}
+                <StyledText className="text-white/40 text-sm absolute bottom-12">
+                    Click anywhere to dismiss
+                </StyledText>
             </StyledTouchableOpacity>
         </Modal>
     );

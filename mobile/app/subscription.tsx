@@ -5,11 +5,14 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSubscription } from '../hooks/useSubscription';
+import { useAuth } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 import Paywall from '../components/Paywall';
 import { ThemedView } from '../components/ThemedView';
 import { ThemedText } from '../components/ThemedText';
@@ -19,9 +22,35 @@ const StyledView = styled(View);
 const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 
+// Helper for resetting date
+const initializeHolidayResetDate = async (userId: string) => {
+    try {
+        const { data } = await supabase
+            .from('user_stats_user')
+            .select('next_holiday_reset_date')
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        if (!data?.next_holiday_reset_date) {
+            const nextYear = new Date();
+            nextYear.setFullYear(nextYear.getFullYear() + 1);
+            console.log('[Subscription] Initializing next_holiday_reset_date to:', nextYear.toISOString());
+
+            await supabase
+                .from('user_stats_user')
+                .update({ next_holiday_reset_date: nextYear.toISOString() })
+                .eq('user_id', userId);
+        }
+    } catch (e) {
+        console.error('[Subscription] Error init reset date:', e);
+    }
+};
+
 export default function SubscriptionPage() {
     const router = useRouter();
+    const { from } = useLocalSearchParams();
     const { isPro } = useSubscription();
+    const { user } = useAuth();
 
     // If already Pro, redirect to manage subscription
     React.useEffect(() => {
@@ -41,8 +70,8 @@ export default function SubscriptionPage() {
             <SafeAreaView edges={['top']} className="z-10" style={{ backgroundColor: surfaceColor }}>
                 {/* Header with back button */}
                 <StyledView
-                    className="flex-row items-center px-4 py-3 border-b"
-                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                    className="flex-row items-center px-4 py-3"
+                    style={{ backgroundColor: surfaceColor }}
                 >
                     <StyledTouchableOpacity
                         onPress={() => router.back()}
@@ -59,9 +88,19 @@ export default function SubscriptionPage() {
             {/* RevenueCat Paywall Component - Note: Paywall needs to support theming or be compatible */}
             <View style={{ flex: 1, backgroundColor: backgroundColor }}>
                 <Paywall
-                    onPurchaseSuccess={() => {
-                        // After successful purchase, navigate to category selection
-                        router.replace('/category-selection');
+                    onPurchaseSuccess={async () => {
+                        // [NEW] Initialize Reset Date if needed
+                        if (user?.id) {
+                            await initializeHolidayResetDate(user.id);
+                        }
+
+                        // After successful purchase, navigate accordingly
+                        if (from === 'streakSaver') {
+                            await AsyncStorage.setItem('streak_saver_upgrade_pending', 'true');
+                            router.back();
+                        } else {
+                            router.replace('/category-selection');
+                        }
                     }}
                     onPurchaseCancel={() => {
                         console.log('[Subscription] Purchase cancelled by user');

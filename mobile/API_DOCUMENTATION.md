@@ -4,310 +4,69 @@
 
 ### Authentication
 
-#### Sign Up
-```typescript
-const { data, error } = await supabase.auth.signUp({
-  email: string,
-  password: string,
-});
-```
+Standard Supabase Auth is used.
+- **Sign Up**: `supabase.auth.signUp()`
+- **Sign In**: `supabase.auth.signInWithPassword()`
+- **Sign Out**: `supabase.auth.signOut()`
+- **Reset Password**: `supabase.auth.resetPasswordForEmail()`
 
-#### Sign In
-```typescript
-const { data, error } = await supabase.auth.signInWithPassword({
-  email: string,
-  password: string,
-});
-```
+### Database Tables (Schema)
 
-#### Sign Out
-```typescript
-const { error } = await supabase.auth.signOut();
-```
+#### User Management
+- **`user_profiles`**: Core profile data.
+    - Columns: `id` (PK, uuid), `email`, `first_name`, `last_name`, `region`, `categories`, `user_tier_id`, `stripe_customer_id`, `accepted_terms`, `ads_consent`, `email_verified`, `active_locations_count`, `total_locations_allocated`.
+- **`user_settings`**: User preferences linked to profile.
+    - Columns: `id`, `user_id`, `text_size`, `sounds_enabled`, `dark_mode`, `clues_enabled`, `streak_saver_active`, `holiday_saver_active`, `category_preferences` (json), `digit_preference`.
+- **`user_tier`**: Subscription tier definitions.
+    - Columns: `id`, `tier` (e.g. free, pro), `tier_type` (monthly/annual), `subscription_cost`, `streak_savers`, `holiday_savers`, `holiday_duration_days`, `revenuecat_product_id`.
+- **`user_subscriptions`**: Active user subscriptions.
+    - Columns: `id`, `user_id`, `status` (active/expired), `tier`, `revenuecat_product_id`, `expires_at`, `auto_renew`.
 
-#### Reset Password
-```typescript
-const { error } = await supabase.auth.resetPasswordForEmail(email, {
-  redirectTo: 'elementle://reset-password',
-});
-```
+#### Game Data (Region Mode)
+- **`questions_allocated_region`**: Puzzles assigned to regions for specific dates.
+    - Columns: `id`, `puzzle_date`, `region`, `question_id`, `category_id`, `category_hint`.
+- **`game_attempts_region`**: User attempts on region puzzles.
+    - Columns: `id`, `user_id`, `allocated_region_id`, `digits`, `num_guesses`, `result` (won/lost), `streak_day_status`, `started_at`, `completed_at`.
+- **`guesses_region`**: Individual guesses for a region attempt.
+    - Columns: `id`, `game_attempt_id`, `guess_value`, `guessed_at`.
+- **`user_stats_region`**: Aggregated stats for a user in Region mode.
+    - Columns: `id`, `user_id`, `region`, `games_played`, `games_won`, `current_streak`, `max_streak`, `streak_savers_used_month`, `score_final`.
 
-### Database Tables
+#### Game Data (User Mode)
+- **`questions_allocated_user`**: Puzzles assigned specifically to a user.
+    - Columns: `id`, `user_id`, `puzzle_date`, `question_id`, `category_id`, `slot_type`.
+- **`game_attempts_user`**: User attempts on user-specific puzzles.
+    - Columns: `id`, `user_id`, `allocated_user_id`, `digits`, `num_guesses`, `result`.
+- **`guesses_user`**: Individual guesses for a user attempt.
+    - Columns: `id`, `game_attempt_id`, `guess_value`.
+- **`user_stats_user`**: Aggregated stats for a user in User mode.
+    - Columns: `id`, `user_id`, `games_played`, `games_won`, `current_streak`, `max_streak`, `holiday_active`, `holiday_start_date`, `holiday_end_date`, `holidays_used_year`.
 
-#### `user_profiles`
-Stores user profile information.
+#### Content & Logistics
+- **`questions_master_region`**: Master pool of questions for regions.
+- **`questions_master_user`**: Master pool of questions for users.
+- **`available_question_spec`**: Configuration for potential questions.
+- **`categories`**: Game categories (Geography, History, etc.).
+- **`populated_places`**: Location data source.
+- **`regions`**: Geographic regions definition.
 
-**Columns:**
-- `id` (uuid, primary key)
-- `email` (text)
-- `full_name` (text, nullable)
-- `region` (text, default: 'UK')
-- `categories` (text[], nullable) - User mode categories
-- `created_at` (timestamp)
-- `updated_at` (timestamp)
+#### Gamification
+- **`badges`**: Definitions of available badges.
+    - Columns: `id`, `name`, `description`, `category`, `threshold`, `icon_url`.
+- **`user_badges`**: Badges earned by users.
+    - Columns: `id`, `user_id`, `badge_id`, `game_type` (REGION/USER), `region`, `is_awarded`, `awarded_at`.
 
-**Queries:**
-```typescript
-// Get user profile
-const { data, error } = await supabase
-  .from('user_profiles')
-  .select('*')
-  .eq('id', userId)
-  .single();
+### Key Logic Notes
 
-// Update profile
-const { error } = await supabase
-  .from('user_profiles')
-  .update({ full_name: 'John Doe' })
-  .eq('id', userId);
-```
+- **Separation of Modes**: The app strictly separates "Region Mode" (everyone in a region gets the same puzzle) and "User Mode" (personalized). Almost all game tables are duplicated with `_region` and `_user` suffixes.
+- **Streak & Holiday**: 
+    - `streak_saver_active` is in `user_settings`.
+    - `streak_savers_used_month` is tracked in `user_stats_region` and `user_stats_user`.
+    - `holiday_active`, `holiday_start_date`, etc., are tracked in `user_stats_user` (and likely derived/managed differently for region mode or stored in user stats generically). *Note: `user_stats_region` does NOT show holiday columns in the types read so far, only `user_stats_user` showed them explicitly. This suggests Holiday Mode might be a User-Mode specific feature or the types handle it differently.*
 
-#### `game_attempts_region`
-Stores game attempts for REGION mode.
+### RPC Functions (Verified)
 
-**Columns:**
-- `id` (uuid, primary key)
-- `user_id` (uuid, foreign key)
-- `puzzle_id` (integer, foreign key)
-- `puzzle_date` (date)
-- `guesses` (integer)
-- `won` (boolean)
-- `guess_history` (jsonb)
-- `created_at` (timestamp)
+- `get_current_streak(p_user_id, p_mode)`
+- `get_max_streak(p_user_id, p_mode)`
 
-**Queries:**
-```typescript
-// Save game attempt
-const { error } = await supabase
-  .from('game_attempts_region')
-  .insert({
-    user_id: userId,
-    puzzle_id: puzzleId,
-    puzzle_date: date,
-    guesses: guessCount,
-    won: isWin,
-    guess_history: guesses,
-  });
-
-// Get user's games
-const { data, error } = await supabase
-  .from('game_attempts_region')
-  .select('*')
-  .eq('user_id', userId)
-  .order('puzzle_date', { ascending: false });
-```
-
-#### `game_attempts_user`
-Same structure as `game_attempts_region`, but for USER mode.
-
-#### `questions_allocated_region`
-Stores puzzle data for REGION mode.
-
-**Columns:**
-- `id` (integer, primary key)
-- `external_id` (integer)
-- `allocated_date` (date)
-- `question_data` (jsonb) - Contains event details
-- `created_at` (timestamp)
-
-**Queries:**
-```typescript
-// Get today's puzzle
-const { data, error } = await supabase
-  .from('questions_allocated_region')
-  .select('*')
-  .eq('allocated_date', today)
-  .single();
-
-// Get puzzle by ID
-const { data, error } = await supabase
-  .from('questions_allocated_region')
-  .select('*')
-  .eq('id', puzzleId)
-  .single();
-```
-
-#### `questions_allocated_user`
-Same structure as `questions_allocated_region`, but for USER mode.
-
-#### `user_subscriptions`
-Stores subscription information.
-
-**Columns:**
-- `id` (uuid, primary key)
-- `user_id` (uuid, foreign key)
-- `tier` (text) - 'free', 'pro', etc.
-- `status` (text) - 'active', 'canceled', 'expired'
-- `start_date` (timestamp)
-- `end_date` (timestamp, nullable)
-- `created_at` (timestamp)
-
-**Queries:**
-```typescript
-// Get user subscription
-const { data, error } = await supabase
-  .from('user_subscriptions')
-  .select('*')
-  .eq('user_id', userId)
-  .single();
-```
-
-### RPC Functions
-
-#### `get_current_streak`
-Calculates user's current streak.
-
-```typescript
-const { data, error } = await supabase.rpc('get_current_streak', {
-  p_user_id: userId,
-  p_mode: 'REGION', // or 'USER'
-});
-```
-
-#### `get_max_streak`
-Calculates user's maximum streak.
-
-```typescript
-const { data, error } = await supabase.rpc('get_max_streak', {
-  p_user_id: userId,
-  p_mode: 'REGION',
-});
-```
-
-### Realtime Subscriptions
-
-```typescript
-// Subscribe to profile changes
-const subscription = supabase
-  .channel('profile-changes')
-  .on(
-    'postgres_changes',
-    {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'user_profiles',
-      filter: `id=eq.${userId}`,
-    },
-    (payload) => {
-      console.log('Profile updated:', payload);
-    }
-  )
-  .subscribe();
-
-// Cleanup
-subscription.unsubscribe();
-```
-
-## Local API Utilities
-
-### Sound Manager
-```typescript
-import soundManager from './lib/soundManager';
-
-// Initialize (call once at app start)
-await soundManager.initialize();
-
-// Play sound
-soundManager.play('tap');
-soundManager.play('game_win');
-soundManager.play('game_lose');
-
-// Available sounds: tap, game_win, game_lose, streak, badge, error, success
-```
-
-### Haptics Manager
-```typescript
-import hapticsManager from './lib/hapticsManager';
-
-// Light tap
-hapticsManager.light();
-
-// Medium tap
-hapticsManager.medium();
-
-// Heavy tap
-hapticsManager.heavy();
-
-// Success feedback
-hapticsManager.success();
-
-// Warning feedback
-hapticsManager.warning();
-
-// Error feedback
-hapticsManager.error();
-```
-
-### Share Functionality
-```typescript
-import { shareGameResult } from './lib/share';
-
-const result = await shareGameResult({
-  date: '2024-01-20',
-  guesses: 3,
-  result: 'won',
-  mode: 'REGION',
-  eventTitle: 'Example Event',
-});
-
-if (result.success) {
-  console.log('Shared successfully');
-}
-```
-
-### Platform Utilities
-```typescript
-import { 
-  requestReview, 
-  setupDeepLinking, 
-  parseDeepLink 
-} from './lib/platform';
-
-// Request app review
-await requestReview();
-
-// Setup deep linking
-const cleanup = setupDeepLinking((url) => {
-  const parsed = parseDeepLink(url);
-  // Handle deep link
-});
-
-// Cleanup on unmount
-cleanup();
-```
-
-## Error Handling
-
-All API calls should handle errors appropriately:
-
-```typescript
-const { data, error } = await supabase
-  .from('user_profiles')
-  .select('*')
-  .eq('id', userId)
-  .single();
-
-if (error) {
-  console.error('Error fetching profile:', error);
-  // Show user-friendly error message
-  return;
-}
-
-// Use data
-console.log('Profile:', data);
-```
-
-## Rate Limiting
-
-Supabase has rate limits. Best practices:
-- Cache frequently accessed data
-- Use React Query for automatic caching
-- Batch requests when possible
-- Implement request deduplication
-
-## Security
-
-- Never expose `SUPABASE_SERVICE_ROLE_KEY` in client code
-- Use Row Level Security (RLS) policies on all tables
-- Validate user input before database operations
-- Use parameterized queries to prevent SQL injection
+_(Note: This documentation is auto-generated based on `database.types.ts` analysis)_

@@ -56,7 +56,10 @@ export function useSubscription() {
           user_tier:user_tier_id (
             id,
             tier,
-            tier_type
+            tier_type,
+            holiday_duration_days,
+            streak_savers,
+            holiday_savers
           )
         `)
                 .eq('id', user.id)
@@ -73,9 +76,9 @@ export function useSubscription() {
 
             // Use hardcoded metadata for now (TODO: get from tier table or user_subscriptions)
             const metadata: TierMetadata = {
-                streakSavers: tier === 'pro' ? 5 : 1,
-                holidaySavers: tier === 'pro' ? 2 : 0,
-                holidayDurationDays: tier === 'pro' ? 28 : 14,
+                streakSavers: tierData.streak_savers ?? (tier === 'pro' ? 3 : 1),
+                holidaySavers: tierData.holiday_savers ?? (tier === 'pro' ? 2 : 0),
+                holidayDurationDays: tierData.holiday_duration_days ?? 14,
                 subscriptionCost: null,
                 currency: 'GBP',
                 description: null

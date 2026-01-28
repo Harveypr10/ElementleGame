@@ -120,6 +120,66 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         }
     }, []); // Empty deps = run once on mount
 
+    // Sync with Supabase when User becomes available
+    useEffect(() => {
+        if (user) {
+            console.log('[Options] User available, syncing settings...');
+            syncWithSupabase();
+        }
+    }, [user]);
+
+    const syncWithSupabase = async () => {
+        if (!user) return;
+        try {
+            const { data, error } = await supabase
+                .from('user_settings')
+                .select('*')
+                .eq('user_id', user.id)
+                .single();
+
+            if (data) {
+                console.log('[Options] Synced settings from Supabase:', data);
+                // Apply DB settings (override AsyncStorage)
+                if (data.digit_preference) {
+                    setDateLengthState(parseInt(data.digit_preference) as DateLength);
+                    AsyncStorage.setItem('opt_date_length', data.digit_preference);
+                }
+                if (data.date_format_preference) {
+                    setDateFormatOrderState(data.date_format_preference as DateFormatOrder);
+                    AsyncStorage.setItem('opt_date_order', data.date_format_preference);
+                }
+                if (data.text_size) {
+                    setTextSizeState(data.text_size as TextSize);
+                    AsyncStorage.setItem('opt_text_size', data.text_size);
+                }
+                if (data.sounds_enabled !== undefined && data.sounds_enabled !== null) {
+                    setSoundsEnabled(data.sounds_enabled);
+                    AsyncStorage.setItem('opt_sounds_enabled', String(data.sounds_enabled));
+                }
+                if (data.dark_mode !== undefined && data.dark_mode !== null) {
+                    setDarkModeState(data.dark_mode);
+                    AsyncStorage.setItem('opt_dark_mode', String(data.dark_mode));
+                    // Force immediate apply
+                    setColorScheme(data.dark_mode ? 'dark' : 'light');
+                }
+                if (data.clues_enabled !== undefined && data.clues_enabled !== null) {
+                    setCluesEnabled(data.clues_enabled);
+                    AsyncStorage.setItem('opt_clues_enabled', String(data.clues_enabled));
+                }
+                if (data.streak_saver_active !== undefined) {
+                    setStreakSaverActive(data.streak_saver_active);
+                    AsyncStorage.setItem('opt_streak_saver_active', String(data.streak_saver_active));
+                }
+                if (data.holiday_saver_active !== undefined) {
+                    setHolidaySaverActive(data.holiday_saver_active);
+                    AsyncStorage.setItem('opt_holiday_saver_active', String(data.holiday_saver_active));
+                }
+            }
+        } catch (e) {
+            console.error('[Options] Failed to sync with Supabase:', e);
+        }
+    };
+
     const loadOptions = async () => {
         try {
             // 1. Load from AsyncStorage first (fast)
@@ -150,38 +210,17 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             const storedHolidaySaver = await AsyncStorage.getItem('opt_holiday_saver_active');
             if (storedHolidaySaver !== null) setHolidaySaverActive(storedHolidaySaver === 'true');
 
-            // 2. If User, Sync from Supabase 'user_settings'
+            // NOTE: Logic moved to separate useEffect
+            // Trigger sync if user is already present (rare case on pure mount)
             if (user) {
-                const { data, error } = await supabase
-                    .from('user_settings')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .single();
-
-                if (data) {
-                    // Apply DB settings (override AsyncStorage)
-                    if (data.digit_preference) setDateLengthState(parseInt(data.digit_preference) as DateLength);
-                    if (data.date_format_preference) setDateFormatOrderState(data.date_format_preference as DateFormatOrder);
-                    if (data.text_size) setTextSizeState(data.text_size);
-                    if (data.sounds_enabled !== undefined) setSoundsEnabled(data.sounds_enabled);
-                    if (data.dark_mode !== undefined) setDarkModeState(data.dark_mode);
-                    if (data.clues_enabled !== undefined) setCluesEnabled(data.clues_enabled);
-                    if (data.streak_saver_active !== undefined) setStreakSaverActive(data.streak_saver_active);
-                    if (data.holiday_saver_active !== undefined) setHolidaySaverActive(data.holiday_saver_active);
-                }
+                syncWithSupabase();
             }
+
         } catch (e) {
             console.error("Failed to load options", e);
         } finally {
             setLoading(false);
-            console.log('[Options] Loaded:', {
-                textSize,
-                soundsEnabled,
-                darkMode,
-                cluesEnabled,
-                dateLength,
-                dateFormatOrder
-            });
+            console.log('[Options] Loaded local options');
         }
     };
 

@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Easing } from 'react-native';
 import { useSubscription } from '../../hooks/useSubscription';
 import { activateHolidayMode } from '../../lib/supabase-rpc';
 import { useAuth } from '../../lib/auth';
+import { styled } from 'nativewind';
+import { Palmtree, X, Sparkles, Calendar } from 'lucide-react-native';
+import { useThemeColor } from '../../hooks/useThemeColor';
 
-import { X } from 'lucide-react-native';
+const StyledView = styled(View);
+const StyledText = styled(Text);
+const StyledTouchableOpacity = styled(TouchableOpacity);
 
 interface HolidayModePopupProps {
     visible: boolean;
@@ -12,13 +17,44 @@ interface HolidayModePopupProps {
     currentStreak: number;
     gameType: 'REGION' | 'USER';
     showCloseButton?: boolean;
+    isRescue?: boolean; // New prop for Rescue context
 }
 
-export function HolidayModePopup({ visible, onClose, currentStreak, gameType, showCloseButton = false }: HolidayModePopupProps) {
+export function HolidayModePopup({ visible, onClose, currentStreak, gameType, showCloseButton = false, isRescue = false }: HolidayModePopupProps) {
     const { user } = useAuth();
     const { isPro, holidaySavers, holidayDurationDays } = useSubscription();
     const [selectedDays, setSelectedDays] = useState(7);
     const [isActivating, setIsActivating] = useState(false);
+
+    // Animation Refs
+    const glowAnim = useRef(new Animated.Value(0)).current;
+
+    const backgroundColor = useThemeColor({}, 'background');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const textColor = useThemeColor({}, 'text');
+
+    useEffect(() => {
+        if (visible) {
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(glowAnim, {
+                        toValue: 1,
+                        duration: 1500,
+                        easing: Easing.inOut(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(glowAnim, {
+                        toValue: 0,
+                        duration: 1500,
+                        easing: Easing.inOut(Easing.ease),
+                        useNativeDriver: true,
+                    }),
+                ])
+            ).start();
+        } else {
+            glowAnim.setValue(0);
+        }
+    }, [visible]);
 
     const handleActivate = async () => {
         if (!user || !isPro) return;
@@ -38,6 +74,11 @@ export function HolidayModePopup({ visible, onClose, currentStreak, gameType, sh
 
     if (!visible || !isPro) return null;
 
+    const glowOpacity = glowAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.3, 0.8],
+    });
+
     return (
         <Modal
             visible={visible}
@@ -45,103 +86,126 @@ export function HolidayModePopup({ visible, onClose, currentStreak, gameType, sh
             animationType="fade"
             onRequestClose={onClose}
         >
-            <View className="flex-1 bg-black/50 items-center justify-center p-4">
-                <View className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm">
+            <StyledView className="flex-1 bg-black/70 items-center justify-center p-6">
+                <StyledView className="bg-white dark:bg-slate-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl relative overflow-hidden">
+
+                    {/* Decorative Background Icon */}
+                    <StyledView className="absolute -right-4 -top-4 opacity-10">
+                        <Palmtree size={120} color="#f59e0b" />
+                    </StyledView>
+
                     {/* Header */}
-                    <View className="relative mb-2">
-                        <Text className="text-2xl font-bold text-center text-gray-900 dark:text-gray-100">
-                            Going on Holiday?
-                        </Text>
+                    <StyledView className="items-center mb-6">
+                        <StyledView className="bg-orange-100 dark:bg-orange-900/30 p-4 rounded-full mb-3">
+                            <Palmtree size={32} color="#f97316" />
+                        </StyledView>
+                        <StyledText className="text-2xl font-n-bold text-center text-slate-900 dark:text-white">
+                            {isRescue ? "Rescue Your Streak" : "Going on Holiday?"}
+                        </StyledText>
+
                         {showCloseButton && (
-                            <TouchableOpacity
+                            <StyledTouchableOpacity
                                 onPress={onClose}
                                 className="absolute -right-2 -top-2 p-2"
                             >
-                                <X size={24} className="text-gray-900 dark:text-gray-100" />
-                            </TouchableOpacity>
+                                <X size={24} className="text-slate-400" />
+                            </StyledTouchableOpacity>
                         )}
-                    </View>
+                    </StyledView>
 
-                    {/* Streak info */}
-                    <Text className="text-center text-gray-600 dark:text-gray-400 mb-4">
-                        Protect your {currentStreak}-day streak
-                    </Text>
-
-                    {/* Saver count */}
-                    <View className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
-                        <Text className="text-center text-blue-900 dark:text-blue-100 font-semibold">
-                            {holidaySavers} holiday mode{holidaySavers !== 1 ? 's' : ''} remaining this year
-                        </Text>
-                        <Text className="text-center text-xs text-blue-700 dark:text-blue-300 mt-1">
-                            Pro feature
-                        </Text>
-                    </View>
+                    {/* Stats Card */}
+                    <StyledView className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4 mb-6 border border-slate-100 dark:border-slate-700">
+                        <StyledView className="flex-row justify-between items-center mb-2">
+                            <StyledText className="text-slate-500 dark:text-slate-400 font-n-medium">Current Streak</StyledText>
+                            <StyledText className="text-slate-900 dark:text-white font-n-bold">{currentStreak} Days</StyledText>
+                        </StyledView>
+                        <StyledView className="flex-row justify-between items-center">
+                            <StyledText className="text-slate-500 dark:text-slate-400 font-n-medium">Remaining Modes</StyledText>
+                            <StyledText className="text-blue-500 font-n-bold">{holidaySavers}</StyledText>
+                        </StyledView>
+                    </StyledView>
 
                     {/* Explanation */}
-                    <Text className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Holiday Mode protects your streak while you're away. You won't need to play during this time.
-                    </Text>
+                    <StyledText className="text-base text-slate-600 dark:text-slate-300 font-n-medium text-center mb-6 leading-6">
+                        {isRescue
+                            ? "You missed more than 1 day! Activate Holiday Mode now to backfill missed days and save your streak."
+                            : "Freeze your streak while you're away! Relax and keep your progress safe."
+                        }
+                    </StyledText>
 
                     {/* Duration Selector */}
-                    <View className="mb-6">
-                        <Text className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            How many days?
-                        </Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                    <StyledView className="mb-8">
+                        <StyledText className="text-sm font-n-bold text-slate-900 dark:text-white mb-3 ml-1">
+                            SELECT DURATION
+                        </StyledText>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row -mx-1">
                             {[3, 7, 10, 14].map((days) => (
-                                <TouchableOpacity
+                                <StyledTouchableOpacity
                                     key={days}
                                     onPress={() => setSelectedDays(days)}
-                                    className={`mr-3 px-6 py-3 rounded-lg ${selectedDays === days
-                                        ? 'bg-blue-600'
-                                        : 'bg-gray-200 dark:bg-gray-700'
+                                    className={`mr-3 px-5 py-3 rounded-xl border-2 ${selectedDays === days
+                                        ? 'bg-blue-600 border-blue-600'
+                                        : 'bg-transparent border-slate-200 dark:border-slate-600'
                                         }`}
                                 >
-                                    <Text
-                                        className={`font-semibold ${selectedDays === days
+                                    <StyledText
+                                        className={`font-n-bold ${selectedDays === days
                                             ? 'text-white'
-                                            : 'text-gray-700 dark:text-gray-300'
+                                            : 'text-slate-600 dark:text-slate-400'
                                             }`}
                                     >
-                                        {days} days
-                                    </Text>
-                                </TouchableOpacity>
+                                        {days} Days
+                                    </StyledText>
+                                </StyledTouchableOpacity>
                             ))}
                         </ScrollView>
-                    </View>
+                    </StyledView>
 
                     {/* Actions */}
-                    <View className="space-y-3">
+                    <StyledView className="space-y-3 w-full">
                         {holidaySavers > 0 ? (
-                            <TouchableOpacity
-                                onPress={handleActivate}
-                                disabled={isActivating}
-                                className={`rounded-lg py-4 px-6 ${isActivating ? 'bg-blue-400' : 'bg-blue-600'
-                                    }`}
-                            >
-                                <Text className="text-white text-center font-semibold text-lg">
-                                    {isActivating ? 'Activating...' : `Activate for ${selectedDays} Days`}
-                                </Text>
-                            </TouchableOpacity>
+                            <StyledView className="relative w-full">
+                                {/* Glow Effect */}
+                                <Animated.View
+                                    style={{
+                                        position: 'absolute',
+                                        top: -4, left: -4, right: -4, bottom: -4,
+                                        backgroundColor: '#3b82f6',
+                                        borderRadius: 16,
+                                        opacity: glowOpacity,
+                                        transform: [{ scale: 1.02 }]
+                                    }}
+                                />
+                                <StyledTouchableOpacity
+                                    onPress={handleActivate}
+                                    disabled={isActivating}
+                                    className={`relative z-10 w-full rounded-xl py-4 flex-row items-center justify-center ${isActivating ? 'bg-blue-500' : 'bg-blue-600'}`}
+                                >
+                                    <Sparkles size={20} color="white" className="mr-2" />
+                                    <StyledText className="text-white text-center font-n-bold text-lg">
+                                        {isActivating ? 'Activating...' : `Activate Holiday Mode`}
+                                    </StyledText>
+                                </StyledTouchableOpacity>
+                            </StyledView>
                         ) : (
-                            <View className="bg-gray-200 dark:bg-gray-700 rounded-lg py-4 px-6">
-                                <Text className="text-gray-500 dark:text-gray-400 text-center font-semibold text-lg">
+                            <StyledView className="bg-slate-100 dark:bg-slate-700 rounded-xl py-4 px-6 mb-2">
+                                <StyledText className="text-slate-500 dark:text-slate-400 text-center font-n-bold">
                                     No Holiday Modes Left This Year
-                                </Text>
-                            </View>
+                                </StyledText>
+                            </StyledView>
                         )}
 
-                        <TouchableOpacity
+                        <StyledTouchableOpacity
                             onPress={onClose}
-                            className="bg-gray-200 dark:bg-gray-700 rounded-lg py-4 px-6"
+                            className="bg-transparent py-4 rounded-xl w-full"
                         >
-                            <Text className="text-gray-700 dark:text-gray-300 text-center font-semibold">
-                                Cancel
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </View>
+                            <StyledText className="text-slate-500 dark:text-slate-400 text-center font-n-bold text-base">
+                                No thanks
+                            </StyledText>
+                        </StyledTouchableOpacity>
+                    </StyledView>
+                </StyledView>
+            </StyledView>
         </Modal>
     );
 }

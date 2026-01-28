@@ -146,8 +146,8 @@ export default function SettingsScreen() {
             {/* Compact Header */}
             <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
                 <StyledView
-                    className="flex-row items-center justify-between px-4 py-3 border-b"
-                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                    className="flex-row items-center justify-between px-4 py-3"
+                    style={{ backgroundColor: surfaceColor }}
                 >
                     <StyledView className="flex-row items-center justify-center relative flex-1">
                         <StyledTouchableOpacity

@@ -29,6 +29,7 @@ import { hasFeatureAccess } from '../lib/featureGates';
 import { ThemedView } from '../components/ThemedView';
 import { ThemedText } from '../components/ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { HolidayActivationModal } from '../components/game/HolidayActivationModal';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -43,6 +44,7 @@ interface DayStatus {
     status: 'won' | 'lost' | 'played' | 'not-played';
     guesses?: number;
     isFuture: boolean;
+    isHoliday: boolean;
 }
 
 // Sub-component for individual month page
@@ -125,7 +127,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
 
                 const { data: userAttempts, error: attemptError } = await supabase
                     .from(ATTEMPTS_TABLE)
-                    .select(`${idColumn}, result, num_guesses`)
+                    .select(`${idColumn}, result, num_guesses, streak_day_status`)
                     .eq('user_id', user.id)
                     .in(idColumn, puzzleIds);
 
@@ -133,6 +135,21 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
                     throw attemptError;
                 }
                 attempts = userAttempts || [];
+            }
+
+            // 2.5 Fetch Holiday Events (User Mode Only)
+            // This ensures we can show the yellow border even if the user played the game (overwriting streak_day_status)
+            let holidayEvents: any[] = [];
+            if (gameMode === 'USER') {
+                const { data: events, error: eventError } = await supabase
+                    .from('user_holiday_events' as any)
+                    .select('started_at, ended_at')
+                    .eq('user_id', user.id);
+
+                // Don't throw on error, just ignore (table might not exist yet)
+                if (!eventError && events) {
+                    holidayEvents = events;
+                }
             }
 
             // 3. Map Data
@@ -143,8 +160,42 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
                 const dateKey = format(new Date(puzzle.puzzle_date), 'yyyy-MM-dd');
                 const attempt = attempts.find(a => a[idColumn] === puzzle.id);
                 let status: DayStatus['status'] = 'not-played';
+                let isHoliday = false;
+
+                // Check if date falls within any holiday event
+                // Holiday spans from [started_at, ended_at]. If ended_at is null, it's ongoing (use today/future).
+                const puzzleDateObj = new Date(puzzle.puzzle_date);
+                // Reset time components for accurate comparison
+                puzzleDateObj.setHours(0, 0, 0, 0);
+
+                const isCoveredByHoliday = holidayEvents.some(event => {
+                    const start = new Date(event.started_at);
+                    start.setHours(0, 0, 0, 0);
+
+                    const end = event.ended_at ? new Date(event.ended_at) : new Date(8640000000000000); // Far future if null
+                    if (event.ended_at) end.setHours(23, 59, 59, 999);
+
+                    return puzzleDateObj >= start && puzzleDateObj <= end;
+                });
+
                 if (attempt) {
-                    status = attempt.result === 'won' ? 'won' : (attempt.result === 'lost' ? 'lost' : 'played');
+                    // Check Holiday Status (Priority: Historical Event > Current Status)
+                    if (isCoveredByHoliday || attempt.streak_day_status === 0) {
+                        isHoliday = true;
+                    }
+
+                    if (attempt.result === 'won') status = 'won';
+                    else if (attempt.result === 'lost') status = 'lost';
+                    else {
+                        // Logic: Only show 'played' (Blue) if guesses > 0
+                        // If guesses is null/0, it's just initialized (e.g. holiday row), so stay 'not-played'
+                        if (attempt.num_guesses && attempt.num_guesses > 0) {
+                            status = 'played';
+                        }
+                    }
+                } else if (isCoveredByHoliday) {
+                    // Even if no attempt row exists (shouldn't happen for active holidays, but possible), show as holiday
+                    isHoliday = true;
                 }
 
                 statusMap[dateKey] = {
@@ -153,7 +204,8 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
                     puzzleId: puzzle.id,
                     status,
                     guesses: attempt?.num_guesses,
-                    isFuture: isFuture(new Date(puzzle.puzzle_date))
+                    isFuture: isFuture(new Date(puzzle.puzzle_date)),
+                    isHoliday
                 };
             });
 
@@ -226,8 +278,13 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
                                 colors = themeColors.future; // No data = default/future look
                             }
 
-                            const borderColor = isToday ? borderColorTheme : 'transparent';
-                            // Manual background overrides tailwind class
+                            // Border Logic: Holiday > Today > Default
+                            let borderColor = 'transparent';
+                            if (data?.isHoliday) {
+                                borderColor = '#FACC15'; // Yellow-400 for Holiday
+                            } else if (isToday) {
+                                borderColor = borderColorTheme;
+                            }
 
                             return (
                                 <StyledView key={dateKey} className="w-[14%] aspect-square p-1">
@@ -582,7 +639,10 @@ export default function ArchiveScreen() {
                     feature="Archive"
                     description="Sign up to access past puzzles and track your history!"
                 />
+
+
             </SafeAreaView>
         </ThemedView>
     );
 }
+

@@ -38,9 +38,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             <Animated.View style={[styles.content, animatedStyle]}>
                 <ThemedText
                     className="font-n-bold text-white mb-8"
-                    size="4xl"
-                    adjustsFontSizeToFit
-                    numberOfLines={1}
+                    baseSize={40}
                 >
                     Elementle
                 </ThemedText>

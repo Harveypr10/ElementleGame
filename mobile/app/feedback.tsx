@@ -46,8 +46,8 @@ export default function FeedbackScreen() {
         <ThemedView className="flex-1">
             <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
                 <StyledView
-                    className="flex-row items-center justify-between px-4 py-3 border-b"
-                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                    className="flex-row items-center justify-between px-4 py-3"
+                    style={{ backgroundColor: surfaceColor }}
                 >
                     <StyledTouchableOpacity
                         onPress={() => router.back()}

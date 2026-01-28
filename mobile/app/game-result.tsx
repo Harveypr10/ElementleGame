@@ -20,6 +20,9 @@ import { ThemedText } from '../components/ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { ConfettiOverlay } from '../components/game/ConfettiOverlay';
 import { RainOverlay } from '../components/game/RainOverlay';
+import { StreakCelebration } from '../components/game/StreakCelebration';
+import { BadgeUnlockModal } from '../components/game/BadgeUnlockModal';
+import { useBadgeSystem } from '../hooks/useBadgeSystem';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -41,6 +44,10 @@ export default function GameResultScreen() {
     const gameMode = params.gameMode as string;
     const isGuest = params.isGuest === 'true';
     const isLocalMode = gameMode === 'USER';
+    const isStreakSaverGame = params.isStreakSaverGame === 'true';
+    const currentStreak = params.currentStreak ? parseInt(params.currentStreak as string, 10) : 0;
+
+    console.log('[GameResult] Params:', { currentStreak, isStreakSaverGame, isWin });
 
     // Colors based on mode (matching original EndGameModal)
     const statsColor = isLocalMode ? "#93cd78" : "#A4DB57"; // Green
@@ -67,6 +74,91 @@ export default function GameResultScreen() {
     const backgroundColor = useThemeColor({}, 'background');
     const textColor = useThemeColor({}, 'text');
 
+    // Hooks
+    const { pendingBadges, markBadgeAsSeen } = useBadgeSystem();
+    // Use streak status to get current streak if not passed, but params is better
+    // const { status } = useStreakSaverStatus(); 
+
+    // States for sequencing
+    const [streakModalVisible, setStreakModalVisible] = useState(false);
+    const [badgeModalVisible, setBadgeModalVisible] = useState(false);
+    const [currentBadge, setCurrentBadge] = useState<any>(null); // Using any or Badge type if imported
+    const [queueProcessed, setQueueProcessed] = useState(false);
+
+    // Initial Effect: Trigger Streak Celebration if Win AND Streak > 0
+    React.useEffect(() => {
+        // [FIX] Celebrate if:
+        // 1. We have a > 0 streak
+        // 2. AND (It is Today's Puzzle OR It is a Streak Saver Game)
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        const isToday = answerDateCanonical === todayStr;
+
+        if (isWin && currentStreak > 0 && (isToday || isStreakSaverGame)) {
+            console.log('[GameResult] Triggering Streak Celebration (IsToday:', isToday, 'IsSaver:', isStreakSaverGame, ')');
+            const timer = setTimeout(() => {
+                setStreakModalVisible(true);
+            }, 500); // Small delay after enter
+            return () => clearTimeout(timer);
+        } else {
+            console.log('[GameResult] Skipping Streak Celebration (IsToday:', isToday, 'IsSaver:', isStreakSaverGame, ')');
+        }
+    }, [isWin, currentStreak, answerDateCanonical, isStreakSaverGame]);
+
+    // Handle Streak Close -> Start Badge Queue
+    const handleStreakClose = () => {
+        setStreakModalVisible(false);
+        // Start badge processing
+        processNextBadge();
+    };
+
+    // Badge Queue Logic
+    // We use pendingBadges from the hook which syncs with DB
+    React.useEffect(() => {
+        // If we haven't started processing queue (waiting for streak close), don't auto-show
+        // But we need to react when pendingBadges updates.
+        // Also if pendingBadges is initially empty but we just won, we might need to wait for invalidation.
+        if (!streakModalVisible && !queueProcessed && isWin) {
+            processNextBadge();
+        }
+    }, [pendingBadges, streakModalVisible, queueProcessed, isWin]);
+
+    const processNextBadge = () => {
+        // [FIX] Don't lock queue permanently if empty. Just check current state.
+        // We only show one badge at a time.
+        // If we are already showing one, or pending is empty, do nothing.
+
+        console.log(`[GameResult] Processing next badge. Visible: ${badgeModalVisible}, Pending: ${pendingBadges?.length}`);
+
+        if (badgeModalVisible) return; // Already showing one
+
+        if (pendingBadges && pendingBadges.length > 0) {
+            console.log(`[GameResult] Showing badge: ${pendingBadges[0].badge?.name}`);
+            setCurrentBadge(pendingBadges[0].badge);
+            setBadgeModalVisible(true);
+        } else {
+            // Queue is empty (for now). We don't need to "lock" it.
+            // If new badges arrive via invalidation, the effect will run again.
+            console.log('[GameResult] No (more) badges to show.');
+        }
+    };
+
+    const handleBadgeClose = async () => {
+        if (currentBadge && pendingBadges && pendingBadges.length > 0) {
+            // Mark as seen
+            // The structure of pendingBadges is UserBadge[] which has badge_id
+            // We need to find the correct UserBadge id or just pass badge ID if markBadgeAsSeen takes badgeID
+            // Looking at hook: markBadgeAsSeen(badgeId: number)
+            // pendingBadges[0] is UserBadge.
+            await markBadgeAsSeen(pendingBadges[0].id);
+        }
+        setBadgeModalVisible(false);
+        // Effect will trigger next one if pendingBadges updates? 
+        // Actually refetchPending will update pendingBadges
+        // But we might need to manually trigger next check or rely on hook update
+        // The hook calling markBadgeAsSeen invalidates query, so pendingBadges will update.
+    };
+
     const handleShare = async () => {
         try {
             await Share.share({ message: shareText });
@@ -80,6 +172,18 @@ export default function GameResultScreen() {
             {/* Animations */}
             {isWin && <ConfettiOverlay />}
             {!isWin && <RainOverlay />}
+
+            <StreakCelebration
+                visible={streakModalVisible}
+                streak={currentStreak}
+                onClose={handleStreakClose}
+            />
+
+            <BadgeUnlockModal
+                visible={badgeModalVisible}
+                badge={currentBadge}
+                onClose={handleBadgeClose}
+            />
 
             <SafeAreaView edges={['top', 'bottom']} className="flex-1">
                 <StyledView className="flex-1 px-6 pt-8 pb-6 justify-between">

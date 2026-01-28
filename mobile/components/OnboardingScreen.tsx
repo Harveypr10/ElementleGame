@@ -41,7 +41,7 @@ export function OnboardingScreen({
         >
             <View style={styles.content}>
                 <ThemedText
-                    baseSize={36}
+                    baseSize={44}
                     style={styles.title}
                     testID="text-onboarding-title"
                 >
@@ -112,18 +112,6 @@ export function OnboardingScreen({
                 >
                     Puzzle date: {displayDate}
                 </ThemedText>
-
-                {/* Developer Tools - Temporary */}
-                {onDevReset && (
-                    <TouchableOpacity
-                        onPress={onDevReset}
-                        style={{ marginTop: 24, padding: 8 }}
-                    >
-                        <Text style={{ color: '#ef4444', fontSize: 12, opacity: 0.8, fontFamily: 'Nunito-Bold' }}>
-                            [DEV] Nuke User Data
-                        </Text>
-                    </TouchableOpacity>
-                )}
             </View>
         </ThemedView>
     );

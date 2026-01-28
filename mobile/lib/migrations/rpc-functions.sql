@@ -10,7 +10,8 @@
 -- Protects user's streak for specified number of days
 CREATE OR REPLACE FUNCTION activate_holiday_mode_mobile(
     p_user_id UUID,
-    p_duration_days INTEGER
+    p_duration_days INTEGER,
+    p_start_date DATE DEFAULT CURRENT_DATE
 )
 RETURNS TABLE(success BOOLEAN, message TEXT)
 LANGUAGE plpgsql
@@ -18,8 +19,8 @@ AS $$
 DECLARE
     v_holidays_used INTEGER;
     v_current_streak INTEGER;
-    v_start_date DATE := CURRENT_DATE;
-    v_end_date DATE := CURRENT_DATE + p_duration_days;
+    v_start_date DATE := p_start_date;
+    v_end_date DATE := p_start_date + p_duration_days;
     v_check_date DATE;
 BEGIN
     -- Get current stats
@@ -45,19 +46,24 @@ BEGIN
     WHERE user_id = p_user_id;
     
     -- Create game attempts with streak_day_status = 0 for date range
-    v_check_date := v_start_date;
-    WHILE v_check_date <= v_end_date LOOP
-        -- Insert into game_attempts_user if allocated question exists for this date
-        INSERT INTO game_attempts_user (user_id, allocated_user_id, streak_day_status)
-        SELECT p_user_id, qa.id, 0
-        FROM questions_allocated_user qa
-        WHERE qa.user_id = p_user_id 
-          AND qa.puzzle_date = v_check_date
-        ON CONFLICT (user_id, allocated_user_id) 
-        DO UPDATE SET streak_day_status = 0;
-        
-        v_check_date := v_check_date + 1;
-    END LOOP;
+    -- Create game attempts with streak_day_status = 0 for TODAY only
+    -- Future dates will be handled by daily cron jobs or nightly maintenance
+    INSERT INTO game_attempts_user (user_id, allocated_user_id, streak_day_status)
+    SELECT p_user_id, qa.id, 0
+    FROM questions_allocated_user qa
+    WHERE qa.user_id = p_user_id 
+      AND qa.puzzle_date = v_start_date
+    ON CONFLICT (user_id, allocated_user_id) 
+    DO UPDATE SET streak_day_status = 0;
+
+    -- Record holiday event for history (persists even if game is played)
+    BEGIN
+        INSERT INTO user_holiday_events (user_id, mode, started_at, ended_at)
+        VALUES (p_user_id, 'user', v_start_date, NULL);
+    EXCEPTION WHEN undefined_table THEN
+        -- Ignore if table doesn't exist (older schema)
+        NULL;
+    END;
     
     RETURN QUERY SELECT TRUE, 'Holiday activated'::TEXT;
 END;
