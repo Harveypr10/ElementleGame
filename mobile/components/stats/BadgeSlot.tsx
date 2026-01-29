@@ -40,10 +40,11 @@ interface BadgeSlotProps {
     size?: 'sm' | 'md' | 'lg' | 'xl';
     isAnimating?: boolean;
     minimal?: boolean;
+    placeholderImage?: any;
 }
 
 export function BadgeSlot(props: BadgeSlotProps) {
-    const { category, badge, size = 'xl', isAnimating = false } = props;
+    const { category, badge, size = 'xl', isAnimating = false, placeholderImage } = props;
     const isEmpty = !badge;
 
     // Size mappings (approximate to web implementation scale)
@@ -105,7 +106,7 @@ export function BadgeSlot(props: BadgeSlotProps) {
 
     // Smart Asset Resolution
     const getBadgeImage = () => {
-        if (!badge) return HAMSTER_IMAGE;
+        if (!badge) return placeholderImage || HAMSTER_IMAGE;
 
         const threshold = badge.badge?.threshold || badge.threshold;
 
@@ -114,8 +115,7 @@ export function BadgeSlot(props: BadgeSlotProps) {
         }
 
         // Fallback for Elementle/Percentile or missing streaks
-        // TODO: Could not auto-resolve correct badge image for non-streak categories
-        return HAMSTER_IMAGE;
+        return placeholderImage || HAMSTER_IMAGE;
     };
 
     const scale = React.useRef(new Animated.Value(0.1)).current;
@@ -174,7 +174,7 @@ export function BadgeSlot(props: BadgeSlotProps) {
                     {/* Badge Image (Dynamic) */}
                     <StyledImage
                         source={getBadgeImage()}
-                        style={{ width: currentSize.width * 0.8, height: currentSize.height * 0.8, opacity: isEmpty ? 0.3 : 1 }}
+                        style={{ width: currentSize.width * 0.6, height: currentSize.height * 0.6, opacity: isEmpty ? 0.3 : 1 }}
                         resizeMode="contain"
                     />
 

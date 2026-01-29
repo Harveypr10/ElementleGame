@@ -6,6 +6,8 @@ import { BadgeSlot } from './BadgeSlot';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 
+const MathsHamsterTransparent = require('../../assets/ui/webp_assets/Signup-Hamster-Transparent.webp');
+
 const StyledView = styled(View);
 const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
@@ -210,6 +212,7 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', initialC
                         category={currentCategory}
                         badge={item}
                         size="xl"
+                        placeholderImage={MathsHamsterTransparent}
                     />
                 </Animated.View>
 

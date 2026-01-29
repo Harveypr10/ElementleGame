@@ -31,7 +31,7 @@ const StyledImage = styled(Image);
 
 export default function GameResultScreen() {
     const router = useRouter();
-    const { textScale } = useOptions();
+    const { textScale, setGameMode } = useOptions();
     const params = useLocalSearchParams();
 
     // Parse params
@@ -47,7 +47,7 @@ export default function GameResultScreen() {
     const isStreakSaverGame = params.isStreakSaverGame === 'true';
     const currentStreak = params.currentStreak ? parseInt(params.currentStreak as string, 10) : 0;
 
-    console.log('[GameResult] Params:', { currentStreak, isStreakSaverGame, isWin });
+    // console.log('[GameResult] Params:', { currentStreak, isStreakSaverGame, isWin });
 
     // Colors based on mode (matching original EndGameModal)
     const statsColor = isLocalMode ? "#93cd78" : "#A4DB57"; // Green
@@ -293,7 +293,12 @@ export default function GameResultScreen() {
                                     <StyledTouchableOpacity
                                         className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
                                         style={{ backgroundColor: homeColor, height: 72 }}
-                                        onPress={() => router.push('/(tabs)')}
+                                        onPress={() => {
+                                            if (gameMode === 'REGION' || gameMode === 'USER') {
+                                                setGameMode(gameMode);
+                                            }
+                                            router.push('/(tabs)');
+                                        }}
                                     >
                                         <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Home</StyledText>
                                         <View className="w-[46px] h-[46px] justify-center items-center">

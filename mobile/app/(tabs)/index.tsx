@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, Image, ScrollView, RefreshControl, Animated, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { useAuth } from '../../lib/auth';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { HelpCircle, Settings } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useOptions } from '../../lib/options';
+import { useUserStats } from '../../hooks/useUserStats';
 import { HomeCard } from '../../components/home/HomeCard';
 import { ModeToggle } from '../../components/home/ModeToggle';
 import { HelpModal } from '../../components/HelpModal';
@@ -48,10 +49,61 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams(); // Use params for initialMode
     const { user } = useAuth();
     const { gameMode, setGameMode } = useOptions();
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
     const [showHolidayModal, setShowHolidayModal] = useState(false);
+
+    // Check for initialMode param from Game Return
+    // Removed initialMode param listener to rely on persistent useOptions context
+
+
+    // Hook-based Stats (Cached & Fast)
+    const { stats: regionHookStats, refetch: refetchRegionStats } = useUserStats('REGION');
+    const { stats: userHookStats, refetch: refetchUserStats } = useUserStats('USER');
+
+    // Resolve Stats with Defaults (Available for render and Modals)
+    const defaultStats = { current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {}, cumulative_monthly_percentile: null };
+    const regionStats = regionHookStats || defaultStats;
+    const userStats = userHookStats || defaultStats;
+
+    // Load Cached Data on Mount to prevent FOUC
+    useEffect(() => {
+        const loadCache = async () => {
+            try {
+                const todayStr = new Date().toISOString().split('T')[0];
+
+                // 1. Name
+                const cachedName = await AsyncStorage.getItem('cached_first_name');
+                if (cachedName) setFirstName(cachedName);
+
+                // 2. Region Status
+                const cachedRegion = await AsyncStorage.getItem('cached_game_status_region');
+                if (cachedRegion) {
+                    const parsed = JSON.parse(cachedRegion);
+                    if (parsed.date === todayStr) {
+                        setTodayStatusRegion(parsed.status);
+                        setGuessesRegion(parsed.guesses);
+                    }
+                }
+
+                // 3. User Status
+                const cachedUser = await AsyncStorage.getItem('cached_game_status_user');
+                if (cachedUser) {
+                    const parsed = JSON.parse(cachedUser);
+                    if (parsed.date === todayStr) {
+                        setTodayStatusUser(parsed.status);
+                        setGuessesUser(parsed.guesses);
+                    }
+                }
+            } catch (e) {
+                console.log('Error loading cache:', e);
+            }
+        };
+        loadCache();
+    }, []);
+
     // Track which mode triggered the Holiday Modal (to route correctly on Continue/Exit)
     const [holidayModalMode, setHolidayModalMode] = useState<'REGION' | 'USER'>('USER');
 
@@ -172,14 +224,12 @@ export default function HomeScreen() {
     // Region Stats
     const [todayStatusRegion, setTodayStatusRegion] = useState<'not-played' | 'solved' | 'failed'>('not-played');
     const [guessesRegion, setGuessesRegion] = useState(0);
-    const [totalGamesRegion, setTotalGamesRegion] = useState(0);
-    const [percentileRegion, setPercentileRegion] = useState<number | null>(null);
+
 
     // User Stats
     const [todayStatusUser, setTodayStatusUser] = useState<'not-played' | 'solved' | 'failed'>('not-played');
     const [guessesUser, setGuessesUser] = useState(0);
-    const [totalGamesUser, setTotalGamesUser] = useState(0);
-    const [percentileUser, setPercentileUser] = useState<number | null>(null);
+
     const [firstName, setFirstName] = useState("User");
 
     // Animation & Scroll Refs
@@ -191,16 +241,17 @@ export default function HomeScreen() {
             setLoading(true);
             if (!user) return;
 
-            // Also refresh badges
+            // Trigger Refetches for Hook Data
             refetchPending();
+            refetchRegionStats();
+            refetchUserStats();
 
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
-
             const todayStr = new Date().toISOString().split('T')[0];
 
             // ==========================================
-            // 1. REGION DATA (Global)
+            // 1. REGION DATA (Attempts Only)
             // ==========================================
             const { data: attemptsReg } = await supabase
                 .from('game_attempts_region')
@@ -213,34 +264,34 @@ export default function HomeScreen() {
                 const todayAttempt = attemptsReg.find((a: any) => a.questions_allocated_region?.puzzle_date === todayStr);
 
                 if (todayAttempt) {
-                    setTodayStatusRegion(todayAttempt.result === 'won' ? 'solved' : (todayAttempt.result === 'lost' ? 'failed' : 'not-played'));
-                    if (todayAttempt.result === 'won') setGuessesRegion(todayAttempt.num_guesses);
+                    const status = todayAttempt.result === 'won' ? 'solved' : (todayAttempt.result === 'lost' ? 'failed' : 'not-played');
+                    setTodayStatusRegion(status);
+
+                    const guesses = todayAttempt.result === 'won' ? (todayAttempt.num_guesses || 0) : 0;
+                    if (todayAttempt.result === 'won') setGuessesRegion(guesses);
+
+                    // Cache Region Status
+                    AsyncStorage.setItem('cached_game_status_region', JSON.stringify({
+                        date: todayStr,
+                        status: status,
+                        guesses: guesses
+                    }));
                 } else {
                     setTodayStatusRegion('not-played');
+                    // Cache Region Status (Not Played) - Clear or set default?
+                    // Better to overwrite with current state
+                    AsyncStorage.setItem('cached_game_status_region', JSON.stringify({
+                        date: todayStr,
+                        status: 'not-played',
+                        guesses: 0
+                    }));
                 }
             } else {
                 setTodayStatusRegion('not-played');
             }
 
-            const { count: countReg } = await supabase
-                .from('game_attempts_region')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .in('result', ['won', 'lost']);
-            setTotalGamesRegion(countReg || 0);
-
-            const { data: statsReg } = await supabase
-                .from('user_stats_region')
-                .select('cumulative_monthly_percentile, current_streak, games_played, games_won, guess_distribution')
-                .eq('user_id', user.id)
-                .single();
-
-            // Set Region Stats State
-            const regionStats = statsReg || { current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {}, cumulative_monthly_percentile: null };
-            if (statsReg) setPercentileRegion(statsReg.cumulative_monthly_percentile);
-
             // ==========================================
-            // 2. USER DATA (Endless/Personal)
+            // 2. USER DATA (Attempts Only)
             // ==========================================
             const { data: attemptsUser } = await supabase
                 .from('game_attempts_user')
@@ -253,45 +304,29 @@ export default function HomeScreen() {
                 const todayAttempt = attemptsUser.find((a: any) => a.questions_allocated_user?.puzzle_date === todayStr);
 
                 if (todayAttempt) {
-                    setTodayStatusUser(todayAttempt.result === 'won' ? 'solved' : (todayAttempt.result === 'lost' ? 'failed' : 'not-played'));
-                    if (todayAttempt.result === 'won') setGuessesUser(todayAttempt.num_guesses);
+                    const status = todayAttempt.result === 'won' ? 'solved' : (todayAttempt.result === 'lost' ? 'failed' : 'not-played');
+                    setTodayStatusUser(status);
+
+                    const guesses = todayAttempt.result === 'won' ? (todayAttempt.num_guesses || 0) : 0;
+                    if (todayAttempt.result === 'won') setGuessesUser(guesses);
+
+                    // Cache User Status
+                    AsyncStorage.setItem('cached_game_status_user', JSON.stringify({
+                        date: todayStr,
+                        status: status,
+                        guesses: guesses
+                    }));
                 } else {
                     setTodayStatusUser('not-played');
+                    AsyncStorage.setItem('cached_game_status_user', JSON.stringify({
+                        date: todayStr,
+                        status: 'not-played',
+                        guesses: 0
+                    }));
                 }
             } else {
                 setTodayStatusUser('not-played');
             }
-
-            const { count: countUser } = await supabase
-                .from('game_attempts_user')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .in('result', ['won', 'lost']);
-            setTotalGamesUser(countUser || 0);
-
-            const { data: statsUser } = await supabase
-                .from('user_stats_user')
-                .select('cumulative_monthly_percentile, current_streak, games_played, games_won, guess_distribution')
-                .eq('user_id', user.id)
-                .single();
-
-            // Set User Stats State
-            const userStats = statsUser || { current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {}, cumulative_monthly_percentile: null };
-            if (statsUser) setPercentileUser(statsUser.cumulative_monthly_percentile);
-
-            // Store stats in state for render
-            setStatsRegionData({
-                current_streak: regionStats.current_streak ?? 0,
-                games_played: regionStats.games_played ?? 0,
-                games_won: regionStats.games_won ?? 0,
-                guess_distribution: regionStats.guess_distribution ?? {}
-            });
-            setStatsUserData({
-                current_streak: userStats.current_streak ?? 0,
-                games_played: userStats.games_played ?? 0,
-                games_won: userStats.games_won ?? 0,
-                guess_distribution: userStats.guess_distribution ?? {}
-            });
 
             // Fetch Profile Name
             const { data: profile } = await supabase
@@ -301,6 +336,7 @@ export default function HomeScreen() {
                 .single();
             if (profile?.first_name) {
                 setFirstName(profile.first_name);
+                AsyncStorage.setItem('cached_first_name', profile.first_name);
             }
 
         } catch (e) {
@@ -309,7 +345,7 @@ export default function HomeScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [user, refetchPending]);
+    }, [user, refetchPending, refetchRegionStats, refetchUserStats]);
 
     // Check if we need to redirect new Pro users to category selection
     // Defer until loading complete & ensure no missed streaks pending (let popup handle those)
@@ -344,14 +380,14 @@ export default function HomeScreen() {
         }, [user, fetchData])
     );
 
-    // Initial Scroll Position based on GameMode
+    // Sync Scroll Position with GameMode
     useEffect(() => {
         if (gameMode === 'REGION') {
-            scrollViewRef.current?.scrollTo({ x: 0, animated: false });
+            scrollViewRef.current?.scrollTo({ x: 0, animated: true });
         } else {
-            scrollViewRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: false });
+            scrollViewRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: true });
         }
-    }, []);
+    }, [gameMode]);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -367,11 +403,6 @@ export default function HomeScreen() {
 
     const handleModeChange = (mode: 'REGION' | 'USER') => {
         setGameMode(mode);
-        if (mode === 'REGION') {
-            scrollViewRef.current?.scrollTo({ x: 0, animated: true });
-        } else {
-            scrollViewRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: true });
-        }
     };
 
     const onMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -383,15 +414,8 @@ export default function HomeScreen() {
         }
     };
 
-    // New State for holding full stats objects
-    interface StatsData {
-        current_streak: number;
-        games_played: number;
-        games_won: number;
-        guess_distribution: any; // Using any for JSONB
-    }
-    const [statsRegionData, setStatsRegionData] = useState<StatsData>({ current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {} });
-    const [statsUserData, setStatsUserData] = useState<StatsData>({ current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {} });
+    // Default stats object moved to component scope
+
 
     // Helper to calculate total guesses from distribution
     const calculateTotalGuesses = (distribution: any, gamesWon: number, gamesPlayed: number) => {
@@ -411,9 +435,14 @@ export default function HomeScreen() {
 
     const renderGameContent = (isRegion: boolean) => {
         const todayStatus = isRegion ? todayStatusRegion : todayStatusUser;
-        const totalGames = isRegion ? totalGamesRegion : totalGamesUser;
         const guesses = isRegion ? guessesRegion : guessesUser;
-        const stats = isRegion ? statsRegionData : statsUserData;
+
+        // Use Hook Data
+        const statsData = isRegion ? regionHookStats : userHookStats;
+        // Merge with defaults to prevent crashes
+        const stats = statsData || defaultStats;
+
+        const totalGames = stats.games_played || 0;
 
         // Colors from Web App
         const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
@@ -421,22 +450,17 @@ export default function HomeScreen() {
         // Green: Match the overlay box color
         const statsColor = isRegion ? '#93c54e' : '#84b86c';
 
-        // Stats Box Colors
-        const playBoxColor = isRegion ? '#7099d0' : '#5babb6';
-        const archiveBoxColor = isRegion ? '#e5be24' : '#e3994f';
-        const statsBoxColor = isRegion ? '#93c54e' : '#84b86c';
-
         // Stats Calculations
-        const winRate = stats.games_played > 0 ? ((stats.games_won / stats.games_played) * 100).toFixed(0) : "0";
-        const totalGuesses = calculateTotalGuesses(stats.guess_distribution, stats.games_won, stats.games_played);
-        const avgGuesses = stats.games_won > 0 ? (totalGuesses / stats.games_won).toFixed(1) : "0.0";
+        const winRate = totalGames > 0 ? ((stats.games_won || 0) / totalGames * 100).toFixed(0) : "0";
+        const totalGuesses = calculateTotalGuesses(stats.guess_distribution, stats.games_won || 0, totalGames);
+        const avgGuesses = (stats.games_won || 0) > 0 ? (totalGuesses / stats.games_won!).toFixed(1) : "0.0";
 
         // Percentile Logic
         const dayOfMonth = new Date().getDate();
-        const percentile = isRegion ? percentileRegion : percentileUser;
+        const percentile = stats.cumulative_monthly_percentile;
         let percentileMessage = null;
 
-        if (dayOfMonth >= 5 && percentile !== null && percentile > 0 && todayStatus === 'solved') {
+        if (dayOfMonth >= 5 && percentile !== null && percentile !== undefined && percentile > 0 && todayStatus === 'solved') {
             const roundedPercentile = Math.floor(percentile / 5) * 5;
             if (percentile >= 50) {
                 percentileMessage = `You're in the top ${roundedPercentile}% of players`;
@@ -445,11 +469,7 @@ export default function HomeScreen() {
 
         // Fallback messages
         if (!percentileMessage) {
-            if (isRegion) {
-                percentileMessage = "Play the archive to boost your ranking";
-            } else {
-                percentileMessage = "Play the archive to boost your ranking";
-            }
+            percentileMessage = "Play the archive to boost your ranking";
         }
 
         // Use same hamster images for both modes (PNG only to avoid React Native freeze errors)
@@ -560,6 +580,8 @@ export default function HomeScreen() {
                             </View>
                         </View>
                     </HomeCard>
+
+
                 </View>
             </ScrollView>
         );
@@ -664,7 +686,8 @@ export default function HomeScreen() {
                             setTimeout(() => setUserAnimationVisible(true), 500);
                         }
                     }}
-                    currentStreak={popupMode === 'REGION' ? statsRegionData.current_streak : statsUserData.current_streak}
+
+                    currentStreak={popupMode === 'REGION' ? regionStats.current_streak : userStats.current_streak}
                     gameType={popupMode}
                 />
 
@@ -683,10 +706,11 @@ export default function HomeScreen() {
                 visible={showHolidayModal}
                 holidayEndDate={holidayEndDate || "Unknown Date"}
                 onExitHoliday={async () => {
+                    if (!user) return;
                     console.log(`[Home] Exiting Holiday Mode for ${holidayModalMode}`);
                     try {
                         // 1. Deactivate Holiday Mode via RPC
-                        await endHolidayMode(user?.id || '', true);
+                        await endHolidayMode(user.id, true);
                         console.log("[Home] Holiday Deactivated. Refetching stats...");
 
                         // 2. Refetch Stats to ensure game sees updated status

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator, Image, TouchableOpacity } from 'react-native';
+import { View, Text, ActivityIndicator, Image, TouchableOpacity, Animated } from 'react-native';
 import { styled } from 'nativewind';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { HelpCircle } from 'lucide-react-native';
@@ -46,9 +46,12 @@ interface ActiveGameProps {
     onGameStateChange?: (state: 'loading' | 'playing' | 'won' | 'lost') => void;
     isStreakSaverGame?: boolean;
     onStreakSaverExit?: () => void;
+    introVisible?: boolean;
+    onIntroChange?: (visible: boolean) => void;
+    contentOpacity?: any;
 }
 
-export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGameStateChange, isStreakSaverGame, onStreakSaverExit }: ActiveGameProps) {
+export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGameStateChange, isStreakSaverGame, onStreakSaverExit, introVisible, onIntroChange, contentOpacity }: ActiveGameProps) {
     const router = useRouter();
     const { mode, id, skipIntro, preserveStreakStatus: preserveParam } = useLocalSearchParams();
     const { dateLength, cluesEnabled, dateFormatOrder } = useOptions();
@@ -68,7 +71,26 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             setPreserveStreakStatus(true);
         }
     }, [preserveParam]);
+    // -- Local State for UI Flow --
+    const [isLoading, setIsLoading] = React.useState(true);
+
+    // State for Introduction Sequencing
+    const [introPhase, setIntroPhase] = React.useState<'visible' | 'fading' | 'hidden'>('hidden');
+    const gameFadeAnim = React.useRef(new Animated.Value(0)).current;
+
+    // Restore missing state
     const [hasCheckedHoliday, setHasCheckedHoliday] = React.useState(false);
+
+    // Trigger Game Fade In when Intro is fully gone
+    useEffect(() => {
+        if (introPhase === 'hidden' && !isLoading) {
+            Animated.timing(gameFadeAnim, {
+                toValue: 1,
+                duration: 800,
+                useNativeDriver: true,
+            }).start();
+        }
+    }, [introPhase, isLoading]);
     const { endHoliday, holidayActive } = useStreakSaverStatus();
     const [showHolidayPopup, setShowHolidayPopup] = React.useState(false);
 
@@ -125,9 +147,12 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     const { stats, refetch: refetchStats } = useUserStats(gameMode);
     const { checkBadgesForWin, markBadgeAsSeen, pendingBadges } = useBadgeSystem();
 
-    // -- Local State for UI Flow --
-    const [isLoading, setIsLoading] = React.useState(true);
-    const [showIntro, setShowIntro] = React.useState(false);
+
+    // Support lifted state or local fallback
+    // const [localShowIntro, setLocalShowIntro] = React.useState(false); // REMOVED
+    // const showIntro = introVisible !== undefined ? introVisible : localShowIntro; // REMOVED
+    // const setShowIntro = onIntroChange || setLocalShowIntro; // REMOVED
+
     const [showStreakCelebration, setShowStreakCelebration] = React.useState(false);
     const [streakToDisplay, setStreakToDisplay] = React.useState(0);
 
@@ -194,21 +219,26 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
         const MINIMUM_LOADING_TIME = 1500; // 1.5 seconds
 
         const timer = setTimeout(() => {
-            setIsLoading(false);
 
-            // After loading completes, determine whether to show intro
+            // [FIX] Determine intro state BEFORE clearing loading to prevent "Flash" of game screen.
             // Only show intro for fresh games (playing, no guesses, not restored)
             // AND only if skipIntro param is NOT present
             // AND only if NOT in Holiday Mode (Holiday Modal takes precedence)
             if (gameState === 'playing' && guesses.length === 0 && !isRestored && skipIntro !== 'true') {
                 // Check if Holiday Mode (streakDayStatus === 0)
-                // If so, rely on the specific Holiday Modal logic in useEffect below
                 if (streakDayStatus !== 0) {
-                    setShowIntro(true);
+                    setIntroPhase('visible');
                 } else {
                     console.log('[ActiveGame] In Holiday Mode (Status 0) - Suppressing Intro to show Holiday Modal');
+                    setIntroPhase('hidden');
                 }
+            } else {
+                setIntroPhase('hidden');
             }
+
+            // Clear loading state AFTER setting intro state
+            setIsLoading(false);
+
         }, Math.max(0, MINIMUM_LOADING_TIME - (Date.now() - startTime)));
 
         return () => clearTimeout(timer);
@@ -338,31 +368,27 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                 </ThemedView>
             )}
 
-            {!isLoading && !showIntro && (
-                <>
-                    {/* Title & Info */}
-                    <View className="items-center mt-6 mb-4 px-4">
-                        {/* Only show Category/Location if Clues are Enabled, otherwise show generic mode label */}
-                        {cluesEnabled ? (
-                            <ThemedText className="font-n-bold text-[#3b82f6] mb-1 tracking-wide text-center" size="base">
-                                {headerLine1}
-                            </ThemedText>
-                        ) : (
-                            <ThemedText className="font-n-bold text-[#3b82f6] mb-1 tracking-wide text-center" size="base">
-                                {gameMode === 'REGION' ? 'Great Britain' : 'Personal User'}
-                            </ThemedText>
-                        )}
+            {!isLoading && introPhase === 'hidden' && (
+                <Animated.View className="flex-1 w-full" style={{ opacity: gameFadeAnim }}>
 
-                        {/* Event Title - only show if clues enabled */}
+                    {/* Clue Box - Moved from GameScreen to sync animations */}
+                    <Animated.View
+                        className={`mx-6 -mt-6 mb-2 rounded-3xl items-center ${cluesEnabled ? 'bg-white dark:bg-slate-800 shadow-sm p-4' : 'h-10'}`}
+                        style={{ zIndex: 100 }}
+                    >
                         {cluesEnabled && (
-                            <ThemedText className="font-n-bold text-center leading-7" size="2xl">
-                                {puzzle.title}
-                            </ThemedText>
+                            <>
+                                <ThemedText className="font-n-bold text-[#3b82f6] mb-1 tracking-wide text-center" size="base">
+                                    {puzzle.category}
+                                </ThemedText>
+                                <ThemedText className="font-n-bold text-center leading-7" size="xl">
+                                    {puzzle.title}
+                                </ThemedText>
+                            </>
                         )}
-                    </View>
+                    </Animated.View>
 
-                    {/* Game Grid */}
-                    <ThemedView className="flex-1 w-full max-w-md mx-auto px-4 justify-start" style={{ paddingTop: 16, paddingBottom: 8 }}>
+                    <ThemedView className={`flex-1 w-full max-w-md mx-auto px-4 ${cluesEnabled ? 'justify-start' : 'justify-center'}`} style={{ paddingTop: cluesEnabled ? 16 : 0, paddingBottom: cluesEnabled ? 8 : 0 }}>
                         <InputGrid
                             guesses={guesses}
                             currentInput={currentInput}
@@ -374,7 +400,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     </ThemedView>
 
                     {/* Keyboard or Continue Button */}
-                    <View style={{ paddingBottom: 16, paddingTop: 4 }}>
+                    <View style={{ paddingBottom: 10, paddingTop: 8 }}>
                         {(gameState === 'playing') ? (
                             <NumericKeyboard
                                 onDigitPress={handleDigitPress}
@@ -418,15 +444,16 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                             </View>
                         )}
                     </View>
-                </>
+                </Animated.View>
             )}
 
-            {/* Intro & Holiday Logic */}
-            {!isLoading && (
+            {/* Intro Screen - Renders when not hidden (visible or fading) */}
+            {!isLoading && introPhase !== 'hidden' && (
                 <>
                     <IntroScreen
-                        visible={showIntro}
-                        onStart={() => setShowIntro(false)}
+                        visible={introPhase === 'visible'}
+                        onStart={() => setIntroPhase('fading')}
+                        onAnimationComplete={() => setIntroPhase('hidden')}
                         gameMode={gameMode}
                         puzzleDate={puzzle.date}
                         // Issue 4 Fix: Only show streak intro if NOT preserving holiday status (i.e. we are playing for real)
@@ -454,7 +481,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                         onExitHoliday={async () => {
                             setShowHolidayPopup(false);
                             try {
-                                await endHoliday();
+                                await endHoliday(false);
                             } catch (e) {
                                 console.error("Failed to exit holiday mode", e);
                             }

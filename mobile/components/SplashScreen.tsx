@@ -39,6 +39,8 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
                 <ThemedText
                     className="font-n-bold text-white mb-8"
                     baseSize={40}
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
                 >
                     Elementle
                 </ThemedText>

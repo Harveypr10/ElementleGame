@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect } from 'react';
 
 interface TierMetadata {
     streakSavers: number;
@@ -111,6 +113,13 @@ export function useSubscription() {
 
     const effectiveSubscription = subscription || FREE_SUBSCRIPTION;
     const isPro = effectiveSubscription.tier === 'pro' && effectiveSubscription.isActive;
+
+    // Cache Pro Status for UI Polish
+    useEffect(() => {
+        if (subscription) {
+            AsyncStorage.setItem('cached_is_pro', (subscription.tier === 'pro' && subscription.isActive) ? 'true' : 'false');
+        }
+    }, [subscription]);
 
     return {
         subscription: effectiveSubscription,

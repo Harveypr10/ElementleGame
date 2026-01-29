@@ -263,9 +263,14 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
     const toggleDarkMode = async () => {
         const newValue = !darkMode;
-        console.log('[Options] toggleDarkMode called:', { old: darkMode, new: newValue });
+        const newScheme = newValue ? 'dark' : 'light';
+        console.log('[Options] toggleDarkMode called (Instant Apply):', { old: darkMode, new: newValue });
+
+        // IMMEDIATE ACTION: Apply theme before React state updates trigger re-renders
+        setColorScheme(newScheme);
+
         setDarkModeState(newValue);
-        // The useEffect above will handle applying the Appearance change
+        // The useEffect above will handle ensuring sync, but this makes it feel instant
         await AsyncStorage.setItem('opt_dark_mode', newValue.toString());
         if (user) {
             supabase.from('user_settings')

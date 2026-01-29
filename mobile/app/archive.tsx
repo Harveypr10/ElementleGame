@@ -19,7 +19,7 @@ import {
     eachMonthOfInterval,
     differenceInMonths
 } from 'date-fns';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { useOptions } from '../lib/options';
@@ -241,8 +241,8 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
     };
 
     return (
-        <StyledView style={{ width }} className="px-4">
-            <StyledView className="relative" style={{ minHeight: 300 }}>
+        <StyledView className="w-full">
+            <StyledView className="relative" style={{ minHeight: ((width - 64) / 7) * 6 }}>
                 <StyledView
                     className="absolute inset-0 flex items-center justify-center"
                     style={{
@@ -256,7 +256,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
                 </StyledView>
 
                 <Animated.View style={{ opacity: dataReady ? 1 : 0 }}>
-                    <StyledView className="flex-row flex-wrap">
+                    <StyledView className="flex-row flex-wrap justify-center">
                         {days.map((day) => {
                             const dateKey = format(day, 'yyyy-MM-dd');
                             const data = monthData[dateKey];
@@ -314,11 +314,16 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
 });
 
 export default function ArchiveScreen() {
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const { gameMode, textScale, darkMode } = useOptions();
     const flatListRef = useRef<FlatList>(null);
     const { user, isGuest } = useAuth();
     const isFocused = useIsFocused();
+
+    // Theme Colors for Archive
+    const brandColor = gameMode === 'USER' ? '#FFB067' : '#FFD429'; // Orange for User, Yellow for Region
+    const brandColorDark = gameMode === 'USER' ? '#E69900' : '#E6B800'; // Darker variants
 
     // Initial Loading State for MinDate
     const [initializing, setInitializing] = useState(true);
@@ -520,128 +525,148 @@ export default function ArchiveScreen() {
     }
 
     return (
-        <ThemedView className="flex-1">
-            <SafeAreaView edges={['top', 'bottom']} className="flex-1">
+        <ThemedView className="flex-1 bg-slate-100 dark:bg-slate-900">
+            {/* Extended Header Background - Matching Stats Screen */}
+            <StyledView
+                style={{
+                    backgroundColor: brandColor,
+                    paddingTop: insets.top + 6, // Added partial spacer to lower title
+                    paddingBottom: 24,
+                }}
+            >
+                {/* Header Row */}
+                <StyledView className="flex-row items-center justify-between px-6 mb-2 py-3">
+                    {/* Back Button */}
+                    <StyledTouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
+                        <ChevronLeft size={28} color="#FFFFFF" />
+                    </StyledTouchableOpacity>
 
-                {/* Header matches HomeScreen exactly */}
-                <ThemedView className="items-center relative pb-2 z-50">
-                    <StyledView className="absolute left-4 top-2">
-                        <StyledTouchableOpacity onPress={() => router.back()}>
-                            <ChevronLeft size={28} color="#94a3b8" />
-                        </StyledTouchableOpacity>
-                    </StyledView>
-
-                    <ThemedText baseSize={36} className="font-n-bold mb-2 pt-2 font-heading">
+                    {/* Title */}
+                    <ThemedText className="font-n-bold text-white text-4xl font-heading">
                         Archive
                     </ThemedText>
-                </ThemedView>
 
-                {/* Navigation Controls */}
-                <StyledView className="flex-row items-center justify-between px-6 py-6 border-b border-transparent">
-                    {/* Left Arrow */}
+                    {/* Spacer (to balance Back button) */}
+                    <StyledView className="w-10 h-10" />
+                </StyledView>
+            </StyledView>
+
+            {/* Overlapping Navigation Controls - Matching Badge/Stats Cards style */}
+            {/* Overlapping Navigation Controls */}
+            <StyledView className="px-6 -mt-6 mb-4">
+                <StyledView className="flex-row items-center gap-3">
+
+                    {/* Left Arrow Card */}
                     <StyledTouchableOpacity
                         onPress={handlePrev}
                         disabled={isPrevDisabled}
-                        className={`p-3 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 ${isPrevDisabled ? 'opacity-30' : 'opacity-100'}`}
-                        style={{ backgroundColor: darkMode ? '#1e293b' : '#ffffff' }}
+                        className={`bg-white dark:bg-slate-800 rounded-3xl shadow-sm items-center justify-center ${isPrevDisabled ? 'opacity-50' : 'opacity-100'}`}
+                        style={{ width: 48, height: 60 }}
                     >
-                        <ChevronLeft size={24} color={darkMode ? '#ffffff' : '#7DAAE8'} />
+                        <ChevronLeft size={24} color={darkMode ? '#FFFFFF' : '#64748B'} />
                     </StyledTouchableOpacity>
 
-                    {/* Month Title Button */}
-                    <ThemedView
-                        variant="surface"
-                        className="px-4 py-2 rounded-xl"
+                    {/* Month Title Card (Middle) */}
+                    <StyledView
+                        className="flex-1 bg-white dark:bg-slate-800 rounded-3xl shadow-sm items-center justify-center"
+                        style={{ height: 60 }}
                     >
-                        <TouchableOpacity onPress={() => setModalVisible(true)}>
-                            <ThemedText baseSize={27} className="font-n-bold">
+                        <TouchableOpacity onPress={() => setModalVisible(true)} className="items-center justify-center w-full h-full">
+                            <ThemedText className="font-n-bold text-xl text-slate-800 dark:text-white" numberOfLines={1} adjustsFontSizeToFit>
                                 {currentTitle}
                             </ThemedText>
                         </TouchableOpacity>
-                    </ThemedView>
+                    </StyledView>
 
-                    {/* Right Arrow */}
+                    {/* Right Arrow Card */}
                     <StyledTouchableOpacity
                         onPress={handleNext}
                         disabled={isNextDisabled}
-                        className={`p-3 rounded-full shadow-sm border border-slate-100 dark:border-slate-700 ${isNextDisabled ? 'opacity-30' : 'opacity-100'}`}
-                        style={{ backgroundColor: darkMode ? '#1e293b' : '#ffffff' }}
+                        className={`bg-white dark:bg-slate-800 rounded-3xl shadow-sm items-center justify-center ${isNextDisabled ? 'opacity-50' : 'opacity-100'}`}
+                        style={{ width: 48, height: 60 }}
                     >
-                        <ChevronRight size={24} color={darkMode ? '#ffffff' : '#7DAAE8'} />
+                        <ChevronRight size={24} color={darkMode ? '#FFFFFF' : '#64748B'} />
                     </StyledTouchableOpacity>
+
                 </StyledView>
+            </StyledView>
 
-                {/* Week Headers */}
-                <StyledView className="flex-row justify-between mb-2 px-4 mt-2">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                        <StyledText key={day} style={{ fontSize: 14 * textScale }} className="w-[14%] text-center font-n-semibold text-slate-400">
-                            {day}
-                        </StyledText>
-                    ))}
-                </StyledView>
-
-                {/* Swipeable Calendar */}
-                <FlatList
-                    ref={flatListRef}
-                    data={months}
-                    keyExtractor={(item) => item.toISOString()}
-                    horizontal
-                    pagingEnabled
-                    initialScrollIndex={months.length - 1}
-                    getItemLayout={(data, index) => (
-                        { length: width, offset: width * index, index }
-                    )}
-                    renderItem={({ item }) => (
-                        <MonthPage monthDate={item} isActive={true} gameMode={gameMode} isScreenFocused={isFocused} />
-                    )}
-                    onViewableItemsChanged={onViewableItemsChanged}
-                    viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-                    onScrollToIndexFailed={(info) => {
-                        const wait = new Promise(resolve => setTimeout(resolve, 500));
-                        wait.then(() => {
-                            flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
-                        });
-                    }}
-                    showsHorizontalScrollIndicator={false}
-                />
-
-                {/* Return to Today Button (Bottom Floating/Fixed) */}
-                {!isTodaySelected && (
-                    <StyledView className="absolute bottom-10 left-0 right-0 items-center z-10">
-                        <ThemedView
-                            variant="surface"
-                            className="px-6 py-3 rounded-full shadow-lg border border-slate-100 dark:border-slate-700"
-                        >
-                            <TouchableOpacity onPress={returnToToday}>
-                                <ThemedText style={{ fontSize: 16 * textScale }} className="text-[#7DAAE8] font-n-bold">
-                                    Return to today
-                                </ThemedText>
-                            </TouchableOpacity>
-                        </ThemedView>
+            {/* Main Content Area */}
+            <StyledView className="flex-1 px-4">
+                {/* Week Headers - Styled to match clean look */}
+                <StyledView className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm px-4 pb-4 pt-6 mb-4">
+                    <StyledView className="flex-row justify-between mb-4 border-b border-slate-100 dark:border-slate-700 pb-2">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                            <StyledText key={day} style={{ fontSize: 13 * textScale }} className="w-[14%] text-center font-n-bold text-slate-400 dark:text-slate-500 uppercase">
+                                {day}
+                            </StyledText>
+                        ))}
                     </StyledView>
-                )}
 
-                <MonthSelectModal
-                    visible={modalVisible}
-                    onClose={() => setModalVisible(false)}
-                    currentDate={currentMonthDate}
-                    minDate={minDate}
-                    maxDate={today}
-                    onSelectDate={handleDateSelect}
-                />
+                    {/* Swipeable Calendar */}
+                    <FlatList
+                        ref={flatListRef}
+                        data={months}
+                        keyExtractor={(item) => item.toISOString()}
+                        horizontal
+                        pagingEnabled
+                        initialScrollIndex={months.length - 1}
+                        getItemLayout={(data, index) => (
+                            { length: width - 64, offset: (width - 64) * index, index } // Adjust width for padding (32 outer + 32 inner)
+                        )}
+                        renderItem={({ item }) => (
+                            <StyledView style={{ width: width - 64 }} className="items-center">
+                                <MonthPage monthDate={item} isActive={true} gameMode={gameMode} isScreenFocused={isFocused} />
+                            </StyledView>
+                        )}
+                        onViewableItemsChanged={onViewableItemsChanged}
+                        viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+                        onScrollToIndexFailed={(info) => {
+                            const wait = new Promise(resolve => setTimeout(resolve, 500));
+                            wait.then(() => {
+                                flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+                            });
+                        }}
+                        showsHorizontalScrollIndicator={false}
+                    />
+                </StyledView>
+            </StyledView>
 
-                <GuestRestrictionModal
-                    visible={guestModalVisible}
-                    onClose={() => {
-                        setGuestModalVisible(false);
-                        router.back();
-                    }}
-                    feature="Archive"
-                    description="Sign up to access past puzzles and track your history!"
-                />
+            {/* Return to Today Button (Bottom Floating/Fixed) */}
+            {!isTodaySelected && (
+                <StyledView className="absolute bottom-10 left-0 right-0 items-center z-10">
+                    <ThemedView
+                        variant="surface"
+                        className="px-6 py-3 rounded-full shadow-lg border border-slate-100 dark:border-slate-700"
+                    >
+                        <TouchableOpacity onPress={returnToToday}>
+                            <ThemedText style={{ fontSize: 16 * textScale, color: brandColorDark }} className="font-n-bold">
+                                Return to today
+                            </ThemedText>
+                        </TouchableOpacity>
+                    </ThemedView>
+                </StyledView>
+            )}
 
+            <MonthSelectModal
+                visible={modalVisible}
+                onClose={() => setModalVisible(false)}
+                currentDate={currentMonthDate}
+                minDate={minDate}
+                maxDate={today}
+                onSelectDate={handleDateSelect}
+            />
 
-            </SafeAreaView>
+            <GuestRestrictionModal
+                visible={guestModalVisible}
+                onClose={() => {
+                    setGuestModalVisible(false);
+                    router.back();
+                }}
+                feature="Archive"
+                description="Sign up to access past puzzles and track your history!"
+            />
+
         </ThemedView>
     );
 }

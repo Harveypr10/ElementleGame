@@ -32,12 +32,12 @@ export function NumericKeyboard({
 }: NumericKeyboardProps) {
     const { darkMode } = useOptions();
 
-    // Responsive button height - smaller on small screens
+    // Responsive button height - smaller on small screens (reduced by ~10%)
     const buttonHeight = useMemo(() => {
         const screenHeight = Dimensions.get('window').height;
-        if (screenHeight < 700) return 48; // Small screens
-        if (screenHeight < 800) return 52; // Medium screens  
-        return 56; // Large screens (h-14)
+        if (screenHeight < 700) return 44; // Small screens
+        if (screenHeight < 800) return 47; // Medium screens  
+        return 50; // Large screens
     }, []);
 
     const getKeyStyles = (digit: string) => {
@@ -50,10 +50,10 @@ export function NumericKeyboard({
             case "ruledOut":
                 return { className: "bg-gray-500 border-gray-500" };
             default:
-                // Manual theme logic
+                // Manual theme logic - Borders removed
                 return {
                     className: "",
-                    style: { backgroundColor: darkMode ? '#334155' : '#e2e8f0', borderColor: darkMode ? '#475569' : '#cbd5e1', borderWidth: 1 }
+                    style: { backgroundColor: darkMode ? '#334155' : '#e2e8f0' }
                 };
         }
     };
@@ -94,14 +94,14 @@ export function NumericKeyboard({
     };
 
     return (
-        <View className="w-full px-2 pb-6">
+        <View className="w-full px-5 pb-5">
             <View className="flex-row">
                 {["1", "2", "3", "4", "5"].map(renderKey)}
             </View>
             <View className="flex-row">
                 {["6", "7", "8", "9", "0"].map(renderKey)}
             </View>
-            <View className="flex-row mt-1">
+            <View className="flex-row">
                 <StyledTouchableOpacity
                     testID="keyboard-enter"
                     onPress={() => {

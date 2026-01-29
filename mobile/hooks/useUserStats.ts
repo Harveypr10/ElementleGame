@@ -19,6 +19,10 @@ export interface UserStats {
 
     current_streak_daily?: number;
     max_streak_daily?: number;
+
+    // Additional Stats
+    guess_distribution?: any;
+    cumulative_monthly_percentile?: number | null;
 }
 
 export const useUserStats = (mode: 'REGION' | 'USER' = 'REGION') => {

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, ActivityIndicator, Alert, TouchableOpacity, Animated } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Calendar, HelpCircle } from 'lucide-react-native';
@@ -15,6 +15,7 @@ import { useThemeColor } from '../../../hooks/useThemeColor';
 import { useStreakSaver } from '../../../contexts/StreakSaverContext';
 import { useStreakSaverStatus } from '../../../hooks/useStreakSaverStatus';
 import { StreakSaverExitWarning } from '../../../components/StreakSaverExitWarning';
+import { HelpModal } from '../../../components/HelpModal';
 
 export default function GameScreen() {
     const backgroundColor = useThemeColor({}, 'background');
@@ -25,6 +26,11 @@ export default function GameScreen() {
     const params = useLocalSearchParams();
     // Safely parse params which might be arrays
     const modeParam = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+
+    // Header Colors
+    const isUserMode = modeParam === 'USER';
+    const brandColor = isUserMode ? '#66becb' : '#7DAAE8'; // Teal (User) / Blue (Region)
+    const headerIconColor = '#FFFFFF';
     const idParam = Array.isArray(params.id) ? params.id[0] : params.id;
 
     // Explicitly cast to string for subsequent logic
@@ -44,6 +50,7 @@ export default function GameScreen() {
     const router = useRouter();
     const { user } = useAuth();
 
+
     // -- FIXED: HOOKS MOVED TO TOP LEVEL --
     const [gameState, setGameState] = useState<'loading' | 'playing' | 'won' | 'lost'>('loading');
     const isGuest = !user;
@@ -52,6 +59,8 @@ export default function GameScreen() {
     const { isInStreakSaverMode } = useStreakSaver();
     const { declineStreakSaver } = useStreakSaverStatus();
     const [showExitWarning, setShowExitWarning] = useState(false);
+    const [helpVisible, setHelpVisible] = useState(false);
+
 
     // Intercept back navigation
     const handleBack = async () => {
@@ -99,6 +108,8 @@ export default function GameScreen() {
     const isRegion = mode === 'REGION';
     const modeStr = isRegion ? 'REGION' : 'USER';
     const puzzleIdParam = id as string;
+
+    const { cluesEnabled } = useOptions();
 
     // Use a ref to prevent double-firing useEffect
     const hasFetched = useRef(false);
@@ -280,88 +291,86 @@ export default function GameScreen() {
         }
     };
 
-    if (loading) {
-        return (
-            <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 justify-center items-center">
-                <ActivityIndicator size="large" color="#3b82f6" />
-                <Text className="text-slate-900 dark:text-white mt-4 font-body">Loading Puzzle...</Text>
-            </SafeAreaView>
-        );
-    }
 
-    if (!puzzle) {
-        return (
-            <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 justify-center items-center px-6">
-                <Text className="text-slate-900 dark:text-white text-xl font-display mb-2 text-center">No Puzzle Found</Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-center mb-6">
-                    {debugInfo || `We couldn't find a puzzle for ${modeStr} mode on this date.`}
-                </Text>
+    // Loading and Error states are now handled inline below to preserve Header visibility
 
-                <TouchableOpacity
-                    className="bg-blue-600 px-6 py-3 rounded-xl flex-row items-center mb-4"
-                    onPress={() => router.replace('/archive')}
-                >
-                    <Calendar className="text-white mr-2" size={20} />
-                    <Text className="text-white font-bold text-lg">Pick Another Date</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    className="bg-slate-700 px-6 py-3 rounded-xl flex-row items-center"
-                    onPress={() => router.back()}
-                >
-                    <ChevronLeft className="text-white mr-2" size={20} />
-                    <Text className="text-white font-bold text-lg">Go Back</Text>
-                </TouchableOpacity>
-            </SafeAreaView>
-        );
-    }
 
 
 
     return (
         <ThemedView className="flex-1">
-            <SafeAreaView edges={['top']} className="z-10" style={{ backgroundColor: surfaceColor }}>
-                <View className="relative items-center pb-2 z-50" style={{ backgroundColor: surfaceColor }}>
+            <SafeAreaView edges={['top']} className="z-10" style={{ backgroundColor: brandColor }}>
+                <View className="relative items-center z-50" style={{ backgroundColor: brandColor, paddingTop: 6, paddingBottom: 24 }}>
 
                     {/* Left: Back Arrow - Hidden if game OVER and Guest */}
                     {!(isGuest && (gameState === 'won' || gameState === 'lost')) && (
-                        <View className="absolute left-4 top-2">
+                        <View className="absolute left-4 top-4">
                             <TouchableOpacity
                                 onPress={handleBack}
                                 className="items-center justify-center bg-transparent"
                             >
-                                <ChevronLeft size={28} color={iconColor} />
+                                <ChevronLeft size={28} color={headerIconColor} />
                             </TouchableOpacity>
                         </View>
                     )}
 
                     {/* Center: Title */}
-                    <ThemedText size="4xl" className="font-n-bold mb-2 pt-2 font-heading tracking-tight text-center">
+                    <ThemedText size="4xl" className="text-white font-n-bold mb-2 pt-2 font-heading tracking-tight text-center">
                         Elementle
                     </ThemedText>
 
                     {/* Right: Help */}
-                    <View className="absolute right-4 top-2">
+                    <View className="absolute right-4 top-4">
                         <TouchableOpacity
-                            onPress={() => Alert.alert("How to Play", "Guess the date of the historic event!\n\n• Green = Correct\n• Yellow = Close (within 10 years/days)\n• Arrows indicate if you need to go Higher or Lower.")}
+                            onPress={() => setHelpVisible(true)}
                             className="items-center justify-center bg-transparent"
                         >
-                            <HelpCircle size={28} color={iconColor} />
+                            <HelpCircle size={28} color={headerIconColor} />
                         </TouchableOpacity>
                     </View>
                 </View>
             </SafeAreaView>
 
-            {/* Active Game Component (Handles Engine & UI) */}
+            {/* Main Content Area: Handles Loading, Error, and Active Game */}
             <View className="flex-1">
-                <ActiveGame
-                    puzzle={puzzle}
-                    gameMode={modeStr}
-                    backgroundColor={backgroundColor}
-                    onGameStateChange={setGameState}
-                    isStreakSaverGame={isInStreakSaverMode}
-                    onStreakSaverExit={handleConfirmExit}
-                />
+                {loading ? (
+                    <View className="flex-1 justify-center items-center">
+                        <ActivityIndicator size="large" color="#3b82f6" />
+                        <Text className="text-slate-900 dark:text-white mt-4 font-body">Loading Puzzle...</Text>
+                    </View>
+                ) : !puzzle ? (
+                    <View className="flex-1 justify-center items-center px-6">
+                        <Text className="text-slate-900 dark:text-white text-xl font-display mb-2 text-center">No Puzzle Found</Text>
+                        <Text className="text-slate-500 dark:text-slate-400 text-center mb-6">
+                            {debugInfo || `We couldn't find a puzzle for ${modeStr} mode on this date.`}
+                        </Text>
+                        <TouchableOpacity
+                            className="bg-blue-600 px-6 py-3 rounded-xl flex-row items-center mb-4"
+                            onPress={() => router.replace('/archive')}
+                        >
+                            <Calendar className="text-white mr-2" size={20} />
+                            <Text className="text-white font-bold text-lg">Pick Another Date</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            className="bg-slate-700 px-6 py-3 rounded-xl flex-row items-center"
+                            onPress={() => router.back()}
+                        >
+                            <ChevronLeft className="text-white mr-2" size={20} />
+                            <Text className="text-white font-bold text-lg">Go Back</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <View className="flex-1 z-20">
+                        <ActiveGame
+                            puzzle={puzzle}
+                            gameMode={modeStr}
+                            backgroundColor={backgroundColor}
+                            onGameStateChange={setGameState}
+                            isStreakSaverGame={isInStreakSaverMode}
+                            onStreakSaverExit={handleConfirmExit}
+                        />
+                    </View>
+                )}
             </View>
 
             {/* Streak Saver Exit Warning */}
@@ -371,6 +380,9 @@ export default function GameScreen() {
                 onContinuePlaying={() => setShowExitWarning(false)}
                 onCancelAndLoseStreak={handleConfirmExit}
             />
-        </ThemedView>
+
+            {/* Help Modal */}
+            <HelpModal visible={helpVisible} onClose={() => setHelpVisible(false)} />
+        </ThemedView >
     );
 }
