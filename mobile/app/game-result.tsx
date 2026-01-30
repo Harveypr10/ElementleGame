@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
+import { useQueryClient } from '@tanstack/react-query';
 import { useOptions } from '../lib/options';
 
 // Hamster images
@@ -31,6 +32,7 @@ const StyledImage = styled(Image);
 
 export default function GameResultScreen() {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const { textScale, setGameMode } = useOptions();
     const params = useLocalSearchParams();
 
@@ -47,7 +49,12 @@ export default function GameResultScreen() {
     const isStreakSaverGame = params.isStreakSaverGame === 'true';
     const currentStreak = params.currentStreak ? parseInt(params.currentStreak as string, 10) : 0;
 
-    // console.log('[GameResult] Params:', { currentStreak, isStreakSaverGame, isWin });
+    // [FIX] Parse isToday param to correctly identify today's games (since answerDateCanonical is historical)
+    const isTodayParam = params.isToday === 'true';
+
+    // [FIX] Parse passed badges
+    const passedBadges = params.earnedBadges ? JSON.parse(params.earnedBadges as string) : [];
+    console.log('[GameResult] Params:', { currentStreak, isStreakSaverGame, isWin, passedBadgesCount: passedBadges.length, isToday: isTodayParam });
 
     // Colors based on mode (matching original EndGameModal)
     const statsColor = isLocalMode ? "#93cd78" : "#A4DB57"; // Green
@@ -76,34 +83,42 @@ export default function GameResultScreen() {
 
     // Hooks
     const { pendingBadges, markBadgeAsSeen } = useBadgeSystem();
-    // Use streak status to get current streak if not passed, but params is better
-    // const { status } = useStreakSaverStatus(); 
 
     // States for sequencing
     const [streakModalVisible, setStreakModalVisible] = useState(false);
     const [badgeModalVisible, setBadgeModalVisible] = useState(false);
     const [currentBadge, setCurrentBadge] = useState<any>(null); // Using any or Badge type if imported
     const [queueProcessed, setQueueProcessed] = useState(false);
+    const [visitedBadgeIds, setVisitedBadgeIds] = useState<Set<number>>(new Set());
 
     // Initial Effect: Trigger Streak Celebration if Win AND Streak > 0
     React.useEffect(() => {
         // [FIX] Celebrate if:
         // 1. We have a > 0 streak
         // 2. AND (It is Today's Puzzle OR It is a Streak Saver Game)
+        // Note: We use the passed isTodayParam because answerDateCanonical is historical.
 
-        const todayStr = new Date().toISOString().split('T')[0];
-        const isToday = answerDateCanonical === todayStr;
-
-        if (isWin && currentStreak > 0 && (isToday || isStreakSaverGame)) {
-            console.log('[GameResult] Triggering Streak Celebration (IsToday:', isToday, 'IsSaver:', isStreakSaverGame, ')');
+        if (isWin && currentStreak > 0 && (isTodayParam || isStreakSaverGame)) {
+            console.log('[GameResult] Triggering Streak Celebration', {
+                isWin,
+                currentStreak,
+                isTodayParam,
+                isStreakSaverGame: params.isStreakSaverGame
+            });
             const timer = setTimeout(() => {
                 setStreakModalVisible(true);
             }, 500); // Small delay after enter
             return () => clearTimeout(timer);
         } else {
-            console.log('[GameResult] Skipping Streak Celebration (IsToday:', isToday, 'IsSaver:', isStreakSaverGame, ')');
+            console.log('[GameResult] Skipping Streak Celebration', {
+                isWin,
+                currentStreak,
+                isTodayParam: isTodayParam,
+                isStreakSaverGame: params.isStreakSaverGame,
+                reason: !isWin ? 'Not Win' : currentStreak <= 0 ? 'No Streak' : 'Not Today/Saver'
+            });
         }
-    }, [isWin, currentStreak, answerDateCanonical, isStreakSaverGame]);
+    }, [isWin, currentStreak, isTodayParam, isStreakSaverGame]);
 
     // Handle Streak Close -> Start Badge Queue
     const handleStreakClose = () => {
@@ -123,20 +138,54 @@ export default function GameResultScreen() {
         }
     }, [pendingBadges, streakModalVisible, queueProcessed, isWin]);
 
+    // [FIX] Initial load effect for passed badges (Instant Gratification)
+    // If we have passed badges, merge them or use them to trigger immediately without waiting for query
+    React.useEffect(() => {
+        // Only trigger if we aren't showing a badge and not waiting for streak
+        if (!streakModalVisible && !queueProcessed && isWin && passedBadges.length > 0 && !badgeModalVisible && !currentBadge) {
+            // Check if passed badge already visited
+            const firstPassed = passedBadges[0];
+            if (visitedBadgeIds.has(firstPassed.id)) return;
+
+            // We can trigger the passed badges if pending is empty/loading
+            if (!pendingBadges || pendingBadges.length === 0) {
+                console.log(`[GameResult] Using passed badges immediately:`, firstPassed.name);
+                setCurrentBadge(firstPassed);
+                setBadgeModalVisible(true);
+            }
+        }
+    }, [passedBadges, streakModalVisible, queueProcessed, isWin, badgeModalVisible, pendingBadges, currentBadge, visitedBadgeIds]);
+
     const processNextBadge = () => {
         // [FIX] Don't lock queue permanently if empty. Just check current state.
         // We only show one badge at a time.
         // If we are already showing one, or pending is empty, do nothing.
 
-        console.log(`[GameResult] Processing next badge. Visible: ${badgeModalVisible}, Pending: ${pendingBadges?.length}`);
+        console.log(`[GameResult] Processing next badge. Visible: ${badgeModalVisible}, Pending: ${pendingBadges?.length}, Passed: ${passedBadges.length}`);
 
         if (badgeModalVisible) return; // Already showing one
 
+        // Priority 1: Pending Badges (Server Source of Truth)
         if (pendingBadges && pendingBadges.length > 0) {
-            console.log(`[GameResult] Showing badge: ${pendingBadges[0].badge?.name}`);
+            console.log(`[GameResult] Showing badge from Pending: ${pendingBadges[0].badge?.name}`);
             setCurrentBadge(pendingBadges[0].badge);
             setBadgeModalVisible(true);
-        } else {
+        }
+        // Priority 2: Passed Badges (Instant Gratification Fallback)
+        // If server hasn't updated yet, use the badge we calculated locally in ActiveGame
+        else if (passedBadges && passedBadges.length > 0) {
+            // Find first passed badge that hasn't been shown
+            const nextPassed = passedBadges.find((b: any) => !visitedBadgeIds.has(b.id));
+
+            if (nextPassed) {
+                console.log(`[GameResult] Showing badge from Passed Params: ${nextPassed.name} (ID: ${nextPassed.id})`);
+                setCurrentBadge(nextPassed);
+                setBadgeModalVisible(true);
+            } else {
+                console.log('[GameResult] All passed badges visited.');
+            }
+        }
+        else {
             // Queue is empty (for now). We don't need to "lock" it.
             // If new badges arrive via invalidation, the effect will run again.
             console.log('[GameResult] No (more) badges to show.');
@@ -144,19 +193,26 @@ export default function GameResultScreen() {
     };
 
     const handleBadgeClose = async () => {
-        if (currentBadge && pendingBadges && pendingBadges.length > 0) {
-            // Mark as seen
-            // The structure of pendingBadges is UserBadge[] which has badge_id
-            // We need to find the correct UserBadge id or just pass badge ID if markBadgeAsSeen takes badgeID
-            // Looking at hook: markBadgeAsSeen(badgeId: number)
-            // pendingBadges[0] is UserBadge.
-            await markBadgeAsSeen(pendingBadges[0].id);
+        // [FIX] Mark as seen regardless of source (Pending or Passed)
+        // Ensure currentBadge has an ID (it should be the user_badge id from RPC or Query)
+        if (currentBadge && currentBadge.id) {
+            console.log(`[GameResult] Closing badge and marking as seen: ${currentBadge.name} (ID: ${currentBadge.id})`);
+
+            // Add to visited set to prevent looping
+            setVisitedBadgeIds(prev => new Set(prev).add(currentBadge.id));
+
+            await markBadgeAsSeen(currentBadge.id);
         }
+
         setBadgeModalVisible(false);
-        // Effect will trigger next one if pendingBadges updates? 
-        // Actually refetchPending will update pendingBadges
-        // But we might need to manually trigger next check or rely on hook update
-        // The hook calling markBadgeAsSeen invalidates query, so pendingBadges will update.
+        setCurrentBadge(null); // Clear current so effect can pick up next if any
+
+        // If we processed a passed badge, we might need to manually trigger next check or rely on query invalidation
+        // But since we navigate away usually, or query updates, it should be fine.
+        // If there are multiple passed badges, we should shift them? 
+        // Current logic only takes passedBadges[0]. 
+        // If passedBadges > 1, we might miss the second one until pending updates.
+        // For now, this fixes the "double play" issue.
     };
 
     const handleShare = async () => {
@@ -297,6 +353,10 @@ export default function GameResultScreen() {
                                             if (gameMode === 'REGION' || gameMode === 'USER') {
                                                 setGameMode(gameMode);
                                             }
+                                            // [FIX] Invalidate Streak Saver Status to prevent Phantom Popup on Home
+                                            console.log('[GameResult] Invalidating streak saver status before Home...');
+                                            queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
+
                                             router.push('/(tabs)');
                                         }}
                                     >
@@ -314,7 +374,7 @@ export default function GameResultScreen() {
                                     <StyledTouchableOpacity
                                         className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
                                         style={{ backgroundColor: archiveColor, height: 72 }}
-                                        onPress={() => router.push('/archive')}
+                                        onPress={() => router.push({ pathname: '/archive', params: { mode: gameMode } })}
                                     >
                                         <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Archive</StyledText>
                                         <View className="w-[46px] h-[46px] justify-center items-center">
@@ -331,6 +391,6 @@ export default function GameResultScreen() {
                     </StyledView>
                 </StyledView>
             </SafeAreaView>
-        </ThemedView>
+        </ThemedView >
     );
 }

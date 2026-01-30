@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
-    Image,
     StyleSheet,
     Animated,
     Alert,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -27,10 +27,10 @@ export default function GeneratingQuestionsScreen() {
     const router = useRouter();
     const params = useLocalSearchParams();
     const isPreview = params.preview === 'true';
-    const { markFirstLoginCompleted } = useAuth();
+    const { user, markFirstLoginCompleted } = useAuth();
 
     // TODO: Get these from params or context
-    const userId = params.userId as string || 'temp-user';
+    const userId = user?.id || params.userId as string || 'temp-user';
     const region = params.region as string || 'United Kingdom';
     const postcode = params.postcode as string || '';
     const regenerationType = (params.regenerationType as RegenerationType) || 'first_login';
@@ -485,7 +485,8 @@ export default function GeneratingQuestionsScreen() {
                 <Image
                     source={require('../../assets/ui/webp_assets/Question-Hamster-v2.webp')}
                     style={styles.hamsterImage}
-                    resizeMode="contain"
+                    contentFit="contain"
+                    cachePolicy="disk"
                 />
             </View>
 

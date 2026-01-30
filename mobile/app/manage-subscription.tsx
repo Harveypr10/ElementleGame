@@ -12,6 +12,8 @@ import { ThemedView } from '../components/ThemedView';
 import { ThemedText } from '../components/ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { HolidayActivationModal } from '../components/game/HolidayActivationModal';
+import { useUserStats } from '../hooks/useUserStats'; // Added for next_holiday_reset_date
+import { format } from 'date-fns';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -24,9 +26,13 @@ export default function ManageSubscriptionScreen() {
     const { status, holidayActive, holidayStartDate, holidayEndDate, endHoliday, startHoliday, hasAnyValidStreakForHoliday } = useStreakSaverStatus();
     const { profile } = useProfile();
     const { textScale } = useOptions();
+    const { stats: userStats } = useUserStats('USER');
 
     const [animationVisible, setAnimationVisible] = useState(false);
     const [filledDates, setFilledDates] = useState<string[]>([]);
+
+    // [FIX] Sequence Logic State
+    const [animationMode, setAnimationMode] = useState<'REGION' | 'USER' | null>(null);
 
     const handleEndHoliday = () => {
         Alert.alert(
@@ -67,6 +73,9 @@ export default function ManageSubscriptionScreen() {
                         try {
                             const dates = await startHoliday();
                             setFilledDates(dates || []);
+
+                            // [FIX] Start Animation Sequence: REGION -> USER
+                            setAnimationMode('REGION');
                             setAnimationVisible(true);
                         } catch (error) {
                             console.error('Failed to start holiday:', error);
@@ -76,6 +85,17 @@ export default function ManageSubscriptionScreen() {
                 }
             ]
         );
+    };
+
+    const handleAnimationClose = () => {
+        if (animationMode === 'REGION') {
+            // Region finished, show User
+            setAnimationMode('USER');
+        } else {
+            // User finished, done
+            setAnimationVisible(false);
+            setAnimationMode(null);
+        }
     };
 
     const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
@@ -311,24 +331,38 @@ export default function ManageSubscriptionScreen() {
                             </StyledTouchableOpacity>
                         </StyledView>
                     ) : (
-                        <StyledTouchableOpacity
-                            onPress={hasAnyValidStreakForHoliday ? handleStartHoliday : undefined}
-                            disabled={!hasAnyValidStreakForHoliday}
-                            className="bg-blue-600 rounded-xl py-3 px-4"
-                            style={{ opacity: hasAnyValidStreakForHoliday ? 1 : 0.5 }}
-                        >
-                            <StyledText className="text-center font-n-bold text-white">
-                                {hasAnyValidStreakForHoliday ? 'Start holiday mode' : 'No streak to protect'}
-                            </StyledText>
-                        </StyledTouchableOpacity>
+                        <StyledView>
+                            {/* Disabled State Logic: Either no streak OR no allowance */}
+                            {(hasAnyValidStreakForHoliday && holidaysRemaining > 0) ? (
+                                <StyledTouchableOpacity
+                                    onPress={handleStartHoliday}
+                                    className="bg-blue-600 rounded-xl py-3 px-4"
+                                >
+                                    <StyledText className="text-center font-n-bold text-white">
+                                        Start holiday mode
+                                    </StyledText>
+                                </StyledTouchableOpacity>
+                            ) : (
+                                <StyledView className="bg-slate-100 dark:bg-slate-800 rounded-xl py-3 px-4 opacity-70">
+                                    <StyledText className="text-center font-n-bold text-slate-500 dark:text-slate-400">
+                                        {!hasAnyValidStreakForHoliday
+                                            ? 'No streak to protect'
+                                            // [FIX] Use next_holiday_reset_date format
+                                            : `Holiday mode allowance will reset on ${userStats?.next_holiday_reset_date ? format(new Date(userStats.next_holiday_reset_date), profile?.date_format_preference === 'mmddyy' || profile?.date_format_preference === 'mmddyyyy' ? 'MM/dd/yyyy' : 'dd/MM/yyyy') : '...'}`
+                                        }
+                                    </StyledText>
+                                </StyledView>
+                            )}
+                        </StyledView>
                     )}
                 </StyledView>
             </StyledScrollView>
 
             <HolidayActivationModal
-                visible={animationVisible}
+                visible={animationVisible && animationMode !== null}
                 filledDates={filledDates}
-                onClose={() => setAnimationVisible(false)}
+                onClose={handleAnimationClose}
+                gameType={animationMode || 'USER'} // Fallback
             />
         </ThemedView>
     );

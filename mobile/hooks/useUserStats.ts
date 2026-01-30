@@ -23,6 +23,7 @@ export interface UserStats {
     // Additional Stats
     guess_distribution?: any;
     cumulative_monthly_percentile?: number | null;
+    next_holiday_reset_date?: string;
 }
 
 export const useUserStats = (mode: 'REGION' | 'USER' = 'REGION') => {

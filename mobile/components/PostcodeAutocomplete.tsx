@@ -9,6 +9,7 @@ import {
     Text,
     TextInputProps,
     useColorScheme,
+    ScrollView,
 } from 'react-native';
 
 import { useThemeColor } from '../hooks/useThemeColor';
@@ -215,11 +216,14 @@ export function PostcodeAutocomplete({
 
             {showSuggestions && suggestions.length > 0 && (
                 <View style={[styles.suggestionsContainer, { backgroundColor: surfaceColor, borderColor: borderColor }]}>
-                    <FlatList
-                        data={suggestions}
-                        keyExtractor={(item, index) => `${item}-${index}`}
-                        renderItem={({ item, index }) => (
+                    <ScrollView
+                        style={styles.suggestionsList}
+                        keyboardShouldPersistTaps="handled"
+                        nestedScrollEnabled={true}
+                    >
+                        {suggestions.map((item, index) => (
                             <TouchableOpacity
+                                key={`${item}-${index}`}
                                 onPressIn={() => selectSuggestion(item)}
                                 style={[
                                     styles.suggestionItem,
@@ -229,10 +233,8 @@ export function PostcodeAutocomplete({
                             >
                                 <Text style={[styles.suggestionText, { color: textColor }]}>{item}</Text>
                             </TouchableOpacity>
-                        )}
-                        style={styles.suggestionsList}
-                        keyboardShouldPersistTaps="handled"
-                    />
+                        ))}
+                    </ScrollView>
                 </View>
             )}
         </View>

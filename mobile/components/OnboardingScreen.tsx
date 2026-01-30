@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
+import { Image } from 'expo-image';
 import { formatCanonicalDateWithOrdinal } from '../lib/dateFormat';
 import { ThemedView } from './ThemedView';
 import { ThemedText } from './ThemedText';
@@ -52,7 +53,8 @@ export function OnboardingScreen({
                     <Image
                         source={require('../assets/Welcome-Hamster-Cutout.png')}
                         style={styles.hamsterImage}
-                        resizeMode="contain"
+                        contentFit="contain"
+                        cachePolicy="disk"
                         testID="img-onboarding-hamster"
                     />
                 </View>

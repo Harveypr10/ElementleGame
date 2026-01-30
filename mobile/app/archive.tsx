@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Dimensions, Animated } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { styled } from 'nativewind';
 import { ChevronLeft, ChevronRight, Settings, HelpCircle, ArrowLeft } from 'lucide-react-native';
@@ -30,6 +30,10 @@ import { ThemedView } from '../components/ThemedView';
 import { ThemedText } from '../components/ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { HolidayActivationModal } from '../components/game/HolidayActivationModal';
+import { useNetwork } from '../contexts/NetworkContext';
+import { useStreakSaverStatus } from '../hooks/useStreakSaverStatus';
+import { HolidayActiveModal } from '../components/game/HolidayActiveModal';
+import { endHolidayMode } from '../lib/supabase-rpc';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -48,23 +52,33 @@ interface DayStatus {
 }
 
 // Sub-component for individual month page
-const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }: { monthDate: Date, isActive: boolean, gameMode: string, isScreenFocused: boolean }) => {
+const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, onPlayPuzzle }: {
+    monthDate: Date,
+    isActive: boolean,
+    gameMode: string,
+    isScreenFocused: boolean,
+    onPlayPuzzle: (puzzleId: number, date?: Date, status?: string) => void
+}) => {
     const router = useRouter();
     const { user } = useAuth();
     const { darkMode } = useOptions();
     const borderColorTheme = useThemeColor({}, 'border');
+
     // Local State
     const [loading, setLoading] = useState(true);
     const [hasFetched, setHasFetched] = useState(false);
     const [dataReady, setDataReady] = useState(false);
     const [monthData, setMonthData] = useState<Record<string, DayStatus>>({});
+    const { isConnected } = useNetwork();
 
-    // Fetch data when active and screen is focsued
+
+    // Fetch data when active and screen is focused
     useEffect(() => {
-        if (isActive && isScreenFocused && !hasFetched) {
-            fetchData();
+        if (isActive && isScreenFocused) {
+            // Force refresh on focus to ensure data is fresh
+            fetchData(true);
         }
-    }, [isActive, hasFetched, monthDate, gameMode, isScreenFocused]);
+    }, [isActive, isScreenFocused]);
 
 
     const themeColors = useMemo(() => {
@@ -78,9 +92,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
         };
     }, [darkMode]);
 
-
-
-    // Trigger fade-in after data is loaded (matching web app's badge pattern)
+    // Trigger fade-in after data is loaded
     useEffect(() => {
         if (!loading && hasFetched) {
             const timer = setTimeout(() => {
@@ -90,18 +102,36 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
         }
     }, [loading, hasFetched]);
 
-    const fetchData = async () => {
+    const fetchData = async (forceRefresh = false) => {
         if (!user) return;
-        try {
+
+        const start = startOfMonth(monthDate);
+        const end = endOfMonth(monthDate);
+        const monthKey = `${format(monthDate, 'yyyy-MM')}`;
+        const cacheKey = `archive-${gameMode}-${monthKey}`;
+
+        // If forcing refresh, show loading immediately to block stale data
+        if (forceRefresh) {
             setLoading(true);
-            const start = startOfMonth(monthDate);
-            const end = endOfMonth(monthDate);
+        }
+
+        try {
+            // 1. Offline Handle
+            if (isConnected === false) {
+                const cached = await AsyncStorage.getItem(cacheKey);
+                if (cached) {
+                    setMonthData(JSON.parse(cached));
+                    setHasFetched(true);
+                }
+                setLoading(false);
+                return;
+            }
 
             const isRegion = gameMode === 'REGION';
             const ALLOC_TABLE = isRegion ? 'questions_allocated_region' : 'questions_allocated_user';
             const ATTEMPTS_TABLE = isRegion ? 'game_attempts_region' : 'game_attempts_user';
 
-            // 1. Fetch Puzzles
+            // 2. Fetch Puzzles
             let query = supabase
                 .from(ALLOC_TABLE)
                 .select(`id, puzzle_date`)
@@ -115,147 +145,139 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
             }
 
             const { data: puzzles, error: puzzleError } = await query;
-
             if (puzzleError) throw puzzleError;
 
-            // 2. Fetch Attempts
             const puzzleIds = puzzles?.map(p => p.id) || [];
-            console.log('[Archive] Fetching attempts for puzzleIds:', puzzleIds.slice(0, 5));
+
+            // 3. Fetch Attempts
             let attempts: any[] = [];
             if (puzzleIds.length > 0) {
                 const idColumn = isRegion ? 'allocated_region_id' : 'allocated_user_id';
 
                 const { data: userAttempts, error: attemptError } = await supabase
                     .from(ATTEMPTS_TABLE)
-                    .select(`${idColumn}, result, num_guesses, streak_day_status`)
+                    .select(isRegion ? 'allocated_region_id, result, num_guesses, streak_day_status' : 'allocated_user_id, result, num_guesses, streak_day_status')
                     .eq('user_id', user.id)
-                    .in(idColumn, puzzleIds);
+                    .in(isRegion ? 'allocated_region_id' : 'allocated_user_id', puzzleIds);
 
-                if (attemptError) {
-                    throw attemptError;
-                }
+                if (attemptError) throw attemptError;
                 attempts = userAttempts || [];
             }
 
-            // 2.5 Fetch Holiday Events (User Mode Only)
-            // This ensures we can show the yellow border even if the user played the game (overwriting streak_day_status)
+            // 4. Fetch Holiday Events (User Mode Only)
             let holidayEvents: any[] = [];
             if (gameMode === 'USER') {
                 const { data: events, error: eventError } = await supabase
                     .from('user_holiday_events' as any)
                     .select('started_at, ended_at')
                     .eq('user_id', user.id);
-
-                // Don't throw on error, just ignore (table might not exist yet)
-                if (!eventError && events) {
-                    holidayEvents = events;
-                }
+                if (!eventError && events) holidayEvents = events;
             }
 
-            // 3. Map Data
-            const statusMap: Record<string, DayStatus> = {};
+            // 5. Process Data
+            const processed: Record<string, DayStatus> = {};
+            const daysToProcess = eachDayOfInterval({ start, end });
             const idColumn = isRegion ? 'allocated_region_id' : 'allocated_user_id';
 
-            puzzles?.forEach(puzzle => {
-                const dateKey = format(new Date(puzzle.puzzle_date), 'yyyy-MM-dd');
-                const attempt = attempts.find(a => a[idColumn] === puzzle.id);
+            daysToProcess.forEach(day => {
+                const dateKey = format(day, 'yyyy-MM-dd');
+                const puzzle = puzzles?.find(p => p.puzzle_date === dateKey);
+                const attempt = attempts.find(a => puzzle && a[idColumn] === puzzle.id);
+
                 let status: DayStatus['status'] = 'not-played';
                 let isHoliday = false;
 
-                // Check if date falls within any holiday event
-                // Holiday spans from [started_at, ended_at]. If ended_at is null, it's ongoing (use today/future).
-                const puzzleDateObj = new Date(puzzle.puzzle_date);
-                // Reset time components for accurate comparison
-                puzzleDateObj.setHours(0, 0, 0, 0);
+                if (puzzle) {
+                    const puzzleDateObj = new Date(puzzle.puzzle_date);
+                    puzzleDateObj.setHours(0, 0, 0, 0);
 
-                const isCoveredByHoliday = holidayEvents.some(event => {
-                    const start = new Date(event.started_at);
-                    start.setHours(0, 0, 0, 0);
+                    // Check Holiday
+                    const isCoveredByHoliday = holidayEvents.some(event => {
+                        const hStart = new Date(event.started_at);
+                        hStart.setHours(0, 0, 0, 0);
+                        const hEnd = event.ended_at ? new Date(event.ended_at) : new Date(8640000000000000);
+                        if (event.ended_at) hEnd.setHours(23, 59, 59, 999);
+                        return puzzleDateObj >= hStart && puzzleDateObj <= hEnd;
+                    });
 
-                    const end = event.ended_at ? new Date(event.ended_at) : new Date(8640000000000000); // Far future if null
-                    if (event.ended_at) end.setHours(23, 59, 59, 999);
+                    if (attempt) {
+                        if (isCoveredByHoliday || attempt.streak_day_status === 0) isHoliday = true;
 
-                    return puzzleDateObj >= start && puzzleDateObj <= end;
-                });
-
-                if (attempt) {
-                    // Check Holiday Status (Priority: Historical Event > Current Status)
-                    if (isCoveredByHoliday || attempt.streak_day_status === 0) {
+                        if (attempt.result === 'won') status = 'won';
+                        else if (attempt.result === 'lost') status = 'lost';
+                        else if (attempt.num_guesses && attempt.num_guesses > 0) status = 'played';
+                    } else if (isCoveredByHoliday) {
                         isHoliday = true;
                     }
-
-                    if (attempt.result === 'won') status = 'won';
-                    else if (attempt.result === 'lost') status = 'lost';
-                    else {
-                        // Logic: Only show 'played' (Blue) if guesses > 0
-                        // If guesses is null/0, it's just initialized (e.g. holiday row), so stay 'not-played'
-                        if (attempt.num_guesses && attempt.num_guesses > 0) {
-                            status = 'played';
-                        }
-                    }
-                } else if (isCoveredByHoliday) {
-                    // Even if no attempt row exists (shouldn't happen for active holidays, but possible), show as holiday
-                    isHoliday = true;
                 }
 
-                statusMap[dateKey] = {
+                processed[dateKey] = {
                     date: dateKey,
-                    hasPuzzle: true,
-                    puzzleId: puzzle.id,
+                    hasPuzzle: !!puzzle,
+                    puzzleId: puzzle?.id,
                     status,
                     guesses: attempt?.num_guesses,
-                    isFuture: isFuture(new Date(puzzle.puzzle_date)),
+                    isFuture: isFuture(day) && !isSameDay(day, new Date()),
                     isHoliday
                 };
             });
 
-            setMonthData(statusMap);
+            setMonthData(processed);
             setHasFetched(true);
+            await AsyncStorage.setItem(cacheKey, JSON.stringify(processed));
 
-            // Cache the data 
-            try {
-                const monthKey = `${format(monthDate, 'yyyy-MM')}`;
-                const cacheKey = `archive-${gameMode}-${monthKey}`;
-                await AsyncStorage.setItem(cacheKey, JSON.stringify(statusMap));
-            } catch (e) {
-                console.error('[Archive] Cache write error:', e);
-            }
         } catch (e) {
-            console.error('[MonthPage] Error:', e);
+            console.error('[Archive] Fetch error:', e);
+            if (!hasFetched) {
+                try {
+                    const cached = await AsyncStorage.getItem(cacheKey);
+                    if (cached) setMonthData(JSON.parse(cached));
+                } catch (ce) { }
+            }
         } finally {
             setLoading(false);
         }
     };
 
+    // --- HELPERS ---
     const days = eachDayOfInterval({
         start: startOfWeek(startOfMonth(monthDate)),
         end: endOfWeek(endOfMonth(monthDate))
     });
 
     const handleDayPress = (dayData: DayStatus) => {
-        if (!dayData.hasPuzzle || dayData.isFuture || !dayData.puzzleId) {
-            return;
-        }
-        const modeSegment = gameMode;
-        router.push(`/game/${modeSegment}/${dayData.puzzleId}`);
+        if (!dayData.hasPuzzle || dayData.isFuture || !dayData.puzzleId) return;
+        // Delegate navigation/actions to parent
+        onPlayPuzzle(dayData.puzzleId);
     };
 
+    // --- RENDER ---
+
+    if (loading) {
+        return (
+            <View style={{ width: width, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#0ea5e9" />
+                <ThemedText className="mt-4 text-slate-500">Loading history...</ThemedText>
+            </View>
+        );
+    }
+
+    // If offline and no data
+    if (isConnected === false && Object.keys(monthData).length === 0) {
+        return (
+            <View style={{ width: width, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <HelpCircle size={48} color={themeColors.default.text} opacity={0.5} />
+                <ThemedText className="mt-4 text-slate-500 font-n-bold">Offline</ThemedText>
+                <ThemedText className="text-slate-400 text-sm">Connect to view archive</ThemedText>
+            </View>
+        );
+    }
+
+    // Main Calendar Render
     return (
         <StyledView className="w-full">
             <StyledView className="relative" style={{ minHeight: ((width - 64) / 7) * 6 }}>
-                <StyledView
-                    className="absolute inset-0 flex items-center justify-center"
-                    style={{
-                        position: 'absolute',
-                        top: 0, left: 0, right: 0, bottom: 0,
-                        justifyContent: 'center', alignItems: 'center', paddingTop: 60,
-                        opacity: dataReady ? 0 : 1, pointerEvents: dataReady ? 'none' : 'auto'
-                    }}
-                >
-                    <ActivityIndicator size="large" color="#94a3b8" />
-                </StyledView>
-
-                <Animated.View style={{ opacity: dataReady ? 1 : 0 }}>
+                <Animated.View style={{ opacity: 1 }}>
                     <StyledView className="flex-row flex-wrap justify-center">
                         {days.map((day) => {
                             const dateKey = format(day, 'yyyy-MM-dd');
@@ -267,7 +289,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
                                 return <StyledView key={dateKey} className="w-[14%] aspect-square p-1" />;
                             }
 
-                            // Determine Colors from Manual Theme
+                            // Determine Colors
                             let colors = themeColors.default;
                             if (data) {
                                 if (data.status === 'won') colors = themeColors.won;
@@ -275,21 +297,17 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
                                 else if (data.status === 'played') colors = themeColors.played;
                                 else if (data.isFuture) colors = themeColors.future;
                             } else {
-                                colors = themeColors.future; // No data = default/future look
+                                colors = themeColors.future;
                             }
 
-                            // Border Logic: Holiday > Today > Default
                             let borderColor = 'transparent';
-                            if (data?.isHoliday) {
-                                borderColor = '#FACC15'; // Yellow-400 for Holiday
-                            } else if (isToday) {
-                                borderColor = borderColorTheme;
-                            }
+                            if (data?.isHoliday) borderColor = '#FACC15';
+                            else if (isToday) borderColor = borderColorTheme;
 
                             return (
                                 <StyledView key={dateKey} className="w-[14%] aspect-square p-1">
                                     <StyledTouchableOpacity
-                                        onPress={() => data && handleDayPress(data)}
+                                        onPress={() => data && onPlayPuzzle(data.puzzleId || 0, day, data.status)}
                                         disabled={!data || !data.hasPuzzle || data.isFuture}
                                         className="flex-1 items-center justify-center rounded-lg border-2"
                                         style={{ backgroundColor: colors.bg, borderColor: borderColor }}
@@ -299,7 +317,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
                                         </Text>
                                         {data && data.status !== 'not-played' && (
                                             <Text style={{ fontFamily: 'Nunito-Medium', fontSize: 10, marginTop: 2, opacity: 0.8, color: colors.text }}>
-                                                {data.status === 'won' ? `✓ ${data.guesses}` : (data.status === 'lost' ? '✗' : '-')}
+                                                {data.status === 'won' ? `✓ ${data.guesses}` : (data.status === 'lost' ? '✗' : (data.guesses && data.guesses > 0 ? `${data.guesses}` : '-'))}
                                             </Text>
                                         )}
                                     </StyledTouchableOpacity>
@@ -315,11 +333,46 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused }
 
 export default function ArchiveScreen() {
     const insets = useSafeAreaInsets();
+    const params = useLocalSearchParams();
     const router = useRouter();
-    const { gameMode, textScale, darkMode } = useOptions();
+    const { gameMode: contextMode, textScale, darkMode } = useOptions();
+    // Prioritize passed param, fallback to context
+    const gameMode = (params.mode as string) || contextMode;
     const flatListRef = useRef<FlatList>(null);
     const { user, isGuest } = useAuth();
     const isFocused = useIsFocused();
+    const { isConnected } = useNetwork();
+
+    // Holiday Logic Integration
+    const { holidayActive, holidayEndDate } = useStreakSaverStatus();
+    const [showHolidayModal, setShowHolidayModal] = useState(false);
+    const [pendingPuzzleId, setPendingPuzzleId] = useState<number | null>(null);
+
+    const handlePlayPuzzle = (puzzleId: number, date?: Date, status?: string) => {
+        // [FIX] Holiday Modal Logic Check
+        // 1. Is Holiday Mode Active?
+        // 2. Is it TODAY'S puzzle? (Archive matches should not trigger unless it's actually today)
+        // 3. Is it NOT already won/lost? (If won/lost, let them view it)
+
+        let shouldShowHolidayModal = false;
+
+        if (holidayActive && date) {
+            const isToday = isSameDay(date, new Date());
+            const isCompleted = status === 'won' || status === 'lost';
+
+            if (isToday && !isCompleted) {
+                shouldShowHolidayModal = true;
+            }
+        }
+
+        if (shouldShowHolidayModal) {
+            setPendingPuzzleId(puzzleId);
+            setShowHolidayModal(true);
+        } else {
+            router.push(`/game/${gameMode}/${puzzleId}`);
+        }
+    };
+
 
     // Theme Colors for Archive
     const brandColor = gameMode === 'USER' ? '#FFB067' : '#FFD429'; // Orange for User, Yellow for Region
@@ -376,10 +429,13 @@ export default function ArchiveScreen() {
         fetchMinDate();
     }, [gameMode, user]); // Re-run if mode changes
 
+    // Use a ref to track minDate for comparison without triggering effect re-runs
+    const minDateRef = useRef(minDate);
+    useEffect(() => { minDateRef.current = minDate; }, [minDate]);
+
     // Refetch data when screen comes into focus (user returns to Archive)
     useFocusEffect(
         React.useCallback(() => {
-            console.log('[Archive] Screen focused - refetching min date');
             // Refetch min date to ensure it's current
             const refetchMinDate = async () => {
                 if (!user) return;
@@ -402,12 +458,19 @@ export default function ArchiveScreen() {
                     const { data } = await query.single();
                     if (data?.puzzle_date) {
                         const dbMin = new Date(data.puzzle_date);
-                        setMinDate(startOfMonth(dbMin));
+                        const newMinDate = startOfMonth(dbMin);
+
+                        // Optimize: Only update state if date actually changed
+                        // Use Ref to Compare to avoid Re-running this effect
+                        if (newMinDate.getTime() !== minDateRef.current.getTime()) {
+                            console.log('[Archive] Min date changed, updating state.');
+                            setMinDate(newMinDate);
+                        }
                     }
                 } catch (e) { /* Silent fail */ }
             };
             refetchMinDate();
-        }, [gameMode, user])
+        }, [gameMode, user]) // Removed minDate dependency
     );
 
     const months = useMemo(() => {
@@ -591,6 +654,14 @@ export default function ArchiveScreen() {
                 </StyledView>
             </StyledView>
 
+            {/* Offline Indicator */}
+            {!isConnected && (
+                <StyledView className="mx-6 mb-4 p-2 bg-slate-800 dark:bg-slate-700 rounded-xl items-center flex-row justify-center gap-2">
+                    <View className="w-2 h-2 rounded-full bg-red-400" />
+                    <ThemedText className="text-white text-xs font-n-bold">Offline Mode - Showing Cached Data</ThemedText>
+                </StyledView>
+            )}
+
             {/* Main Content Area */}
             <StyledView className="flex-1 px-4">
                 {/* Week Headers - Styled to match clean look */}
@@ -616,7 +687,13 @@ export default function ArchiveScreen() {
                         )}
                         renderItem={({ item }) => (
                             <StyledView style={{ width: width - 64 }} className="items-center">
-                                <MonthPage monthDate={item} isActive={true} gameMode={gameMode} isScreenFocused={isFocused} />
+                                <MonthPage
+                                    monthDate={item}
+                                    isActive={true}
+                                    gameMode={gameMode}
+                                    isScreenFocused={isFocused}
+                                    onPlayPuzzle={handlePlayPuzzle}
+                                />
                             </StyledView>
                         )}
                         onViewableItemsChanged={onViewableItemsChanged}
@@ -667,7 +744,42 @@ export default function ArchiveScreen() {
                 description="Sign up to access past puzzles and track your history!"
             />
 
+            {/* Holiday Active Modal */}
+            <HolidayActiveModal
+                visible={showHolidayModal}
+                holidayEndDate={holidayEndDate || "Unknown Date"}
+                onExitHoliday={async () => {
+                    if (!user) return;
+                    console.log(`[Archive] Exiting Holiday Mode`);
+                    try {
+                        await endHolidayMode(user.id, true);
+                        setShowHolidayModal(false);
+                        if (pendingPuzzleId) {
+                            router.push(`/game/${gameMode}/${pendingPuzzleId}`);
+                            setPendingPuzzleId(null);
+                        }
+                    } catch (e) {
+                        console.error("[Archive] Failed to deactivate holiday:", e);
+                        setShowHolidayModal(false);
+                        if (pendingPuzzleId) {
+                            router.push(`/game/${gameMode}/${pendingPuzzleId}`);
+                            setPendingPuzzleId(null);
+                        }
+                    }
+                }}
+                onContinueHoliday={() => {
+                    console.log(`[Archive] Continuing in Holiday Mode`);
+                    setShowHolidayModal(false);
+                    if (pendingPuzzleId) {
+                        router.push({
+                            pathname: `/game/${gameMode}/${pendingPuzzleId}`,
+                            params: { preserveStreakStatus: 'true' }
+                        });
+                        setPendingPuzzleId(null);
+                    }
+                }}
+            />
+
         </ThemedView>
     );
 }
-

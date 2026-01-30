@@ -16,7 +16,8 @@ import {
     Lock,
     FileText,
     LogOut,
-    Shield
+    Shield,
+    SlidersHorizontal
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../lib/auth';
@@ -164,7 +165,7 @@ export default function SettingsScreen() {
             </SafeAreaView>
 
             <StyledScrollView className="flex-1 px-4 py-4">
-                {/* Group 1: Account & Subscription */}
+                {/* Group 1: Account, Subscription & Options */}
                 <StyledView
                     className="rounded-2xl p-4 mb-3 border"
                     style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
@@ -252,21 +253,19 @@ export default function SettingsScreen() {
                             <ChevronRight size={20} color="#94a3b8" />
                         </StyledTouchableOpacity>
                     )}
-                </StyledView>
 
-                {/* Group 2: Preferences */}
-                <StyledView
-                    className="rounded-2xl p-4 mb-3 border"
-                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
-                >
-                    <ThemedText style={{ fontSize: 14 * textScale, color: secondaryTextColor }} className="font-n-bold uppercase tracking-wide mb-2">Preferences</ThemedText>
-
+                    {/* Options (Moved from Preferences) */}
                     <StyledTouchableOpacity
                         onPress={handleOptions}
-                        className="flex-row items-center py-3"
+                        className="flex-row items-center py-3 mt-1"
                     >
-                        <SettingsIcon size={20} color="#64748b" />
-                        <ThemedText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium">Options</ThemedText>
+                        <StyledView className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 items-center justify-center">
+                            <SlidersHorizontal size={20} color="#9333ea" />
+                        </StyledView>
+                        <StyledView className="flex-1 ml-3">
+                            <ThemedText style={{ fontSize: 16 * textScale }} className="font-n-bold">Options</ThemedText>
+                            <ThemedText style={{ fontSize: 14 * textScale, color: secondaryTextColor }}>Display, Sound & Gameplay</ThemedText>
+                        </StyledView>
                         <ChevronRight size={20} color="#94a3b8" />
                     </StyledTouchableOpacity>
                 </StyledView>

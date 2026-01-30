@@ -48,7 +48,11 @@ export function NumericKeyboard({
             case "inSequence":
                 return { className: "bg-game-inSequence border-game-inSequence" };
             case "ruledOut":
-                return { className: "bg-gray-500 border-gray-500" };
+                // User requested darker grey: #94A3B8 (Slate-400)
+                return {
+                    className: "",
+                    style: { backgroundColor: '#94A3B8', borderColor: '#94A3B8' }
+                };
             default:
                 // Manual theme logic - Borders removed
                 return {
@@ -88,7 +92,7 @@ export function NumericKeyboard({
                 className={`flex-1 m-1 rounded-md justify-center items-center active:bg-slate-300 ${styleInfo.className}`}
                 style={[{ height: buttonHeight }, styleInfo.style]}
             >
-                <ThemedText style={textInfo} className="font-nunito" size="xl">{digit}</ThemedText>
+                <ThemedText style={textInfo} className="font-n-bold" size="xl">{digit}</ThemedText>
             </StyledTouchableOpacity>
         );
     };
@@ -111,7 +115,7 @@ export function NumericKeyboard({
                     disabled={!canSubmit}
                     className={`flex-1 m-1 rounded-md justify-center items-center ${canSubmit ? "bg-brand-blue" : "bg-brand-blue/30"}`}
                     style={{ height: buttonHeight }}>
-                    <ThemedText className="text-white font-nunito" size="lg">Enter</ThemedText>
+                    <ThemedText className="text-white font-n-bold" size="lg">Enter</ThemedText>
                 </StyledTouchableOpacity>
 
                 <StyledTouchableOpacity

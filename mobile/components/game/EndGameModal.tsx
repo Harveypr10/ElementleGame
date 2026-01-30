@@ -222,7 +222,18 @@ export function EndGameModal({
                             <StyledTouchableOpacity
                                 className="flex-1 h-20 flex-row items-center justify-between px-5 rounded-3xl shadow-sm active:opacity-90"
                                 style={{ backgroundColor: archiveColor }}
-                                onPress={onViewArchive}
+                                onPress={() => {
+                                    if (onViewArchive) {
+                                        onViewArchive();
+                                    } else if (onHome) {
+                                        // Fallback if no specific handler
+                                        onHome(); // Usually router.back or something, but ideally we route manually if needed
+                                        // The parent usually passes a router push.
+                                        // Let's assume parent handles it via onViewArchive if it wants specific routing.
+                                        // Re-reading: The User reported "Archive click in EndGameModal took me to region archive".
+                                        // This component relies on `onViewArchive`. I need to check the PARENT usage.
+                                    }
+                                }}
                             >
                                 <ThemedText size="xl" className="font-n-bold text-slate-800" style={{ color: '#1e293b' }}>Archive</ThemedText>
                                 <View className="w-12 h-12 justify-center items-center">

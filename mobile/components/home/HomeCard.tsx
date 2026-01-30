@@ -1,5 +1,7 @@
 
-import { View, Text, TouchableOpacity, Image, ImageSourcePropType, Pressable } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, ImageSourcePropType, Pressable } from 'react-native';
+import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { LucideIcon } from 'lucide-react-native';
 import { getCardShadow } from '../../lib/shadows';
@@ -23,7 +25,7 @@ interface HomeCardProps {
     iconStyle?: any; // Optional custom icon style
 }
 
-export function HomeCard({
+const HomeCardComponent = ({
     title,
     subtitle,
     icon,
@@ -34,8 +36,7 @@ export function HomeCard({
     children,
     testID,
     iconStyle
-}: HomeCardProps) {
-
+}: HomeCardProps) => {
 
     return (
         <StyledTouchableOpacity
@@ -61,10 +62,13 @@ export function HomeCard({
                 <StyledImage
                     source={icon}
                     className="w-24 h-24 ml-2"
-                    resizeMode="contain"
+                    contentFit="contain"
+                    cachePolicy="disk"
                     style={iconStyle}
                 />
             )}
         </StyledTouchableOpacity>
     );
-}
+};
+
+export const HomeCard = React.memo(HomeCardComponent);

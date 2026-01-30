@@ -351,6 +351,8 @@ export const regions = pgTable("regions", {
   code: text("code").primaryKey(), // ISO country code (e.g., 'UK', 'US')
   name: text("name").notNull(), // Display name (e.g., 'United Kingdom', 'United States')
   defaultDateFormat: text("default_date_format").notNull(), // Default date format preference (ddmmyy, mmddyy)
+  privacyLegislation: text("privacy_legislation").default('Data Protection Laws'),
+  privacyContent: text("privacy_content"),
 });
 
 export const insertRegionSchema = createInsertSchema(regions);

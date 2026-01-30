@@ -44,9 +44,12 @@ type OptionsContextType = {
     holidaySaverActive: boolean;
     toggleHolidaySaver: () => void;
 
+    // Display settings
+    quickMenuEnabled: boolean;
+    toggleQuickMenu: () => void;
+
     // Computed from textSize
     textScale: number;
-
     loading: boolean;
 };
 
@@ -59,16 +62,23 @@ const OptionsContext = createContext<OptionsContextType>({
     toggleDarkMode: () => { },
     cluesEnabled: true,
     toggleClues: () => { },
+
     dateLength: 8,
     setDateLength: () => { },
     dateFormatOrder: 'ddmmyy',
     setDateFormatOrder: () => { },
+
     gameMode: 'REGION',
     setGameMode: () => { },
+
     streakSaverActive: true,
     toggleStreakSaver: () => { },
     holidaySaverActive: true,
     toggleHolidaySaver: () => { },
+
+    quickMenuEnabled: true,
+    toggleQuickMenu: () => { },
+
     textScale: 1.0,
     loading: true,
 });
@@ -82,14 +92,21 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [soundsEnabled, setSoundsEnabled] = useState(false);
     const [darkMode, setDarkModeState] = useState(false);
     const [cluesEnabled, setCluesEnabled] = useState(true);
+    const [quickMenuEnabled, setQuickMenuEnabled] = useState(true); // Default true (Shown)
+
     const [dateLength, setDateLengthState] = useState<DateLength>(8);
     const [dateFormatOrder, setDateFormatOrderState] = useState<DateFormatOrder>('ddmmyy');
     const [streakSaverActive, setStreakSaverActive] = useState(true);
     const [holidaySaverActive, setHolidaySaverActive] = useState(true);
 
     // App State (Local Only usually)
-    const [gameMode, setGameMode] = useState<GameMode>('REGION');
+    const [gameModeState, setGameModeState] = useState<GameMode>('REGION');
     const [loading, setLoading] = useState(true);
+
+    const setGameMode = async (mode: GameMode) => {
+        setGameModeState(mode);
+        await AsyncStorage.setItem('app_game_mode', mode);
+    };
 
     // Apply dark mode when it changes
     useEffect(() => {
@@ -174,6 +191,10 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                     setHolidaySaverActive(data.holiday_saver_active);
                     AsyncStorage.setItem('opt_holiday_saver_active', String(data.holiday_saver_active));
                 }
+                if (data.quick_menu_enabled !== undefined) {
+                    setQuickMenuEnabled(data.quick_menu_enabled);
+                    AsyncStorage.setItem('opt_quick_menu', String(data.quick_menu_enabled));
+                }
             }
         } catch (e) {
             console.error('[Options] Failed to sync with Supabase:', e);
@@ -190,7 +211,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             if (storedDateOrder) setDateFormatOrderState(storedDateOrder as DateFormatOrder);
 
             const storedMode = await AsyncStorage.getItem('app_game_mode');
-            if (storedMode) setGameMode(storedMode as GameMode);
+            if (storedMode) setGameModeState(storedMode as GameMode);
 
             const storedTextSize = await AsyncStorage.getItem('opt_text_size');
             if (storedTextSize) setTextSizeState(storedTextSize as TextSize);
@@ -209,6 +230,9 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
             const storedHolidaySaver = await AsyncStorage.getItem('opt_holiday_saver_active');
             if (storedHolidaySaver !== null) setHolidaySaverActive(storedHolidaySaver === 'true');
+
+            const storedQuickMenu = await AsyncStorage.getItem('opt_quick_menu');
+            if (storedQuickMenu !== null) setQuickMenuEnabled(storedQuickMenu === 'true');
 
             // NOTE: Logic moved to separate useEffect
             // Trigger sync if user is already present (rare case on pure mount)
@@ -292,6 +316,18 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const toggleQuickMenu = async () => {
+        const newValue = !quickMenuEnabled;
+        setQuickMenuEnabled(newValue);
+        await AsyncStorage.setItem('opt_quick_menu', newValue.toString());
+        if (user) {
+            supabase.from('user_settings')
+                .update({ quick_menu_enabled: newValue })
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating quick menu:', error) });
+        }
+    };
+
     const setDateLength = (length: DateLength) => {
         setDateLengthState(length);
         persist('opt_date_length', length.toString());
@@ -346,9 +382,10 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             cluesEnabled, toggleClues,
             dateLength, setDateLength,
             dateFormatOrder, setDateFormatOrder,
-            gameMode, setGameMode,
+            gameMode: gameModeState, setGameMode,
             streakSaverActive, toggleStreakSaver,
             holidaySaverActive, toggleHolidaySaver,
+            quickMenuEnabled, toggleQuickMenu,
             textScale: getTextScale(textSize),
             loading
         }}>

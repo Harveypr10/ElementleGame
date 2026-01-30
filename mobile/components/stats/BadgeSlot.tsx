@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, Animated } from 'react-native';
+import { View, Text, Animated } from 'react-native';
+import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { Target, Flame, Percent } from 'lucide-react-native';
 
@@ -156,7 +157,8 @@ export function BadgeSlot(props: BadgeSlotProps) {
                 <StyledImage
                     source={getBadgeImage()}
                     style={{ width: currentSize.width, height: currentSize.height, opacity: isEmpty ? 0.3 : 1 }}
-                    resizeMode="contain"
+                    contentFit="contain"
+                    cachePolicy="disk"
                 />
             </Animated.View>
         );
@@ -175,7 +177,8 @@ export function BadgeSlot(props: BadgeSlotProps) {
                     <StyledImage
                         source={getBadgeImage()}
                         style={{ width: currentSize.width * 0.6, height: currentSize.height * 0.6, opacity: isEmpty ? 0.3 : 1 }}
-                        resizeMode="contain"
+                        contentFit="contain"
+                        cachePolicy="disk"
                     />
 
                     {!isEmpty && (

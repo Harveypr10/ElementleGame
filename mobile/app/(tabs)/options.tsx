@@ -125,7 +125,8 @@ export default function OptionsScreen() {
         dateLength, setDateLength,
         dateFormatOrder, setDateFormatOrder,
         streakSaverActive, toggleStreakSaver,
-        holidaySaverActive, toggleHolidaySaver
+        holidaySaverActive, toggleHolidaySaver,
+        quickMenuEnabled, toggleQuickMenu
     } = useOptions();
 
     const iconColor = useThemeColor({}, 'icon');
@@ -184,6 +185,15 @@ export default function OptionsScreen() {
                             subLabel="Toggle dark theme"
                             value={darkMode}
                             onToggle={toggleDarkMode}
+                            borderColor={borderColor}
+                        />
+
+                        {/* Quick Menu */}
+                        <ToggleRow
+                            label="Quick Menu"
+                            subLabel="Show navigation menu"
+                            value={quickMenuEnabled}
+                            onToggle={toggleQuickMenu}
                             borderColor={borderColor}
                         />
                     </StyledView>

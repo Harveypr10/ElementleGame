@@ -14,6 +14,8 @@ import { ToastProvider } from '../contexts/ToastContext';
 import { ConversionPromptProvider } from '../contexts/ConversionPromptContext';
 import { AppReadinessProvider } from '../contexts/AppReadinessContext';
 import { GuessCacheProvider } from '../contexts/GuessCacheContext';
+import { NetworkProvider, useNetwork } from '../contexts/NetworkContext';
+import { syncPendingGames } from '../lib/sync';
 import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ConversionPromptModal } from '../components/ConversionPromptModal';
@@ -42,7 +44,7 @@ const queryClient = new QueryClient({
   Handles redirection based on auth state and "First Login Setup"
 */
 function NavigationGuard({ children }: { children: React.ReactNode }) {
-    const { session, loading, hasCompletedFirstLogin, isGuest } = useAuth();
+    const { session, loading, hasCompletedFirstLogin, isGuest, user } = useAuth();
     const segments = useSegments();
     const router = useRouter();
 
@@ -55,6 +57,15 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         }, 3000);
         return () => clearTimeout(timer);
     }, []);
+
+    // 2. Sync Logic
+    const { isConnected } = useNetwork();
+    useEffect(() => {
+        if (isConnected && user?.id) {
+            console.log('[NavGuard] Online & User present: Triggering Sync');
+            syncPendingGames(user.id);
+        }
+    }, [isConnected, user?.id]);
 
     // 2. Logic to determine if splash should show
     const showSplash = loading || !isSplashMinTimeMet;
@@ -179,39 +190,41 @@ export default function Layout() {
                 <SafeAreaProvider>
                     <QueryClientProvider client={queryClient}>
                         <AuthProvider>
-                            <ConversionPromptProvider>
-                                <GuessCacheProvider>
-                                    <StreakSaverProvider>
-                                        <OptionsProvider>
-                                            <ThemedView className="flex-1">
-                                                <NavigationGuard>
-                                                    <Stack screenOptions={{ headerShown: false }}>
-                                                        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                                        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                                        <Stack.Screen name="game" options={{ headerShown: false }} />
-                                                        <Stack.Screen
-                                                            name="archive"
-                                                            options={{
-                                                                headerShown: false,
-                                                                presentation: 'card'
-                                                            }}
-                                                        />
-                                                        <Stack.Screen
-                                                            name="stats"
-                                                            options={{
-                                                                headerShown: false,
-                                                                presentation: 'card'
-                                                            }}
-                                                        />
-                                                        <Stack.Screen name="index" options={{ headerShown: false }} />
-                                                    </Stack>
-                                                </NavigationGuard>
-                                            </ThemedView>
-                                            <ConversionPromptModal />
-                                        </OptionsProvider>
-                                    </StreakSaverProvider>
-                                </GuessCacheProvider>
-                            </ConversionPromptProvider>
+                            <NetworkProvider>
+                                <ConversionPromptProvider>
+                                    <GuessCacheProvider>
+                                        <StreakSaverProvider>
+                                            <OptionsProvider>
+                                                <ThemedView className="flex-1">
+                                                    <NavigationGuard>
+                                                        <Stack screenOptions={{ headerShown: false }}>
+                                                            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                                            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                                            <Stack.Screen name="game" options={{ headerShown: false }} />
+                                                            <Stack.Screen
+                                                                name="archive"
+                                                                options={{
+                                                                    headerShown: false,
+                                                                    presentation: 'card'
+                                                                }}
+                                                            />
+                                                            <Stack.Screen
+                                                                name="stats"
+                                                                options={{
+                                                                    headerShown: false,
+                                                                    presentation: 'card'
+                                                                }}
+                                                            />
+                                                            <Stack.Screen name="index" options={{ headerShown: false }} />
+                                                        </Stack>
+                                                    </NavigationGuard>
+                                                </ThemedView>
+                                                <ConversionPromptModal />
+                                            </OptionsProvider>
+                                        </StreakSaverProvider>
+                                    </GuessCacheProvider>
+                                </ConversionPromptProvider>
+                            </NetworkProvider>
                         </AuthProvider>
                     </QueryClientProvider>
                 </SafeAreaProvider>

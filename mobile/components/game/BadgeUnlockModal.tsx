@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Modal, Image, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Animated } from 'react-native';
+import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { Target, Flame, Percent, X } from 'lucide-react-native';
 import LottieView from 'lottie-react-native';
@@ -15,6 +16,7 @@ interface BadgeUnlockModalProps {
         description: string;
         category: string;
         threshold: number;
+        badge_count?: number;
     } | null;
     onClose: () => void;
     showCloseButton?: boolean;
@@ -157,7 +159,8 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
                     <Image
                         source={getBadgeImage()}
                         className="w-48 h-48 mb-6"
-                        resizeMode="contain"
+                        contentFit="contain"
+                        cachePolicy="disk"
                     />
 
                     {/* Badge Name */}
@@ -174,9 +177,8 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
                         Badge Earned
                     </StyledText>
 
-                    {/* [FIX] Show Multiplier if earned multiple times */}
-                    {/* @ts-ignore - badge_count might be injected */}
-                    {badge.badge_count > 1 && (
+                    {/* Show Multiplier if earned multiple times */}
+                    {(badge.badge_count || 0) > 1 && (
                         <StyledView className="mt-2 bg-white/20 px-3 py-1 rounded-full">
                             <StyledText className="text-white font-n-bold text-sm">
                                 Earned x{badge.badge_count}

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Image, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, runOnJS } from 'react-native-reanimated';
 import { ThemedText } from './ThemedText';
 import { StatusBar } from 'expo-status-bar';
@@ -48,7 +49,8 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
                 <Image
                     source={WelcomeHamster}
                     style={styles.image}
-                    resizeMode="contain"
+                    contentFit="contain"
+                    cachePolicy="disk"
                 />
 
                 <ThemedText

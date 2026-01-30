@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useThemeColor } from '../../hooks/useThemeColor';
-import { View, Text, Modal, TouchableOpacity, Image, Animated, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Animated, Alert } from 'react-native';
+import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
@@ -100,7 +101,8 @@ export function IntroScreen({
                             <Image
                                 source={require('../../assets/ui/webp_assets/Streak-Hamster-Black.webp')}
                                 style={{ width: 180, height: 180 }}
-                                resizeMode="contain"
+                                contentFit="contain"
+                                cachePolicy="disk"
                             />
                             {/* Overlay Number - Centered on Mascot - Matched to StreakCelebration */}
                             <View className="absolute inset-x-0 bottom-8 items-center">
@@ -120,7 +122,8 @@ export function IntroScreen({
                         <Image
                             source={require('../../assets/ui/webp_assets/Sherlock-Hamster.webp')}
                             style={{ width: 160, height: 160 }}
-                            resizeMode="contain"
+                            contentFit="contain"
+                            cachePolicy="disk"
                         />
                     )}
                 </StyledView>

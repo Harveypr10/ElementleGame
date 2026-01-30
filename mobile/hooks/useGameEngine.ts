@@ -13,7 +13,10 @@ import soundManager from '../lib/soundManager';
 import { useInterstitialAd } from './useInterstitialAd';
 import { useStreakSaver } from '../contexts/StreakSaverContext';
 import { useStreakSaverStatus } from './useStreakSaverStatus';
+
 import { useQueryClient } from '@tanstack/react-query'; // Import QueryClient
+import { SYNC_STORAGE_PREFIX } from '../lib/sync';
+import { useNetwork } from '../contexts/NetworkContext';
 
 export type GameState = 'loading' | 'playing' | 'won' | 'lost';
 export type GameMode = 'REGION' | 'USER';
@@ -380,8 +383,29 @@ export function useGameEngine({
                     }
                 }
 
+
+
                 if (user) {
-                    // Fetch Attempt
+                    // Hybrid Offline: Try loading from Local Storage FIRST (if exists) or fallback to DB
+                    // This ensures if we are offline (or just haven't synced yet), we see the local progress.
+                    const storageKey = `${SYNC_STORAGE_PREFIX}${user.id}_${mode}_${puzzleId}`;
+                    const savedState = await AsyncStorage.getItem(storageKey);
+
+                    let localGuesses: string[] = [];
+                    let localResult = null;
+                    let localDigits = 8;
+
+                    if (savedState) {
+                        const parsed = JSON.parse(savedState);
+                        if (parsed.puzzleId === puzzleId) { // Safety check
+                            localGuesses = parsed.guesses || [];
+                            localResult = parsed.result;
+                            localDigits = parsed.digits || 8;
+                            console.log('[useGameEngine] Found pending offline data:', { count: localGuesses.length, result: localResult });
+                        }
+                    }
+
+                    // Fetch Remote Attempt
                     const query = supabase
                         .from(ATTEMPTS_TABLE)
                         .select('*')
@@ -396,20 +420,33 @@ export function useGameEngine({
 
                     const { data: attempts, error: attemptError } = await query.maybeSingle();
 
-                    if (attemptError && attemptError.code !== 'PGRST116') {
-                        console.error('Error loading attempt:', attemptError);
-                        throw attemptError;
+                    // If Error (offline?) we rely purely on Local Selection
+                    // OR if Local has MORE progress than Remote (and remote isn't finished), use Local.
+
+                    // Logic:
+                    // 1. If Remote exists & "won"/"lost" -> USE REMOTE (Server Wins Rule 1)
+                    // 2. If Remote exists & num_guesses > local -> USE REMOTE (Server Wins Rule 1)
+                    // 3. Else -> USE LOCAL if available.
+
+                    let useRemote = false;
+
+                    // If we have a remote attempt without error
+                    if (attempts && !attemptError) {
+                        if (attempts.result === 'won' || attempts.result === 'lost') {
+                            useRemote = true;
+                        } else if ((attempts.num_guesses || 0) > localGuesses.length) {
+                            useRemote = true;
+                        }
+                    } else if (attemptError) {
+                        // Likely offline
+                        console.log('[useGameEngine] Error fetching remote (offline?), falling back to local', attemptError);
+                        useRemote = false;
                     }
 
-                    if (attempts) {
-                        console.log('[useGameEngine] Found attempt:', {
-                            id: attempts.id,
-                            mode,
-                            result: attempts.result,
-                            digits: attempts.digits,
-                            puzzleId,
-                            userId: user.id
-                        });
+                    // Final Decision
+                    if (useRemote && attempts) {
+                        // ... Standard DB Loading (Original Code) ...
+                        console.log('[useGameEngine] Using Remote State');
 
                         setAttemptId(attempts.id);
 
@@ -420,111 +457,98 @@ export function useGameEngine({
                             setGameState('playing');
                         }
 
-                        // Load Streak Day Status from DB (0 = Holiday, etc)
                         if (attempts.streak_day_status !== undefined) {
                             setStreakDayStatus(attempts.streak_day_status);
                         }
 
-                        // 2. Load guesses for this attempt
+                        // Load guesses
                         const { data: dbGuesses, error: guessError } = await supabase
                             .from(GUESSES_TABLE)
                             .select('*')
                             .eq('game_attempt_id', attempts.id)
                             .order('id', { ascending: true });
 
-                        console.log('[useGameEngine] Guesses query result:', {
-                            table: GUESSES_TABLE,
-                            attemptId: attempts.id,
-                            guessCount: dbGuesses?.length || 0,
-                            error: guessError
-                        });
-
-                        if (guessError) throw guessError;
-
                         if (dbGuesses && dbGuesses.length > 0) {
-                            // Reconstruct local state from DB guesses
-                            const loadedGuesses: CellFeedback[][] = [];
-                            let newKeyStates: Record<string, KeyState> = {};
-
-                            // CRITICAL: Use the digit format that was used when the guess was made (from attempts.digits)
-                            // If missing (legacy/migration error), fallback to current user preference (numDigits) and HEAL the record
-                            let originalDigits = 8;
-
-                            if (attempts.digits) {
-                                originalDigits = parseInt(attempts.digits);
-                            } else {
-                                // HEAL: Missing digits field in DB. Update it now using current preference as best guess.
-                                originalDigits = numDigits;
-                                console.log('[useGameEngine] Healing missing digits for attempt:', attempts.id, 'setting to:', originalDigits);
-
-                                supabase
-                                    .from(ATTEMPTS_TABLE)
-                                    .update({ digits: originalDigits.toString() })
-                                    .eq('id', attempts.id)
-                                    .then(({ error }) => {
-                                        if (error) console.error('[useGameEngine] Failed to heal digits:', error);
-                                        else console.log('[useGameEngine] Healed digits successfully');
-                                    });
-                            }
-
-                            // LOCK the game to this mode for the UI
+                            // Copied Logic for rebuilding state
+                            // Match original digits...
+                            let originalDigits = attempts.digits ? parseInt(attempts.digits) : numDigits;
                             setGameDigits(originalDigits);
 
+                            // ... Reformatting Logic ...
                             const baseFormat = (dateFormatOrder && dateFormatOrder.startsWith('mm')) ? 'mm' : 'dd';
                             const originalFormat = baseFormat === 'mm'
                                 ? (originalDigits === 6 ? 'mmddyy' : 'mmddyyyy')
                                 : (originalDigits === 6 ? 'ddmmyy' : 'ddmmyyyy');
 
-                            // CRITICAL: Format the answer using the SAME digit count as the guesses
                             const lockedFormattedAnswer = formatCanonicalDate(answerDateCanonical, originalFormat);
 
-                            console.log('[useGameEngine] Processing guesses:', {
-                                answerCanonical: answerDateCanonical,
-                                originalDigits,
-                                originalFormat,
-                                lockedFormattedAnswer,
-                                guessesCount: dbGuesses.length
-                            });
+                            const loadedGuesses: CellFeedback[][] = [];
+                            let newKeyStates: Record<string, KeyState> = {};
 
-                            dbGuesses.forEach((g, idx) => {
-                                // Convert canonical guess (YYYY-MM-DD) to the ORIGINAL display format
+                            dbGuesses.forEach((g) => {
                                 const displayGuess = formatCanonicalDate(g.guess_value, originalFormat);
-                                // CRITICAL: Compare against answer formatted in SAME digit count
                                 const feedback = calculateFeedbackOnly(displayGuess, lockedFormattedAnswer);
-
-                                if (idx === 0) {
-                                    console.log('[useGameEngine] First guess sample:', {
-                                        canonical: g.guess_value,
-                                        displayGuess,
-                                        feedback
-                                    });
-                                }
-
                                 loadedGuesses.push(feedback);
                                 newKeyStates = updateKeyStatesOnly(displayGuess, feedback, newKeyStates);
-                            });
-
-                            console.log('[useGameEngine] Setting guesses:', {
-                                count: loadedGuesses.length,
-                                mode
                             });
 
                             setGuesses(loadedGuesses);
                             setKeyStates(newKeyStates);
                             setWrongGuessCount(loadedGuesses.filter(g => !isGuessCorrect(g)).length);
-
-                            // Set isRestored flag if we loaded any guesses OR if game is finished
-                            // This prevents IntroScreen from showing for partially played games
-                            if (loadedGuesses.length > 0 || attempts.result) {
-                                setIsRestored(true);
-                            }
-                        } else {
-                            console.log('[useGameEngine] No guesses found for attempt');
+                            if (loadedGuesses.length > 0 || attempts.result) setIsRestored(true);
                         }
+
+                    } else if (localGuesses.length > 0) {
+                        // LOAD FROM LOCAL STORAGE (Offline/Ahead)
+                        console.log('[useGameEngine] Using Local State');
+
+                        if (localResult) {
+                            setGameState(localResult === 'won' ? 'won' : 'lost');
+                            setIsRestored(true);
+                        } else {
+                            setGameState('playing');
+                        }
+
+                        // Set Digits from local state
+                        setGameDigits(localDigits);
+
+                        const baseFormat = (dateFormatOrder && dateFormatOrder.startsWith('mm')) ? 'mm' : 'dd';
+                        const originalFormat = baseFormat === 'mm'
+                            ? (localDigits === 6 ? 'mmddyy' : 'mmddyyyy')
+                            : (localDigits === 6 ? 'ddmmyy' : 'ddmmyyyy');
+
+                        const lockedFormattedAnswer = formatCanonicalDate(answerDateCanonical, originalFormat);
+
+                        const loadedGuesses: CellFeedback[][] = [];
+                        let newKeyStates: Record<string, KeyState> = {};
+
+                        localGuesses.forEach((gStr) => {
+                            // gStr is raw canonical or digits?
+                            // Guest saving used "parseUserDateWithContext" result which IS canonical (YYYY-MM-DD) OR raw if invalid.
+                            // We should assume it's acceptable for formatCanonicalDate or is raw.
+                            // Actually, let's treat it same as DB guess_value.
+
+                            const displayGuess = formatCanonicalDate(gStr, originalFormat);
+                            const feedback = calculateFeedbackOnly(displayGuess, lockedFormattedAnswer);
+                            loadedGuesses.push(feedback);
+                            newKeyStates = updateKeyStatesOnly(displayGuess, feedback, newKeyStates);
+                        });
+
+                        setGuesses(loadedGuesses);
+                        setKeyStates(newKeyStates);
+                        setWrongGuessCount(loadedGuesses.filter(g => !isGuessCorrect(g)).length);
+                        setIsRestored(true);
+
                     } else {
-                        // No attempt exists, start fresh
+                        // Neither Remote nor Local -> New Game
                         setGameState('playing');
+                        // If we failed to fetch remote but have no local, we assume new game?
+                        // Or we should block?
+                        // If OFFLINE and NO local -> Start is Blocked by [id].tsx.
+                        // So if we are here, we are allowed to play (Online New, or Offline Existing).
                     }
+
+                    return; // End of User Loading
                 }
             } catch (e) {
                 console.error('Failed to load game:', e);
@@ -632,7 +656,7 @@ export function useGameEngine({
             soundManager.play('guess_entered'); // Guess submitted sound
         }
 
-        // 2. Persist to DB
+        // 2. Persist to DB (and Local Storage)
         if (!user) {
             try {
                 // Guest logic
@@ -659,49 +683,102 @@ export function useGameEngine({
             return;
         }
 
+        // Authenticated User Logic
         try {
+            // ALWAYS save to Local Storage (Hybrid Online/Offline)
+            const canonicalGuesses = newGuesses.map(g => {
+                const rawDigits = g.map(c => c.digit).join('');
+                return parseUserDateWithContext(rawDigits, dateFormat, answerDateCanonical) || rawDigits;
+            });
+
+            const userStateToSave = {
+                userId: user.id,
+                mode: mode,
+                puzzleId: puzzleId,
+                guesses: canonicalGuesses,
+                result: isWin ? 'won' : (newGuesses.length >= maxGuesses ? 'lost' : null),
+                digits: numDigits,
+                updatedAt: new Date().toISOString(),
+                streakDayStatus: streakDayStatus
+            };
+            const storageKey = `${SYNC_STORAGE_PREFIX}${user.id}_${mode}_${puzzleId}`;
+            await AsyncStorage.setItem(storageKey, JSON.stringify(userStateToSave));
+            console.log(`[GameEngine] Persisted local state to ${storageKey}`);
+
+            // If we don't have an ID, check existence then create
             let currentAttemptId = attemptId;
 
-            // Create attempt if needed
-            // Create attempt if needed
             if (!currentAttemptId) {
-                // Dynamic Insert
-                const insertData: any = {
-                    user_id: user.id,
-                    started_at: new Date().toISOString(),
-                    digits: numDigits.toString()
-                };
-                insertData[PUZZLE_ID_FIELD] = puzzleId;
+                // 1. CHECK FOR EXISTING ATTEMPT FIRST
+                // This prevents "duplicate row" errors by explicitly finding the row if it exists.
+                let checkQuery = supabase.from(ATTEMPTS_TABLE).select('id').eq('user_id', user.id);
+                if (mode === 'REGION') checkQuery = checkQuery.eq('allocated_region_id', puzzleId);
+                else checkQuery = checkQuery.eq('allocated_user_id', puzzleId);
 
-                // HOLIDAY LOGIC ON INSERT
-                // If Holiday active and playing TODAY'S puzzle, force status to 0 (Protected) immediately.
-                // This satisfies: "if it's today's puzzle then make streak_day_status = 0... no matter whether it's partially played"
-                const _today = new Date();
-                _today.setHours(0, 0, 0, 0);
-                const _todayStr = _today.toISOString().split('T')[0];
-                const _isTodayPuzzle = (puzzleDate || answerDateCanonical) === _todayStr;
+                const { data: existing, error: checkError } = await checkQuery.maybeSingle();
 
-                if (holidayActive && _isTodayPuzzle) {
-                    console.log('[GameEngine] New Game during Holiday: Setting initial status to 0');
-                    insertData['streak_day_status'] = 0;
-                } else if (_isTodayPuzzle && preserveStreakStatus) {
-                    console.log('[GameEngine] Preserved Status Game: Setting initial status to 0');
-                    insertData['streak_day_status'] = 0;
+                if (existing) {
+                    console.log('[GameEngine] Found existing attempt during init, using ID:', existing.id);
+                    currentAttemptId = existing.id;
+                    setAttemptId(existing.id);
+                } else {
+                    // 2. CREATE NEW ATTEMPT (If not found)
+                    const insertData: any = {
+                        user_id: user.id
+                    };
+
+                    if (mode === 'REGION') {
+                        insertData.allocated_region_id = puzzleId;
+                        insertData.streak_day_status = 1; // Default to played
+                    } else {
+                        insertData.allocated_user_id = puzzleId;
+                        insertData.streak_day_status = 1;
+                    }
+
+                    // Add digits from current state so it's locked in DB
+                    insertData.digits = numDigits.toString();
+
+                    // HOLIDAY LOGIC ON INSERT
+                    const _today = new Date();
+                    _today.setHours(0, 0, 0, 0);
+                    const _todayStr = _today.toISOString().split('T')[0];
+                    const _isTodayPuzzle = (puzzleDate || answerDateCanonical) === _todayStr;
+
+                    if (holidayActive && _isTodayPuzzle) {
+                        console.log('[GameEngine] New Game during Holiday: Setting initial status to 0');
+                        insertData['streak_day_status'] = 0;
+                    } else if (_isTodayPuzzle && preserveStreakStatus) {
+                        console.log('[GameEngine] Preserved Status Game: Setting initial status to 0');
+                        insertData['streak_day_status'] = 0;
+                    }
+
+                    // Try Insert with duplicate handling (Race Condition Safety)
+                    const { data: newAttempt, error: createError } = await supabase
+                        .from(ATTEMPTS_TABLE)
+                        .insert(insertData)
+                        .select()
+                        .single();
+
+                    if (createError) {
+                        // Backup Catch: code 23505 (Unique Violation) just in case of race condition
+                        if (createError.code === '23505') {
+                            console.log('[GameEngine] Race condition catch (23505), fetching existing ID.');
+                            const { data: retryExisting } = await checkQuery.single();
+                            if (!retryExisting) throw createError;
+
+                            currentAttemptId = retryExisting.id;
+                            setAttemptId(retryExisting.id);
+                        } else {
+                            throw createError;
+                        }
+                    } else {
+                        currentAttemptId = newAttempt.id;
+                        setAttemptId(newAttempt.id);
+                    }
                 }
-
-                const { data: newAttempt, error: createError } = await supabase
-                    .from(ATTEMPTS_TABLE)
-                    .insert(insertData)
-                    .select()
-                    .single();
-
-                if (createError) throw createError;
-                currentAttemptId = newAttempt.id;
-                setAttemptId(newAttempt.id);
             }
 
             // Save guess (already triggered validation above)
-            // But use the validated variable
             const { error: guessError } = await supabase
                 .from(GUESSES_TABLE)
                 .insert({
@@ -714,13 +791,6 @@ export function useGameEngine({
             // Update attempt if game over
             if (isWin || newGuesses.length >= maxGuesses) {
 
-
-
-                // ... (rest of state)
-
-                // ...
-
-                // Update submitGuess to use preserveStreakStatus
                 // Calculate Streak Day Status
                 // Logic: 1 = Contributes to streak (Today OR Valid Streak Saver Game)
                 //        0 = Holiday (Protected)
@@ -733,75 +803,53 @@ export function useGameEngine({
                 const isTodayPuzzle = (puzzleDate || answerDateCanonical) === todayStr;
 
                 // HOLIDAY / PRESERVE LOGIC
-                // If explicitly preserving (from params) OR Holiday Mode is active
-                if (preserveStreakStatus || (holidayActive && isTodayPuzzle)) {
-                    // Check if this was a PRE-EXISTING attempt (loaded from DB)
-                    // If we had an attemptId at start of hook text (not created just now)
-                    // We can check if streakDayStatus state was set (not null/undefined implies existing)
-                    // BUT streakDayStatus state is initialized to null. 
-                    // Better check: Did we create the attempts row just now?
-                    // We can rely on `streakDayStatus` state. If it was populated from load, it's existing.
-                    // If it was null, it's likely new (or was null in DB).
-                    // User Rule: "When a row exists... do not change."
-                    // User Rule: "If no existing row... if today... make 0."
+                // Logic Refined:
+                // 1. If Holiday Mode Active OR Preserve Status (e.g. from Archive or explicitly set):
+                //    - We MUST PRESERVE the existing status (whether it's 0, null, or 1).
+                //    - We should NOT overwrite it with NULL just because it's not today.
+                // 2. If Normal Play (Today + No Holiday):
+                //    - Win = 1
+                //    - Loss = NULL (Break)
 
+                // Check if we are in a "Protected/Preserved" state
+                const isProtectedState = preserveStreakStatus || holidayActive;
+
+                if (isProtectedState) {
+                    // [FIX] Preserve existing status if we have one.
+                    // If this is a Holiday Game (status 0), it stays 0.
+                    // If this is an Archive Game (status null), it stays null.
+                    // We DO NOT recalculate based on win/loss here.
                     if (streakDayStatus !== null && streakDayStatus !== undefined) {
-                        console.log('[GameEngine] Holiday/Preserve Mode: Keeping existing streak status:', streakDayStatus);
+                        console.log('[GameEngine] Protected Mode: Preserving existing status:', streakDayStatus);
                         newStreakDayStatus = streakDayStatus;
                     } else {
-                        // New Row (or previously NULL status)
-                        if (isTodayPuzzle) {
-                            console.log('[GameEngine] Holiday/Preserve Mode: New Today Game -> Setting Holiday Status (0)');
-                            newStreakDayStatus = 0;
-                        } else {
-                            console.log('[GameEngine] Holiday/Preserve Mode: Archive Game -> Setting NULL');
-                            newStreakDayStatus = null;
-                        }
+                        // Edge case: New row creation handled above set it to 0 or null.
+                        // If we are here, we might be updating a row that started with null?
+                        // If it's today and holiday, it should have been 0.
+                        // If it's archive, it should be null.
+                        // Let's trust the logic that established 'streakDayStatus' state on mount/insert.
+                        console.log('[GameEngine] Protected Mode: No existing status to preserve. Defaulting to NULL (Archive behavior).');
+                        newStreakDayStatus = null;
                     }
                 }
-                // NORMAL GAME LOGIC
-                else if (isWin) {
-                    console.log('[GameEngine] WIN detected. Checking Streak Saver Status:', {
-                        answerDate: answerDateCanonical,
-                        puzzleDate,
-                        todayStr,
-                        hasSession: !!streakSaverSession,
-                        sessionDate: streakSaverSession?.puzzleDate,
-                        match: streakSaverSession?.puzzleDate === (puzzleDate || answerDateCanonical)
-                    });
-
-
-                    const compareDate = puzzleDate || answerDateCanonical;
-
-
-                    if (compareDate === todayStr) {
-                        newStreakDayStatus = 1;
-                    } else if (streakSaverSession && streakSaverSession.puzzleDate === compareDate) {
-                        // Check if this is the active streak saver game
-                        console.log('[GameEngine] Valid Streak Saver game WON for:', compareDate);
-                        newStreakDayStatus = 1;
-                    } else {
-                        console.log('[GameEngine] Archive or non-streak game won.');
-                        // [FIX] Do NOT overwrite if we already have a status (e.g. 0 for Holiday)
-                        // If status is 0, keeping it 0 is safer than null (gap vs protected).
-                        // If I play a Holiday game, it shouldn't break the streak (null) but stay protected (0) OR become played (1)?
-                        // User request: "it should have left the streak_day_status on whatever it was set to"
-                        if (streakDayStatus !== null && streakDayStatus !== undefined) {
-                            console.log('[GameEngine] Preserving existing status for Archive Win:', streakDayStatus);
-                            newStreakDayStatus = streakDayStatus;
+                // NORMAL PLAY (Real Streak Impact)
+                else {
+                    // Start with strict Today check
+                    if (isWin) {
+                        // Check Streak Saver?
+                        if (streakSaverSession && streakSaverSession.puzzleDate === (puzzleDate || answerDateCanonical)) {
+                            console.log('[GameEngine] Win + Streak Saver Session Match -> Status = 1');
+                            newStreakDayStatus = 1;
+                        } else if (isTodayPuzzle) {
+                            console.log('[GameEngine] Win + Today -> Status = 1');
+                            newStreakDayStatus = 1;
                         } else {
+                            console.log('[GameEngine] Win + Archive (No Saver) -> Status = NULL (No streak credit)');
                             newStreakDayStatus = null;
                         }
-                    }
-                } else {
-                    console.log('[GameEngine] Game LOST. Status remains NULL (Streak breaks/resets)');
-                    // If we had a previous status (e.g. replaying a won game?), we might want to keep it?
-                    // But usually you can't replay won games.
-                    // If you replay a Holiday game (0) and LOSE?
-                    // "do not change".
-                    if (streakDayStatus !== null && streakDayStatus !== undefined) {
-                        newStreakDayStatus = streakDayStatus;
                     } else {
+                        // Loss always breaks streak (or has no status)
+                        console.log('[GameEngine] Loss -> Status = NULL');
                         newStreakDayStatus = null;
                     }
                 }
@@ -811,9 +859,9 @@ export function useGameEngine({
                     .update({
                         result: isWin ? 'won' : 'lost',
                         num_guesses: newGuesses.length,
-                        streak_day_status: newStreakDayStatus, // Use the new status
+                        streak_day_status: newStreakDayStatus,
                         completed_at: new Date().toISOString(),
-                        digits: numDigits.toString() // [FIX] Ensure digits are updated/saved on win
+                        digits: numDigits.toString()
                     })
                     .eq('id', currentAttemptId);
 
@@ -822,46 +870,27 @@ export function useGameEngine({
                 // Update local state
                 setStreakDayStatus(newStreakDayStatus);
 
-                // Update user stats and get the new current streak
-                // Only update stats if we represent a REAL win (status=1)
-                // If status=0 (Holiday), we shouldn't increment streak count? 
-                // Wait, playing a holiday game doesn't extend streak, so updateUserStats might need to know?
-                // updateUserStats calculates from DB, so if DB has 0, it counts as maintains.
-                // If DB has 1, it counts as +1. 
-                // So calling it is safe.
-
-                // CRITICAL FIX: Use explicit anchor date for stats calculation to avoid timezone issues.
-                // If this is a streak-extending game (Today or Streak Saver), anchor to specific Puzzle Date.
-                // Otherwise (Archive), anchor to Today (to verify current status).
+                // Update user stats
                 const todayForStats = new Date();
                 todayForStats.setHours(0, 0, 0, 0);
                 const todayStrForStats = todayForStats.toISOString().split('T')[0];
 
-                // Use the puzzle date if it matches playing conditions, otherwise verify from today
                 let anchorDate = todayStrForStats;
                 if (newStreakDayStatus !== null) {
-                    // If we just set a status (1 or 0), we want to make sure stats sees it.
-                    // So we must anchor to AT LEAST this puzzle date.
-                    // If puzzle date is "Today", it matches.
-                    // If puzzle date is "Yesterday" (Streak Saver), we anchor there to ensure it counts.
                     anchorDate = puzzleDate || answerDateCanonical;
                 }
 
                 const newCurrentStreak = await updateUserStats(isWin, newGuesses.length, anchorDate);
-                if (isWin) setFinalStreak(newCurrentStreak); // Store authoritative streak
+                if (isWin) setFinalStreak(newCurrentStreak);
 
-
-                // STREAK SAVER LOGIC: Explicitly update DB flags if this was a saver game
-                // ONLY if we are NOT in holiday preserve mode (which shouldn't happen for savers anyway, but safety first)
+                // STREAK SAVER LOGIC
                 if (isWin && !preserveStreakStatus && streakSaverSession && streakSaverSession.puzzleDate === (puzzleDate || answerDateCanonical)) {
-                    console.log('[GameEngine] STREAK SAVER WON! Updating stats flags...');
                     try {
                         const targetRegion = await getUserRegion();
                         const matchQuery = mode === 'REGION'
                             ? { user_id: user.id, region: targetRegion }
                             : { user_id: user.id };
 
-                        // 1. Fetch current stats correctly
                         const missedFlagCol = mode === 'REGION' ? 'missed_yesterday_flag_region' : 'missed_yesterday_flag_user';
 
                         const { data: currentStats, error: fetchStatsError } = await supabase
@@ -873,9 +902,6 @@ export function useGameEngine({
                         if (currentStats) {
                             const statsAny = currentStats as any;
                             const usedCount = statsAny.streak_savers_used_month || 0;
-                            console.log(`[GameEngine] Current Stats: Used=${usedCount}`);
-
-                            // 2. Update stats using ID to be safe
                             const { error: statsUpdateError } = await supabase
                                 .from(STATS_TABLE)
                                 .update({
@@ -887,10 +913,8 @@ export function useGameEngine({
                             if (statsUpdateError) {
                                 console.error('[GameEngine] Failed to update Streak Saver stats:', statsUpdateError);
                             } else {
-                                console.log('[GameEngine] Streak Saver stats updated successfully (Flag cleared, Count incremented)');
+                                console.log('[GameEngine] Streak Saver stats updated successfully');
                             }
-                        } else {
-                            console.error('[GameEngine] Could not find stats record to update for Streak Saver');
                         }
                     } catch (ssError) {
                         console.error('[GameEngine] Error in Streak Saver update block:', ssError);
@@ -901,7 +925,6 @@ export function useGameEngine({
                 if (isWin && user && newCurrentStreak > 0) {
                     try {
                         const GAME_TYPE = mode === 'REGION' ? 'REGION' : 'USER';
-
                         // Get user's region for badge context
                         let userRegion = 'UK';
                         if (mode === 'REGION') {
@@ -912,55 +935,20 @@ export function useGameEngine({
                                 .single();
                             userRegion = profile?.region || 'UK';
                         }
-
                         const REGION = mode === 'REGION' ? userRegion : 'GLOBAL';
 
-                        console.log('[GameEngine] Checking badges...', { streak: newCurrentStreak, guesses: newGuesses.length });
+                        const streakBadge = await checkAndAwardStreakBadge(user.id, newCurrentStreak, GAME_TYPE, REGION);
+                        if (streakBadge && !streakBadge.is_awarded) console.log('Badge:', streakBadge.badge_name);
 
-                        // 1. Check streak badge (awarded at milestones: 7, 14, 30, 50, 100, etc.)
-                        const streakBadge = await checkAndAwardStreakBadge(
-                            user.id,
-                            newCurrentStreak,
-                            GAME_TYPE,
-                            REGION
-                        );
-
-                        console.log('[GameEngine] Streak badge check result:', streakBadge);
-
-                        if (streakBadge && !streakBadge.is_awarded) {
-                            console.log('[GameEngine] New streak badge awarded:', streakBadge.badge_name);
-                        }
-
-                        // 2. Check elementle badge (only for 1 or 2 guesses)
                         if (newGuesses.length === 1 || newGuesses.length === 2) {
-                            const elementleBadge = await checkAndAwardElementleBadge(
-                                user.id,
-                                newGuesses.length,
-                                GAME_TYPE,
-                                REGION
-                            );
-
-                            console.log('[GameEngine] Elementle badge check result:', elementleBadge);
-
-                            if (elementleBadge && !elementleBadge.is_awarded) {
-                                console.log('[GameEngine] New elementle badge awarded:', elementleBadge.badge_name);
-                            }
+                            const elementleBadge = await checkAndAwardElementleBadge(user.id, newGuesses.length, GAME_TYPE, REGION);
+                            if (elementleBadge && !elementleBadge.is_awarded) console.log('Badge:', elementleBadge.badge_name);
                         }
 
-                        // 3. Check percentile badge (based on rank)
-                        const percentileBadge = await checkAndAwardPercentileBadge(
-                            user.id,
-                            GAME_TYPE,
-                            REGION
-                        );
+                        const percentileBadge: any = await checkAndAwardPercentileBadge(user.id, GAME_TYPE, REGION);
+                        if (percentileBadge && !percentileBadge.is_awarded) console.log('Badge:', percentileBadge.badge_name);
 
-                        console.log('[GameEngine] Percentile badge check result:', percentileBadge);
-
-                        if (percentileBadge && !percentileBadge.is_awarded) {
-                            console.log('[GameEngine] New percentile badge awarded:', percentileBadge.badge_name);
-                        }
                     } catch (badgeError) {
-                        // Don't fail the game if badge awarding fails
                         console.error('[GameEngine] Failed to award badges:', badgeError);
                     }
                 }
@@ -976,15 +964,14 @@ export function useGameEngine({
         } catch (e) {
             console.error('Error saving progress:', e);
         } finally {
-            // Invalidate Stats Queries to ensure Index screen is fresh on return
-            console.log('[GameEngine] Invalidating queries to refresh stats...');
-            // Invalidate both region and user stats to be safe
-            queryClient.invalidateQueries({ queryKey: ['user_stats'] });
-            queryClient.invalidateQueries({ queryKey: ['user_stats_region'] });
-            queryClient.invalidateQueries({ queryKey: ['user_stats_user'] });
-            queryClient.invalidateQueries({ queryKey: ['streak_saver_status'] });
-            // Also invalidate pending badges if any
-            queryClient.invalidateQueries({ queryKey: ['pending_badges'] });
+            if (isWin || newGuesses.length >= maxGuesses) {
+                console.log('[GameEngine] Game Ended. Invalidating queries to refresh stats...');
+                queryClient.invalidateQueries({ queryKey: ['user_stats'] });
+                queryClient.invalidateQueries({ queryKey: ['user_stats_region'] });
+                queryClient.invalidateQueries({ queryKey: ['user_stats_user'] });
+                queryClient.invalidateQueries({ queryKey: ['streak_saver_status'] });
+                queryClient.invalidateQueries({ queryKey: ['pending_badges'] });
+            }
         }
     };
 

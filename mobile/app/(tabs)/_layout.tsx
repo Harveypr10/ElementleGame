@@ -2,10 +2,12 @@ import { Tabs } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import { Home, Settings as SettingsIcon, SlidersHorizontal, Shield } from 'lucide-react-native';
 import { useProfile } from '../../hooks/useProfile';
+import { useOptions } from '../../lib/options';
 
 export default function TabLayout() {
     const { colorScheme } = useColorScheme();
     const { isAdmin } = useProfile();
+    const { quickMenuEnabled } = useOptions();
     const isDark = colorScheme === 'dark';
 
     return (
@@ -13,6 +15,7 @@ export default function TabLayout() {
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {
+                    display: quickMenuEnabled ? 'flex' : 'none',
                     backgroundColor: isDark ? '#0f172a' : '#f1f5f9',
                     borderTopWidth: 0,
                     height: 75,

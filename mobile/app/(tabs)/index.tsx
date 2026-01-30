@@ -2,7 +2,7 @@ import { View, Text, TouchableOpacity, Image, ScrollView, RefreshControl, Animat
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { useAuth } from '../../lib/auth';
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { HelpCircle, Settings } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -46,6 +46,185 @@ import { useIsFocused } from '@react-navigation/native';
 import { useAppReadiness } from '../../contexts/AppReadinessContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Memoized Page Component to prevent re-renders during scroll
+const GameModePage = React.memo(({
+    isRegion,
+    todayStatus,
+    guesses,
+    stats,
+    totalGames,
+    refreshing,
+    onRefresh,
+    holidayActive,
+    setHolidayModalMode,
+    setShowHolidayModal,
+    router,
+    incrementInteraction,
+    width
+}: {
+    isRegion: boolean,
+    todayStatus: 'not-played' | 'solved' | 'failed',
+    guesses: number,
+    stats: any,
+    totalGames: number,
+    refreshing: boolean,
+    onRefresh: () => void,
+    holidayActive: boolean,
+    setHolidayModalMode: (mode: 'REGION' | 'USER') => void,
+    setShowHolidayModal: (show: boolean) => void,
+    router: any,
+    incrementInteraction: () => void,
+    width: number
+}) => {
+    // Colors from Web App
+    const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
+    const archiveColor = isRegion ? '#FFD429' : '#fdab58'; // Yellow (Region) vs Orange (User)
+    // Green: Match the overlay box color
+    const statsColor = isRegion ? '#93c54e' : '#84b86c';
+
+    // Helper: Calculate Total Guesses
+    const calculateTotalGuesses = (distribution: any, gamesWon: number, gamesPlayed: number) => {
+        if (!distribution) return 0;
+        let total = 0;
+        Object.entries(distribution).forEach(([guesses, count]) => {
+            total += parseInt(guesses) * (count as number);
+        });
+        return total;
+    };
+
+    // Stats Calculations
+    const winRate = totalGames > 0 ? ((stats.games_won || 0) / totalGames * 100).toFixed(0) : "0";
+    const totalGuesses = calculateTotalGuesses(stats.guess_distribution, stats.games_won || 0, totalGames);
+    const avgGuesses = (stats.games_won || 0) > 0 ? (totalGuesses / stats.games_won!).toFixed(1) : "0.0";
+
+    // Percentile Logic
+    const dayOfMonth = new Date().getDate();
+    const percentile = stats.cumulative_monthly_percentile;
+    let percentileMessage = null;
+
+    if (dayOfMonth >= 5 && percentile !== null && percentile !== undefined && percentile > 0 && todayStatus === 'solved') {
+        const roundedPercentile = Math.floor(percentile / 5) * 5;
+        if (percentile >= 50) {
+            percentileMessage = `You're in the top ${roundedPercentile}% of players`;
+        }
+    }
+
+    // Fallback messages
+    if (!percentileMessage) {
+        percentileMessage = "Play the archive to boost your ranking";
+    }
+
+    // Use same hamster images for both modes
+    const playIcon = todayStatus === 'solved' ? WinHamsterBlue : HistorianHamsterBlue;
+    const archiveIcon = LibrarianHamsterYellow;
+    const statsIcon = MathsHamsterGreen;
+
+    return (
+        <ScrollView
+            contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            showsVerticalScrollIndicator={false}
+            style={{ width: width }}
+        >
+            <View className="space-y-4">
+                {/* PERCENTILE TEXT (Dynamic & Above Play Button) */}
+                {percentileMessage && (
+                    <ThemedText className="text-slate-500 font-n-medium text-center mb-4" size="base">
+                        {percentileMessage}
+                    </ThemedText>
+                )}
+
+                {/* 1. PLAY BUTTON */}
+                <HomeCard
+                    testID="home-card-play"
+                    title={todayStatus === 'solved' ? "Today's puzzle solved!" : "Play Today"}
+                    subtitle={todayStatus !== 'solved' ? "Good luck!" : undefined}
+                    icon={playIcon}
+                    backgroundColor={playColor}
+                    onPress={() => {
+                        incrementInteraction();
+                        console.log(`[Home] Play Today pressed. HolidayActive: ${holidayActive}, Status: ${todayStatus}`);
+
+                        // [FIX] Only show Holiday Popup if the game hasn't been played yet.
+                        // If it's solved or failed, we allow navigation to review.
+                        if (holidayActive && todayStatus === 'not-played') {
+                            setHolidayModalMode(isRegion ? 'REGION' : 'USER');
+                            setShowHolidayModal(true);
+                        } else {
+                            // [FIX] Use explicit date string to ensure consistent ID resolution in GameScreen
+                            const todayStr = new Date().toISOString().split('T')[0];
+                            router.push(isRegion ? `/game/REGION/${todayStr}` : `/game/USER/${todayStr}`);
+                        }
+                    }}
+                    height={144}
+                    iconStyle={{ width: 89, height: 89 }}
+                >
+                    {todayStatus === 'solved' && (
+                        <View className="flex-row gap-2 mt-0 w-full">
+                            {/* Solved In Box */}
+                            <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                                <ThemedText className="text-slate-700 font-n-medium text-sm">Solved in</ThemedText>
+                                <ThemedText className="text-slate-700 font-n-bold text-xl">{guesses}</ThemedText>
+                            </View>
+                            {/* Streak Box */}
+                            <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                                <ThemedText className="text-slate-700 font-n-medium text-sm">Streak</ThemedText>
+                                <ThemedText className="text-slate-700 font-n-bold text-xl">{stats.current_streak}</ThemedText>
+                            </View>
+                        </View>
+                    )}
+                </HomeCard>
+
+                {/* 2. ARCHIVE BUTTON */}
+                <HomeCard
+                    testID="home-card-archive"
+                    title={isRegion ? "UK Archive" : "Personal Archive"}
+                    icon={archiveIcon}
+                    backgroundColor={archiveColor}
+                    onPress={() => {
+                        incrementInteraction();
+                        router.push('/archive');
+                    }}
+                    height={120}
+                    iconStyle={{ width: 78, height: 78 }}
+                >
+                    <View className="flex-row w-full">
+                        <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                            <ThemedText className="text-slate-700 font-n-medium text-sm">Played</ThemedText>
+                            <ThemedText className="text-slate-700 font-n-bold text-xl">{totalGames}</ThemedText>
+                        </View>
+                    </View>
+                </HomeCard>
+
+                {/* 3. STATS BUTTON */}
+                <HomeCard
+                    testID="home-card-stats"
+                    title={isRegion ? "UK Stats" : "Personal Stats"}
+                    icon={statsIcon}
+                    backgroundColor={statsColor}
+                    onPress={() => {
+                        incrementInteraction();
+                        router.push(`/stats?mode=${isRegion ? 'REGION' : 'USER'}`);
+                    }}
+                    height={120}
+                    iconStyle={{ width: 78, height: 78 }}
+                >
+                    <View className="flex-row gap-2 w-full">
+                        <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                            <ThemedText className="text-slate-700 font-n-medium text-sm">% Won</ThemedText>
+                            <ThemedText className="text-slate-700 font-n-bold text-xl">{winRate}%</ThemedText>
+                        </View>
+                        <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                            <ThemedText className="text-slate-700 font-n-medium text-sm">Guess avg</ThemedText>
+                            <ThemedText className="text-slate-700 font-n-bold text-xl">{avgGuesses}</ThemedText>
+                        </View>
+                    </View>
+                </HomeCard>
+            </View>
+        </ScrollView>
+    );
+});
 
 export default function HomeScreen() {
     const router = useRouter();
@@ -141,7 +320,7 @@ export default function HomeScreen() {
     const [isRescueMode, setIsRescueMode] = useState(false);
 
     // Context for suppression
-    const { isJustCompleted } = useStreakSaver();
+    const { isJustCompleted, isInStreakSaverMode } = useStreakSaver();
 
     const [holidayEndedVisible, setHolidayEndedVisible] = useState(false);
 
@@ -172,7 +351,8 @@ export default function HomeScreen() {
     // Check for streak saver eligibility and show popup
     useEffect(() => {
         // Only show popup when app is ready, screen is focused, loaded, and not dismissed
-        if (isAppReady && isFocused && !loading && user && !dismissedPopup) {
+        // [FIX] Also suppress if we are currently IN a streak saver mode (e.g. just clicked "Use")
+        if (isAppReady && isFocused && !loading && user && !dismissedPopup && !isInStreakSaverMode) {
 
             // Extract new flags from status (default to false if loading/null)
             const regionOfferStreakSaver = streakSaverStatus?.region?.offerStreakSaver ?? false;
@@ -186,23 +366,35 @@ export default function HomeScreen() {
 
             // 1. Region Checks
             if (!isJustCompleted('REGION')) {
-                if (regionOfferHolidayRescue || regionOfferStreakSaver) {
+                // [FIX] Do NOT show rescue popup if Holiday Mode is ALREADY active.
+                // The gap logic might still see a gap, but if we are on holiday, it's protected.
+                if ((regionOfferHolidayRescue || regionOfferStreakSaver) && !holidayActive) {
                     setPopupMode('REGION');
                     setStreakSaverVisible(true);
                     return;
                 }
+                // [FIX] Disable auto-dismiss. Let the popup close itself via onClose callback after animation.
+                // else if (popupMode === 'REGION' && streakSaverVisible) {
+                //      console.log('[Home] Status cleared for Region, auto-dismissing popup.');
+                //      setStreakSaverVisible(false);
+                // }
             }
 
             // 2. User Checks
             if (!isJustCompleted('USER')) {
-                if (userOfferHolidayRescue || userOfferStreakSaver) {
+                if ((userOfferHolidayRescue || userOfferStreakSaver) && !holidayActive) {
                     setPopupMode('USER');
                     setStreakSaverVisible(true);
                     return;
                 }
+                // [FIX] Disable auto-dismiss.
+                // else if (popupMode === 'USER' && streakSaverVisible) {
+                //      console.log('[Home] Status cleared for User, auto-dismissing popup.');
+                //      setStreakSaverVisible(false);
+                // }
             }
         }
-    }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup]);
+    }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup, streakSaverVisible, popupMode, isInStreakSaverMode]);
 
 
 
@@ -236,7 +428,17 @@ export default function HomeScreen() {
     const scrollX = useRef(new Animated.Value(0)).current;
     const scrollViewRef = useRef<ScrollView>(null);
 
-    const fetchData = useCallback(async () => {
+    const lastFetchRef = useRef<number>(0);
+
+    const fetchData = useCallback(async (force = false) => {
+        const now = Date.now();
+        // Throttle: Only fetch if forced or > 10 seconds since last fetch
+        if (!force && lastFetchRef.current && (now - lastFetchRef.current < 10000)) {
+            console.log('[Home] Skipping fetch (throttled)');
+            return;
+        }
+        lastFetchRef.current = now;
+
         try {
             setLoading(true);
             if (!user) return;
@@ -375,18 +577,29 @@ export default function HomeScreen() {
     useFocusEffect(
         useCallback(() => {
             if (user) {
-                fetchData();
+                // Force fetch when returning to screen to ensure "Play Today" button
+                // and other stats are up to date immediately after a game.
+                fetchData(true);
             }
         }, [user, fetchData])
     );
 
+    // Flag to ignore scroll events triggered by programmatic scrolling
+    const isProgrammaticScroll = useRef(false);
+
     // Sync Scroll Position with GameMode
     useEffect(() => {
+        isProgrammaticScroll.current = true;
         if (gameMode === 'REGION') {
             scrollViewRef.current?.scrollTo({ x: 0, animated: true });
         } else {
             scrollViewRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: true });
         }
+        // Reset flag after animation duration (approx 300ms)
+        const timer = setTimeout(() => {
+            isProgrammaticScroll.current = false;
+        }, 500);
+        return () => clearTimeout(timer);
     }, [gameMode]);
 
     const onRefresh = useCallback(() => {
@@ -406,6 +619,8 @@ export default function HomeScreen() {
     };
 
     const onMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+        if (isProgrammaticScroll.current) return;
+
         const position = event.nativeEvent.contentOffset.x;
         const index = Math.round(position / SCREEN_WIDTH);
         const newMode = index === 0 ? 'REGION' : 'USER';
@@ -417,175 +632,7 @@ export default function HomeScreen() {
     // Default stats object moved to component scope
 
 
-    // Helper to calculate total guesses from distribution
-    const calculateTotalGuesses = (distribution: any, gamesWon: number, gamesPlayed: number) => {
-        if (!distribution) return 0;
-        let total = 0;
-        // Sum guesses for wins
-        Object.entries(distribution).forEach(([guesses, count]) => {
-            total += parseInt(guesses) * (count as number);
-        });
-        // Add guesses for losses (assuming 6 guesses for a loss)
-        const losses = gamesPlayed - gamesWon;
-        // The distribution usually only tracks wins in some systems, but let's stick to wins for "average guesses" 
-        // usually average guesses is for WON games only.
-        return total;
-    };
 
-
-    const renderGameContent = (isRegion: boolean) => {
-        const todayStatus = isRegion ? todayStatusRegion : todayStatusUser;
-        const guesses = isRegion ? guessesRegion : guessesUser;
-
-        // Use Hook Data
-        const statsData = isRegion ? regionHookStats : userHookStats;
-        // Merge with defaults to prevent crashes
-        const stats = statsData || defaultStats;
-
-        const totalGames = stats.games_played || 0;
-
-        // Colors from Web App
-        const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
-        const archiveColor = isRegion ? '#FFD429' : '#fdab58'; // Yellow (Region) vs Orange (User)
-        // Green: Match the overlay box color
-        const statsColor = isRegion ? '#93c54e' : '#84b86c';
-
-        // Stats Calculations
-        const winRate = totalGames > 0 ? ((stats.games_won || 0) / totalGames * 100).toFixed(0) : "0";
-        const totalGuesses = calculateTotalGuesses(stats.guess_distribution, stats.games_won || 0, totalGames);
-        const avgGuesses = (stats.games_won || 0) > 0 ? (totalGuesses / stats.games_won!).toFixed(1) : "0.0";
-
-        // Percentile Logic
-        const dayOfMonth = new Date().getDate();
-        const percentile = stats.cumulative_monthly_percentile;
-        let percentileMessage = null;
-
-        if (dayOfMonth >= 5 && percentile !== null && percentile !== undefined && percentile > 0 && todayStatus === 'solved') {
-            const roundedPercentile = Math.floor(percentile / 5) * 5;
-            if (percentile >= 50) {
-                percentileMessage = `You're in the top ${roundedPercentile}% of players`;
-            }
-        }
-
-        // Fallback messages
-        if (!percentileMessage) {
-            percentileMessage = "Play the archive to boost your ranking";
-        }
-
-        // Use same hamster images for both modes (PNG only to avoid React Native freeze errors)
-        const playIcon = todayStatus === 'solved' ? WinHamsterBlue : HistorianHamsterBlue;
-        const archiveIcon = LibrarianHamsterYellow;
-        const statsIcon = MathsHamsterGreen;
-
-        return (
-            <ScrollView
-                key={isRegion ? 'region_list' : 'user_list'}
-                contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                showsVerticalScrollIndicator={false}
-                style={{ width: SCREEN_WIDTH }}
-            >
-                {/* Main Action Buttons */}
-                <View className="space-y-4">
-                    {/* PERCENTILE TEXT (Dynamic & Above Play Button) */}
-                    {percentileMessage && (
-                        <ThemedText className="text-slate-500 font-n-medium text-center mb-4" size="base">
-                            {percentileMessage}
-                        </ThemedText>
-                    )}
-
-                    {/* 1. PLAY BUTTON */}
-                    <HomeCard
-                        testID="home-card-play"
-                        title={todayStatus === 'solved' ? "Today's puzzle solved!" : "Play Today"}
-                        subtitle={todayStatus !== 'solved' ? "Good luck!" : undefined}
-                        icon={playIcon}
-                        backgroundColor={playColor}
-                        onPress={() => {
-                            incrementInteraction();
-                            if (holidayActive) {
-                                // If Holiday Active -> Show Modal (For both Region and User)
-                                setHolidayModalMode(isRegion ? 'REGION' : 'USER');
-                                setShowHolidayModal(true);
-                            } else {
-                                // Normal Flow
-                                router.push(isRegion ? '/game/REGION/today' : '/game/USER/next');
-                            }
-                        }}
-                        height={144}
-                        iconStyle={{ width: 89, height: 89 }} // Increased 15% (77->89)
-                    >
-                        {todayStatus === 'solved' && (
-                            <View className="flex-row gap-2 mt-0 w-full">
-                                {/* Solved In Box */}
-                                <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
-                                    <ThemedText className="text-slate-700 font-n-medium text-sm">Solved in</ThemedText>
-                                    <ThemedText className="text-slate-700 font-n-bold text-xl">{guesses}</ThemedText>
-                                </View>
-                                {/* Streak Box */}
-                                <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
-                                    <ThemedText className="text-slate-700 font-n-medium text-sm">Streak</ThemedText>
-                                    <ThemedText className="text-slate-700 font-n-bold text-xl">{stats.current_streak}</ThemedText>
-                                </View>
-                            </View>
-                        )}
-                    </HomeCard>
-
-                    {/* 2. ARCHIVE BUTTON */}
-                    <HomeCard
-                        testID="home-card-archive"
-                        title={isRegion ? "UK Archive" : "Personal Archive"}
-                        icon={archiveIcon}
-                        backgroundColor={archiveColor}
-                        onPress={() => {
-                            incrementInteraction();
-                            router.push('/archive');
-                        }}
-                        height={120}
-                        iconStyle={{ width: 78, height: 78 }}
-                    >
-                        {/* Games Played Box - Under Title */}
-                        <View className="flex-row w-full">
-                            <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
-                                <ThemedText className="text-slate-700 font-n-medium text-sm">Played</ThemedText>
-                                <ThemedText className="text-slate-700 font-n-bold text-xl">{totalGames}</ThemedText>
-                            </View>
-                        </View>
-                    </HomeCard>
-
-                    {/* 3. STATS BUTTON */}
-                    <HomeCard
-                        testID="home-card-stats"
-                        title={isRegion ? "UK Stats" : "Personal Stats"}
-                        icon={statsIcon}
-                        backgroundColor={statsColor}
-                        onPress={() => {
-                            incrementInteraction();
-                            router.push(`/stats?mode=${isRegion ? 'REGION' : 'USER'}`);
-                        }}
-                        height={120} // Increased by 20% (100 -> 120)
-                        iconStyle={{ width: 78, height: 78 }}
-                    >
-                        {/* Stats Boxes */}
-                        <View className="flex-row gap-2 w-full">
-                            {/* % Won */}
-                            <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
-                                <ThemedText className="text-slate-700 font-n-medium text-sm">% Won</ThemedText>
-                                <ThemedText className="text-slate-700 font-n-bold text-xl">{winRate}%</ThemedText>
-                            </View>
-                            {/* Guess Avg */}
-                            <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
-                                <ThemedText className="text-slate-700 font-n-medium text-sm">Guess avg</ThemedText>
-                                <ThemedText className="text-slate-700 font-n-bold text-xl">{avgGuesses}</ThemedText>
-                            </View>
-                        </View>
-                    </HomeCard>
-
-
-                </View>
-            </ScrollView>
-        );
-    };
 
     const backgroundColor = useThemeColor({}, 'background');
     const surfaceColor = useThemeColor({}, 'surface');
@@ -660,8 +707,39 @@ export default function HomeScreen() {
                     scrollEventThrottle={16}
                     onMomentumScrollEnd={onMomentumScrollEnd}
                 >
-                    {renderGameContent(true)}
-                    {renderGameContent(false)}
+                    {/* Region Page */}
+                    <GameModePage
+                        isRegion={true}
+                        todayStatus={todayStatusRegion}
+                        guesses={guessesRegion}
+                        stats={regionStats}
+                        totalGames={regionStats.games_played || 0}
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        holidayActive={holidayActive}
+                        setHolidayModalMode={setHolidayModalMode}
+                        setShowHolidayModal={setShowHolidayModal}
+                        router={router}
+                        incrementInteraction={incrementInteraction}
+                        width={SCREEN_WIDTH}
+                    />
+
+                    {/* User Page */}
+                    <GameModePage
+                        isRegion={false}
+                        todayStatus={todayStatusUser}
+                        guesses={guessesUser}
+                        stats={userStats}
+                        totalGames={userStats.games_played || 0}
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        holidayActive={holidayActive}
+                        setHolidayModalMode={setHolidayModalMode}
+                        setShowHolidayModal={setShowHolidayModal}
+                        router={router}
+                        incrementInteraction={incrementInteraction}
+                        width={SCREEN_WIDTH}
+                    />
                 </Animated.ScrollView>
 
                 {/* Modals */}
@@ -680,10 +758,25 @@ export default function HomeScreen() {
                         setStreakSaverVisible(false);
                         if (action === 'dismiss') setDismissedPopup(true);
 
-                        // Chain User Animation if Region Holiday was just activated
-                        // Use timeout to ensure first modal is fully closed/unmounted
-                        if (action === 'holiday' && popupMode === 'REGION') {
-                            setTimeout(() => setUserAnimationVisible(true), 500);
+                        // [FIX] Sequence Chain: If we just finished REGION (via decline or holiday), 
+                        // and we know USER might be waiting, force a check/transition.
+                        if (popupMode === 'REGION') {
+                            // If action was 'decline' or 'holiday', we want to check for USER next.
+
+                            // 1. If we used/declined, check if User needs one
+                            const userHasOffer = streakSaverStatus?.user?.offerStreakSaver || streakSaverStatus?.user?.offerHolidayRescue;
+                            // Exclude 'holiday' action here - if they started holiday, it covers both, so we don't prompt User.
+                            // [FIX] Exclude 'use_streak_saver' - if they used it, they are navigating to game. Don't show User popup yet.
+                            // When they return from game, the useEffect will naturally pick up the User offer.
+                            if (userHasOffer && action === 'decline') {
+                                setTimeout(() => {
+                                    setPopupMode('USER');
+                                    setStreakSaverVisible(true);
+                                }, 500);
+                            } else if (action === 'holiday') {
+                                // 2. If we started Holiday, show User Animation confirm (legacy logic for visual confirmation)
+                                setTimeout(() => setUserAnimationVisible(true), 500);
+                            }
                         }
                     }}
 

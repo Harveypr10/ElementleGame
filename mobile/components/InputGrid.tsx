@@ -1,5 +1,6 @@
+
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Animated, Easing } from 'react-native';
+import { View, Animated } from 'react-native';
 import { styled } from 'nativewind';
 import { ArrowUp, ArrowDown } from 'lucide-react-native';
 import { ThemedText } from './ThemedText';
@@ -7,7 +8,6 @@ import { useThemeColor } from '../hooks/useThemeColor';
 import { useOptions } from '../lib/options';
 
 const StyledView = styled(View);
-const StyledText = styled(Text);
 const StyledAnimatedView = styled(Animated.View);
 
 export type CellState = "empty" | "correct" | "inSequence" | "notInSequence";
@@ -23,178 +23,193 @@ interface InputGridProps {
     currentInput: string;
     maxGuesses: number;
     placeholders?: string[];
-    invalidShake?: number; // Counter to trigger shake
+    invalidShake?: number;
     isRestored?: boolean;
-    animatingRowIndex?: number | null; // Row index for sequential animation on submission
 }
 
-interface AnimatedCellProps {
-    cell: { digit: string; state: CellState; arrow?: "up" | "down" };
+interface CellProps {
+    digit: string;
+    targetState: CellState;
+    arrow?: "up" | "down";
     isPlaceholder: boolean;
     placeholder: string;
     isActiveRow: boolean;
-    animateEntry?: boolean; // For restoration animation
-    delay?: number; // Delay for restoration animation
-    animateSubmission?: boolean; // For sequential digit animation on submission
-    cellIndex?: number; // Index for sequential delay calculation
-    themeColors: {
-        active: { bg: string, border: string },
-        default: { bg: string, border: string },
-        text: { active: string, default: string }
-    };
+    shouldAnimate: boolean; // Trigger the reveal animation
+    delay?: number;
+    isRestored?: boolean;
+    themeColors: any;
 }
 
-function AnimatedCell({ cell, isPlaceholder, placeholder, isActiveRow, animateEntry, delay = 0, animateSubmission, cellIndex = 0, themeColors }: AnimatedCellProps) {
-    // Opacity for restoration fade-in
-    // Start at 0 if we expect animation, 1 otherwise to prevent flash
-    const opacityAnim = useRef(new Animated.Value(animateEntry ? 0 : 1)).current;
-    const scaleAnim = useRef(new Animated.Value(1)).current;
-    const rotateX = useRef(new Animated.Value(0)).current; // For submission animation (3D flip)
+const RESULT_COLORS = {
+    correct: '#22c55e',       // Green-500 (Matches approx HSL(142, 71%, 45%))
+    inSequence: '#F59E0B',    // Amber-500 (Matches approx HSL(38, 92%, 55%))
+    notInSequence: '#94A3B8', // Slate-400 (Darker Grey as requested)
+};
 
-    // Track previous digit to detect changes (for typing)
-    const prevDigit = useRef(cell.digit);
-    const prevState = useRef(cell.state);
+function Cell({
+    digit,
+    targetState,
+    arrow,
+    isPlaceholder,
+    placeholder,
+    isActiveRow,
+    shouldAnimate,
+    delay = 0,
+    isRestored,
+    themeColors
+}: CellProps) {
+    // Animation Values
+    const scaleY = useRef(new Animated.Value(1)).current;
+
+    // Internal State: Controls whether we show the "Input" style or "Result" style
+    const [isRevealed, setIsRevealed] = useState(() => {
+        if (isRestored) return false;
+        if (shouldAnimate) return false;
+        if (targetState !== 'empty') return true;
+        return false;
+    });
+
+    // Prevent double animation
     const hasAnimated = useRef(false);
-    const hasFlipped = useRef(false);
 
-    // Track if this is the first render
-    const isFirstRender = useRef(true);
+    // Sync State
+    useEffect(() => {
+        if (!isRevealed && targetState !== 'empty' && !shouldAnimate && !hasAnimated.current && !isRestored) {
+            setIsRevealed(true);
+        }
+    }, [targetState, shouldAnimate, isRevealed, isRestored]);
+
+    // 1. Reveal Animation (Squash/Flip)
+    useEffect(() => {
+        if (shouldAnimate && !hasAnimated.current) {
+
+            Animated.sequence([
+                Animated.delay(delay),
+                Animated.timing(scaleY, {
+                    toValue: 0,
+                    duration: 250,
+                    useNativeDriver: true,
+                })
+            ]).start(() => {
+                // Mid-point callback: Swap the visual state
+                setIsRevealed(true);
+                hasAnimated.current = true;
+
+                Animated.timing(scaleY, {
+                    toValue: 1,
+                    duration: 250,
+                    useNativeDriver: true,
+                }).start();
+            });
+        }
+    }, [shouldAnimate, delay]);
+
+    // 2. Typing Pop Animation
+    const scalePop = useRef(new Animated.Value(1)).current;
+    const prevDigit = useRef(digit);
 
     useEffect(() => {
-        // CASE 1: Restoration Animation (when animateEntry becomes true)
-        if (animateEntry && !hasAnimated.current) {
-            // Reset to start values
-            opacityAnim.setValue(0);
-            scaleAnim.setValue(1);
-            hasAnimated.current = true;
-
+        if (isActiveRow && digit && digit !== prevDigit.current) {
+            scalePop.setValue(1);
             Animated.sequence([
-                Animated.delay(delay), // Stagger delay
-                Animated.parallel([
-                    // Fade in
-                    Animated.timing(opacityAnim, {
-                        toValue: 1,
-                        duration: 400,
-                        useNativeDriver: true,
-                    }),
-                    // Pop animation: grow then return to normal
-                    Animated.sequence([
-                        Animated.timing(scaleAnim, {
-                            toValue: 1.15,
-                            duration: 400,
-                            useNativeDriver: true,
-                        }),
-                        Animated.timing(scaleAnim, {
-                            toValue: 1,
-                            duration: 400,
-                            useNativeDriver: true,
-                        }),
-                    ])
-                ])
+                Animated.timing(scalePop, { toValue: 1.15, duration: 80, useNativeDriver: true }),
+                Animated.timing(scalePop, { toValue: 1, duration: 80, useNativeDriver: true }),
             ]).start();
         }
-        // CASE 2: Typing Animation (active row, digit change)
-        else if (isActiveRow && cell.digit && !prevDigit.current) {
-            // Standard type pop
-            scaleAnim.setValue(1); // Ensure starting at 1
-            Animated.sequence([
-                Animated.timing(scaleAnim, {
-                    toValue: 1.15,
-                    duration: 100,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(scaleAnim, {
-                    toValue: 1,
-                    duration: 100,
-                    useNativeDriver: true,
-                }),
-            ]).start();
+        prevDigit.current = digit;
+    }, [digit, isActiveRow]);
+
+
+    // --- RENDER HELPERS ---
+
+    const textColor = isRevealed
+        ? '#FFFFFF'
+        : (digit ? themeColors.text.active : themeColors.text.default);
+
+    // Border Logic Fix:
+    // User want border to remain BLACK until the flip happens.
+    // If we are animating (shouldAnimate=true) but NOT yet revealed (isRevealed=false),
+    // we are in the "Pre-Flip" phase.
+    // In this phase, we must show the ACTIVE style (Black Border).
+
+    let borderColor = 'transparent';
+    let borderWidth = 2; // Keep standard thickness
+
+    // Condition: Not revealed OR (Animating and in Pre-Flip phase)
+    // Actually, !isRevealed handles the pre-flip phase naturally.
+    if (!isRevealed) {
+        if (isActiveRow) {
+            if (digit) {
+                borderColor = themeColors.active.border; // Dark/Black for active input
+            } else {
+                borderColor = themeColors.default.border; // Light grey
+            }
         }
-
-        prevDigit.current = cell.digit;
-    }, [cell.digit, isActiveRow, animateEntry, delay]);
-
-    const hasDigit = !!cell.digit;
-
-    const getCellStyles = (state: CellState, hasDigit: boolean) => {
-        switch (state) {
-            case "correct":
-                return { className: "bg-game-correct border-game-correct border-0" };
-            case "inSequence":
-                return { className: "bg-game-inSequence border-game-inSequence border-0" };
-            case "notInSequence":
-                return { className: "bg-game-notInSequence border-game-notInSequence border-0" };
-            default:
-                if (hasDigit) {
-                    return {
-                        className: "border-2",
-                        style: { backgroundColor: themeColors.active.bg, borderColor: themeColors.active.border }
-                    };
-                }
-                return {
-                    className: "border-2",
-                    style: { backgroundColor: themeColors.default.bg, borderColor: themeColors.default.border }
-                };
+        // If it WAS the active row but is now submitted (e.g. animating), it's no longer 'isActiveRow'.
+        // But for the purpose of the animation "starting point", it should look like it did a moment ago.
+        else if (shouldAnimate) {
+            // It's the row being animated. It should look like a filled active row before it flips.
+            borderColor = themeColors.active.border;
         }
-    };
+        else {
+            borderColor = themeColors.default.border;
+        }
+    }
 
-    const getCellTextColors = (state: CellState, hasDigit: boolean) => {
-        if (state !== 'empty') return 'text-white';
-        // Bold black text for input (or white in dark mode manually)
-        return { color: hasDigit ? themeColors.text.active : themeColors.text.default };
-    };
+    const backgroundColor = isRevealed
+        ? (targetState === 'correct' ? RESULT_COLORS.correct :
+            targetState === 'inSequence' ? RESULT_COLORS.inSequence :
+                targetState === 'notInSequence' ? RESULT_COLORS.notInSequence : 'transparent')
+        : (isActiveRow || shouldAnimate ? themeColors.active.bg : themeColors.default.bg);
 
-    let content = "";
-    if (cell.digit) content = cell.digit;
-    else if (isPlaceholder) content = placeholder;
+    const transform = [
+        { scaleY },
+        { scale: scalePop }
+    ];
 
-
-
-    const cellStyleInfo = getCellStyles(cell.state, hasDigit);
-    const textStyleInfo = getCellTextColors(cell.state, hasDigit);
+    const showPlaceholder = isPlaceholder && isActiveRow;
 
     return (
-        <StyledAnimatedView
-            style={[
-                {
-                    transform: [
-                        { scale: scaleAnim }
-                    ],
-                    opacity: opacityAnim,
-                    flexBasis: 0,
-                    flexShrink: 1,
-                    flexGrow: 1
-                },
-                cellStyleInfo.style
-            ]}
-            className={`min-h-[60px] max-w-[54px] mx-0.5 my-1 rounded-md justify-center pt-1 items-center ${cellStyleInfo.className}`}
-        >
-            <ThemedText
-                className={`font-nunito ${hasDigit ? '' : 'opacity-30'} ${typeof textStyleInfo === 'string' ? textStyleInfo : ''}`}
-                style={typeof textStyleInfo !== 'string' ? textStyleInfo : undefined}
-                size={hasDigit ? '3xl' : '2xl'}
+        <View className="flex-1 min-h-[60px] max-w-[54px] mx-0.5 my-1" style={{ height: 60 }}>
+            <StyledAnimatedView
+                style={[
+                    {
+                        transform,
+                        borderColor: borderColor,
+                        borderWidth: borderWidth,
+                        backgroundColor: backgroundColor,
+                    }
+                ]}
+                className={`flex-1 rounded-md justify-center items-center`}
             >
-                {content}
-            </ThemedText>
+                {/* Digit: Reduced font weight (font-nunito instead of bold), Pushed slightly down/right */}
+                <ThemedText
+                    className={`font-nunito ${digit || isRevealed ? '' : 'opacity-30'}`}
+                    style={{ color: textColor, paddingTop: 4, paddingLeft: 2 }}
+                    size={digit || isRevealed ? '3xl' : '2xl'}
+                >
+                    {digit || (showPlaceholder ? placeholder : "")}
+                </ThemedText>
 
-            {/* Arrow Indicator */}
-            {cell.arrow && (
-                <View className="absolute top-1 right-1">
-                    {cell.arrow === 'up' ? (
-                        <ArrowUp size={14} color="white" strokeWidth={2.5} />
-                    ) : (
-                        <ArrowDown size={14} color="white" strokeWidth={2.5} />
-                    )}
-                </View>
-            )}
-        </StyledAnimatedView>
+                {/* Arrows: Pushed closer to corner (right-0.5 top-0.5), Smaller */}
+                {isRevealed && arrow && (
+                    <View className="absolute top-0.5 right-0.5">
+                        {arrow === 'up' ? (
+                            <ArrowUp size={14} color="white" strokeWidth={2.5} />
+                        ) : (
+                            <ArrowDown size={14} color="white" strokeWidth={2.5} />
+                        )}
+                    </View>
+                )}
+            </StyledAnimatedView>
+        </View>
     );
 }
 
-// Wrapper to animate the ROW
+// Wrapper to animate the ROW (Shake on Invalid)
 function AnimatedRow({ children, shouldShake }: { children: React.ReactNode, shouldShake: number }) {
     const shakeAnim = useRef(new Animated.Value(0)).current;
-    const prevShake = useRef(0);
+    const prevShake = useRef(shouldShake);
 
     useEffect(() => {
         if (shouldShake > prevShake.current) {
@@ -219,6 +234,7 @@ function AnimatedRow({ children, shouldShake }: { children: React.ReactNode, sho
     );
 }
 
+
 export function InputGrid({
     guesses,
     currentInput,
@@ -228,8 +244,9 @@ export function InputGrid({
     isRestored = false
 }: InputGridProps) {
     const { darkMode } = useOptions();
-    // Manual Theme Def because cells use dynamic conditions
-    const themeColors = {
+
+    // Memoize colors
+    const themeColors = React.useMemo(() => ({
         active: {
             bg: darkMode ? '#0f172a' : '#ffffff',
             border: darkMode ? '#ffffff' : '#000000'
@@ -242,114 +259,92 @@ export function InputGrid({
             active: darkMode ? '#ffffff' : '#0f172a',
             default: darkMode ? '#475569' : '#cbd5e1'
         }
-    };
+    }), [darkMode]);
+
+    // Track submitted rows to trigger animation logic for "Just Submitted" case
+    // NOTE: This logic is cleaner than state. We derive "Just Submitted" from props if needed,
+    // but detecting the "latest" row is tricky without state if component re-renders.
+    // Actually, simply checking if `rowIdx == guesses.length - 1` is enough, 
+    // IF we trust that `guesses` only grows.
+    // But `isRestored` handles the "initial load" case correctly.
+
+    // We removed lastSubmittedIdx state as per plan to ensure instant animation trigger.
 
     const numCells = placeholders.length;
-    const prevGuessesLengthRef = useRef(guesses.length);
-    const [newlySubmittedRowIndex, setNewlySubmittedRowIndex] = useState<number | null>(null);
-    const [fadingOutRow, setFadingOutRow] = useState(false);
-    const [displayedGuesses, setDisplayedGuesses] = useState<CellFeedback[][]>(guesses);
 
-    // Sync displayed guesses with actual guesses, but with animation delay
-    useEffect(() => {
-        if (!isRestored && guesses.length > prevGuessesLengthRef.current) {
-            // New guess submitted - start fade-out
-            setFadingOutRow(true);
-
-            // After fade-out completes (50ms), update displayed guesses and trigger fade-in
-            setTimeout(() => {
-                setDisplayedGuesses(guesses); // Show the new colored row
-                setFadingOutRow(false);
-                const newRowIndex = guesses.length - 1;
-                setNewlySubmittedRowIndex(newRowIndex);
-
-                // Clear animation state
-                setTimeout(() => {
-                    setNewlySubmittedRowIndex(null);
-                }, 2500);
-            }, 50);
-        } else {
-            // Direct update for restored games or initial load
-            setDisplayedGuesses(guesses);
-        }
-        prevGuessesLengthRef.current = guesses.length;
-    }, [guesses, guesses.length, isRestored]);
-
+    // Grid Construction
     const rows = Array.from({ length: maxGuesses }, (_, i) => {
-        if (i < displayedGuesses.length) return displayedGuesses[i]; // Completed guess
-        if (i === displayedGuesses.length) {
-            // Current active row
+        if (i < guesses.length) return guesses[i]; // Completed
+        if (i === guesses.length) { // Active
             return Array.from({ length: numCells }, (_, j) => ({
                 digit: currentInput[j] || "",
                 state: "empty" as CellState,
             }));
         }
-        // Future empty rows
+        // Future
         return Array(numCells).fill({ digit: "", state: "empty" });
     });
 
     return (
         <View className="flex-1 w-full justify-start pt-2 items-center">
             {rows.map((row, rowIdx) => {
-                const isActiveRow = rowIdx === displayedGuesses.length;
+                const isActiveRow = rowIdx === guesses.length;
+                const isSubmittedRow = rowIdx < guesses.length;
 
-                // Wrap in Animated Row if active
-                if (isActiveRow) {
-                    return (
-                        <AnimatedRow key={rowIdx} shouldShake={invalidShake}>
-                            <View style={{ opacity: fadingOutRow ? 0 : 1, flex: 1, flexDirection: 'row' }}>
-                                {row.map((cell, cellIdx) => {
-                                    const hasDigit = !!cell.digit;
-                                    const isPlaceholder = isActiveRow && !hasDigit;
-                                    return (
-                                        <AnimatedCell
-                                            key={`${rowIdx}-${cellIdx}`}
-                                            cell={cell}
-                                            isPlaceholder={isPlaceholder}
-                                            placeholder={placeholders[cellIdx]}
-                                            isActiveRow={isActiveRow}
-                                            themeColors={themeColors}
-                                        />
-                                    );
-                                })}
-                            </View>
-                        </AnimatedRow>
-                    );
+                // Animation Logic
+                // If Restored: Animate ALL submitted rows in sequence (as requested)
+                // If Playing: Animate ONLY the row that was just submitted (guesses.length - 1)
+
+                let shouldAnimateRow = false;
+
+                if (isRestored) {
+                    if (isSubmittedRow) shouldAnimateRow = true;
+                } else {
+                    // Logic: If this row is the LATEST submitted row, animate it.
+                    // When user submits, guesses.length increments.
+                    // The component re-renders.
+                    // The row at index `guesses.length - 1` is the new submitted row.
+                    // It should animate.
+                    // Previous rows (index < length - 1) will have `shouldAnimateRow = false`.
+                    // They will render revealed immediately (via cell sync logic).
+                    if (isSubmittedRow && rowIdx === guesses.length - 1) {
+                        shouldAnimateRow = true;
+                    }
                 }
 
-                // Regular Row (filled or completed)
-                return (
-                    <View key={rowIdx} className="flex-row justify-center w-full max-w-md mx-auto px-2">
-                        {row.map((cell, cellIdx) => {
-                            // Calculate delay for staggered restoration animation
-                            // Row delay: 300ms between rows
-                            // Cell delay within row: 200ms per cell (8 cells = 1600ms per row)
-                            const rowDelay = rowIdx * 300; // 0ms, 300ms, 600ms, 900ms, 1200ms for rows 0-4
-                            const cellDelay = cellIdx * 200; // 0ms, 200ms, 400ms, ... for cells within row
-                            const totalDelay = (isRestored || rowIdx === newlySubmittedRowIndex) ? rowDelay + cellDelay : 0;
-                            // Animate if we're in restore mode OR this row was just submitted
-                            const isCompletedRow = rowIdx < guesses.length;
-                            const shouldAnimate = (isRestored && isCompletedRow) || (rowIdx === newlySubmittedRowIndex);
+                // Shake logic (only active row)
+                const shakeTrigger = isActiveRow ? invalidShake : 0;
 
-                            // Hide this row if it's currently being submitted (during fade-out period)
-                            if (rowIdx === guesses.length - 1 && fadingOutRow) {
-                                return <View key={`${rowIdx}-${cellIdx}`} className="flex-1 min-h-[60px] max-w-[54px] mx-0.5 my-1" />;
-                            }
+                return (
+                    <AnimatedRow key={`row-${rowIdx}`} shouldShake={shakeTrigger}>
+                        {row.map((cell: any, cellIdx: number) => {
+                            // Stagger delay: 
+                            // If restored: (Row * 600) + (Cell * 250) -> Sequential cascade
+                            // If playing: (Cell * 250) -> Standard flip
+
+                            const baseDelay = isRestored ? rowIdx * 600 : 0;
+                            const delay = baseDelay + (cellIdx * 250);
+
+                            // Check if this is a placeholder cell
+                            const isPlaceholder = !cell.digit && isActiveRow;
 
                             return (
-                                <AnimatedCell
-                                    key={`${rowIdx}-${cellIdx}`}
-                                    cell={cell}
-                                    isPlaceholder={false}
+                                <Cell
+                                    key={`cell-${rowIdx}-${cellIdx}`}
+                                    digit={cell.digit}
+                                    targetState={cell.state}
+                                    arrow={cell.arrow}
+                                    isPlaceholder={isPlaceholder}
                                     placeholder={placeholders[cellIdx]}
-                                    isActiveRow={false}
-                                    animateEntry={shouldAnimate}
-                                    delay={totalDelay}
+                                    isActiveRow={isActiveRow}
+                                    shouldAnimate={shouldAnimateRow}
+                                    delay={delay}
+                                    isRestored={isRestored}
                                     themeColors={themeColors}
                                 />
                             );
                         })}
-                    </View>
+                    </AnimatedRow>
                 );
             })}
         </View>

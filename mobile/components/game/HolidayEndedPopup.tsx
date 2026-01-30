@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, Image } from 'react-native';
+import { View, Text, Modal, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { Palmtree, X } from 'lucide-react-native';
@@ -51,7 +52,8 @@ export function HolidayEndedPopup({ visible, onClose }: HolidayEndedPopupProps) 
                         <Image
                             source={HistorianHamster}
                             style={{ width: 80, height: 80, position: 'absolute', bottom: -10 }}
-                            resizeMode="contain"
+                            contentFit="contain"
+                            cachePolicy="disk"
                         />
                     </StyledView>
 

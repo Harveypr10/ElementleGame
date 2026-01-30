@@ -8,7 +8,7 @@
  * Run this once to set up the database functions.
  */
 
-import { supabase } from './supabase';
+import { supabase } from '../supabase';
 
 const RPC_FUNCTIONS = {
     activate_holiday_mode: `
@@ -81,7 +81,9 @@ BEGIN
     SET 
         holiday_active = FALSE,
         holiday_ended = CASE WHEN p_acknowledge THEN FALSE ELSE TRUE END,
-        holiday_days_taken_current_period = CURRENT_DATE - holiday_start_date
+        holiday_days_taken_current_period = CURRENT_DATE - holiday_start_date,
+        holiday_start_date = NULL,
+        holiday_end_date = NULL
     WHERE user_id = p_user_id
       AND holiday_active = TRUE;
     
@@ -380,6 +382,7 @@ export async function createRPCFunctions() {
         try {
             console.log(`Creating function: ${name}...`);
 
+            //@ts-ignore
             const { data, error } = await supabase.rpc('exec_sql', {
                 sql_query: sql
             });

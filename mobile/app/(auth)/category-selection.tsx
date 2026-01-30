@@ -5,12 +5,14 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Image, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, useColorScheme } from 'react-native';
+import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, Loader2, ChevronLeft } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { hapticsManager } from '../../lib/hapticsManager';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -32,6 +34,13 @@ interface Category {
 export default function CategorySelectionScreen() {
     const router = useRouter();
     const { user } = useAuth();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
+
+    // System colors matches stats.tsx
+    const systemBackgroundColor = '#020617'; // slate-950
+    const systemSurfaceColor = '#1e293b'; // slate-800
+
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
     const [initialCategories, setInitialCategories] = useState<number[]>([]);
@@ -274,95 +283,142 @@ export default function CategorySelectionScreen() {
     }
 
     return (
-        <ThemedView className="flex-1">
-            <SafeAreaView className="flex-1">
-                {/* Header Spacer for Back Arrow Alignment (Matches Settings) */}
-                <StyledView className="px-4 py-3 relative z-20">
-                    <StyledTouchableOpacity
-                        onPress={handleExit}
-                        className="absolute left-4 top-3 p-2"
-                    >
-                        <ChevronLeft size={28} color={iconColor} />
-                    </StyledTouchableOpacity>
-                </StyledView>
+        <ThemedView className="flex-1" style={{ backgroundColor: isDark ? systemBackgroundColor : '#FAFBFC' }}>
+            {/* Header with Orange Accent */}
+            <StyledView style={{ backgroundColor: '#f97316' }}>
+                <SafeAreaView edges={['top']} className="px-5 pb-6">
+                    <StyledView className="flex-row items-center justify-between py-2 relative">
+                        {/* Back Button - Absolute Left */}
+                        <StyledTouchableOpacity
+                            onPress={handleExit}
+                            className="absolute left-0 top-2 p-2 -ml-2 z-10"
+                        >
+                            <ChevronLeft size={28} color="#FFFFFF" />
+                        </StyledTouchableOpacity>
 
-                <StyledView className="flex-1 px-6">
-                    <StyledView className="py-2 mt-0 relative">
-                        <ThemedText className="font-n-bold mb-2 text-center" size="3xl">
-                            Select Your{'\n'}Categories
-                        </ThemedText>
-                        <ThemedText className="font-n-medium text-center opacity-60" size="base">
-                            Choose at least 3 categories
-                        </ThemedText>
+                        {/* Title - Centered */}
+                        <StyledView className="flex-1 items-center px-12">
+                            <ThemedText className="font-n-bold font-heading text-center" size="3xl" style={{ color: '#FFFFFF', lineHeight: 32 }}>
+                                Select Your{'\n'}Categories
+                            </ThemedText>
+                            <ThemedText className="font-n-medium text-center mt-1" size="base" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                                Choose at least 3 categories
+                            </ThemedText>
+                        </StyledView>
 
-                        {/* Hamster Image - Positioned relative to Title */}
+                        {/* Hamster Image - Absolute Right */}
                         <StyledView className="absolute right-0 top-0">
                             <Image
                                 source={require('../../assets/ui/webp_assets/Question-Hamster-v2.webp')}
-                                style={{ width: 80, height: 80 }}
-                                resizeMode="contain"
+                                style={{ width: 72, height: 72 }}
+                                contentFit="contain"
+                                cachePolicy="disk"
                             />
                         </StyledView>
                     </StyledView>
+                </SafeAreaView>
+            </StyledView>
 
-                    {/* Categories Grid */}
-                    <StyledScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-                        <StyledView className="flex-row flex-wrap gap-2 pb-6">
-                            {categories.map(category => {
-                                const isSelected = selectedCategories.includes(category.id);
-                                const itemBg = isSelected ? '#3b82f6' : surfaceColor; // Blue 500 or Surface
-                                const itemBorder = isSelected ? '#3b82f6' : borderColor;
+            {/* Categories Grid - Overlapping Header */}
+            <StyledScrollView
+                className="flex-1"
+                showsVerticalScrollIndicator={false}
+                style={{ marginTop: -18 }} // Pull up overlap (reduced from -24 to move down slightly)
+                contentContainerStyle={{ paddingBottom: 160 }} // Extra padding for taller button area
+            >
+                <StyledView className="px-4">
+                    <StyledView className="flex-row flex-wrap gap-2 pb-6 justify-center">
+                        {categories.map(category => {
+                            const isSelected = selectedCategories.includes(category.id);
+                            // Darker Grey #64748B for selected state
+                            const itemBg = isSelected ? '#64748B' : (isDark ? systemSurfaceColor : '#FFFFFF');
+                            // No border when unselected
+                            const itemBorder = isSelected ? '#64748B' : 'transparent';
 
-                                return (
-                                    <StyledTouchableOpacity
-                                        key={category.id}
-                                        onPress={() => toggleCategory(category.id)}
-                                        style={{ minHeight: 56, backgroundColor: itemBg, borderColor: itemBorder }}
-                                        className={`flex-1 min-w-[48%] px-4 py-3 rounded-xl items-center justify-center border`}
+                            return (
+                                <StyledTouchableOpacity
+                                    key={category.id}
+                                    onPress={() => toggleCategory(category.id)}
+                                    style={{
+                                        minHeight: 68, // Increased height (+20%)
+                                        borderColor: itemBorder,
+                                        backgroundColor: itemBg,
+                                        borderWidth: 1, // Keep border width for structure
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 2 },
+                                        shadowOpacity: isSelected || isDark ? 0 : 0.05, // Only shadow on white cards
+                                        shadowRadius: 3,
+                                        elevation: isSelected || isDark ? 0 : 2,
+                                    }}
+                                    className={`flex-1 min-w-[44%] px-3 py-3 rounded-xl items-center justify-center`} // Reduced width ~10% via min-w
+                                >
+                                    <ThemedText
+                                        className={`font-n-bold text-center ${isSelected ? 'text-white' : ''}`}
+                                        size="sm"
                                     >
-                                        <ThemedText
-                                            className={`font-n-bold text-center ${isSelected ? 'text-white' : ''}`}
-                                            size="sm"
-                                        >
-                                            {category.name}
-                                        </ThemedText>
-                                    </StyledTouchableOpacity>
-                                );
-                            })}
-                        </StyledView>
-                    </StyledScrollView>
-
-                    {/* Bottom Action */}
-                    <StyledView className="py-4">
-                        <ThemedText className="mb-3 text-center font-n-medium opacity-60" size="sm">
-                            {selectedCategories.length} {selectedCategories.length === 1 ? 'Category' : 'Categories'} Selected
-                        </ThemedText>
-
-                        <StyledTouchableOpacity
-                            onPress={handleContinue}
-                            disabled={!canGenerate || saving || generating}
-                            className={`py-4 rounded-full items-center`}
-                            style={{
-                                backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : borderColor,
-                                opacity: canGenerate && !saving && !generating ? 1 : 0.7
-                            }}
-                        >
-                            {saving || generating ? (
-                                <StyledView className="flex-row items-center">
-                                    <Loader2 size={20} color="white" className="mr-2" />
-                                    <ThemedText className="text-white font-n-bold" size="lg">
-                                        {generating ? 'Generating...' : 'Saving...'}
+                                        {category.name}
                                     </ThemedText>
-                                </StyledView>
-                            ) : (
-                                <ThemedText className={`font-n-bold ${canGenerate ? 'text-white' : 'text-slate-500'}`} size="lg">
-                                    {initialCategories.length === 0 ? 'Generate' : 'Re-Generate'}
-                                </ThemedText>
-                            )}
-                        </StyledTouchableOpacity>
+                                </StyledTouchableOpacity>
+                            );
+                        })}
                     </StyledView>
                 </StyledView>
-            </SafeAreaView>
+            </StyledScrollView>
+
+            {/* Bottom Action Area - Fixed at Bottom */}
+            <StyledView className="absolute bottom-0 left-0 right-0 px-6 pb-8 pt-0 border-t border-transparent"
+                style={{
+                    // Gradient handled by LinearGradient
+                }}
+            >
+                <LinearGradient
+                    colors={['transparent', isDark ? systemBackgroundColor : '#FAFBFC']}
+                    style={{ position: 'absolute', top: -60, left: 0, right: 0, bottom: 0 }}
+                    pointerEvents="none"
+                />
+
+                <StyledTouchableOpacity
+                    onPress={handleContinue}
+                    disabled={!canGenerate || saving || generating}
+                    className={`rounded-full items-center shadow-lg justify-center`}
+                    style={{
+                        backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : '#48EDF3', // Blue-500 or Cyan (User request)
+                        opacity: 1, // Solid opacity always
+                        paddingVertical: 24, // Increased height
+                    }}
+                >
+                    {saving || generating ? (
+                        <StyledView className="items-center">
+                            <StyledView className="flex-row items-center mb-1">
+                                <Loader2 size={24} color="white" className="mr-2" />
+                                <ThemedText className="text-white font-n-bold" size="lg">
+                                    {generating ? 'Generating...' : 'Saving...'}
+                                </ThemedText>
+                            </StyledView>
+                            <ThemedText className="text-white font-n-medium opacity-80" size="sm">
+                                Please wait
+                            </ThemedText>
+                        </StyledView>
+                    ) : (
+                        <StyledView className="items-center">
+                            <ThemedText
+                                className="font-n-bold"
+                                size="lg"
+                                style={{ color: canGenerate ? '#FFFFFF' : textColor }} // White or Default Text Color
+                            >
+                                {initialCategories.length === 0 ? 'Generate' : 'Re-Generate'}
+                            </ThemedText>
+                            <ThemedText
+                                className="font-n-medium opacity-90 mt-0.5"
+                                size="sm"
+                                style={{ color: canGenerate ? '#FFFFFF' : textColor }} // White or Default Text Color
+                            >
+                                {selectedCategories.length} {selectedCategories.length === 1 ? 'Category' : 'Categories'} Selected
+                            </ThemedText>
+                        </StyledView>
+                    )}
+                </StyledTouchableOpacity>
+            </StyledView>
 
             {/* Welcome Pro Modal */}
             <Modal
