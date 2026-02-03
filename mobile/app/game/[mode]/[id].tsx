@@ -58,7 +58,7 @@ export default function GameScreen() {
     const isGuest = !user;
 
     // Streak Saver Integration
-    const { isInStreakSaverMode } = useStreakSaver();
+    const { isInStreakSaverMode, streakSaverSession } = useStreakSaver();
     const { declineStreakSaver } = useStreakSaverStatus();
     const [showExitWarning, setShowExitWarning] = useState(false);
     const [helpVisible, setHelpVisible] = useState(false);
@@ -66,8 +66,16 @@ export default function GameScreen() {
 
     // Intercept back navigation
     const handleBack = async () => {
-        if (isInStreakSaverMode && gameState !== 'won' && gameState !== 'lost') {
-            // If in streak saver and game is active, show warning
+        // Only show warning if ALL of these conditions are true:
+        // 1. User is in streak saver mode (has an active session)
+        // 2. The current game is not finished (not won/lost)
+        // 3. The current puzzle matches the streak saver session's puzzle date AND game type
+        const isPlayingStreakSaverPuzzle = streakSaverSession && puzzle &&
+            streakSaverSession.puzzleDate === puzzle.date &&
+            streakSaverSession.gameType === mode;
+
+        if (isInStreakSaverMode && isPlayingStreakSaverPuzzle && gameState !== 'won' && gameState !== 'lost') {
+            // If in streak saver AND playing the actual streak saver puzzle (yesterday's), show warning
             setShowExitWarning(true);
             return;
         }

@@ -222,6 +222,44 @@ export async function checkAndAwardElementleBadge(
             .single();
 
         if (insertError) {
+            // Handle duplicate key error (race condition)
+            if (insertError.code === '23505') {
+                console.log('[BadgeLogic] Duplicate key detected, fetching and updating existing badge');
+                // Badge was inserted by another process, fetch and update it
+                const { data: existingBadge } = await supabase
+                    .from('user_badges')
+                    .select('*')
+                    .eq('user_id', userId)
+                    .eq('badge_id', badge.id)
+                    .eq('region', region)
+                    .eq('game_type', gameType)
+                    .maybeSingle();
+
+                if (existingBadge) {
+                    const newCount = (existingBadge.badge_count || 1) + 1;
+                    const { data: updatedBadge } = await supabase
+                        .from('user_badges')
+                        .update({
+                            badge_count: newCount,
+                            is_awarded: false,
+                            awarded_at: new Date().toISOString()
+                        })
+                        .eq('id', existingBadge.id)
+                        .select()
+                        .single();
+
+                    if (updatedBadge) {
+                        return {
+                            ...updatedBadge,
+                            badge_name: badge.name,
+                            description: `You solved today's Elementle in ${guessCount} guess${guessCount > 1 ? 'es' : ''}!`,
+                            category: badge.category,
+                            threshold: badge.threshold
+                        };
+                    }
+                }
+            }
+
             console.error('[BadgeLogic] Failed to award elementle badge:', insertError);
             return null;
         }

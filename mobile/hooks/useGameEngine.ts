@@ -641,7 +641,7 @@ export function useGameEngine({
             setGameState('won');
             // Show interstitial ad after delay (SKIP FOR GUESTS - they watched one at start)
             if (user) {
-                setTimeout(() => showInterstitialAd(), 3000);
+                setTimeout(() => showInterstitialAd(), 2500);
             }
         } else if (newGuesses.length >= maxGuesses) {
             hapticsManager.error(); // Lost game haptic
@@ -649,7 +649,7 @@ export function useGameEngine({
             setGameState('lost');
             // Show interstitial ad after delay (SKIP FOR GUESTS)
             if (!isGuest) {
-                setTimeout(() => showInterstitialAd(), 3000);
+                setTimeout(() => showInterstitialAd(), 2500);
             }
         } else {
             hapticsManager.warning(); // Incorrect guess but game continues

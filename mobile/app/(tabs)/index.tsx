@@ -149,7 +149,7 @@ const GameModePage = React.memo(({
             <View className="space-y-4">
                 {/* PERCENTILE TEXT (Dynamic & Above Play Button) */}
                 {percentileMessage && (
-                    <ThemedText className="text-slate-500 font-n-medium text-center mb-4" baseSize={14 * scale}>
+                    <ThemedText className="text-slate-500 font-n-medium text-center mb-4" baseSize={16 * scale}>
                         {percentileMessage}
                     </ThemedText>
                 )}
@@ -402,6 +402,16 @@ export default function HomeScreen() {
 
     // Check for streak saver eligibility and show popup
     useEffect(() => {
+        // [DEBUG] Log guard conditions to identify blocking issue
+        console.log('[Home PopupGuard] Checking conditions:', {
+            isAppReady,
+            isFocused,
+            loading,
+            hasUser: !!user,
+            dismissedPopup,
+            isInStreakSaverMode
+        });
+
         // Only show popup when app is ready, screen is focused, loaded, and not dismissed
         // [FIX] Also suppress if we are currently IN a streak saver mode (e.g. just clicked "Use")
         if (isAppReady && isFocused && !loading && user && !dismissedPopup && !isInStreakSaverMode) {
@@ -430,11 +440,25 @@ export default function HomeScreen() {
             // GLOBAL CHECK (Independent of current tab)
             // Prioritize Region, then User
 
+            // [DEBUG] Log current state for debugging
+            console.log('[Home PopupCheck] Evaluating popup eligibility:', {
+                regionOfferStreakSaver,
+                regionOfferHolidayRescue,
+                userOfferStreakSaver,
+                userOfferHolidayRescue,
+                holidayActive,
+                isJustCompletedRegion: isJustCompleted('REGION'),
+                isJustCompletedUser: isJustCompleted('USER'),
+                streakSaverVisible,
+                popupMode
+            });
+
             // 1. Region Checks
             if (!isJustCompleted('REGION')) {
                 // [FIX] Do NOT show rescue popup if Holiday Mode is ALREADY active.
                 // The gap logic might still see a gap, but if we are on holiday, it's protected.
                 if ((regionOfferHolidayRescue || regionOfferStreakSaver) && !holidayActive) {
+                    console.log('[Home PopupCheck] Showing REGION popup');
                     setPopupMode('REGION');
                     setStreakSaverVisible(true);
                     return;
@@ -444,11 +468,14 @@ export default function HomeScreen() {
             // 2. User Checks
             if (!isJustCompleted('USER')) {
                 if ((userOfferHolidayRescue || userOfferStreakSaver) && !holidayActive) {
+                    console.log('[Home PopupCheck] Showing USER popup');
                     setPopupMode('USER');
                     setStreakSaverVisible(true);
                     return;
                 }
             }
+
+            console.log('[Home PopupCheck] No popup to show');
         }
     }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup, streakSaverVisible, popupMode, isInStreakSaverMode, holidayActive]);
 
@@ -485,6 +512,24 @@ export default function HomeScreen() {
     const scrollViewRef = useRef<ScrollView>(null);
 
     const lastFetchRef = useRef<number>(0);
+    const prevUserIdRef = useRef<string | undefined>(undefined);
+
+    // Reset throttle and force refetch when user ID changes 
+    // (important for guest migration - ensures fresh data after sign-up)
+    useEffect(() => {
+        if (user?.id && user.id !== prevUserIdRef.current) {
+            console.log('[Home] User ID changed - resetting throttle and forcing refetch');
+            lastFetchRef.current = 0; // Reset throttle
+            prevUserIdRef.current = user.id;
+            // Small delay to ensure migration has completed
+            const timer = setTimeout(() => {
+                refetchRegionStats();
+                refetchUserStats();
+                refetchPending();
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [user?.id, refetchRegionStats, refetchUserStats, refetchPending]);
 
     const fetchData = useCallback(async (force = false) => {
         const now = Date.now();

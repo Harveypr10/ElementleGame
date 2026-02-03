@@ -12,6 +12,7 @@ import { NumericKeyboard } from '../NumericKeyboard';
 import { useGameEngine } from '../../hooks/useGameEngine';
 import { useAuth } from '../../lib/auth';
 import { useInterstitialAd } from '../../hooks/useInterstitialAd';
+import { useSubscription } from '../../hooks/useSubscription';
 import { IntroScreen } from './IntroScreen';
 import { useOptions } from '../../lib/options';
 
@@ -61,7 +62,9 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     const { dateLength, cluesEnabled, dateFormatOrder } = useOptions();
     const { user } = useAuth();
     const isGuest = !user;
-    const { showAd } = useInterstitialAd();
+
+    const { showAd, isClosed: adClosed } = useInterstitialAd();
+    const { isPro } = useSubscription();
     const surfaceColor = useThemeColor({}, 'surface');
     const queryClient = useQueryClient();
 
@@ -157,8 +160,13 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     // const showIntro = introVisible !== undefined ? introVisible : localShowIntro; // REMOVED
     // const setShowIntro = onIntroChange || setLocalShowIntro; // REMOVED
 
-    const [showStreakCelebration, setShowStreakCelebration] = React.useState(false);
     const [streakToDisplay, setStreakToDisplay] = React.useState(0);
+    const [readyForCelebration, setReadyForCelebration] = React.useState(false);
+    const [buttonEnabled, setButtonEnabled] = React.useState(false);
+    // navigationStartedRef and navigateToResultRef are now defined earlier (before handleAdClosed callback)
+    const previousAdClosedRef = React.useRef(false);
+    const [earnedBadgesState, setEarnedBadgesState] = React.useState<any[]>([]);
+    const proNavigationTimerRef = React.useRef<NodeJS.Timeout | null>(null); // Store Pro user timer to cancel on manual Continue
 
     // Calculate effective streak to show in Intro
     // use finalStreak (if just won) or current stats streak
@@ -273,11 +281,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     useEffect(() => {
         if (processedGame.current) return;
 
-        // Skip celebration logic if game was restored
-        if (isRestored) {
-            processedGame.current = true;
-            return;
-        }
+
 
         if (gameState === 'won') {
             // [FIX] Wait for finalStreak to be populated by GameEngine before processing
@@ -291,11 +295,10 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             let timer: NodeJS.Timeout;
 
             const handleWin = async () => {
-                // 1. Trigger Confetti Immediately
+                // 1. Set streak display value immediately
                 const displayStreak = finalStreak ?? stats?.current_streak ?? 1;
                 setStreakToDisplay(displayStreak);
-                console.log(`[ActiveGame] Triggering StreakCelebration with streak: ${displayStreak}`);
-                setShowStreakCelebration(true); // <--- SHOW CELEBRATION HERE
+                console.log(`[ActiveGame] Set streak for celebration: ${displayStreak}`);
 
                 // 2. Refetch stats in background
                 const { data: newStats } = await refetchStats();
@@ -305,66 +308,71 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                 queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
 
                 // Check badges (Directly via RPC to avoid cache delays)
+                // IMPORTANT: Skip badge awarding if this is a restored game (viewing completed game)
                 let earnedBadges: any[] = [];
-                try {
-                    // Get region context
-                    let userRegion = 'UK'; // Default
-                    // Note: We might need to fetch the user's region here if we want to be 100% accurate for REGION mode
-                    // But ActiveGame doesn't have easy access to profile without a query. 
-                    // However, useGameEngine does this too.
-                    // For UI feedback, 'UK' default is acceptable if we can't get it, or we rely on what useGameEngine did?
-                    // Let's try to fetch it quickly or use 'UK' as fallback.
-                    if (gameMode === 'REGION' && user) {
-                        const { data: profile } = await supabase.from('user_profiles').select('region').eq('id', user.id).single();
-                        userRegion = profile?.region || 'UK';
+                if (isRestored) {
+                    console.log('[ActiveGame] Skipping badge check - restored game (viewing, not fresh win)');
+                } else {
+                    try {
+                        // Get region context
+                        let userRegion = 'UK'; // Default
+                        // Note: We might need to fetch the user's region here if we want to be 100% accurate for REGION mode
+                        // But ActiveGame doesn't have easy access to profile without a query. 
+                        // However, useGameEngine does this too.
+                        // For UI feedback, 'UK' default is acceptable if we can't get it, or we rely on what useGameEngine did?
+                        // Let's try to fetch it quickly or use 'UK' as fallback.
+                        if (gameMode === 'REGION' && user) {
+                            const { data: profile } = await supabase.from('user_profiles').select('region').eq('id', user.id).single();
+                            userRegion = profile?.region || 'UK';
+                        }
+                        const REGION_CTX = gameMode === 'REGION' ? userRegion : 'GLOBAL';
+
+                        console.log(`[ActiveGame] Checking Badges via RPC for immediate feedback (Region: ${REGION_CTX})...`);
+
+                        if (user && displayStreak > 0) {
+                            const streakBadge = await checkAndAwardStreakBadge(user.id, displayStreak, gameMode, REGION_CTX);
+                            if (streakBadge) earnedBadges.push(streakBadge);
+                        }
+
+                        if (user && (guesses.length === 1 || guesses.length === 2)) {
+                            const elementleBadge = await checkAndAwardElementleBadge(user.id, guesses.length, gameMode, REGION_CTX);
+                            if (elementleBadge) earnedBadges.push(elementleBadge);
+                        }
+
+                        // We don't wait for percentile badge for UI feedback usually as it's slow/broken
+
+                    } catch (e) {
+                        console.error('[ActiveGame] Error checking badges:', e);
                     }
-                    const REGION_CTX = gameMode === 'REGION' ? userRegion : 'GLOBAL';
-
-                    console.log(`[ActiveGame] Checking Badges via RPC for immediate feedback (Region: ${REGION_CTX})...`);
-
-                    if (user && displayStreak > 0) {
-                        const streakBadge = await checkAndAwardStreakBadge(user.id, displayStreak, gameMode, REGION_CTX);
-                        if (streakBadge) earnedBadges.push(streakBadge);
-                    }
-
-                    if (user && (guesses.length === 1 || guesses.length === 2)) {
-                        const elementleBadge = await checkAndAwardElementleBadge(user.id, guesses.length, gameMode, REGION_CTX);
-                        if (elementleBadge) earnedBadges.push(elementleBadge);
-                    }
-
-                    // We don't wait for percentile badge for UI feedback usually as it's slow/broken
-
-                } catch (e) {
-                    console.error('[ActiveGame] Error checking badges:', e);
                 }
 
-                // 4. Navigate after delay (allow celebration to be seen)
-                timer = setTimeout(() => {
-                    setShowStreakCelebration(false); // Hide before nav
-                    router.replace({
-                        pathname: '/game-result',
-                        params: {
-                            isWin: 'true',
-                            guessesCount: guesses.length.toString(),
-                            maxGuesses: '5',
-                            answerDateCanonical: puzzle.solutionDate,
-                            eventTitle: puzzle.title,
-                            eventDescription: puzzle.eventDescription || '',
-                            gameMode,
-                            puzzleId: puzzle.id.toString(),
-                            isGuest: isGuest ? 'true' : 'false',
-                            currentStreak: displayStreak.toString(),
-                            isStreakSaverGame: isStreakSaverGame ? 'true' : 'false',
-                            earnedBadges: JSON.stringify(earnedBadges || []),
-                            isToday: (isTodayPuzzle ?? (puzzle.date === new Date().toISOString().split('T')[0])).toString(),
-                            justFinished: 'true'
-                        }
-                    });
-                }, 4000); // Increased delay to 4s to allow animation to play
+                // Store earned badges for passing to game-result
+                console.log('[ActiveGame] Win handled, storing badges', earnedBadges);
+                setEarnedBadgesState(earnedBadges);
+
+                // Navigate to game-result after delay (celebrations will happen there)
+                // Pro users: 5 second delay
+                // Standard users: 2.5 seconds after ad closes (handled by useEffect)
+                // Guests: Navigate after ad
+                if (isPro) {
+                    console.log('[ActiveGame] Pro user - navigating after 5s delay');
+                    // Capture values NOW to avoid closure issues with state
+                    const capturedStreak = displayStreak;
+                    const capturedBadges = earnedBadges;
+                    // Store timer ID so it can be cancelled if Continue is clicked
+                    proNavigationTimerRef.current = setTimeout(() => {
+                        // Pass captured values directly to avoid stale state
+                        navigateToResult(capturedStreak, capturedBadges);
+                    }, 5000);
+                } else {
+                    // Standard user or guest - mark ready for post-ad navigation
+                    console.log('[ActiveGame] Marking ready for post-ad navigation');
+                    setReadyForCelebration(true);
+                }
             };
 
             handleWin();
-            return () => clearTimeout(timer);
+            // No timer cleanup needed since we removed the auto-trigger timers
 
         } else if (gameState === 'lost') {
             processedGame.current = true;
@@ -387,7 +395,9 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                                 puzzleId: puzzle.id.toString(),
                                 isGuest: isGuest ? 'true' : 'false',
                                 currentStreak: '0',
-                                isStreakSaverGame: isStreakSaverGame ? 'true' : 'false'
+                                isStreakSaverGame: isStreakSaverGame ? 'true' : 'false',
+                                isToday: (isTodayPuzzle ?? (puzzle.date === new Date().toISOString().split('T')[0])).toString(),
+                                justFinished: 'true'
                             }
                         });
                     }, 1500);
@@ -397,6 +407,64 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             return () => clearTimeout(timer);
         }
     }, [gameState, isRestored, finalStreak, isStreakSaverGame, isTodayPuzzle]); // Added finalStreak, isStreakSaverGame, isTodayPuzzle to deps
+
+    // Helper function to navigate to game-result with all params
+    // Optional parameters allow passing captured values to avoid closure issues
+    const navigateToResult = (overrideStreak?: number, overrideBadges?: any[]) => {
+        const finalStreak = overrideStreak ?? streakToDisplay;
+        const finalBadges = overrideBadges ?? earnedBadgesState;
+
+        router.replace({
+            pathname: '/game-result',
+            params: {
+                isWin: 'true',
+                guessesCount: guesses.length.toString(),
+                maxGuesses: '5',
+                answerDateCanonical: puzzle.solutionDate,
+                eventTitle: puzzle.title,
+                eventDescription: puzzle.eventDescription || '',
+                gameMode,
+                puzzleId: puzzle.id.toString(),
+                isGuest: isGuest ? 'true' : 'false',
+                currentStreak: finalStreak.toString(),
+                isStreakSaverGame: isStreakSaverGame ? 'true' : 'false',
+                earnedBadges: JSON.stringify(finalBadges),
+                isToday: (isTodayPuzzle ?? (puzzle.date === new Date().toISOString().split('T')[0])).toString(),
+                justFinished: 'true'
+            }
+        });
+    };
+
+
+
+
+    // Enable Continue button 1 second after ad starts (for standard users)
+    // Restored games (viewing completed): enable immediately since no ad
+    useEffect(() => {
+        // For restored games, enable immediately - no ad plays when viewing
+        if (isRestored && (gameState === 'won' || gameState === 'lost')) {
+            console.log('[ActiveGame] Restored game - enabling Continue immediately');
+            setButtonEnabled(true);
+            return;
+        }
+
+        if (!readyForCelebration) return;
+        if (isPro || isGuest) {
+            // Pro users and guests: enable immediately (guests see ad before game, not after)
+            setButtonEnabled(true);
+            return;
+        }
+
+        // Standard users: wait 2 seconds for ad to fully appear on screen
+        console.log('[ActiveGame] Waiting 2s before enabling Continue button');
+        const timer = setTimeout(() => {
+            console.log('[ActiveGame] Enabling Continue button');
+            setButtonEnabled(true);
+        }, 2000);
+
+        return () => clearTimeout(timer);
+    }, [readyForCelebration, isPro, isGuest, isRestored, gameState]);
+
 
 
     if (gameState === 'loading') {
@@ -455,7 +523,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     </ThemedView>
 
                     {/* Keyboard or Continue Button */}
-                    <View style={{ paddingBottom: 10, paddingTop: 8, maxWidth: 582, alignSelf: 'center', width: '100%' }}>
+                    <View style={{ paddingBottom: 25, paddingTop: 8, maxWidth: 582, alignSelf: 'center', width: '100%' }}>
                         {(gameState === 'playing') ? (
                             <NumericKeyboard
                                 onDigitPress={handleDigitPress}
@@ -473,54 +541,64 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                                         const displayStreak = finalStreak ?? stats?.current_streak ?? 0;
 
                                         // Fetch badges for immediate gratification (Manual Path)
+                                        // IMPORTANT: Skip if this is a restored game (viewing completed game)
                                         let earnedBadges: any[] = [];
-                                        try {
-                                            // Quick RPC checks
-                                            if (user) {
-                                                // Get Region Context
-                                                let userRegion = 'UK';
-                                                if (gameMode === 'REGION') {
-                                                    const { data: profile } = await supabase.from('user_profiles').select('region').eq('id', user.id).single();
-                                                    userRegion = profile?.region || 'UK';
-                                                }
-                                                const REGION_CTX = gameMode === 'REGION' ? userRegion : 'GLOBAL';
+                                        if (isRestored) {
+                                            console.log('[ActiveGame] Manual Continue - skipping badges (restored game)');
+                                        } else {
+                                            try {
+                                                // Quick RPC checks
+                                                if (user) {
+                                                    // Get Region Context
+                                                    let userRegion = 'UK';
+                                                    if (gameMode === 'REGION') {
+                                                        const { data: profile } = await supabase.from('user_profiles').select('region').eq('id', user.id).single();
+                                                        userRegion = profile?.region || 'UK';
+                                                    }
+                                                    const REGION_CTX = gameMode === 'REGION' ? userRegion : 'GLOBAL';
 
-                                                if (displayStreak > 0) {
-                                                    const streakBadge = await checkAndAwardStreakBadge(user.id, displayStreak, gameMode, REGION_CTX);
-                                                    if (streakBadge) earnedBadges.push(streakBadge);
+                                                    if (displayStreak > 0) {
+                                                        const streakBadge = await checkAndAwardStreakBadge(user.id, displayStreak, gameMode, REGION_CTX);
+                                                        if (streakBadge) earnedBadges.push(streakBadge);
+                                                    }
+                                                    if (guesses.length === 1 || guesses.length === 2) {
+                                                        const elementleBadge = await checkAndAwardElementleBadge(user.id, guesses.length, gameMode, REGION_CTX);
+                                                        if (elementleBadge) earnedBadges.push(elementleBadge);
+                                                    }
                                                 }
-                                                if (guesses.length === 1 || guesses.length === 2) {
-                                                    const elementleBadge = await checkAndAwardElementleBadge(user.id, guesses.length, gameMode, REGION_CTX);
-                                                    if (elementleBadge) earnedBadges.push(elementleBadge);
-                                                }
+                                            } catch (e) {
+                                                console.log('[ActiveGame] Manual nav badge check failed', e);
                                             }
-                                        } catch (e) {
-                                            console.log('[ActiveGame] Manual nav badge check failed', e);
                                         }
 
-                                        router.replace({
-                                            pathname: '/game-result',
-                                            params: {
-                                                isWin: gameState === 'won' ? 'true' : 'false',
-                                                guessesCount: guesses.length.toString(),
-                                                maxGuesses: '5',
-                                                answerDateCanonical: puzzle.solutionDate,
-                                                eventTitle: puzzle.title,
-                                                eventDescription: puzzle.eventDescription || '',
-                                                gameMode,
-                                                puzzleId: puzzle.id.toString(),
-                                                isGuest: isGuest ? 'true' : 'false',
-                                                currentStreak: displayStreak.toString(),
-                                                isStreakSaverGame: isStreakSaverGame ? 'true' : 'false',
-                                                isToday: (isTodayPuzzle ?? (puzzle.date === new Date().toISOString().split('T')[0])).toString(),
-                                                earnedBadges: JSON.stringify(earnedBadges)
-                                            }
-                                        });
+                                        // Manual continue - store badges and navigate (celebrations happen on game-result)
+                                        console.log('[ActiveGame] Manual Continue - storing badges and navigating', earnedBadges);
+
+                                        // Cancel Pro user auto-navigation timer if it exists
+                                        if (proNavigationTimerRef.current) {
+                                            console.log('[ActiveGame] Cancelling Pro user auto-navigation timer');
+                                            clearTimeout(proNavigationTimerRef.current);
+                                            proNavigationTimerRef.current = null;
+                                        }
+
+                                        setEarnedBadgesState(earnedBadges);
+                                        setStreakToDisplay(displayStreak);
+                                        navigateToResult();
                                     }}
-                                    className="bg-slate-300 dark:bg-slate-700 w-full py-4 rounded-xl items-center active:bg-slate-400 dark:active:bg-slate-600"
+                                    disabled={!isPro && !isGuest && !isRestored && !buttonEnabled} // Guests, Pro, and restored skip ad wait
+                                    className={`w-full py-4 rounded-xl items-center ${!isPro && !isGuest && !isRestored && !buttonEnabled
+                                        ? 'bg-slate-200 dark:bg-slate-800'
+                                        : 'bg-slate-300 dark:bg-slate-700 active:bg-slate-400 dark:active:bg-slate-600'
+                                        }`}
                                     style={{ transform: [{ translateY: 0 }] }} // Ensure button is reachable
                                 >
-                                    <ThemedText className="text-slate-900 dark:text-white font-n-bold" size="lg">
+                                    <ThemedText
+                                        className={`font-n-bold ${!isPro && !isGuest && !isRestored && !buttonEnabled
+                                            ? 'text-slate-400 dark:text-slate-600'
+                                            : 'text-slate-900 dark:text-white'
+                                            }`}
+                                        size="lg"
+                                    >
                                         Continue
                                     </ThemedText>
                                 </TouchableOpacity>
@@ -554,15 +632,6 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     eventTitle={puzzle.title}
                     category={puzzle.category} // Pass Category
                     isGuest={isGuest}
-                />
-            )}
-
-            {/* Streak Celebration - Shown Immediate on Win */}
-            {showStreakCelebration && (
-                <StreakCelebration
-                    streak={streakToDisplay}
-                    visible={true}
-                    onClose={() => setShowStreakCelebration(false)}
                 />
             )}
 

@@ -7,6 +7,7 @@
 
 import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { queryClient } from '../app/_layout';
 
 interface GuestGameData {
     puzzleId: number;
@@ -19,7 +20,8 @@ interface GuestGameData {
 }
 
 const GUEST_GAMES_KEY = 'guest_games_data';
-const MIGRATION_COMPLETE_KEY = 'guest_migration_complete';
+// Note: MIGRATION_COMPLETE_KEY was removed - it permanently blocked future migrations
+// The per-game duplicate check in migrateGuestDataToUser is sufficient
 
 /**
  * Store guest game data in AsyncStorage
@@ -51,13 +53,6 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
     error?: string;
 }> {
     try {
-        // Check if migration already completed
-        const migrationComplete = await AsyncStorage.getItem(MIGRATION_COMPLETE_KEY);
-        if (migrationComplete === 'true') {
-            console.log('[GuestMigration] Migration already completed');
-            return { success: true, migratedGames: 0 };
-        }
-
         console.log('[GuestMigration] starting migration scan...');
 
         // 1. Scan all keys for guest games
@@ -68,7 +63,6 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
 
         if (guestGameKeys.length === 0) {
             console.log('[GuestMigration] No guest data to migrate');
-            await AsyncStorage.setItem(MIGRATION_COMPLETE_KEY, 'true');
             return { success: true, migratedGames: 0 };
         }
 
@@ -194,10 +188,18 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
             }
         }
 
-        // Mark migration as complete
-        await AsyncStorage.setItem(MIGRATION_COMPLETE_KEY, 'true');
-
         console.log(`[GuestMigration] Migration complete: ${migratedCount} games migrated`);
+
+        // Invalidate queries to refresh UI with migrated data
+        if (migratedCount > 0) {
+            console.log('[GuestMigration] Invalidating queries to refresh UI...');
+            // Use partial keys - React Query matches all queries that start with these
+            queryClient.invalidateQueries({ queryKey: ['userStats'] });
+            queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
+            queryClient.invalidateQueries({ queryKey: ['pendingBadges'] });
+            queryClient.invalidateQueries({ queryKey: ['game-attempts'] });
+        }
+
         return { success: true, migratedGames: migratedCount };
 
     } catch (error: any) {
@@ -215,9 +217,13 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
  */
 export async function clearGuestMigrationState(): Promise<void> {
     try {
+        // Clear all guest game keys
+        const allKeys = await AsyncStorage.getAllKeys();
+        const guestGameKeys = allKeys.filter(key => key.startsWith('guest_game_'));
+
         await Promise.all([
             AsyncStorage.removeItem(GUEST_GAMES_KEY),
-            AsyncStorage.removeItem(MIGRATION_COMPLETE_KEY),
+            ...guestGameKeys.map(key => AsyncStorage.removeItem(key))
         ]);
         console.log('[GuestMigration] Cleared migration state');
     } catch (error) {

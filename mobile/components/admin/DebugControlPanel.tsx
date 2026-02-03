@@ -172,46 +172,72 @@ export default function DebugControlPanel() {
         setLoading('reset');
 
         try {
+            console.log('[DebugPanel] Starting hard reset for user:', user.id);
+
             // 1. Delete all game attempts
-            await supabase.from('game_attempts_region').delete().eq('user_id', user.id);
-            await supabase.from('game_attempts_user').delete().eq('user_id', user.id);
+            const { error: regionAttemptsError } = await supabase
+                .from('game_attempts_region')
+                .delete()
+                .eq('user_id', user.id);
 
-            // 2. Get current next_holiday_reset_date before resetting
-            // @ts-ignore - Supabase type mismatch for next_holiday_reset_date column
-            const { data: regionStats } = await supabase
-                .from('user_stats_region')
-                .select('next_holiday_reset_date')
-                .eq('user_id', user.id)
-                .maybeSingle();
+            if (regionAttemptsError) throw regionAttemptsError;
 
+            const { error: userAttemptsError } = await supabase
+                .from('game_attempts_user')
+                .delete()
+                .eq('user_id', user.id);
+
+            if (userAttemptsError) throw userAttemptsError;
+
+            console.log('[DebugPanel] Deleted all game attempts');
+
+            // 2. Get current next_holiday_reset_date from user_stats_user 
+            // (Note: this column only exists in user_stats_user, NOT in user_stats_region)
             const { data: userStats } = await supabase
                 .from('user_stats_user')
                 .select('next_holiday_reset_date')
                 .eq('user_id', user.id)
                 .maybeSingle();
 
-            // 3. Reset stats (preserve next_holiday_reset_date)
-            await supabase.from('user_stats_region').update({
-                current_streak: 0,
-                max_streak: 0,
-                games_played: 0,
-                games_won: 0,
-                win_rate: 0,
-                guess_distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
-                missed_yesterday_flag_region: false,
-                next_holiday_reset_date: regionStats?.next_holiday_reset_date || null
-            }).eq('user_id', user.id);
+            console.log('[DebugPanel] Fetched holiday date:', userStats?.next_holiday_reset_date);
 
-            await supabase.from('user_stats_user').update({
-                current_streak: 0,
-                max_streak: 0,
-                games_played: 0,
-                games_won: 0,
-                win_rate: 0,
-                guess_distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
-                missed_yesterday_flag_user: false,
-                next_holiday_reset_date: userStats?.next_holiday_reset_date || null
-            }).eq('user_id', user.id);
+            // 3. Reset stats to defaults
+            const { error: regionStatsError } = await supabase
+                .from('user_stats_region')
+                .update({
+                    current_streak: 0,
+                    max_streak: 0,
+                    games_played: 0,
+                    games_won: 0,
+                    guess_distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
+                    missed_yesterday_flag_region: false
+                })
+                .eq('user_id', user.id);
+
+            if (regionStatsError) {
+                console.error('[DebugPanel] Region stats update error:', regionStatsError);
+                throw regionStatsError;
+            }
+            console.log('[DebugPanel] Updated region stats');
+
+            const { error: userStatsError } = await supabase
+                .from('user_stats_user')
+                .update({
+                    current_streak: 0,
+                    max_streak: 0,
+                    games_played: 0,
+                    games_won: 0,
+                    guess_distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 },
+                    missed_yesterday_flag_user: false,
+                    next_holiday_reset_date: userStats?.next_holiday_reset_date || null
+                })
+                .eq('user_id', user.id);
+
+            if (userStatsError) {
+                console.error('[DebugPanel] User stats update error:', userStatsError);
+                throw userStatsError;
+            }
+            console.log('[DebugPanel] Updated user stats');
 
             // 4. Clear AsyncStorage cache
             await clearGameCache();
@@ -222,7 +248,7 @@ export default function DebugControlPanel() {
             showToast('Account reset successfully! All game data cleared.');
         } catch (error) {
             console.error('[DebugPanel] Hard reset error:', error);
-            showToast('Failed to reset account. See console for details.', true);
+            showToast(`Failed to reset account: ${error}`, true);
         } finally {
             setLoading(null);
         }
@@ -320,7 +346,7 @@ export default function DebugControlPanel() {
             color: '#dc2626',
             icon: Trash2,
             onPress: handleHardReset,
-            confirmMessage: 'This will DELETE ALL game attempts and RESET all stats (preserving holiday reset dates). AsyncStorage and React Query cache will be cleared. This action cannot be undone. Continue?'
+            confirmMessage: 'This will DELETE ALL game attempts and RESET all stats (preserving next_holiday_reset_date in user stats). AsyncStorage and React Query cache will be cleared. This action cannot be undone. Continue?'
         },
         {
             label: 'Force Region Win (2 Days Ago)',

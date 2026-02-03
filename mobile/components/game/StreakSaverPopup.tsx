@@ -9,6 +9,7 @@ import { useStreakSaverStatus } from '../../hooks/useStreakSaverStatus';
 import { useStreakSaver } from '../../contexts/StreakSaverContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useSubscription } from '../../hooks/useSubscription';
+import { useProfile } from '../../hooks/useProfile';
 import hapticsManager from '../../lib/hapticsManager';
 import soundManager from '../../lib/soundManager';
 import { HolidayActivationModal } from './HolidayActivationModal';
@@ -62,7 +63,9 @@ export function StreakSaverPopup({
     const isEligibleForStreakSaver = gameType === 'REGION' ? regionOfferStreakSaver : userOfferStreakSaver;
     const showStreakSaverButton = isEligibleForStreakSaver;
 
-    const gameModeLabel = gameType === 'REGION' ? 'Region Edition' : 'Personal';
+    const { profile } = useProfile();
+    const userRegion = profile?.region || 'UK'; // Default to UK if not available
+    const gameModeLabel = gameType === 'REGION' ? `${userRegion} Edition` : 'Personal Edition';
 
     // Helper to get formatted next month date (e.g. "1st February")
     const getNextMonthFirst = () => {
@@ -288,6 +291,7 @@ export function StreakSaverPopup({
 
     const handleGetHolidayAllowance = () => {
         hapticsManager.medium();
+        onClose('dismiss'); // Close modal first
         router.push({ pathname: '/subscription', params: { from: 'streakSaver' } });
     }
 
@@ -360,7 +364,7 @@ export function StreakSaverPopup({
                                 <StyledText className="text-center text-slate-700 font-n-medium mb-6">
                                     {showStreakSaverButton
                                         ? `You missed yesterday's ${gameModeLabel} puzzle!`
-                                        : `You've been away for multiple days. Use holiday mode to protect your streak, or let it reset.`
+                                        : `You've been away for multiple days. Use holiday mode to protect your ${gameModeLabel} streak, or let it reset.`
                                     }
                                 </StyledText>
 
@@ -404,7 +408,7 @@ export function StreakSaverPopup({
                                             </StyledTouchableOpacity>
                                         ) : (
                                             isPro ? (
-                                                <StyledView className="bg-black py-3 rounded-2xl opacity-40">
+                                                <StyledView className="bg-black py-3 px-6 rounded-2xl opacity-40">
                                                     <StyledText className="text-white font-n-bold text-center text-lg">
                                                         Streak saver allowance resets on {nextResetDate}
                                                     </StyledText>

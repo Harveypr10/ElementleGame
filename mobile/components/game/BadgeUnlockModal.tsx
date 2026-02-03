@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { styled } from 'nativewind';
@@ -25,7 +25,7 @@ interface BadgeUnlockModalProps {
 }
 
 // MAPPING LOGIC
-const HAMSTER_IMAGE = require('../../assets/ui/Streak-Hamster-Black.png'); // Default to black streak hamster as requested
+const HAMSTER_IMAGE = require('../../assets/ui/Streak-Hamster-Black.png');
 const TROPHY_ANIMATION = require('../../assets/animation/Trophy.json');
 
 const BADGE_IMAGES: Record<string, any> = {
@@ -60,12 +60,29 @@ const BADGE_IMAGES: Record<string, any> = {
 };
 
 export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = false, gameMode = 'REGION' }: BadgeUnlockModalProps) {
+    const fadeAnim = useRef(new Animated.Value(0)).current;
     const scale = useRef(new Animated.Value(0)).current;
-    // Animation ref
     const animationRef = useRef<LottieView>(null);
+    const loopCount = useRef(0);
 
+    const [isClosing, setIsClosing] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+
+    // Handle visibility changes - fade in
     useEffect(() => {
-        if (visible) {
+        if (visible && !isClosing && badge) {
+            // Opening: show modal and animate in
+            setShowModal(true);
+            loopCount.current = 0;
+
+            // Fade in the background
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+
+            // Spring in the content
             Animated.spring(scale, {
                 toValue: 1,
                 friction: 6,
@@ -75,17 +92,72 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
 
             // Play Lottie animation
             setTimeout(() => {
-                loopCount.current = 0; // Reset loop count
                 animationRef.current?.play();
             }, 300);
-        } else {
-            scale.setValue(0);
         }
-    }, [visible]);
+    }, [visible, isClosing, badge]);
 
-    const loopCount = useRef(0);
+    // Auto-dismiss timer with ref to prevent duplicates
+    const autoDismissTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    if (!visible || !badge) return null;
+    useEffect(() => {
+        if (visible && !isClosing && badge && !autoDismissTimerRef.current) {
+            autoDismissTimerRef.current = setTimeout(() => {
+                console.log('[BadgeUnlockModal] Auto-dismissing after 7 seconds');
+                autoDismissTimerRef.current = null;
+                handleClose();
+            }, 7000);
+        }
+
+        return () => {
+            if (autoDismissTimerRef.current) {
+                clearTimeout(autoDismissTimerRef.current);
+                autoDismissTimerRef.current = null;
+            }
+        };
+    }, [visible, isClosing, badge]);
+
+    // Cleanup on unmount - ensure modal is hidden to prevent ghost overlays
+    useEffect(() => {
+        return () => {
+            // Force hide modal when component unmounts
+            setShowModal(false);
+            setIsClosing(false);
+            if (autoDismissTimerRef.current) {
+                clearTimeout(autoDismissTimerRef.current);
+                autoDismissTimerRef.current = null;
+            }
+        };
+    }, []);
+
+    // Handle close with animation
+    const handleClose = () => {
+        if (isClosing) return; // Prevent multiple close calls
+        setIsClosing(true);
+
+        // Fade out animation
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 400,
+                useNativeDriver: true,
+            }),
+            Animated.timing(scale, {
+                toValue: 0.8,
+                duration: 400,
+                useNativeDriver: true,
+            })
+        ]).start(() => {
+            // After animation completes, hide modal and call onClose
+            setShowModal(false);
+            setIsClosing(false);
+            scale.setValue(0);
+            onClose();
+        });
+    };
+
+    // Don't render if no modal or no badge
+    if (!showModal || !badge) return null;
 
     // Helper for Icon/Color
     const getBadgeColor = () => {
@@ -106,16 +178,6 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
             return '#10b981';
         }
         return '#10b981';
-    };
-
-    const getIcon = () => {
-        const color = getBadgeColor(); // Use element color for icon if we want it to match or white. 
-        // Screenshot implies we don't have the round icon at the top in the new design. 
-        // Logic: "Then add the animation Trophy.json that above the hamster image". 
-        // I will hide the old icon logic if it conflicts, or remove it. 
-        // The screenshot shows ONLY Trophy -> Hamster/Badge -> Text.
-        // So I will remove the old floating icon header.
-        return null;
     };
 
     const getBadgeImage = () => {
@@ -141,100 +203,103 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
     const badgeColor = getBadgeColor();
 
     return (
-        <Modal transparent visible={visible} animationType="fade">
-            {/* Solid Black Background */}
-            <StyledTouchableOpacity
-                className="flex-1 bg-black justify-center items-center relative"
-                activeOpacity={1}
-                onPress={onClose}
-            >
-                {showCloseButton && (
-                    <StyledTouchableOpacity
-                        onPress={onClose}
-                        className="absolute right-6 top-12 z-50 p-2 bg-white/20 rounded-full"
-                    >
-                        <X size={24} color="white" />
-                    </StyledTouchableOpacity>
-                )}
-
-                <Animated.View style={{ transform: [{ scale }], alignItems: 'center', width: '100%' }}>
-
-                    {/* Trophy Animation */}
-                    <View style={{ width: 250, height: 250, marginBottom: 20, zIndex: 10 }}>
-                        <LottieView
-                            ref={animationRef}
-                            source={TROPHY_ANIMATION}
-                            style={{ width: '100%', height: '100%' }}
-                            autoPlay={false}
-                            loop={false}
-                            onAnimationFinish={() => {
-                                if (loopCount.current < 1) {
-                                    loopCount.current += 1;
-                                    animationRef.current?.play();
-                                }
-                            }}
-                        />
-                    </View>
-
-                    {/* Badge/Hamster Image with Dynamic Text Overlay */}
-                    <View style={{ position: 'relative', width: 192, height: 192, marginBottom: 24, alignItems: 'center', justifyContent: 'center' }}>
-                        <Image
-                            source={getBadgeImage()}
-                            style={{ width: 192, height: 192 }}
-                            contentFit="contain"
-                            cachePolicy="disk"
-                        />
-
-                        {/* Dynamic Text Overlay for Top % Badges */}
-                        {badge.category.toLowerCase().includes('percentile') && (
-                            <View style={{
-                                position: 'absolute',
-                                top: '52%',
-                                left: 0,
-                                right: 0,
-                                alignItems: 'center',
-                            }}>
-                                <StyledText style={{
-                                    fontSize: 28,
-                                    fontWeight: 'bold',
-                                    color: '#6B5D4F',
-                                    textAlign: 'center',
-                                }}>
-                                    {badge.threshold}%
-                                </StyledText>
-                            </View>
-                        )}
-                    </View>
-
-                    {/* Badge Name */}
-                    <StyledText className="text-3xl font-black text-white mb-2 text-center tracking-wide" style={{ color: getBadgeColor() }}>
-                        {badge.name}
-                    </StyledText>
-
-                    {/* Description */}
-                    <StyledText className="text-white font-medium text-lg text-center mb-8 px-8 leading-6">
-                        {badge.description}
-                    </StyledText>
-
-                    <StyledText className="text-white/40 text-sm opacity-60 mt-12">
-                        Badge Earned
-                    </StyledText>
-
-                    {/* Show Multiplier if earned multiple times */}
-                    {(badge.badge_count || 0) > 1 && (
-                        <StyledView className="mt-2 bg-white/20 px-3 py-1 rounded-full">
-                            <StyledText className="text-white font-n-bold text-sm">
-                                Earned x{badge.badge_count}
-                            </StyledText>
-                        </StyledView>
+        <Modal transparent visible={showModal} animationType="none">
+            <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+                <StyledTouchableOpacity
+                    className="flex-1 bg-black justify-center items-center relative"
+                    activeOpacity={1}
+                    onPress={handleClose}
+                    disabled={isClosing}
+                >
+                    {showCloseButton && (
+                        <StyledTouchableOpacity
+                            onPress={handleClose}
+                            className="absolute right-6 top-12 z-50 p-2 bg-white/20 rounded-full"
+                            disabled={isClosing}
+                        >
+                            <X size={24} color="white" />
+                        </StyledTouchableOpacity>
                     )}
 
-                    <StyledText className="text-white/40 text-sm absolute bottom-[-100px]">
-                        Click anywhere to dismiss
-                    </StyledText>
+                    <Animated.View style={{ transform: [{ scale }], alignItems: 'center', width: '100%' }}>
 
-                </Animated.View>
-            </StyledTouchableOpacity>
+                        {/* Trophy Animation */}
+                        <View style={{ width: 250, height: 250, marginBottom: 20, zIndex: 10 }}>
+                            <LottieView
+                                ref={animationRef}
+                                source={TROPHY_ANIMATION}
+                                style={{ width: '100%', height: '100%' }}
+                                autoPlay={false}
+                                loop={false}
+                                onAnimationFinish={() => {
+                                    if (loopCount.current < 1) {
+                                        loopCount.current += 1;
+                                        animationRef.current?.play();
+                                    }
+                                }}
+                            />
+                        </View>
+
+                        {/* Badge/Hamster Image with Dynamic Text Overlay */}
+                        <View style={{ position: 'relative', width: 192, height: 192, marginBottom: 24, alignItems: 'center', justifyContent: 'center' }}>
+                            <Image
+                                source={getBadgeImage()}
+                                style={{ width: 192, height: 192 }}
+                                contentFit="contain"
+                                cachePolicy="disk"
+                            />
+
+                            {/* Dynamic Text Overlay for Top % Badges */}
+                            {badge.category.toLowerCase().includes('percentile') && (
+                                <View style={{
+                                    position: 'absolute',
+                                    top: '52%',
+                                    left: 0,
+                                    right: 0,
+                                    alignItems: 'center',
+                                }}>
+                                    <StyledText style={{
+                                        fontSize: 28,
+                                        fontWeight: 'bold',
+                                        color: '#6B5D4F',
+                                        textAlign: 'center',
+                                    }}>
+                                        {badge.threshold}%
+                                    </StyledText>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Badge Name */}
+                        <StyledText className="text-3xl font-black text-white mb-2 text-center tracking-wide" style={{ color: getBadgeColor() }}>
+                            {badge.name}
+                        </StyledText>
+
+                        {/* Description */}
+                        <StyledText className="text-white font-medium text-lg text-center mb-8 px-8 leading-6">
+                            {badge.description}
+                        </StyledText>
+
+                        <StyledText className="text-white/40 text-sm opacity-60 mt-12">
+                            Badge Earned
+                        </StyledText>
+
+                        {/* Show Multiplier if earned multiple times */}
+                        {(badge.badge_count || 0) > 1 && (
+                            <StyledView className="mt-2 bg-white/20 px-3 py-1 rounded-full">
+                                <StyledText className="text-white font-n-bold text-sm">
+                                    Earned x{badge.badge_count}
+                                </StyledText>
+                            </StyledView>
+                        )}
+
+                        <StyledText className="text-white/40 text-sm absolute bottom-[-100px]">
+                            Click anywhere to dismiss
+                        </StyledText>
+
+                    </Animated.View>
+                </StyledTouchableOpacity>
+            </Animated.View>
         </Modal>
     );
 }

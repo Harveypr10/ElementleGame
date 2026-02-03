@@ -10,12 +10,18 @@ import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { useSubscription } from './useSubscription';
 import { AD_UNITS } from '../lib/adConfig';
 
-export function useInterstitialAd() {
+export function useInterstitialAd(onAdClosed?: () => void) {
     const { isPro } = useSubscription();
     const interstitialRef = useRef<InterstitialAd | null>(null);
     const isLoadedRef = useRef(false);
+    const onAdClosedRef = useRef(onAdClosed); // Ref to avoid stale closure
     const [isLoaded, setIsLoaded] = useState(false);
     const [isClosed, setIsClosed] = useState(false);
+
+    // Keep callback ref up to date
+    useEffect(() => {
+        onAdClosedRef.current = onAdClosed;
+    }, [onAdClosed]);
 
     // Initialize interstitial ad
     useEffect(() => {
@@ -43,6 +49,12 @@ export function useInterstitialAd() {
             setIsClosed(true);
             setTimeout(() => setIsClosed(false), 500); // Reset closed state
             interstitial.load();
+
+            // Call the callback if provided (immediate, doesn't wait for state)
+            if (onAdClosedRef.current) {
+                console.log('[InterstitialAd] Calling onAdClosed callback');
+                onAdClosedRef.current();
+            }
         });
 
         const unsubscribeError = interstitial.addAdEventListener(AdEventType.ERROR, (error) => {

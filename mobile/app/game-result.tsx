@@ -24,6 +24,7 @@ import { RainOverlay } from '../components/game/RainOverlay';
 import { StreakCelebration } from '../components/game/StreakCelebration';
 import { BadgeUnlockModal } from '../components/game/BadgeUnlockModal';
 import { useBadgeSystem } from '../hooks/useBadgeSystem';
+import { useStreakSaver } from '../contexts/StreakSaverContext';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -54,6 +55,9 @@ export default function GameResultScreen() {
 
     // [FIX] Parse justFinished param to distinguish between immediate win and viewing history
     const justFinished = params.justFinished === 'true';
+
+    // [FIX] Parse celebrationShown param to prevent duplicate celebrations
+    const celebrationShown = params.celebrationShown === 'true';
 
     // [FIX] Parse passed badges
     const passedBadges = params.earnedBadges ? JSON.parse(params.earnedBadges as string) : [];
@@ -90,6 +94,7 @@ export default function GameResultScreen() {
 
     // Hooks
     const { pendingBadges, markBadgeAsSeen } = useBadgeSystem();
+    const { completeStreakSaverSession } = useStreakSaver();
 
     // States for sequencing
     const [streakModalVisible, setStreakModalVisible] = useState(false);
@@ -97,26 +102,42 @@ export default function GameResultScreen() {
     const [currentBadge, setCurrentBadge] = useState<any>(null); // Using any or Badge type if imported
     const [queueProcessed, setQueueProcessed] = useState(false);
     const [visitedBadgeIds, setVisitedBadgeIds] = useState<Set<number>>(new Set());
+    const [celebrationTimerComplete, setCelebrationTimerComplete] = useState(false);
+    const [celebrationFullyClosed, setCelebrationFullyClosed] = useState(false); // True only after fade-out animation completes
+    const celebrationHandledRef = React.useRef(false); // Prevent celebration effect from running multiple times
+    const celebrationClosedRef = React.useRef(false); // PERMANENT guard - once true, StreakCelebration never renders again
 
-    // Initial Effect: Trigger Streak Celebration if Win AND Streak > 0
+    // Initial Effect: Trigger Streak Celebration after 2 second delay
     React.useEffect(() => {
-        // [FIX] Celebrate if:
-        // 1. We have a > 0 streak
-        // 2. AND (It is Today's Puzzle OR It is a Streak Saver Game)
-        // Note: We use the passed isTodayParam because answerDateCanonical is historical.
+        // [FIX] Prevent multiple runs - use ref guard
+        if (celebrationHandledRef.current) return;
+
+        // Only show streak celebration if ALL conditions are met:
+        // 1. Win
+        // 2. Has streak (> 0)
+        // 3. (Is Today's Puzzle OR Is yesterday's puzzle with Streak Saver)
+        // 4. Just Finished (not viewing historical game)
 
         if (isWin && currentStreak > 0 && (isTodayParam || isStreakSaverGame) && justFinished) {
-            console.log('[GameResult] Triggering Streak Celebration', {
+            console.log('[GameResult] Setting up Streak Celebration timer (one-time)', {
                 isWin,
                 currentStreak,
                 isTodayParam,
                 isStreakSaverGame: params.isStreakSaverGame
             });
+
+            celebrationHandledRef.current = true; // Mark as handled FIRST to prevent re-entry
+
             const timer = setTimeout(() => {
+                console.log('[GameResult] Showing celebration after 2.5s');
                 setStreakModalVisible(true);
-            }, 500); // Small delay after enter
+                setCelebrationTimerComplete(true);
+            }, 2500);
             return () => clearTimeout(timer);
         } else {
+            // No celebration needed, mark as handled and complete
+            celebrationHandledRef.current = true;
+            setCelebrationTimerComplete(true);
             console.log('[GameResult] Skipping Streak Celebration', {
                 isWin,
                 currentStreak,
@@ -129,27 +150,55 @@ export default function GameResultScreen() {
 
     // Handle Streak Close -> Start Badge Queue
     const handleStreakClose = () => {
+        // PERMANENT CLOSE - set ref immediately so component never renders again
+        celebrationClosedRef.current = true;
+
+        // Hide celebration via visible prop
         setStreakModalVisible(false);
-        // Start badge processing
-        processNextBadge();
+
+        // Wait for Modal's fade-out animation to complete before allowing badge processing
+        setTimeout(() => {
+            console.log('[GameResult] Celebration fully closed, allowing badge processing');
+            setCelebrationFullyClosed(true); // This triggers the effects to process badges
+        }, 200); // 200ms - quick transition after fade-out
     };
 
     // Badge Queue Logic
     // We use pendingBadges from the hook which syncs with DB
     React.useEffect(() => {
-        // If we haven't started processing queue (waiting for streak close), don't auto-show
-        // But we need to react when pendingBadges updates.
-        // Also if pendingBadges is initially empty but we just won, we might need to wait for invalidation.
-        if (!streakModalVisible && !queueProcessed && isWin) {
+        // Don't process badges until celebration timer completes (even if no celebration shown)
+        if (!celebrationTimerComplete) return;
+
+        // IMPORTANT: Wait for celebration to be fully closed (animation complete)
+        // If celebration was shown, wait for celebrationFullyClosed
+        // If celebration was skipped (streakModalVisible was never true), proceed immediately
+        if (streakModalVisible) return; // Still showing celebration
+        if (!celebrationFullyClosed && currentStreak > 0 && isWin && justFinished) {
+            // Celebration was/is being shown, wait for it to fully close
+            return;
+        }
+
+        // If we haven't started processing queue, start now
+        if (!queueProcessed && isWin) {
+            console.log('[GameResult] Badge queue processing triggered');
             processNextBadge();
         }
-    }, [pendingBadges, streakModalVisible, queueProcessed, isWin]);
+    }, [pendingBadges, streakModalVisible, queueProcessed, isWin, celebrationTimerComplete, celebrationFullyClosed, currentStreak, justFinished]);
 
     // [FIX] Initial load effect for passed badges (Instant Gratification)
     // If we have passed badges, merge them or use them to trigger immediately without waiting for query
     React.useEffect(() => {
+        // Don't process badges until celebration timer completes
+        if (!celebrationTimerComplete) return;
+
+        // IMPORTANT: Wait for celebration to be fully closed
+        if (streakModalVisible) return;
+        if (!celebrationFullyClosed && currentStreak > 0 && isWin && justFinished) {
+            return; // Wait for celebration to fully close
+        }
+
         // Only trigger if we aren't showing a badge and not waiting for streak
-        if (!streakModalVisible && !queueProcessed && isWin && passedBadges.length > 0 && !badgeModalVisible && !currentBadge) {
+        if (!queueProcessed && isWin && passedBadges.length > 0 && !badgeModalVisible && !currentBadge) {
             // Check if passed badge already visited
             const firstPassed = passedBadges[0];
             if (visitedBadgeIds.has(firstPassed.id)) return;
@@ -161,7 +210,7 @@ export default function GameResultScreen() {
                 setBadgeModalVisible(true);
             }
         }
-    }, [passedBadges, streakModalVisible, queueProcessed, isWin, badgeModalVisible, pendingBadges, currentBadge, visitedBadgeIds]);
+    }, [passedBadges, streakModalVisible, queueProcessed, isWin, badgeModalVisible, pendingBadges, currentBadge, visitedBadgeIds, celebrationTimerComplete, celebrationFullyClosed, currentStreak, justFinished]);
 
     const processNextBadge = () => {
         // [FIX] Don't lock queue permanently if empty. Just check current state.
@@ -236,11 +285,21 @@ export default function GameResultScreen() {
             {isWin && <ConfettiOverlay />}
             {!isWin && <RainOverlay />}
 
-            <StreakCelebration
-                visible={streakModalVisible}
-                streak={currentStreak}
-                onClose={handleStreakClose}
-            />
+            {/* Streak Celebration - only rendered if not permanently closed */}
+            {!celebrationClosedRef.current && (
+                <StreakCelebration
+                    visible={streakModalVisible}
+                    streak={currentStreak}
+                    onClose={handleStreakClose}
+                />
+            )}
+
+            {/* Debug: Log when we're attempting to render celebration */}
+            {celebrationShown && streakModalVisible && (
+                <>
+                    {console.log('[GameResult] WARNING: streakModalVisible=true but celebrationShown=true - this should not happen!')}
+                </>
+            )}
 
             <BadgeUnlockModal
                 visible={badgeModalVisible}
@@ -362,6 +421,11 @@ export default function GameResultScreen() {
                                             onPress={() => {
                                                 if (gameMode === 'REGION' || gameMode === 'USER') {
                                                     setGameMode(gameMode);
+                                                }
+                                                // [FIX] Complete streak saver session to allow User popup to show
+                                                if (isStreakSaverGame) {
+                                                    console.log('[GameResult] Completing streak saver session before Home...');
+                                                    completeStreakSaverSession(isWin);
                                                 }
                                                 // [FIX] Invalidate Streak Saver Status to prevent Phantom Popup on Home
                                                 console.log('[GameResult] Invalidating streak saver status before Home...');

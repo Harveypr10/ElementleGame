@@ -29,8 +29,9 @@ import '../lib/typography'; // Global Font Patch
   Configuration:
   - aggressive caching (staleTime: 5 mins) to minimize Supabase hits
   - retry: 1 for faster failure feedback
+  Exported so guestMigration can invalidate queries after migration
 */
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
             staleTime: 1000 * 60 * 5, // 5 minutes
