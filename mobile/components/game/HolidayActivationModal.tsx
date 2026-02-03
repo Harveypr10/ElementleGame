@@ -34,6 +34,7 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
 
     // Slideshow State
     const [currentMonthIndex, setCurrentMonthIndex] = useState(0);
+    const [fadeAnim] = useState(new Animated.Value(1)); // For smooth month transitions
 
     // Data State
     const [monthData, setMonthData] = useState<Record<string, DayStatus>>({});
@@ -41,8 +42,16 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
 
     // Determines which months to display
     const monthsToShow = useMemo(() => {
-        if (!filledDates.length) return [new Date()];
-        const dates = filledDates.map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime()); // Descending
+        console.log(`[HolidayActivationModal] Calculating months for gameType: ${gameType}, filledDates:`, filledDates);
+
+        // [FIX] Always show at least current month, even if no dates
+        if (!filledDates.length) {
+            console.log(`[HolidayActivationModal] No filled dates, showing current month only`);
+            return [new Date()];
+        }
+
+        // [FIX] Sort dates ascending (oldest first) then reverse to get descending
+        const dates = filledDates.map(d => new Date(d)).sort((a, b) => a.getTime() - b.getTime());
 
         const uniqueMonths: Date[] = [];
         dates.forEach(date => {
@@ -52,12 +61,42 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
             }
         });
 
+        // [FIX] Reverse to show CURRENT month first, then previous months
+        // This ensures February shows before January when backfill spans both
+        uniqueMonths.reverse();
+
         // Ensure at least current month
         if (uniqueMonths.length === 0) return [new Date()];
+        console.log(`[HolidayActivationModal] Showing ${uniqueMonths.length} months:`, uniqueMonths.map(m => format(m, 'MMMM yyyy')));
         return uniqueMonths;
-    }, [filledDates]);
+    }, [filledDates, gameType]);
 
-    // Simple slideshow timer
+    // Reset state when modal becomes visible
+    useEffect(() => {
+        if (visible) {
+            setCurrentMonthIndex(0);
+            fadeAnim.setValue(1);
+        }
+    }, [visible, fadeAnim]);
+
+    // Fade animation when month changes
+    useEffect(() => {
+        // Fade out, then fade in with new month
+        Animated.sequence([
+            Animated.timing(fadeAnim, {
+                toValue: 0,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, [currentMonthIndex, fadeAnim]);
+
+    // [RESTORED] Automatic slideshow - auto-advance to next month after 2 seconds
     useEffect(() => {
         if (monthsToShow.length > 1 && currentMonthIndex < monthsToShow.length - 1) {
             const timer = setTimeout(() => {
@@ -80,6 +119,8 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
 
                 const map: Record<string, DayStatus> = {};
 
+                // [REVERTED] Fetch data ONLY for the current gameType
+                // Each modal shows its own game mode's data separately
                 if (isRegion) {
                     // REGION QUERY
                     const { data: regionData } = await supabase
@@ -88,7 +129,6 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
                         .eq('user_id', user.id)
                         .gte('questions_allocated_region.puzzle_date', start.toISOString())
                         .lte('questions_allocated_region.puzzle_date', end.toISOString())
-                        // [FIX] Optional filter: matches Archive's 'UK' assumption or relies on user_id
                         .eq('questions_allocated_region.region', 'UK'); // Aligning with Archive.tsx logic
 
                     regionData?.forEach((row: any) => {
@@ -100,7 +140,6 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
                         else if (row.result === 'lost') status = 'lost';
                         else if (row.num_guesses > 0) status = 'played';
 
-                        // [FIX] Archive Logic for Holiday: (streak_day_status === 0)
                         const isHoliday = (row.streak_day_status === 0);
 
                         map[date] = { status, guesses: row.num_guesses, isHoliday };
@@ -130,6 +169,7 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
                     });
                 }
 
+                console.log(`[HolidayActivationModal] Fetched ${gameType} data:`, Object.keys(map).length, 'dates');
                 setMonthData(map);
             } catch (e) {
                 console.error('Error fetching modal data:', e);
@@ -148,7 +188,11 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
         const monthTitle = format(monthDate, 'MMMM yyyy');
 
         return (
-            <StyledView key={monthDate.toISOString()} className="mb-6 bg-white rounded-xl p-4">
+            <StyledView
+                key={monthDate.toISOString()}
+                className="mb-6 bg-white rounded-xl p-4"
+                style={{ minHeight: 320 }} // Fixed height for 6 rows: header (20) + day labels (20) + 6 rows * 44 = 320
+            >
                 <ThemedText className="font-n-bold text-center mb-2 text-slate-900" size="lg">{monthTitle}</ThemedText>
 
                 <StyledView className="flex-row justify-between mb-1">
@@ -248,18 +292,28 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
                         Setting your missed days to holidays...
                     </Text>
 
-                    <StyledView>
+                    <Animated.View style={{ opacity: fadeAnim }}>
                         {loadingData ? (
                             <ActivityIndicator size="large" color="white" className="py-8" />
                         ) : (
                             monthsToShow.length > 0 && renderMonth(monthsToShow[currentMonthIndex])
                         )}
-                    </StyledView>
+                    </Animated.View>
 
-                    <StyledView className="mt-4 animate-fade-in">
+                    {/* [FIX] Always show Continue button to prevent size changes, but disable until last month */}
+                    <StyledView className="mt-4">
                         <StyledView
-                            onTouchEnd={onClose}
-                            className="bg-black rounded-full py-4 items-center shadow-md active:bg-slate-800"
+                            onTouchEnd={() => {
+                                // Only respond to touch on last month
+                                if (currentMonthIndex === monthsToShow.length - 1) {
+                                    onClose();
+                                }
+                            }}
+                            className="rounded-full py-4 items-center shadow-md"
+                            style={{
+                                backgroundColor: currentMonthIndex === monthsToShow.length - 1 ? '#000000' : '#64748b',
+                                opacity: currentMonthIndex === monthsToShow.length - 1 ? 1 : 0.5,
+                            }}
                         >
                             <Text className="text-white font-n-bold text-lg">Continue</Text>
                         </StyledView>

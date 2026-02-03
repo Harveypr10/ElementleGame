@@ -17,33 +17,49 @@ interface BadgeUnlockModalProps {
         category: string;
         threshold: number;
         badge_count?: number;
+        game_type?: 'REGION' | 'USER';
     } | null;
     onClose: () => void;
     showCloseButton?: boolean;
+    gameMode?: 'REGION' | 'USER';
 }
 
 // MAPPING LOGIC
 const HAMSTER_IMAGE = require('../../assets/ui/Streak-Hamster-Black.png'); // Default to black streak hamster as requested
 const TROPHY_ANIMATION = require('../../assets/animation/Trophy.json');
 
-const BADGE_IMAGES: Record<string, Record<number, any>> = {
+const BADGE_IMAGES: Record<string, any> = {
     streak: {
-        7: require('../../assets/badges/webp_assets/Badge - Streak 7 - White.webp'),
-        14: require('../../assets/badges/webp_assets/Badge - Streak 14 - White.webp'),
-        30: require('../../assets/badges/webp_assets/Badge - Streak 30 - White.webp'),
-        50: require('../../assets/badges/webp_assets/Badge - Streak 50 - White.webp'),
-        75: require('../../assets/badges/webp_assets/Badge - Streak 75 - White.webp'),
-        100: require('../../assets/badges/webp_assets/Bade - Streak 100 - White.webp'),
-        150: require('../../assets/badges/webp_assets/Badge - Streak 150 - White.webp'),
-        250: require('../../assets/badges/webp_assets/Badge - Streak 250 - White.webp'),
-        365: require('../../assets/badges/webp_assets/Badge - Streak 365 - White.webp'),
-        500: require('../../assets/badges/webp_assets/Badge - Streak 500 - White.webp'),
-        750: require('../../assets/badges/webp_assets/Badge - Streak 750 - White.webp'),
-        1000: require('../../assets/badges/webp_assets/Badge - Streak 1000 - White.webp'),
+        7: require('../../assets/badges/webp_new/Badge - Streak 7.webp'),
+        14: require('../../assets/badges/webp_new/Badge - Streak 14.webp'),
+        30: require('../../assets/badges/webp_new/Badge - Streak 30.webp'),
+        50: require('../../assets/badges/webp_new/Badge - Streak 50.webp'),
+        75: require('../../assets/badges/webp_new/Badge - Streak 75.webp'),
+        100: require('../../assets/badges/webp_new/Badge - Streak 100.webp'),
+        150: require('../../assets/badges/webp_new/Badge - Streak 150.webp'),
+        250: require('../../assets/badges/webp_new/Badge - Streak 250.webp'),
+        365: require('../../assets/badges/webp_new/Badge - Streak 365.webp'),
+        500: require('../../assets/badges/webp_new/Badge - Streak 500.webp'),
+        750: require('../../assets/badges/webp_new/Badge - Streak 750.webp'),
+        1000: require('../../assets/badges/webp_new/Badge - Streak 1000.webp'),
+    },
+    elementle: {
+        REGION: {
+            1: require('../../assets/badges/webp_new/Badge - Region - Elementle in 1.webp'),
+            2: require('../../assets/badges/webp_new/Badge - Region - Elementle in 2.webp'),
+        },
+        USER: {
+            1: require('../../assets/badges/webp_new/Badge - User - Elementle in 1.webp'),
+            2: require('../../assets/badges/webp_new/Badge - User - Elementle in 2.webp'),
+        }
+    },
+    percentile: {
+        REGION: require('../../assets/badges/webp_new/Badge - Region - Top %.webp'),
+        USER: require('../../assets/badges/webp_new/Badge - User - Top %.webp'),
     }
 };
 
-export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = false }: BadgeUnlockModalProps) {
+export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = false, gameMode = 'REGION' }: BadgeUnlockModalProps) {
     const scale = useRef(new Animated.Value(0)).current;
     // Animation ref
     const animationRef = useRef<LottieView>(null);
@@ -105,14 +121,19 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
     const getBadgeImage = () => {
         const threshold = badge.threshold;
         const catLower = badge.category.toLowerCase();
+        const mode = badge.game_type || gameMode;
 
         if (catLower.includes('streak') && BADGE_IMAGES.streak[threshold]) {
             return BADGE_IMAGES.streak[threshold];
         }
-        // For Elementle In 1 / 2, use the Streak Hamster Black with fire if available, or just the default.
-        // The screenshot shows a hamster with fire. Let's stick with the default HAMSTER_IMAGE (Streak Black)
-        // OR if they have specific "Elementle In 1" images we should use those.
-        // Since I don't see them mapped, I will use the default HAMSTER_IMAGE which I updated to Streak-Hamster-Black.png
+
+        if (catLower.includes('elementle') && BADGE_IMAGES.elementle[mode]?.[threshold]) {
+            return BADGE_IMAGES.elementle[mode][threshold];
+        }
+
+        if (catLower.includes('percentile') && BADGE_IMAGES.percentile[mode]) {
+            return BADGE_IMAGES.percentile[mode];
+        }
 
         return HAMSTER_IMAGE;
     };
@@ -155,13 +176,35 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
                         />
                     </View>
 
-                    {/* Badge/Hamster Image */}
-                    <Image
-                        source={getBadgeImage()}
-                        className="w-48 h-48 mb-6"
-                        contentFit="contain"
-                        cachePolicy="disk"
-                    />
+                    {/* Badge/Hamster Image with Dynamic Text Overlay */}
+                    <View style={{ position: 'relative', width: 192, height: 192, marginBottom: 24, alignItems: 'center', justifyContent: 'center' }}>
+                        <Image
+                            source={getBadgeImage()}
+                            style={{ width: 192, height: 192 }}
+                            contentFit="contain"
+                            cachePolicy="disk"
+                        />
+
+                        {/* Dynamic Text Overlay for Top % Badges */}
+                        {badge.category.toLowerCase().includes('percentile') && (
+                            <View style={{
+                                position: 'absolute',
+                                top: '52%',
+                                left: 0,
+                                right: 0,
+                                alignItems: 'center',
+                            }}>
+                                <StyledText style={{
+                                    fontSize: 28,
+                                    fontWeight: 'bold',
+                                    color: '#6B5D4F',
+                                    textAlign: 'center',
+                                }}>
+                                    {badge.threshold}%
+                                </StyledText>
+                            </View>
+                        )}
+                    </View>
 
                     {/* Badge Name */}
                     <StyledText className="text-3xl font-black text-white mb-2 text-center tracking-wide" style={{ color: getBadgeColor() }}>

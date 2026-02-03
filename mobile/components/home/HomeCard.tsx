@@ -23,6 +23,7 @@ interface HomeCardProps {
     children?: React.ReactNode;
     testID?: string; // Test identifier
     iconStyle?: any; // Optional custom icon style
+    scale?: number; // Scale factor for responsive sizing (default 1)
 }
 
 const HomeCardComponent = ({
@@ -35,14 +36,15 @@ const HomeCardComponent = ({
     className = "",
     children,
     testID,
-    iconStyle
+    iconStyle,
+    scale = 1
 }: HomeCardProps) => {
 
     return (
         <StyledTouchableOpacity
             testID={testID}
             className={`w-full rounded-3xl flex-row items-center justify-between px-5 overflow-hidden mb-4 ${className}`}
-            style={{ backgroundColor, height, ...getCardShadow('md') }}
+            style={{ backgroundColor, height: height * scale, ...getCardShadow('md') }}
             onPress={onPress}
             activeOpacity={0.9}
         >
@@ -64,7 +66,7 @@ const HomeCardComponent = ({
                     className="w-24 h-24 ml-2"
                     contentFit="contain"
                     cachePolicy="disk"
-                    style={iconStyle}
+                    style={{ ...iconStyle, width: (iconStyle?.width || 96) * scale, height: (iconStyle?.height || 96) * scale }}
                 />
             )}
         </StyledTouchableOpacity>

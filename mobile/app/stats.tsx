@@ -352,12 +352,12 @@ export default function StatsScreen() {
                 ) : (
                     <StyledScrollView
                         showsVerticalScrollIndicator={false}
-                        className="flex-1"
+                        className="flex-1 w-full"
                         contentContainerStyle={{ paddingBottom: 40 }}
                         style={{ marginTop: -20 }}
                     >
                         {/* Main Stats Cards - Overlapping header */}
-                        <StyledView className="px-4">
+                        <StyledView className="px-4 w-full max-w-4xl self-center">
                             {/* Quick Stats Row */}
                             <StyledView className="flex-row gap-3 mb-4">
                                 {/* Games Played */}
@@ -560,14 +560,17 @@ export default function StatsScreen() {
                                         </ThemedText>
                                         <BadgeSlot
                                             category="elementle"
-                                            badge={highestBadges.elementle}
+                                            badge={highestBadges.elementle || { badge: { name: 'Elementle in 2', threshold: 2 }, threshold: 2 }}
                                             minimal={true}
                                             size="lg"
                                             placeholderImage={MathsHamsterTransparent}
+                                            gameMode={mode}
                                         />
-                                        <ThemedText className="font-n-medium text-xs text-center mt-2" style={{ color: highestBadges.elementle ? '#FFFFFF' : theme.badgeText }} numberOfLines={2}>
-                                            {highestBadges.elementle?.badge?.name || "None"}
-                                        </ThemedText>
+                                        {highestBadges.elementle && (
+                                            <ThemedText className="font-n-medium text-xs text-center mt-2" style={{ color: '#FFFFFF' }} numberOfLines={2}>
+                                                {highestBadges.elementle.badge?.name}
+                                            </ThemedText>
+                                        )}
                                     </StyledTouchableOpacity>
 
                                     {/* Streak Badge */}
@@ -581,14 +584,17 @@ export default function StatsScreen() {
                                         </ThemedText>
                                         <BadgeSlot
                                             category="streak"
-                                            badge={highestBadges.streak}
+                                            badge={highestBadges.streak || { badge: { name: '7-Day Streak', threshold: 7 }, threshold: 7 }}
                                             minimal={true}
                                             size="lg"
                                             placeholderImage={MathsHamsterTransparent}
+                                            gameMode={mode}
                                         />
-                                        <ThemedText className="font-n-medium text-xs text-center mt-2" style={{ color: highestBadges.streak ? '#FFFFFF' : theme.badgeText }} numberOfLines={2}>
-                                            {highestBadges.streak?.badge?.name || "None"}
-                                        </ThemedText>
+                                        {highestBadges.streak && (
+                                            <ThemedText className="font-n-medium text-xs text-center mt-2" style={{ color: '#FFFFFF' }} numberOfLines={2}>
+                                                {highestBadges.streak.badge?.name}
+                                            </ThemedText>
+                                        )}
                                     </StyledTouchableOpacity>
 
                                     {/* Percentile Badge */}
@@ -602,14 +608,17 @@ export default function StatsScreen() {
                                         </ThemedText>
                                         <BadgeSlot
                                             category="percentile"
-                                            badge={highestBadges.percentile}
+                                            badge={highestBadges.percentile || { badge: { name: 'Top 50%', threshold: 50 }, threshold: 50 }}
                                             minimal={true}
                                             size="lg"
                                             placeholderImage={MathsHamsterTransparent}
+                                            gameMode={mode}
                                         />
-                                        <ThemedText className="font-n-medium text-xs text-center mt-2" style={{ color: highestBadges.percentile ? '#FFFFFF' : theme.badgeText }} numberOfLines={2}>
-                                            {highestBadges.percentile?.badge?.name || "None"}
-                                        </ThemedText>
+                                        {highestBadges.percentile && (
+                                            <ThemedText className="font-n-medium text-xs text-center mt-2" style={{ color: '#FFFFFF' }} numberOfLines={2}>
+                                                {highestBadges.percentile.badge?.name}
+                                            </ThemedText>
+                                        )}
                                     </StyledTouchableOpacity>
                                 </StyledView>
                             </StyledView>

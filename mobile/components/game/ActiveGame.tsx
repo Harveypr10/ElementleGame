@@ -294,6 +294,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                 // 1. Trigger Confetti Immediately
                 const displayStreak = finalStreak ?? stats?.current_streak ?? 1;
                 setStreakToDisplay(displayStreak);
+                console.log(`[ActiveGame] Triggering StreakCelebration with streak: ${displayStreak}`);
                 setShowStreakCelebration(true); // <--- SHOW CELEBRATION HERE
 
                 // 2. Refetch stats in background
@@ -355,7 +356,8 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                             currentStreak: displayStreak.toString(),
                             isStreakSaverGame: isStreakSaverGame ? 'true' : 'false',
                             earnedBadges: JSON.stringify(earnedBadges || []),
-                            isToday: (isTodayPuzzle ?? (puzzle.date === new Date().toISOString().split('T')[0])).toString()
+                            isToday: (isTodayPuzzle ?? (puzzle.date === new Date().toISOString().split('T')[0])).toString(),
+                            justFinished: 'true'
                         }
                     });
                 }, 4000); // Increased delay to 4s to allow animation to play
@@ -427,7 +429,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     {/* Clue Box - Moved from GameScreen to sync animations */}
                     <Animated.View
                         className={`mx-6 -mt-6 mb-2 rounded-3xl items-center ${cluesEnabled ? 'bg-white dark:bg-slate-800 shadow-sm p-4' : 'h-10'}`}
-                        style={{ zIndex: 100 }}
+                        style={{ zIndex: 100, maxWidth: 582, alignSelf: 'center', width: '100%' }}
                     >
                         {cluesEnabled && (
                             <>
@@ -453,7 +455,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     </ThemedView>
 
                     {/* Keyboard or Continue Button */}
-                    <View style={{ paddingBottom: 10, paddingTop: 8 }}>
+                    <View style={{ paddingBottom: 10, paddingTop: 8, maxWidth: 582, alignSelf: 'center', width: '100%' }}>
                         {(gameState === 'playing') ? (
                             <NumericKeyboard
                                 onDigitPress={handleDigitPress}
@@ -574,6 +576,10 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                         setShowHolidayPopup(false);
                         try {
                             await endHoliday(false);
+                            // [FIX] Reload the game screen to show streak intro
+                            // Use replace to reload with fresh state
+                            console.log('[ActiveGame] Holiday exited - reloading game to show streak intro');
+                            router.replace(`/game/${gameMode}/${puzzle.date}`);
                         } catch (e) {
                             console.error("Failed to exit holiday mode", e);
                         }

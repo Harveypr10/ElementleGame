@@ -18,9 +18,10 @@ const StyledView = styled(View);
 
 interface GoProButtonProps {
     onPress: () => void;
+    scale?: number; // Scale factor for responsive sizing (default 1)
 }
 
-export function GoProButton({ onPress }: GoProButtonProps) {
+export function GoProButton({ onPress, scale = 1 }: GoProButtonProps) {
     const { isPro, isLoading } = useSubscription();
     const [cachedPro, setCachedPro] = useState(false);
     const [cacheChecked, setCacheChecked] = useState(false);
@@ -43,12 +44,14 @@ export function GoProButton({ onPress }: GoProButtonProps) {
             <StyledTouchableOpacity
                 onPress={onPress}
                 testID="button-pro-status"
-                className="px-3 py-1.5 rounded-lg shadow-sm active:opacity-80"
+                className="rounded-lg shadow-sm active:opacity-80"
                 style={{
                     backgroundColor: '#f97316', // orange-500
+                    paddingHorizontal: 12 * scale,
+                    paddingVertical: 6 * scale,
                 }}
             >
-                <StyledText className="text-sm font-bold text-white">
+                <StyledText style={{ fontSize: 14 * scale, fontWeight: 'bold', color: 'white' }}>
                     Pro
                 </StyledText>
             </StyledTouchableOpacity>
@@ -60,9 +63,11 @@ export function GoProButton({ onPress }: GoProButtonProps) {
         <StyledTouchableOpacity
             onPress={onPress}
             testID="button-go-pro"
-            className="px-2 py-1.5 rounded-lg shadow-sm active:opacity-80"
+            className="rounded-lg shadow-sm active:opacity-80"
             style={{
                 backgroundColor: '#f97316', // orange-500
+                paddingHorizontal: 8 * scale,
+                paddingVertical: 6 * scale,
             }}
         >
             {/* Top: "Ads on" indicator */}

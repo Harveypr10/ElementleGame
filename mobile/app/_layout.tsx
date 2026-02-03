@@ -216,6 +216,13 @@ export default function Layout() {
                                                                 }}
                                                             />
                                                             <Stack.Screen name="index" options={{ headerShown: false }} />
+                                                            <Stack.Screen
+                                                                name="settings"
+                                                                options={{
+                                                                    headerShown: false,
+                                                                    presentation: 'card'
+                                                                }}
+                                                            />
                                                         </Stack>
                                                     </NavigationGuard>
                                                 </ThemedView>

@@ -143,10 +143,109 @@ export function parseUserDate(
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
-export function getTodayCanonical(): string {
+/**
+ * CRITICAL: Single Source of Truth for "Today's Puzzle Date"
+ * 
+ * Get today's puzzle date in YYYY-MM-DD format using device local time.
+ * 
+ * This is the canonical "today" for all puzzle-related logic.
+ * 
+ * IMPORTANT: This should be called ONCE when the home screen loads,
+ * and the result should be passed to all functions that need "today".
+ * 
+ * Strategy: Use device local time to match user expectation. Once set,
+ * this date remains fixed throughout the user's session.
+ * 
+ * @returns Date string in YYYY-MM-DD format (device local time)
+ */
+export function getTodaysPuzzleDate(): string {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
+
+/**
+ * Legacy alias for getTodaysPuzzleDate
+ * @deprecated Use getTodaysPuzzleDate() instead
+ */
+export function getTodayCanonical(): string {
+    return getTodaysPuzzleDate();
+}
+
+/**
+ * Check if a given date string is today's puzzle date.
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @param todaysPuzzleDate - Optional override for "today" (for testing or fixed sessions)
+ * @returns True if the date is today
+ */
+export function isPuzzleToday(dateStr: string, todaysPuzzleDate?: string): boolean {
+    const today = todaysPuzzleDate || getTodaysPuzzleDate();
+    return dateStr === today;
+}
+
+/**
+ * Parse a date string (YYYY-MM-DD) as a Date object at local midnight.
+ * 
+ * This ensures consistent date handling across the app.
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @returns Date object at local midnight
+ */
+export function parseLocalDate(dateStr: string): Date {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day, 0, 0, 0, 0);
+}
+
+/**
+ * Format a Date object as YYYY-MM-DD in local time.
+ * 
+ * @param date - Date object
+ * @returns Date string in YYYY-MM-DD format
+ */
+export function formatLocalDate(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+/**
+ * Calculate the number of days between two date strings.
+ * 
+ * @param fromDate - Start date (YYYY-MM-DD)
+ * @param toDate - End date (YYYY-MM-DD)
+ * @returns Number of days between dates (positive if toDate is after fromDate)
+ */
+export function daysBetween(fromDate: string, toDate: string): number {
+    const from = parseLocalDate(fromDate);
+    const to = parseLocalDate(toDate);
+    const diffMs = to.getTime() - from.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Add days to a date string.
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @param days - Number of days to add (can be negative)
+ * @returns New date string in YYYY-MM-DD format
+ */
+export function addDays(dateStr: string, days: number): string {
+    const date = parseLocalDate(dateStr);
+    date.setDate(date.getDate() + days);
+    return formatLocalDate(date);
+}
+
+/**
+ * Get yesterday's date.
+ * 
+ * @param todayStr - Today's date string (YYYY-MM-DD)
+ * @returns Yesterday's date string in YYYY-MM-DD format
+ */
+export function getYesterday(todayStr: string): string {
+    return addDays(todayStr, -1);
+}
+

@@ -132,6 +132,7 @@ export default function GalleryScreen() {
                 badge={testBadge}
                 onClose={() => closeAll()}
                 showCloseButton
+                gameMode="REGION"
             />
 
             {/* Streak Celebration */}

@@ -48,8 +48,8 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', initialC
 
     const flatListRef = useRef<FlatList>(null);
 
-    // Badge Item Dimensions - adjusted for larger central focus
-    const ITEM_WIDTH = 120;
+    // Badge Item Dimensions - increased to 2.5x original xl size (120 * 2.5 = 300)
+    const ITEM_WIDTH = 300;
     const SPACING = 20;
     const ITEM_SIZE = ITEM_WIDTH + SPACING;
     const SPACER_ITEM_SIZE = (containerWidth - ITEM_SIZE) / 2;
@@ -204,22 +204,17 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', initialC
                 alignItems: 'center',
                 justifyContent: 'center',
                 transform: [{ scale }],
-                opacity: item.isEarned ? 1 : 0.5 // Keep simple opacity for earned/locked
+                opacity: item.isEarned ? 1 : 0.5
             }}>
-                {/* Overlay semi-transparent on non-focused items? No, scale does separation. */}
                 <Animated.View style={{ opacity: item.isEarned ? opacity : Animated.multiply(opacity, 0.5) }}>
                     <BadgeSlot
                         category={currentCategory}
                         badge={item}
-                        size="xl"
+                        size="xxl"
                         placeholderImage={MathsHamsterTransparent}
+                        gameMode={gameType}
                     />
                 </Animated.View>
-
-                {/* Tiny threshold label below icon */}
-                <StyledText className="text-slate-400 text-[10px] mt-4 font-medium uppercase tracking-widest">
-                    {item.badge.threshold} {currentCategory === 'elementle' ? 'Guesses' : 'Days'}
-                </StyledText>
             </Animated.View>
         );
     };
@@ -257,17 +252,17 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', initialC
                 </StyledView>
 
                 {/* Main Content Area */}
-                <StyledView className="flex-1 justify-center z-0">
+                <StyledView className="flex-1 justify-start pt-0 z-0">
 
-                    {/* Category Title */}
-                    <StyledView className="items-center mb-8 px-6">
+                    {/* Category Title - Push down below Up Arrow */}
+                    <StyledView className="items-center mb-2 mt-4 px-6">
                         <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-100 text-center uppercase tracking-widest">
                             {CATEGORY_CONFIG[currentCategory].title}
                         </StyledText>
                     </StyledView>
 
                     {/* Badge Carousel */}
-                    <Animated.View style={{ opacity: fadeOpacity, height: ITEM_WIDTH * 1.8 }}>
+                    <Animated.View style={{ opacity: fadeOpacity, height: ITEM_WIDTH * 1.5 }}>
                         <Animated.FlatList
                             ref={flatListRef}
                             data={categoryBadges}
@@ -275,7 +270,7 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', initialC
                             horizontal
                             showsHorizontalScrollIndicator={false}
                             snapToInterval={ITEM_SIZE}
-                            snapToAlignment="center"
+                            snapToAlignment="start" // Changed from center to start for precise interval snapping with padding
                             decelerationRate="fast"
                             getItemLayout={(data, index) => (
                                 { length: ITEM_SIZE, offset: ITEM_SIZE * index, index }
@@ -296,13 +291,9 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', initialC
                     </Animated.View>
 
                     {/* Details Section (Dynamic based on Focus) */}
-                    <StyledView className="items-center px-8 mt-6 h-[140px] justify-start">
+                    <StyledView className="items-center px-8 mt-0 h-[100px] justify-start">
                         {focusedBadge ? (
                             <>
-                                <StyledText className="text-slate-600 dark:text-slate-300 text-center text-lg mb-4 font-n-medium leading-6">
-                                    {CATEGORY_CONFIG[currentCategory].description}
-                                </StyledText>
-
                                 {focusedBadge.isEarned ? (
                                     <StyledView className="bg-green-500 rounded-full px-8 py-3 shadow-sm transform scale-105">
                                         <StyledText className="text-white font-n-bold text-lg">

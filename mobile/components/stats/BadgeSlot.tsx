@@ -17,43 +17,59 @@ const StyledImage = styled(Image);
 // Found hamster.png in assets root
 const HAMSTER_IMAGE = require('../../assets/hamster.png');
 
-// Static mapping for WebP badges (Scenario B: Matching Logic + Scenario A: Typo handling)
-const BADGE_IMAGES: Record<string, Record<number, any>> = {
+// Static mapping for WebP badges
+const BADGE_IMAGES: Record<string, any> = {
     streak: {
-        7: require('../../assets/badges/webp_assets/Badge - Streak 7 - White.webp'),
-        14: require('../../assets/badges/webp_assets/Badge - Streak 14 - White.webp'),
-        30: require('../../assets/badges/webp_assets/Badge - Streak 30 - White.webp'),
-        50: require('../../assets/badges/webp_assets/Badge - Streak 50 - White.webp'),
-        75: require('../../assets/badges/webp_assets/Badge - Streak 75 - White.webp'),
-        100: require('../../assets/badges/webp_assets/Bade - Streak 100 - White.webp'), // Typo in filename
-        150: require('../../assets/badges/webp_assets/Badge - Streak 150 - White.webp'),
-        250: require('../../assets/badges/webp_assets/Badge - Streak 250 - White.webp'),
-        365: require('../../assets/badges/webp_assets/Badge - Streak 365 - White.webp'),
-        500: require('../../assets/badges/webp_assets/Badge - Streak 500 - White.webp'),
-        750: require('../../assets/badges/webp_assets/Badge - Streak 750 - White.webp'),
-        1000: require('../../assets/badges/webp_assets/Badge - Streak 1000 - White.webp'),
+        7: require('../../assets/badges/webp_new/Badge - Streak 7.webp'),
+        14: require('../../assets/badges/webp_new/Badge - Streak 14.webp'),
+        30: require('../../assets/badges/webp_new/Badge - Streak 30.webp'),
+        50: require('../../assets/badges/webp_new/Badge - Streak 50.webp'),
+        75: require('../../assets/badges/webp_new/Badge - Streak 75.webp'),
+        100: require('../../assets/badges/webp_new/Badge - Streak 100.webp'),
+        150: require('../../assets/badges/webp_new/Badge - Streak 150.webp'),
+        250: require('../../assets/badges/webp_new/Badge - Streak 250.webp'),
+        365: require('../../assets/badges/webp_new/Badge - Streak 365.webp'),
+        500: require('../../assets/badges/webp_new/Badge - Streak 500.webp'),
+        750: require('../../assets/badges/webp_new/Badge - Streak 750.webp'),
+        1000: require('../../assets/badges/webp_new/Badge - Streak 1000.webp'),
+    },
+    elementle: {
+        REGION: {
+            1: require('../../assets/badges/webp_new/Badge - Region - Elementle in 1.webp'),
+            2: require('../../assets/badges/webp_new/Badge - Region - Elementle in 2.webp'),
+        },
+        USER: {
+            1: require('../../assets/badges/webp_new/Badge - User - Elementle in 1.webp'),
+            2: require('../../assets/badges/webp_new/Badge - User - Elementle in 2.webp'),
+        }
+    },
+    percentile: {
+        REGION: require('../../assets/badges/webp_new/Badge - Region - Top %.webp'),
+        USER: require('../../assets/badges/webp_new/Badge - User - Top %.webp'),
     }
 };
 
 interface BadgeSlotProps {
     category: 'elementle' | 'streak' | 'percentile';
     badge: any | null; // UserBadgeWithDetails logic
-    size?: 'sm' | 'md' | 'lg' | 'xl';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
     isAnimating?: boolean;
     minimal?: boolean;
     placeholderImage?: any;
+    gameMode?: 'REGION' | 'USER';
 }
 
 export function BadgeSlot(props: BadgeSlotProps) {
-    const { category, badge, size = 'xl', isAnimating = false, placeholderImage } = props;
+    const { category, badge, size = 'xl', isAnimating = false, placeholderImage, gameMode = 'REGION' } = props;
     const isEmpty = !badge;
 
     // Size mappings (approximate to web implementation scale)
-    const sizeMap = {
+    const sizeMap: Record<string, { width: number; height: number; icon: number; text: string }> = {
         sm: { width: 56, height: 64, icon: 12, text: 'text-[10px]' },
         md: { width: 72, height: 84, icon: 16, text: 'text-xs' },
         lg: { width: 96, height: 110, icon: 20, text: 'text-sm' },
         xl: { width: 110, height: 128, icon: 24, text: 'text-sm' },
+        xxl: { width: 300, height: 300, icon: 40, text: 'text-lg' }, // 2.5x larger, tighter height
     };
 
     const currentSize = sizeMap[size];
@@ -115,7 +131,15 @@ export function BadgeSlot(props: BadgeSlotProps) {
             return BADGE_IMAGES.streak[threshold];
         }
 
-        // Fallback for Elementle/Percentile or missing streaks
+        if (category === 'elementle' && BADGE_IMAGES.elementle[gameMode]?.[threshold]) {
+            return BADGE_IMAGES.elementle[gameMode][threshold];
+        }
+
+        if (category === 'percentile' && BADGE_IMAGES.percentile[gameMode]) {
+            return BADGE_IMAGES.percentile[gameMode];
+        }
+
+        // Fallback
         return placeholderImage || HAMSTER_IMAGE;
     };
 
@@ -181,10 +205,21 @@ export function BadgeSlot(props: BadgeSlotProps) {
                         cachePolicy="disk"
                     />
 
-                    {!isEmpty && (
-                        <StyledView className="flex-row items-center gap-1 mt-1 bg-white/80 rounded-full px-2 py-0.5">
-                            {getCategoryIcon()}
-                            <StyledText style={{ color: getBadgeColor(), fontSize: currentSize.icon }} className="font-n-bold">
+                    {/* Dynamic Text Overlay for Top % Badges */}
+                    {!isEmpty && category === 'percentile' && badge && (
+                        <StyledView style={{
+                            position: 'absolute',
+                            top: '52%',
+                            left: 0,
+                            right: 0,
+                            alignItems: 'center',
+                        }}>
+                            <StyledText style={{
+                                fontSize: currentSize.icon * 1.5,
+                                fontWeight: 'bold',
+                                color: '#6B5D4F',
+                                textAlign: 'center',
+                            }}>
                                 {getBadgeValue()}
                             </StyledText>
                         </StyledView>
@@ -193,7 +228,11 @@ export function BadgeSlot(props: BadgeSlotProps) {
             </Animated.View>
 
             {!isEmpty && (
-                <StyledText className="text-[10px] text-slate-500 text-center max-w-[80px] font-n-medium" numberOfLines={2}>
+                <StyledText
+                    className={`${currentSize.text} text-slate-500 text-center font-n-medium`}
+                    style={{ marginTop: size === 'xxl' ? -50 : 0, maxWidth: size === 'xxl' ? 200 : 80 }}
+                    numberOfLines={2}
+                >
                     {badge.badge?.name || badge.name}
                 </StyledText>
             )}

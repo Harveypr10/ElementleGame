@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Shield, Clock, CalendarClock, Zap, Layers, ChevronRight } from 'lucide-react-native';
 import { useOptions } from '../../../../lib/options';
 import { useProfile } from '../../../../hooks/useProfile';
+import DebugControlPanel from '../../../../components/admin/DebugControlPanel';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -116,6 +117,13 @@ export default function AdminDashboard() {
                         <ChevronRight size={20} color="#94a3b8" />
                     </StyledTouchableOpacity>
                 ))}
+
+                {/* Debug Actions Section */}
+                <StyledText className="text-sm font-n-bold text-slate-500 uppercase tracking-wide mb-4 mt-8">
+                    Debug Actions
+                </StyledText>
+
+                <DebugControlPanel />
 
             </StyledScrollView>
         </StyledView>

@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, useColorScheme, useWindowDimensions, LayoutChangeEvent } from 'react-native';
 import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { useRouter } from 'expo-router';
@@ -50,7 +50,19 @@ export default function CategorySelectionScreen() {
     const [hasSyncedFromApi, setHasSyncedFromApi] = useState(false);
     const [welcomeVisible, setWelcomeVisible] = useState(false);
 
-    // Theme hook calls must be at top level
+    // Layout and Dimensions Logic
+    const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+    const isLargeScreen = windowWidth >= 768; // IPad width threshold
+    const [contentHeight, setContentHeight] = useState(0);
+    const [containerHeight, setContainerHeight] = useState(0);
+
+    // Calculate if content overflows (needs scroll)
+    // We add some buffer for safety
+    const isScrollable = contentHeight > containerHeight + 20; // 20px buffer
+
+    // Button width logic: Match columns (max-w-3xl = 768px - padding)
+    // On large screens, we match the grid width. On small, we fill screen - padding.
+    const buttonWidth = isLargeScreen ? 720 : '100%'; // max-3xl approx 768. 720 is safe inner width.
     const surfaceColor = useThemeColor({}, 'surface');
     const backgroundColor = useThemeColor({}, 'background');
     const textColor = useThemeColor({}, 'text');
@@ -298,16 +310,23 @@ export default function CategorySelectionScreen() {
 
                         {/* Title - Centered */}
                         <StyledView className="flex-1 items-center px-12">
-                            <ThemedText className="font-n-bold font-heading text-center" size="3xl" style={{ color: '#FFFFFF', lineHeight: 32 }}>
+                            <ThemedText className="font-n-bold font-heading text-center" size={isLargeScreen ? "4xl" : "3xl"} style={{ color: '#FFFFFF', lineHeight: isLargeScreen ? 48 : 32 }}>
                                 Select Your{'\n'}Categories
                             </ThemedText>
-                            <ThemedText className="font-n-medium text-center mt-1" size="base" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                            <ThemedText className="font-n-medium text-center mt-1" size={isLargeScreen ? "xl" : "base"} style={{ color: 'rgba(255,255,255,0.8)' }}>
                                 Choose at least 3 categories
                             </ThemedText>
                         </StyledView>
 
                         {/* Hamster Image - Absolute Right */}
-                        <StyledView className="absolute right-0 top-0">
+                        <StyledView
+                            className="absolute"
+                            style={{
+                                right: isLargeScreen ? 32 : 0, // Double distance (approx, assuming 16 default padding context) 
+                                top: isLargeScreen ? '50%' : 0, // Middle vertically if large
+                                transform: isLargeScreen ? [{ translateY: -36 }] : [], // Center offset
+                            }}
+                        >
                             <Image
                                 source={require('../../assets/ui/webp_assets/Question-Hamster-v2.webp')}
                                 style={{ width: 72, height: 72 }}
@@ -325,8 +344,10 @@ export default function CategorySelectionScreen() {
                 showsVerticalScrollIndicator={false}
                 style={{ marginTop: -18 }} // Pull up overlap (reduced from -24 to move down slightly)
                 contentContainerStyle={{ paddingBottom: 160 }} // Extra padding for taller button area
+                onContentSizeChange={(w, h) => setContentHeight(h)}
+                onLayout={(e: LayoutChangeEvent) => setContainerHeight(e.nativeEvent.layout.height)}
             >
-                <StyledView className="px-4">
+                <StyledView className="px-4 w-full max-w-3xl self-center">
                     <StyledView className="flex-row flex-wrap gap-2 pb-6 justify-center">
                         {categories.map(category => {
                             const isSelected = selectedCategories.includes(category.id);
@@ -354,7 +375,7 @@ export default function CategorySelectionScreen() {
                                 >
                                     <ThemedText
                                         className={`font-n-bold text-center ${isSelected ? 'text-white' : ''}`}
-                                        size="sm"
+                                        size={isLargeScreen ? "xl" : "sm"}
                                     >
                                         {category.name}
                                     </ThemedText>
@@ -371,53 +392,67 @@ export default function CategorySelectionScreen() {
                     // Gradient handled by LinearGradient
                 }}
             >
-                <LinearGradient
-                    colors={['transparent', isDark ? systemBackgroundColor : '#FAFBFC']}
-                    style={{ position: 'absolute', top: -60, left: 0, right: 0, bottom: 0 }}
-                    pointerEvents="none"
-                />
+                {/* Fade Effect - Conditional & Revised Height */}
+                {isScrollable && (
+                    <LinearGradient
+                        colors={['transparent', isDark ? systemBackgroundColor : '#FAFBFC']}
+                        style={{
+                            position: 'absolute',
+                            top: isLargeScreen ? -30 : -60, // Half height on large screens
+                            left: 0,
+                            right: 0,
+                            bottom: 0
+                        }}
+                        pointerEvents="none"
+                    />
+                )}
 
-                <StyledTouchableOpacity
-                    onPress={handleContinue}
-                    disabled={!canGenerate || saving || generating}
-                    className={`rounded-full items-center shadow-lg justify-center`}
-                    style={{
-                        backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : '#48EDF3', // Blue-500 or Cyan (User request)
-                        opacity: 1, // Solid opacity always
-                        paddingVertical: 24, // Increased height
-                    }}
-                >
-                    {saving || generating ? (
-                        <StyledView className="items-center">
-                            <StyledView className="flex-row items-center mb-1">
-                                <Loader2 size={24} color="white" className="mr-2" />
-                                <ThemedText className="text-white font-n-bold" size="lg">
-                                    {generating ? 'Generating...' : 'Saving...'}
-                                </ThemedText>
-                            </StyledView>
-                            <ThemedText className="text-white font-n-medium opacity-80" size="sm">
-                                Please wait
-                            </ThemedText>
-                        </StyledView>
-                    ) : (
-                        <StyledView className="items-center">
-                            <ThemedText
-                                className="font-n-bold"
-                                size="lg"
-                                style={{ color: canGenerate ? '#FFFFFF' : textColor }} // White or Default Text Color
-                            >
-                                {initialCategories.length === 0 ? 'Generate' : 'Re-Generate'}
-                            </ThemedText>
-                            <ThemedText
-                                className="font-n-medium opacity-90 mt-0.5"
-                                size="sm"
-                                style={{ color: canGenerate ? '#FFFFFF' : textColor }} // White or Default Text Color
-                            >
-                                {selectedCategories.length} {selectedCategories.length === 1 ? 'Category' : 'Categories'} Selected
-                            </ThemedText>
-                        </StyledView>
-                    )}
-                </StyledTouchableOpacity>
+                <StyledView className="w-full items-center" style={{ paddingHorizontal: 0 }}>
+                    {/* Width constrained button wrapper */}
+                    <StyledView style={{ width: isLargeScreen ? 696 : '100%', maxWidth: '100%' }}>
+                        <StyledTouchableOpacity
+                            onPress={handleContinue}
+                            disabled={!canGenerate || saving || generating}
+                            className={`rounded-full items-center shadow-lg justify-center w-full`}
+                            style={{
+                                backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : '#48EDF3', // Blue-500 or Cyan (User request)
+                                opacity: 1, // Solid opacity always
+                                paddingVertical: 24, // Increased height
+                            }}
+                        >
+                            {saving || generating ? (
+                                <StyledView className="items-center">
+                                    <StyledView className="flex-row items-center mb-1">
+                                        <Loader2 size={24} color="white" className="mr-2" />
+                                        <ThemedText className="text-white font-n-bold" size="lg">
+                                            {generating ? 'Generating...' : 'Saving...'}
+                                        </ThemedText>
+                                    </StyledView>
+                                    <ThemedText className="text-white font-n-medium opacity-80" size="sm">
+                                        Please wait
+                                    </ThemedText>
+                                </StyledView>
+                            ) : (
+                                <StyledView className="items-center">
+                                    <ThemedText
+                                        className="font-n-bold"
+                                        size={isLargeScreen ? "2xl" : "lg"}
+                                        style={{ color: canGenerate ? '#FFFFFF' : textColor }} // White or Default Text Color
+                                    >
+                                        {initialCategories.length === 0 ? 'Generate' : 'Re-Generate'}
+                                    </ThemedText>
+                                    <ThemedText
+                                        className="font-n-medium opacity-90 mt-0.5"
+                                        size={isLargeScreen ? "base" : "sm"}
+                                        style={{ color: canGenerate ? '#FFFFFF' : textColor }} // White or Default Text Color
+                                    >
+                                        {selectedCategories.length} {selectedCategories.length === 1 ? 'Category' : 'Categories'} Selected
+                                    </ThemedText>
+                                </StyledView>
+                            )}
+                        </StyledTouchableOpacity>
+                    </StyledView>
+                </StyledView>
             </StyledView>
 
             {/* Welcome Pro Modal */}

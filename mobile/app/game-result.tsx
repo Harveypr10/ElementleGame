@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Share, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Share, Image, useWindowDimensions } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,9 +52,16 @@ export default function GameResultScreen() {
     // [FIX] Parse isToday param to correctly identify today's games (since answerDateCanonical is historical)
     const isTodayParam = params.isToday === 'true';
 
+    // [FIX] Parse justFinished param to distinguish between immediate win and viewing history
+    const justFinished = params.justFinished === 'true';
+
     // [FIX] Parse passed badges
     const passedBadges = params.earnedBadges ? JSON.parse(params.earnedBadges as string) : [];
     console.log('[GameResult] Params:', { currentStreak, isStreakSaverGame, isWin, passedBadgesCount: passedBadges.length, isToday: isTodayParam });
+
+    // Responsive sizing - only increase on tablet/desktop
+    const { width: screenWidth } = useWindowDimensions();
+    const isLargeScreen = screenWidth >= 768;
 
     // Colors based on mode (matching original EndGameModal)
     const statsColor = isLocalMode ? "#93cd78" : "#A4DB57"; // Green
@@ -98,7 +105,7 @@ export default function GameResultScreen() {
         // 2. AND (It is Today's Puzzle OR It is a Streak Saver Game)
         // Note: We use the passed isTodayParam because answerDateCanonical is historical.
 
-        if (isWin && currentStreak > 0 && (isTodayParam || isStreakSaverGame)) {
+        if (isWin && currentStreak > 0 && (isTodayParam || isStreakSaverGame) && justFinished) {
             console.log('[GameResult] Triggering Streak Celebration', {
                 isWin,
                 currentStreak,
@@ -113,12 +120,12 @@ export default function GameResultScreen() {
             console.log('[GameResult] Skipping Streak Celebration', {
                 isWin,
                 currentStreak,
-                isTodayParam: isTodayParam,
                 isStreakSaverGame: params.isStreakSaverGame,
-                reason: !isWin ? 'Not Win' : currentStreak <= 0 ? 'No Streak' : 'Not Today/Saver'
+                justFinished,
+                reason: !isWin ? 'Not Win' : currentStreak <= 0 ? 'No Streak' : !justFinished ? 'Not Just Finished' : 'Not Today/Saver'
             });
         }
-    }, [isWin, currentStreak, isTodayParam, isStreakSaverGame]);
+    }, [isWin, currentStreak, isTodayParam, isStreakSaverGame, justFinished]);
 
     // Handle Streak Close -> Start Badge Queue
     const handleStreakClose = () => {
@@ -239,156 +246,160 @@ export default function GameResultScreen() {
                 visible={badgeModalVisible}
                 badge={currentBadge}
                 onClose={handleBadgeClose}
+                gameMode={gameMode === 'USER' ? 'USER' : 'REGION'}
             />
 
             <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-                <StyledView className="flex-1 px-6 pt-8 pb-6 justify-between">
-                    {/* Scrollable Content */}
-                    {/* Scrollable Content - Centered in available space */}
-                    {/* Scrollable Content - Centered in available space */}
-                    <View className="flex-1 items-center justify-center w-full">
-                        {/* Header */}
-                        <StyledView className="items-center mb-6">
-                            <ThemedText style={{ fontSize: 36 * textScale, lineHeight: 40 * textScale }} className="font-n-bold text-center">
-                                {isWin ? "Congratulations!" : "Unlucky!"}
-                            </ThemedText>
-                        </StyledView>
-
-                        {/* Hamster Image - Reduced height */}
-                        <StyledView className="items-center mb-6 h-40 justify-center">
-                            <StyledImage
-                                source={isWin ? WinHamsterImg : LoseHamsterImg}
-                                className="w-48 h-48"
-                                resizeMode="contain"
-                            />
-                        </StyledView>
-
-                        {/* Date */}
-                        <StyledView className="items-center mb-4">
-                            <ThemedText style={{ fontSize: 30 * textScale }} className="font-n-bold text-center opacity-90">
-                                {formattedDate}
-                            </ThemedText>
-                        </StyledView>
-
-                        {/* Description Box - Light Grey No Border */}
-                        <StyledView
-                            className="p-4 rounded-2xl w-full mb-4 shadow-sm"
-                            style={{ backgroundColor: '#f8fafc' }}
-                        >
-                            <ThemedText style={{ fontSize: 18 * textScale, color: '#0f172a' }} className="font-n-semibold text-center mb-2">
-                                {eventTitle}
-                            </ThemedText>
-                            <ThemedText style={{ fontSize: 14 * textScale, color: '#334155' }} className="text-center opacity-80">
-                                {eventDescription || "A historic day to remember!"}
-                            </ThemedText>
-                        </StyledView>
-
-                        {/* Guesses text - Reduced margin */}
-                        {isWin && (
-                            <ThemedText className="text-base text-center font-n-medium mb-2 opacity-60">
-                                You solved it in {guessesCount} {guessesCount === 1 ? 'guess' : 'guesses'}!
-                            </ThemedText>
-                        )}
-                    </View>
-
-                    {/* Buttons Stack (Bottom Fixed) - Reduced button heights */}
-                    <StyledView className="w-full mb-4">
-                        {isGuest ? (
-                            <StyledView className="w-full">
-                                <StyledTouchableOpacity
-                                    className="w-full flex-row items-center justify-center px-4 rounded-3xl shadow-sm active:opacity-90"
-                                    style={{ backgroundColor: homeColor, height: 72 }}
-                                    onPress={() => {
-                                        // Use replace so going back from Login goes to root/onboarding, not here
-                                        router.replace('/(auth)/login');
-                                    }}
-                                >
-                                    <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Continue</StyledText>
-                                </StyledTouchableOpacity>
+                <StyledView className="flex-1 pt-8 pb-6 justify-between" style={{ alignItems: 'center' }}>
+                    {/* Width Constraining Wrapper - 20% wider (580 * 1.2 = 696) */}
+                    <View style={{ width: '100%', maxWidth: 696, paddingHorizontal: 24, flex: 1, justifyContent: 'space-between' }}>
+                        {/* Scrollable Content */}
+                        {/* Scrollable Content - Centered in available space */}
+                        {/* Scrollable Content - Centered in available space */}
+                        <View className="flex-1 items-center justify-center w-full">
+                            {/* Header */}
+                            <StyledView className="items-center mb-6">
+                                <ThemedText style={{ fontSize: (isLargeScreen ? 36 : 31) * textScale, lineHeight: (isLargeScreen ? 40 : 35) * textScale }} className="font-n-bold text-center">
+                                    {isWin ? "Congratulations!" : "Unlucky!"}
+                                </ThemedText>
                             </StyledView>
-                        ) : (
-                            <>
-                                {/* Top Row: Stats and Share */}
-                                <StyledView className="flex-row gap-3 mb-3">
-                                    {/* Stats Button */}
-                                    <StyledTouchableOpacity
-                                        className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                        style={{ backgroundColor: statsColor, height: 72 }}
-                                        onPress={() => router.push(`/stats?mode=${gameMode}`)}
-                                    >
-                                        <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Stats</StyledText>
-                                        <View className="w-[46px] h-[46px] justify-center items-center">
-                                            <StyledImage
-                                                source={StatsHamsterImg}
-                                                className="w-full h-full"
-                                                resizeMode="contain"
-                                            />
-                                        </View>
-                                    </StyledTouchableOpacity>
 
-                                    {/* Share Button */}
-                                    <StyledTouchableOpacity
-                                        className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                        style={{ backgroundColor: shareColor, height: 72 }}
-                                        onPress={handleShare}
-                                    >
-                                        <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Share</StyledText>
-                                        <View className="w-[46px] h-[46px] justify-center items-center">
-                                            <StyledImage
-                                                source={ShareHamsterImg}
-                                                className="w-full h-full"
-                                                resizeMode="contain"
-                                            />
-                                        </View>
-                                    </StyledTouchableOpacity>
-                                </StyledView>
+                            {/* Hamster Image - Reduced height */}
+                            <StyledView className="items-center mb-6 h-40 justify-center">
+                                <StyledImage
+                                    source={isWin ? WinHamsterImg : LoseHamsterImg}
+                                    className={isLargeScreen ? "w-48 h-48" : "w-32 h-32"}
+                                    resizeMode="contain"
+                                />
+                            </StyledView>
 
-                                {/* Bottom Row: Home and Archive */}
-                                <StyledView className="flex-row gap-3">
-                                    {/* Home Button */}
+                            {/* Date */}
+                            <StyledView className="items-center mb-4">
+                                <ThemedText style={{ fontSize: (isLargeScreen ? 30 : 20) * textScale }} className="font-n-bold text-center opacity-90">
+                                    {formattedDate}
+                                </ThemedText>
+                            </StyledView>
+
+                            {/* Description Box - Light Grey No Border */}
+                            <StyledView
+                                className="p-4 rounded-2xl w-full mb-4 shadow-sm"
+                                style={{ backgroundColor: '#f8fafc' }}
+                            >
+                                <ThemedText style={{ fontSize: (isLargeScreen ? 27 : 18) * textScale, color: '#0f172a' }} className="font-n-semibold text-center mb-2">
+                                    {eventTitle}
+                                </ThemedText>
+                                <ThemedText style={{ fontSize: (isLargeScreen ? 21 : 14) * textScale, color: '#334155' }} className="text-center opacity-80">
+                                    {eventDescription || "A historic day to remember!"}
+                                </ThemedText>
+                            </StyledView>
+
+                            {/* Guesses text - Reduced margin */}
+                            {isWin && (
+                                <ThemedText style={{ fontSize: (isLargeScreen ? 24 : 20) * textScale }} className="text-center font-n-medium mb-2 opacity-60">
+                                    You solved it in {guessesCount} {guessesCount === 1 ? 'guess' : 'guesses'}!
+                                </ThemedText>
+                            )}
+                        </View>
+
+                        {/* Buttons Stack (Bottom Fixed) - Reduced button heights */}
+                        <StyledView className="w-full mb-4">
+                            {isGuest ? (
+                                <StyledView className="w-full">
                                     <StyledTouchableOpacity
-                                        className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
+                                        className="w-full flex-row items-center justify-center px-4 rounded-3xl shadow-sm active:opacity-90"
                                         style={{ backgroundColor: homeColor, height: 72 }}
                                         onPress={() => {
-                                            if (gameMode === 'REGION' || gameMode === 'USER') {
-                                                setGameMode(gameMode);
-                                            }
-                                            // [FIX] Invalidate Streak Saver Status to prevent Phantom Popup on Home
-                                            console.log('[GameResult] Invalidating streak saver status before Home...');
-                                            queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
-
-                                            router.push('/(tabs)');
+                                            // Use replace so going back from Login goes to root/onboarding, not here
+                                            router.replace('/(auth)/login');
                                         }}
                                     >
-                                        <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Home</StyledText>
-                                        <View className="w-[46px] h-[46px] justify-center items-center">
-                                            <StyledImage
-                                                source={HomeHamsterImg}
-                                                className="w-full h-full"
-                                                resizeMode="contain"
-                                            />
-                                        </View>
-                                    </StyledTouchableOpacity>
-
-                                    {/* Archive Button */}
-                                    <StyledTouchableOpacity
-                                        className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                        style={{ backgroundColor: archiveColor, height: 72 }}
-                                        onPress={() => router.push({ pathname: '/archive', params: { mode: gameMode } })}
-                                    >
-                                        <StyledText className="text-lg font-n-bold text-slate-800 dark:text-slate-900">Archive</StyledText>
-                                        <View className="w-[46px] h-[46px] justify-center items-center">
-                                            <StyledImage
-                                                source={ArchiveHamsterImg}
-                                                className="w-full h-full"
-                                                resizeMode="contain"
-                                            />
-                                        </View>
+                                        <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Continue</StyledText>
                                     </StyledTouchableOpacity>
                                 </StyledView>
-                            </>
-                        )}
-                    </StyledView>
+                            ) : (
+                                <>
+                                    {/* Top Row: Stats and Share */}
+                                    <StyledView className="flex-row gap-3 mb-3">
+                                        {/* Stats Button */}
+                                        <StyledTouchableOpacity
+                                            className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
+                                            style={{ backgroundColor: statsColor, height: isLargeScreen ? 94 : 64 }}
+                                            onPress={() => router.push(`/stats?mode=${gameMode}`)}
+                                        >
+                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Stats</StyledText>
+                                            <View className="w-[60px] h-[60px] justify-center items-center">
+                                                <StyledImage
+                                                    source={StatsHamsterImg}
+                                                    className={isLargeScreen ? "w-full h-full" : "w-12 h-12"}
+                                                    resizeMode="contain"
+                                                />
+                                            </View>
+                                        </StyledTouchableOpacity>
+
+                                        {/* Share Button */}
+                                        <StyledTouchableOpacity
+                                            className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
+                                            style={{ backgroundColor: shareColor, height: isLargeScreen ? 94 : 64 }}
+                                            onPress={handleShare}
+                                        >
+                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Share</StyledText>
+                                            <View className="w-[60px] h-[60px] justify-center items-center">
+                                                <StyledImage
+                                                    source={ShareHamsterImg}
+                                                    className={isLargeScreen ? "w-full h-full" : "w-12 h-12"}
+                                                    resizeMode="contain"
+                                                />
+                                            </View>
+                                        </StyledTouchableOpacity>
+                                    </StyledView>
+
+                                    {/* Bottom Row: Home and Archive */}
+                                    <StyledView className="flex-row gap-3">
+                                        {/* Home Button */}
+                                        <StyledTouchableOpacity
+                                            className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
+                                            style={{ backgroundColor: homeColor, height: isLargeScreen ? 94 : 64 }}
+                                            onPress={() => {
+                                                if (gameMode === 'REGION' || gameMode === 'USER') {
+                                                    setGameMode(gameMode);
+                                                }
+                                                // [FIX] Invalidate Streak Saver Status to prevent Phantom Popup on Home
+                                                console.log('[GameResult] Invalidating streak saver status before Home...');
+                                                queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
+
+                                                router.push('/(tabs)');
+                                            }}
+                                        >
+                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Home</StyledText>
+                                            <View className="w-[60px] h-[60px] justify-center items-center">
+                                                <StyledImage
+                                                    source={HomeHamsterImg}
+                                                    className={isLargeScreen ? "w-full h-full" : "w-12 h-12"}
+                                                    resizeMode="contain"
+                                                />
+                                            </View>
+                                        </StyledTouchableOpacity>
+
+                                        {/* Archive Button */}
+                                        <StyledTouchableOpacity
+                                            className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
+                                            style={{ backgroundColor: archiveColor, height: isLargeScreen ? 94 : 64 }}
+                                            onPress={() => router.push({ pathname: '/archive', params: { mode: gameMode } })}
+                                        >
+                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Archive</StyledText>
+                                            <View className="w-[60px] h-[60px] justify-center items-center">
+                                                <StyledImage
+                                                    source={ArchiveHamsterImg}
+                                                    className={isLargeScreen ? "w-full h-full" : "w-12 h-12"}
+                                                    resizeMode="contain"
+                                                />
+                                            </View>
+                                        </StyledTouchableOpacity>
+                                    </StyledView>
+                                </>
+                            )}
+                        </StyledView>
+                    </View>
                 </StyledView>
             </SafeAreaView>
         </ThemedView >

@@ -85,8 +85,12 @@ export function StreakSaverPopup({
     const [isDeclining, setIsDeclining] = useState(false);
     const [isStartingHoliday, setIsStartingHoliday] = useState(false);
     const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-    const [animationVisible, setAnimationVisible] = useState(false);
-    const [filledDates, setFilledDates] = useState<string[]>([]);
+
+    // [FIX] Separate animation states for Region and User modals
+    const [regionAnimationVisible, setRegionAnimationVisible] = useState(false);
+    const [userAnimationVisible, setUserAnimationVisible] = useState(false);
+    const [regionFilledDates, setRegionFilledDates] = useState<string[]>([]);
+    const [userFilledDates, setUserFilledDates] = useState<string[]>([]);
 
     // Internal State for Reset Success Popup
     // [FIX] Store Type to prevent color flipping when parent props change
@@ -101,20 +105,21 @@ export function StreakSaverPopup({
         // 1. Parent prop 'visible' is true (Main Popup Active)
         // 2. Internal 'resetPopup.visible' is true (Reset Toast Active)
         // 3. We are pending navigation (optional, to prevent flicker)
-        if (visible || resetPopup.visible || pendingNav) {
+        // 4. [FIX] Either animation modal is visible
+        if (visible || resetPopup.visible || pendingNav || regionAnimationVisible || userAnimationVisible) {
             setModalVisible(true);
         } else {
             // Only close if all are inactive
             // Add small delay to allow exit animations to finish?
             // Actually animations handle their own timing, we just need container to exist.
             const timer = setTimeout(() => {
-                if (!visible && !resetPopup.visible && !pendingNav) {
+                if (!visible && !resetPopup.visible && !pendingNav && !regionAnimationVisible && !userAnimationVisible) {
                     setModalVisible(false);
                 }
             }, 100); // 100ms buffer
             return () => clearTimeout(timer);
         }
-    }, [visible, resetPopup.visible, pendingNav]);
+    }, [visible, resetPopup.visible, pendingNav, regionAnimationVisible, userAnimationVisible]);
 
     // Helper to handle post-interaction navigation and upgrade check
     const completeInteraction = async (action?: StreakSaverCloseAction) => {
@@ -261,9 +266,13 @@ export function StreakSaverPopup({
         setIsStartingHoliday(true);
         try {
             hapticsManager.success();
-            const dates = await startHoliday();
-            setFilledDates(dates || []);
-            setAnimationVisible(true);
+            const { regionDates, userDates } = await startHoliday();
+            console.log('[StreakSaverPopup] Holiday activated. Region dates:', regionDates, 'User dates:', userDates);
+
+            // [FIX] Store separate date arrays and show Region modal first
+            setRegionFilledDates(regionDates || []);
+            setUserFilledDates(userDates || []);
+            setRegionAnimationVisible(true);
         } catch (error: any) {
             hapticsManager.error();
             toast({ title: 'Error', description: error?.message, variant: 'error' });
@@ -483,12 +492,28 @@ export function StreakSaverPopup({
                     </View>
                 )}
 
+                {/* [FIX] Region Animation Modal - Shows First */}
                 <HolidayActivationModal
-                    visible={animationVisible && modalVisible} // Ensure it's valid to show
-                    filledDates={filledDates}
-                    gameType={gameType}
+                    visible={regionAnimationVisible && modalVisible}
+                    filledDates={regionFilledDates}
+                    gameType="REGION"
                     onClose={() => {
-                        setAnimationVisible(false);
+                        setRegionAnimationVisible(false);
+                        // [FIX] After Region modal closes, show User modal
+                        console.log('[StreakSaverPopup] Region modal closed, showing User modal');
+                        setUserAnimationVisible(true);
+                    }}
+                />
+
+                {/* [FIX] User Animation Modal - Shows Second */}
+                <HolidayActivationModal
+                    visible={userAnimationVisible && modalVisible}
+                    filledDates={userFilledDates}
+                    gameType="USER"
+                    onClose={() => {
+                        setUserAnimationVisible(false);
+                        // [FIX] After both modals complete, close the entire flow
+                        console.log('[StreakSaverPopup] User modal closed, completing holiday activation');
                         completeInteraction('holiday');
                     }}
                 />

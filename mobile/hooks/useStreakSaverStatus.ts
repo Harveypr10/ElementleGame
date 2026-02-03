@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth';
 import { useSubscription } from './useSubscription';
 import { activateHolidayMode, endHolidayMode } from '../lib/supabase-rpc';
 import { format } from 'date-fns';
+import { addDays, parseLocalDate } from '../lib/dateUtils';
 
 export interface StreakSaverStatus {
     region: {
@@ -32,21 +33,26 @@ export interface StreakSaverStatus {
     } | null;
 }
 
-export function useStreakSaverStatus() {
+export function useStreakSaverStatus(todaysPuzzleDate?: string) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const { streakSavers, holidaySavers, holidayDurationDays, isPro } = useSubscription();
 
     // Fetch streak saver status from database
     const { data: status, isLoading, refetch } = useQuery({
-        queryKey: ['streak-saver-status', user?.id],
+        queryKey: ['streak-saver-status', user?.id, todaysPuzzleDate],
         queryFn: async () => {
             if (!user) return null;
 
             try {
-                const today = new Date().toISOString().split('T')[0];
-                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-                const dayBeforeYesterday = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+                // Use the passed todaysPuzzleDate or fall back to calculating it
+                // IMPORTANT: In production, todaysPuzzleDate should ALWAYS be passed from index.tsx
+                const today = todaysPuzzleDate || new Date().toISOString().split('T')[0];
+                console.log(`[StreakSaverStatus] Using today's date: ${today}${todaysPuzzleDate ? ' (from parent)' : ' (calculated - should not happen!)'}`);
+
+                // Calculate yesterday and day before yesterday using dateUtils
+                const yesterday = addDays(today, -1);
+                const dayBeforeYesterday = addDays(today, -2);
 
                 // Get USER mode status (includes holiday fields)
                 const { data: userStats } = await supabase
@@ -322,12 +328,18 @@ export function useStreakSaverStatus() {
         },
     });
 
-    // Helper: Backfill holiday rows for missed days
-    const backfillHolidayRows = async (): Promise<string[]> => {
-        if (!user) return [];
-        const allFilledDates: string[] = [];
 
-        console.log('[HolidayBackfill] Starting backfill check for both modes...');
+
+    // Helper: Backfill holiday rows for missed days
+    // CRITICAL: Accepts todaysPuzzleDate to ensure consistency with user's perception of "today"
+    // Returns separate date arrays for Region and User modes
+    const backfillHolidayRows = async (todaysPuzzleDate: string): Promise<{ regionDates: string[], userDates: string[] }> => {
+        if (!user) return { regionDates: [], userDates: [] };
+
+        const regionFilledDates: string[] = [];
+        const userFilledDates: string[] = [];
+
+        console.log(`[HolidayBackfill] Starting backfill check for both modes using today: ${todaysPuzzleDate}...`);
 
         // Fetch User Region for Allocations
         let userRegion = 'UK';
@@ -342,9 +354,10 @@ export function useStreakSaverStatus() {
             console.warn('[HolidayBackfill] Failed to fetch user region, defaulting to UK');
         }
 
-        const modes = ['USER', 'REGION'] as const;
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
+        const modes = ['REGION', 'USER'] as const; // Region first for processing order
+        // Use the passed todaysPuzzleDate instead of calculating
+        const todayStr = todaysPuzzleDate;
+        const today = parseLocalDate(todayStr);
 
         // Fetch Lookback Limit from Admin Settings
         let lookbackLimit = 7;
@@ -361,7 +374,89 @@ export function useStreakSaverStatus() {
             const attemptsTable = mode === 'REGION' ? 'game_attempts_region' : 'game_attempts_user';
             const allocTable = mode === 'REGION' ? 'questions_allocated_region' : 'questions_allocated_user';
             const allocIdCol = mode === 'REGION' ? 'allocated_region_id' : 'allocated_user_id';
+            const statsTable = mode === 'REGION' ? 'user_stats_region' : 'user_stats_user';
+            const modeDates = mode === 'REGION' ? regionFilledDates : userFilledDates;
 
+            // [FIX] Check current_streak - if 0, only add today, don't backfill gap
+            const { data: stats } = await supabase
+                .from(statsTable)
+                .select('current_streak')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            const currentStreak = stats?.current_streak ?? 0;
+
+            // If no streak to protect, only add today
+            if (currentStreak === 0) {
+                console.log(`[HolidayBackfill] ${mode} has no streak (current_streak=0). Only filling today.`);
+                const startDate = new Date(today);
+                const currentDate = new Date(startDate);
+
+                while (currentDate <= today) {
+                    const dateStr = format(currentDate, 'yyyy-MM-dd');
+                    console.log(`[HolidayBackfill] Checking ${mode} date: ${dateStr}`);
+
+                    // 2. Find Allocation
+                    let allocQuery = supabase.from(allocTable).select('id').eq('puzzle_date', dateStr);
+                    if (mode === 'USER') allocQuery = allocQuery.eq('user_id', user.id);
+                    else allocQuery = allocQuery.eq('region', userRegion);
+
+                    let { data: allocation, error: allocError } = await allocQuery.maybeSingle();
+
+                    // Auto-allocate Region if missing
+                    if ((!allocation || allocError) && mode === 'REGION') {
+                        const { data: mq } = await supabase.from('questions_master_region').select('id, categories').eq('answer_date_canonical', dateStr).maybeSingle();
+                        if (mq) {
+                            const { data: newAlloc } = await supabase.from('questions_allocated_region').insert({
+                                question_id: mq.id, puzzle_date: dateStr, region: userRegion
+                            }).select('id').single();
+                            allocation = newAlloc;
+                        }
+                    }
+
+                    if (!allocation) {
+                        console.log(`[HolidayBackfill] No allocation for ${mode} ${dateStr}. Skipping.`);
+                        currentDate.setDate(currentDate.getDate() + 1);
+                        continue;
+                    }
+
+                    // 3. Check if Attempt already exists
+                    const { data: existing } = await supabase
+                        .from(attemptsTable)
+                        .select('id, streak_day_status, result')
+                        .eq('user_id', user.id)
+                        .eq(allocIdCol, allocation.id)
+                        .maybeSingle();
+
+                    if (existing) {
+                        if (existing.streak_day_status === 0) {
+                            console.log(`[HolidayBackfill] ${mode} ${dateStr} already holiday - adding to animation list`);
+                            if (!modeDates.includes(dateStr)) modeDates.push(dateStr);
+                        } else if (existing.streak_day_status === null && existing.result === null) {
+                            console.log(`[HolidayBackfill] ${mode} ${dateStr} partial game - updating to holiday`);
+                            await supabase.from(attemptsTable).update({ streak_day_status: 0, num_guesses: 0, completed_at: new Date().toISOString() }).eq('id', existing.id);
+                            if (!modeDates.includes(dateStr)) modeDates.push(dateStr);
+                        }
+                    } else {
+                        // 4. Insert Holiday Row
+                        console.log(`[HolidayBackfill] ${mode} ${dateStr} creating new holiday row`);
+                        await supabase.from(attemptsTable).insert({
+                            user_id: user.id,
+                            [allocIdCol]: allocation.id,
+                            streak_day_status: 0,
+                            num_guesses: 0,
+                            result: null,
+                            completed_at: new Date().toISOString()
+                        });
+                        if (!modeDates.includes(dateStr)) modeDates.push(dateStr);
+                    }
+
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                continue; // Skip to next mode
+            }
+
+            // [EXISTING LOGIC] If streak > 0, backfill the gap
             // 1. Find LAST COMPLETED GAME (Win, Loss, or Holiday) to determine start point
             // We want to fill the gap AFTER this date.
             let query = supabase
@@ -397,7 +492,7 @@ export function useStreakSaverStatus() {
                 // e.g. Played 20 days ago, limit is 7.
                 // User wants: "streak should be reset to 0... only today being set to a holiday day."
                 if (lastDate < limitDate) {
-                    console.log(`[HolidayBackfill] Gap too large (Last played: ${lastDateStr}, Limit: ${lookbackLimit} days). resetting streak logic. Only filling Today.`);
+                    console.log(`[HolidayBackfill] ${mode} Gap too large (Last played: ${lastDateStr}, Limit: ${lookbackLimit} days). Only filling Today.`);
                     startDate = new Date(today); // Only fill today
                 } else {
                     // Gap is within limit -> Fill the gap
@@ -444,7 +539,7 @@ export function useStreakSaverStatus() {
                 }
 
                 if (!allocation) {
-                    console.log(`[HolidayBackfill] No allocation for ${dateStr}. Skipping.`);
+                    console.log(`[HolidayBackfill] No allocation for ${mode} ${dateStr}. Skipping.`);
                     continue;
                 }
 
@@ -457,17 +552,21 @@ export function useStreakSaverStatus() {
                     .maybeSingle();
 
                 if (existing) {
-                    // Update PARTIAL games (streak_day_status=null but exists) to Holiday
-                    // Leave Played/Holiday games alone
-                    if (existing.streak_day_status === null && existing.result === null) {
+                    // [FIX] ALWAYS add existing holiday dates to the list for animation
+                    // This ensures the calendar shows ALL holiday dates, not just newly created ones
+                    if (existing.streak_day_status === 0) {
+                        console.log(`[HolidayBackfill] ${mode} ${dateStr} already holiday - adding to animation list`);
+                        if (!modeDates.includes(dateStr)) modeDates.push(dateStr);
+                    } else if (existing.streak_day_status === null && existing.result === null) {
+                        // Update PARTIAL games (streak_day_status=null but exists) to Holiday
+                        console.log(`[HolidayBackfill] ${mode} ${dateStr} partial game - updating to holiday`);
                         await supabase.from(attemptsTable).update({ streak_day_status: 0, num_guesses: 0, completed_at: new Date().toISOString() }).eq('id', existing.id);
-                        if (!allFilledDates.includes(dateStr)) allFilledDates.push(dateStr);
-                    } else if (existing.streak_day_status === 0) {
-                        // Already holiday, add to list for animation
-                        if (!allFilledDates.includes(dateStr)) allFilledDates.push(dateStr);
+                        if (!modeDates.includes(dateStr)) modeDates.push(dateStr);
                     }
+                    // Leave Played games (streak_day_status=1) alone - don't add to list
                 } else {
                     // 4. Insert Holiday Row
+                    console.log(`[HolidayBackfill] ${mode} ${dateStr} creating new holiday row`);
                     await supabase.from(attemptsTable).insert({
                         user_id: user.id,
                         [allocIdCol]: allocation.id,
@@ -476,12 +575,19 @@ export function useStreakSaverStatus() {
                         result: null,
                         completed_at: new Date().toISOString()
                     });
-                    if (!allFilledDates.includes(dateStr)) allFilledDates.push(dateStr);
+                    if (!modeDates.includes(dateStr)) modeDates.push(dateStr);
                 }
             }
         }
-        return allFilledDates.sort(); // Return merged sorted dates
+        console.log(`[HolidayBackfill] Completed. Region dates: ${regionFilledDates.length}, User dates: ${userFilledDates.length}`);
+        console.log(`[HolidayBackfill] Region:`, regionFilledDates.sort());
+        console.log(`[HolidayBackfill] User:`, userFilledDates.sort());
+        return {
+            regionDates: regionFilledDates.sort(),
+            userDates: userFilledDates.sort()
+        };
     };
+
 
     const displayMode = (m: string) => m;
 
@@ -490,12 +596,20 @@ export function useStreakSaverStatus() {
         mutationFn: async () => {
             if (!user) throw new Error('No user');
 
-            // 1. Perform Backfill of Holiday Rows
-            const filledDates = await backfillHolidayRows();
+            // Use the passed todaysPuzzleDate or calculate it (should always be passed)
+            const today = todaysPuzzleDate || new Date().toISOString().split('T')[0];
+            console.log(`[HolidayMutation] Using today: ${today}${todaysPuzzleDate ? ' (from parent)' : ' (calculated - should not happen!)'}`);
 
-            // Calculate start date: Earliest backfilled date OR Today
-            const holidayStartDate = filledDates.length > 0 ? filledDates[0] : new Date().toISOString().split('T')[0];
+            // 1. Perform Backfill of Holiday Rows
+            const { regionDates, userDates } = await backfillHolidayRows(today);
+
+            // [CRITICAL] Calculate start date from BOTH modes (earliest across both)
+            // This ensures holiday_start_date in user_stats_user is correct
+            const allDates = [...regionDates, ...userDates].sort();
+            const holidayStartDate = allDates.length > 0 ? allDates[0] : today;
             console.log(`[HolidayMutation] Activating Mode from ${holidayStartDate} (Duration: ${holidayDurationDays})`);
+            console.log(`[HolidayMutation] Region dates: ${regionDates.length}, User dates: ${userDates.length}, Combined earliest: ${holidayStartDate}`);
+
 
             // 2. Activate Mode in Stats (RPC)
             await activateHolidayMode(user.id, holidayDurationDays, holidayStartDate);
@@ -504,17 +618,23 @@ export function useStreakSaverStatus() {
             // Use local time construction to match UI
             const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-            if (!filledDates.includes(todayStr)) {
-                filledDates.push(todayStr);
+            // Add today to both arrays if not present (for animation purposes)
+            if (!regionDates.includes(todayStr)) {
+                regionDates.push(todayStr);
+            }
+            if (!userDates.includes(todayStr)) {
+                userDates.push(todayStr);
             }
 
             // Manual update block removed - RPC handles this atomically
 
-
             // Small artificial delay to allow DB views/triggers to propagate if needed
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            return filledDates.sort();
+            return {
+                regionDates: regionDates.sort(),
+                userDates: userDates.sort()
+            };
         },
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });

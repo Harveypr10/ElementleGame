@@ -3,12 +3,15 @@ import { useColorScheme } from 'nativewind';
 import { Home, Settings as SettingsIcon, SlidersHorizontal, Shield } from 'lucide-react-native';
 import { useProfile } from '../../hooks/useProfile';
 import { useOptions } from '../../lib/options';
+import { useWindowDimensions } from 'react-native';
 
 export default function TabLayout() {
     const { colorScheme } = useColorScheme();
     const { isAdmin } = useProfile();
     const { quickMenuEnabled } = useOptions();
     const isDark = colorScheme === 'dark';
+    const { width: screenWidth } = useWindowDimensions();
+    const isLargeScreen = screenWidth >= 768;
 
     return (
         <Tabs
@@ -25,7 +28,7 @@ export default function TabLayout() {
                 tabBarActiveTintColor: isDark ? '#ffffff' : '#1e293b',
                 tabBarInactiveTintColor: isDark ? '#94a3b8' : '#64748b',
                 tabBarLabelStyle: {
-                    fontSize: 13,
+                    fontSize: isLargeScreen ? 16 : 13,
                     fontWeight: '600',
                     fontFamily: 'Nunito_600SemiBold',
                 },
@@ -40,7 +43,7 @@ export default function TabLayout() {
                     title: 'Home',
                     tabBarLabel: 'Home',
                     tabBarIcon: ({ color, size }) => (
-                        <Home size={26} color={color} />
+                        <Home size={isLargeScreen ? 32 : 26} color={color} />
                     ),
                 }}
             />
@@ -50,7 +53,7 @@ export default function TabLayout() {
                     title: 'Options',
                     tabBarLabel: 'Options',
                     tabBarIcon: ({ color, size }) => (
-                        <SlidersHorizontal size={26} color={color} />
+                        <SlidersHorizontal size={isLargeScreen ? 32 : 26} color={color} />
                     ),
                 }}
             />
@@ -60,7 +63,7 @@ export default function TabLayout() {
                     title: 'Settings',
                     tabBarLabel: 'Settings',
                     tabBarIcon: ({ color, size }) => (
-                        <SettingsIcon size={26} color={color} />
+                        <SettingsIcon size={isLargeScreen ? 32 : 26} color={color} />
                     ),
                 }}
             />
@@ -71,7 +74,7 @@ export default function TabLayout() {
                     tabBarLabel: 'Admin',
                     href: isAdmin ? '/settings/admin' : null,
                     tabBarIcon: ({ color, size }) => (
-                        <Shield size={26} color={color} />
+                        <Shield size={isLargeScreen ? 32 : 26} color={color} />
                     ),
                 }}
             />

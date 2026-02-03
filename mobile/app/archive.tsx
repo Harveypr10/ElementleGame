@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Dimensions, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Dimensions, Animated, useWindowDimensions } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { styled } from 'nativewind';
@@ -39,7 +39,7 @@ const StyledView = styled(View);
 const StyledText = styled(Text);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 
-const { width } = Dimensions.get('window');
+const { width: STATIC_WIDTH } = Dimensions.get('window');
 
 interface DayStatus {
     date: string;
@@ -52,17 +52,28 @@ interface DayStatus {
 }
 
 // Sub-component for individual month page
-const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, onPlayPuzzle }: {
+const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, onPlayPuzzle, width }: {
     monthDate: Date,
     isActive: boolean,
     gameMode: string,
     isScreenFocused: boolean,
-    onPlayPuzzle: (puzzleId: number, date?: Date, status?: string) => void
+    onPlayPuzzle: (puzzleId: number, date?: Date, status?: string) => void,
+    width: number
 }) => {
     const router = useRouter();
     const { user } = useAuth();
     const { darkMode } = useOptions();
     const borderColorTheme = useThemeColor({}, 'border');
+
+    // Dynamic Text Size for Tablet
+    const { width: screenWidth } = useWindowDimensions();
+    const isTablet = screenWidth >= 768;
+    const dateFontSize = isTablet ? 14 * 1.5 : 14;
+    const statusFontSize = isTablet ? 10 * 1.4 : 10;
+    // Responsive border radius: 8px (phone), 12px (medium ~600-768px), 16px (large >=768px)
+    const borderRadius = screenWidth >= 768 ? 16 : screenWidth >= 600 ? 12 : 8;
+    // Responsive padding: 2.5px (phone), 4px (larger screens)
+    const dateBoxPadding = screenWidth >= 600 ? 4 : 2.5;
 
     // Local State
     const [loading, setLoading] = useState(true);
@@ -276,9 +287,9 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
     // Main Calendar Render
     return (
         <StyledView className="w-full">
-            <StyledView className="relative" style={{ minHeight: ((width - 64) / 7) * 6 }}>
+            <StyledView className="relative" style={{ minHeight: (width / 7) * 6 }}>
                 <Animated.View style={{ opacity: 1 }}>
-                    <StyledView className="flex-row flex-wrap justify-center">
+                    <StyledView className="flex-row flex-wrap">
                         {days.map((day) => {
                             const dateKey = format(day, 'yyyy-MM-dd');
                             const data = monthData[dateKey];
@@ -286,7 +297,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
                             const isToday = isSameDay(day, new Date());
 
                             if (!isCurrentMonth) {
-                                return <StyledView key={dateKey} className="w-[14%] aspect-square p-1" />;
+                                return <StyledView key={dateKey} style={{ width: '14.285714%', aspectRatio: 1 }} />;
                             }
 
                             // Determine Colors
@@ -305,18 +316,18 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
                             else if (isToday) borderColor = borderColorTheme;
 
                             return (
-                                <StyledView key={dateKey} className="w-[14%] aspect-square p-1">
+                                <StyledView key={dateKey} style={{ width: '14.285714%', aspectRatio: 1, padding: dateBoxPadding }}>
                                     <StyledTouchableOpacity
                                         onPress={() => data && onPlayPuzzle(data.puzzleId || 0, day, data.status)}
                                         disabled={!data || !data.hasPuzzle || data.isFuture}
-                                        className="flex-1 items-center justify-center rounded-lg border-2"
-                                        style={{ backgroundColor: colors.bg, borderColor: borderColor }}
+                                        className="flex-1 items-center justify-center border-2"
+                                        style={{ backgroundColor: colors.bg, borderColor: borderColor, borderRadius: borderRadius }}
                                     >
-                                        <Text style={{ fontFamily: 'Nunito-SemiBold', fontSize: 14, color: colors.text }}>
+                                        <Text style={{ fontFamily: 'Nunito-SemiBold', fontSize: dateFontSize, color: colors.text }}>
                                             {format(day, 'd')}
                                         </Text>
                                         {data && data.status !== 'not-played' && (
-                                            <Text style={{ fontFamily: 'Nunito-Medium', fontSize: 10, marginTop: 2, opacity: 0.8, color: colors.text }}>
+                                            <Text style={{ fontFamily: 'Nunito-Medium', fontSize: statusFontSize, marginTop: 2, opacity: 0.8, color: colors.text }}>
                                                 {data.status === 'won' ? `✓ ${data.guesses}` : (data.status === 'lost' ? '✗' : (data.guesses && data.guesses > 0 ? `${data.guesses}` : '-'))}
                                             </Text>
                                         )}
@@ -332,6 +343,10 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
 });
 
 export default function ArchiveScreen() {
+    const { width: screenWidth } = useWindowDimensions();
+    const isTablet = screenWidth >= 768;
+    const dateFontSize = isTablet ? 14 * 1.5 : 14;
+
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams();
     const router = useRouter();
@@ -587,36 +602,43 @@ export default function ArchiveScreen() {
         );
     }
 
+    // Constrain max width for tablet (3xl is approx 768px)
+    const MAX_WIDTH = 768;
+    const effectiveContainerWidth = Math.min(screenWidth, MAX_WIDTH);
+    const cardPadding = 32; // px-4 * 2 (outer container)
+    // The width of the calendar card itself
+    const calendarCardWidth = effectiveContainerWidth - cardPadding;
+    // The header has responsive padding inside the card
+    // Phone: px-2 (8px each side = 16px total), Larger: px-4 (16px each side = 32px total)
+    const innerPadding = screenWidth >= 600 ? 32 : 16;
+    const calendarContentWidth = calendarCardWidth - innerPadding;
+
     return (
         <ThemedView className="flex-1 bg-slate-100 dark:bg-slate-900">
-            {/* Extended Header Background - Matching Stats Screen */}
+            {/* Extended Header Background */}
             <StyledView
                 style={{
                     backgroundColor: brandColor,
-                    paddingTop: insets.top + 6, // Added partial spacer to lower title
+                    paddingTop: insets.top + 6,
                     paddingBottom: 24,
                 }}
             >
                 {/* Header Row */}
-                <StyledView className="flex-row items-center justify-between px-6 mb-2 py-3">
-                    {/* Back Button */}
-                    <StyledTouchableOpacity onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
-                        <ChevronLeft size={28} color="#FFFFFF" />
+                <StyledView className="flex-row items-center justify-center py-3 w-full" style={{ position: 'relative' }}>
+                    {/* Back Button - Absolute positioned at left */}
+                    <StyledTouchableOpacity onPress={() => router.back()} className="p-2" style={{ position: 'absolute', left: 8 }}>
+                        <ChevronLeft size={24} color="#FFFFFF" />
                     </StyledTouchableOpacity>
 
                     {/* Title */}
                     <ThemedText className="font-n-bold text-white text-4xl font-heading">
                         Archive
                     </ThemedText>
-
-                    {/* Spacer (to balance Back button) */}
-                    <StyledView className="w-10 h-10" />
                 </StyledView>
             </StyledView>
 
             {/* Overlapping Navigation Controls - Matching Badge/Stats Cards style */}
-            {/* Overlapping Navigation Controls */}
-            <StyledView className="px-6 -mt-6 mb-4">
+            <StyledView className="w-full max-w-3xl self-center px-6 -mt-6 mb-4">
                 <StyledView className="flex-row items-center gap-3">
 
                     {/* Left Arrow Card */}
@@ -635,7 +657,7 @@ export default function ArchiveScreen() {
                         style={{ height: 60 }}
                     >
                         <TouchableOpacity onPress={() => setModalVisible(true)} className="items-center justify-center w-full h-full">
-                            <ThemedText className="font-n-bold text-xl text-slate-800 dark:text-white" numberOfLines={1} adjustsFontSizeToFit>
+                            <ThemedText style={{ fontSize: isTablet ? 30 : 20 }} className="font-n-bold text-slate-800 dark:text-white" numberOfLines={1} adjustsFontSizeToFit>
                                 {currentTitle}
                             </ThemedText>
                         </TouchableOpacity>
@@ -663,49 +685,56 @@ export default function ArchiveScreen() {
             )}
 
             {/* Main Content Area */}
-            <StyledView className="flex-1 px-4">
-                {/* Week Headers - Styled to match clean look */}
-                <StyledView className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm px-4 pb-4 pt-6 mb-4">
-                    <StyledView className="flex-row justify-between mb-4 border-b border-slate-100 dark:border-slate-700 pb-2">
-                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                            <StyledText key={day} style={{ fontSize: 13 * textScale }} className="w-[14%] text-center font-n-bold text-slate-400 dark:text-slate-500 uppercase">
-                                {day}
-                            </StyledText>
-                        ))}
+            <StyledView className="flex-1 px-4 w-full max-w-3xl self-center">
+                {/* Calendar Card Container */}
+                <StyledView className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm pb-4 pt-6 mb-4">
+                    {/* Week Headers - with padding */}
+                    <StyledView className={`${screenWidth >= 600 ? 'px-4' : 'px-2'} mb-4 border-b border-slate-100 dark:border-slate-700 pb-2`}>
+                        <StyledView className="flex-row">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                                <StyledText key={day} style={{ fontSize: isTablet ? dateFontSize : 13 * textScale, width: '14.285714%' }} className="text-center font-n-bold text-slate-400 dark:text-slate-500 uppercase">
+                                    {day}
+                                </StyledText>
+                            ))}
+                        </StyledView>
                     </StyledView>
 
-                    {/* Swipeable Calendar */}
-                    <FlatList
-                        ref={flatListRef}
-                        data={months}
-                        keyExtractor={(item) => item.toISOString()}
-                        horizontal
-                        pagingEnabled
-                        initialScrollIndex={months.length - 1}
-                        getItemLayout={(data, index) => (
-                            { length: width - 64, offset: (width - 64) * index, index } // Adjust width for padding (32 outer + 32 inner)
-                        )}
-                        renderItem={({ item }) => (
-                            <StyledView style={{ width: width - 64 }} className="items-center">
-                                <MonthPage
-                                    monthDate={item}
-                                    isActive={true}
-                                    gameMode={gameMode}
-                                    isScreenFocused={isFocused}
-                                    onPlayPuzzle={handlePlayPuzzle}
-                                />
-                            </StyledView>
-                        )}
-                        onViewableItemsChanged={onViewableItemsChanged}
-                        viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
-                        onScrollToIndexFailed={(info) => {
-                            const wait = new Promise(resolve => setTimeout(resolve, 500));
-                            wait.then(() => {
-                                flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
-                            });
-                        }}
-                        showsHorizontalScrollIndicator={false}
-                    />
+                    {/* Swipeable Calendar - with padding to match headers */}
+                    <StyledView className={screenWidth >= 600 ? 'px-4' : 'px-2'}>
+                        <FlatList
+                            ref={flatListRef}
+                            data={months}
+                            keyExtractor={(item) => item.toISOString()}
+                            horizontal
+                            pagingEnabled
+                            initialScrollIndex={months.length - 1}
+                            getItemLayout={(data, index) => (
+                                // Use content width for item layout
+                                { length: calendarContentWidth, offset: calendarContentWidth * index, index }
+                            )}
+                            renderItem={({ item }) => (
+                                <StyledView style={{ width: calendarContentWidth, paddingHorizontal: 8 }}>
+                                    <MonthPage
+                                        monthDate={item}
+                                        isActive={true}
+                                        gameMode={gameMode}
+                                        isScreenFocused={isFocused}
+                                        onPlayPuzzle={handlePlayPuzzle}
+                                        width={calendarContentWidth - 16}
+                                    />
+                                </StyledView>
+                            )}
+                            onViewableItemsChanged={onViewableItemsChanged}
+                            viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+                            onScrollToIndexFailed={(info) => {
+                                const wait = new Promise(resolve => setTimeout(resolve, 500));
+                                wait.then(() => {
+                                    flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+                                });
+                            }}
+                            showsHorizontalScrollIndicator={false}
+                        />
+                    </StyledView>
                 </StyledView>
             </StyledView>
 

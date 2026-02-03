@@ -111,47 +111,50 @@ export default function PrivacyScreen() {
             </SafeAreaView>
 
             <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 60 }}>
-                {/* Last Updated */}
-                <ThemedText size="sm" style={{ color: secondaryTextColor }} className="mb-6 text-center">
-                    Last updated: October 2025
-                </ThemedText>
+                <StyledView className="w-full max-w-3xl self-center">
+                    {/* Last Updated */}
+                    <ThemedText size="sm" style={{ color: secondaryTextColor }} className="mb-6 text-center">
+                        Last updated: October 2025
+                    </ThemedText>
 
-                {/* Policy Sections */}
-                <StyledView
-                    className="rounded-2xl p-5 border mb-6"
-                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
-                >
-                    {sections.map((section, index) => (
-                        <StyledView key={index} className={`mb-6 ${index === sections.length - 1 ? 'mb-0' : ''}`}>
-                            <ThemedText size="lg" className="font-n-bold mb-2">
-                                {section.title}
-                            </ThemedText>
-                            <ThemedText size="base" style={{ color: secondaryTextColor }} className="leading-6">
-                                {section.content}
+                    {/* Policy Sections */}
+                    <StyledView
+                        className="rounded-2xl p-5 border mb-6"
+                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                    >
+                        {sections.map((section, index) => (
+                            <StyledView key={index} className={`mb-6 ${index === sections.length - 1 ? 'mb-0' : ''}`}>
+                                <ThemedText size="lg" className="font-n-bold mb-2">
+                                    {section.title}
+                                </ThemedText>
+                                <ThemedText size="base" style={{ color: secondaryTextColor }} className="leading-6">
+                                    {section.content}
+                                </ThemedText>
+                            </StyledView>
+                        ))}
+                    </StyledView>
+
+                    {/* Consent Checkbox (Subtle at bottom) */}
+                    <StyledTouchableOpacity
+                        onPress={handleToggleConsent}
+                        disabled={toggling || isUpdating}
+                        className="flex-row items-start px-2 mb-8 opacity-80 active:opacity-100"
+                    >
+                        <StyledView className="mr-3 mt-1">
+                            {adsConsent ? (
+                                <CheckSquare size={24} color={tintColor} />
+                            ) : (
+                                <Square size={24} color={secondaryTextColor} />
+                            )}
+                        </StyledView>
+                        <StyledView className="flex-1">
+                            <ThemedText size="sm" style={{ color: secondaryTextColor }} className="leading-5">
+                                I consent to my data being used to tailor ads. <ThemedText className="font-n-bold" size="sm">If you do not consent, your ads will not be tailored.</ThemedText>
                             </ThemedText>
                         </StyledView>
-                    ))}
-                </StyledView>
+                    </StyledTouchableOpacity>
 
-                {/* Consent Checkbox (Subtle at bottom) */}
-                <StyledTouchableOpacity
-                    onPress={handleToggleConsent}
-                    disabled={toggling || isUpdating}
-                    className="flex-row items-start px-2 mb-8 opacity-80 active:opacity-100"
-                >
-                    <StyledView className="mr-3 mt-1">
-                        {adsConsent ? (
-                            <CheckSquare size={24} color={tintColor} />
-                        ) : (
-                            <Square size={24} color={secondaryTextColor} />
-                        )}
-                    </StyledView>
-                    <StyledView className="flex-1">
-                        <ThemedText size="sm" style={{ color: secondaryTextColor }} className="leading-5">
-                            I consent to my data being used to tailor ads. <ThemedText className="font-n-bold" size="sm">If you do not consent, your ads will not be tailored.</ThemedText>
-                        </ThemedText>
-                    </StyledView>
-                </StyledTouchableOpacity>
+                </StyledView>
 
             </StyledScrollView>
         </ThemedView>

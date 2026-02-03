@@ -77,24 +77,26 @@ export default function TermsScreen() {
             </SafeAreaView>
 
             <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 40 }}>
-                <ThemedText size="sm" style={{ color: secondaryTextColor }} className="mb-6 text-center">
-                    Last updated: October 2025
-                </ThemedText>
+                <StyledView className="w-full max-w-3xl self-center">
+                    <ThemedText size="sm" style={{ color: secondaryTextColor }} className="mb-6 text-center">
+                        Last updated: October 2025
+                    </ThemedText>
 
-                <StyledView
-                    className="rounded-2xl p-5 border mb-6"
-                    style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
-                >
-                    {sections.map((section, index) => (
-                        <StyledView key={index} className={`mb-6 ${index === sections.length - 1 ? 'mb-0' : ''}`}>
-                            <ThemedText size="lg" className="font-n-bold mb-2">
-                                {section.title}
-                            </ThemedText>
-                            <ThemedText size="base" style={{ color: secondaryTextColor }} className="leading-6">
-                                {section.content}
-                            </ThemedText>
-                        </StyledView>
-                    ))}
+                    <StyledView
+                        className="rounded-2xl p-5 border mb-6"
+                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                    >
+                        {sections.map((section, index) => (
+                            <StyledView key={index} className={`mb-6 ${index === sections.length - 1 ? 'mb-0' : ''}`}>
+                                <ThemedText size="lg" className="font-n-bold mb-2">
+                                    {section.title}
+                                </ThemedText>
+                                <ThemedText size="base" style={{ color: secondaryTextColor }} className="leading-6">
+                                    {section.content}
+                                </ThemedText>
+                            </StyledView>
+                        ))}
+                    </StyledView>
                 </StyledView>
             </StyledScrollView>
         </ThemedView>
