@@ -1,0 +1,133 @@
+/**
+ * HomeCard - Web Version
+ * 
+ * This is the web-specific implementation of HomeCard with proper CSS styling.
+ * Metro automatically uses this file for web builds due to the .web.tsx extension.
+ */
+
+import React from 'react';
+import { View, Text, TouchableOpacity, ImageSourcePropType, StyleSheet, Platform } from 'react-native';
+import { Image } from 'expo-image';
+
+interface HomeCardProps {
+    title: string;
+    subtitle?: string;
+    icon?: ImageSourcePropType;
+    backgroundColor: string;
+    onPress: () => void;
+    height?: number;
+    className?: string;
+    children?: React.ReactNode;
+    testID?: string;
+    iconStyle?: { width?: number; height?: number };
+    scale?: number;
+}
+
+const HomeCardComponent = ({
+    title,
+    subtitle,
+    icon,
+    backgroundColor,
+    onPress,
+    height = 160,
+    className = "",
+    children,
+    testID,
+    iconStyle,
+    scale = 1
+}: HomeCardProps) => {
+    const scaledHeight = height * scale;
+    const iconWidth = (iconStyle?.width || 96) * scale;
+    const iconHeight = (iconStyle?.height || 96) * scale;
+
+    return (
+        <TouchableOpacity
+            testID={testID}
+            onPress={onPress}
+            activeOpacity={0.9}
+            style={[
+                styles.card,
+                {
+                    backgroundColor,
+                    height: scaledHeight,
+                    minHeight: scaledHeight,
+                }
+            ]}
+        >
+            {/* Content Section */}
+            <View style={styles.content}>
+                <Text style={[styles.title, { fontSize: 20 * scale }]}>
+                    {title}
+                </Text>
+                {subtitle && (
+                    <Text style={[styles.subtitle, { fontSize: 16 * scale }]}>
+                        {subtitle}
+                    </Text>
+                )}
+                {children && (
+                    <View style={styles.childrenContainer}>
+                        {children}
+                    </View>
+                )}
+            </View>
+
+            {/* Icon Section */}
+            {icon && (
+                <View style={styles.iconContainer}>
+                    <Image
+                        source={icon}
+                        style={{
+                            width: iconWidth,
+                            height: iconHeight,
+                        }}
+                        contentFit="contain"
+                    />
+                </View>
+            )}
+        </TouchableOpacity>
+    );
+};
+
+const styles = StyleSheet.create({
+    card: {
+        width: '100%',
+        borderRadius: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 16,
+        marginBottom: 16,
+        overflow: 'hidden',
+        // Web shadow
+        ...(Platform.OS === 'web' && {
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            cursor: 'pointer',
+            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        }),
+    },
+    content: {
+        flex: 1,
+        paddingRight: 8,
+    },
+    title: {
+        fontFamily: 'Nunito',
+        fontWeight: '700',
+        color: '#1e293b', // slate-800
+        lineHeight: 26,
+    },
+    subtitle: {
+        fontFamily: 'Nunito',
+        fontWeight: '500',
+        color: '#475569', // slate-600
+        marginTop: 4,
+    },
+    childrenContainer: {
+        marginTop: 8,
+    },
+    iconContainer: {
+        marginLeft: 8,
+    },
+});
+
+export const HomeCard = React.memo(HomeCardComponent);
