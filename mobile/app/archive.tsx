@@ -289,7 +289,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
         <StyledView className="w-full">
             <StyledView className="relative" style={{ minHeight: (width / 7) * 6 }}>
                 <Animated.View style={{ opacity: 1 }}>
-                    <StyledView className="flex-row flex-wrap" style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: '100%' }}>
                         {days.map((day) => {
                             const dateKey = format(day, 'yyyy-MM-dd');
                             const data = monthData[dateKey];
@@ -297,7 +297,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
                             const isToday = isSameDay(day, new Date());
 
                             if (!isCurrentMonth) {
-                                return <StyledView key={dateKey} style={{ width: '14.285714%', aspectRatio: 1 }} />;
+                                return <View key={dateKey} style={{ width: '14.285714%', aspectRatio: 1 }} />;
                             }
 
                             // Determine Colors
@@ -316,26 +316,28 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
                             else if (isToday) borderColor = borderColorTheme;
 
                             return (
-                                <StyledView key={dateKey} style={{ width: '14.285714%', aspectRatio: 1, padding: dateBoxPadding }}>
-                                    <StyledTouchableOpacity
-                                        onPress={() => data && onPlayPuzzle(data.puzzleId || 0, day, data.status)}
-                                        disabled={!data || !data.hasPuzzle || data.isFuture}
-                                        className="flex-1 items-center justify-center border-2"
-                                        style={{ backgroundColor: colors.bg, borderColor: borderColor, borderRadius: borderRadius }}
-                                    >
-                                        <Text style={{ fontFamily: 'Nunito-SemiBold', fontSize: dateFontSize, color: colors.text }}>
-                                            {format(day, 'd')}
-                                        </Text>
-                                        {data && data.status !== 'not-played' && (
-                                            <Text style={{ fontFamily: 'Nunito-Medium', fontSize: statusFontSize, marginTop: 2, opacity: 0.8, color: colors.text }}>
-                                                {data.status === 'won' ? `✓ ${data.guesses}` : (data.status === 'lost' ? '✗' : (data.guesses && data.guesses > 0 ? `${data.guesses}` : '-'))}
+                                <View key={dateKey} style={{ width: '14.285714%', aspectRatio: 1, padding: dateBoxPadding }}>
+                                    <StyledView style={{ flex: 1 }}>
+                                        <StyledTouchableOpacity
+                                            onPress={() => data && onPlayPuzzle(data.puzzleId || 0, day, data.status)}
+                                            disabled={!data || !data.hasPuzzle || data.isFuture}
+                                            className="flex-1 items-center justify-center border-2"
+                                            style={{ backgroundColor: colors.bg, borderColor: borderColor, borderRadius: borderRadius }}
+                                        >
+                                            <Text style={{ fontFamily: 'Nunito-SemiBold', fontSize: dateFontSize, color: colors.text }}>
+                                                {format(day, 'd')}
                                             </Text>
-                                        )}
-                                    </StyledTouchableOpacity>
-                                </StyledView>
+                                            {data && data.status !== 'not-played' && (
+                                                <Text style={{ fontFamily: 'Nunito-Medium', fontSize: statusFontSize, marginTop: 2, opacity: 0.8, color: colors.text }}>
+                                                    {data.status === 'won' ? `✓ ${data.guesses}` : (data.status === 'lost' ? '✗' : (data.guesses && data.guesses > 0 ? `${data.guesses}` : '-'))}
+                                                </Text>
+                                            )}
+                                        </StyledTouchableOpacity>
+                                    </StyledView>
+                                </View>
                             )
                         })}
-                    </StyledView>
+                    </View>
                 </Animated.View>
             </StyledView>
         </StyledView>
@@ -625,9 +627,9 @@ export default function ArchiveScreen() {
             >
                 {/* Header Row */}
                 <StyledView className="flex-row items-center justify-center py-3 w-full" style={{ position: 'relative', flexDirection: 'row' }}>
-                    {/* Back Button - Absolute positioned at left */}
-                    <StyledTouchableOpacity onPress={() => router.back()} className="p-2" style={{ position: 'absolute', left: 8 }}>
-                        <ChevronLeft size={24} color="#FFFFFF" />
+                    {/* Back Button - Absolute positioned at left - Web Safe Padding */}
+                    <StyledTouchableOpacity onPress={() => router.back()} className="p-2" style={{ position: 'absolute', left: 16, zIndex: 10 }}>
+                        <ChevronLeft size={28} color="#FFFFFF" />
                     </StyledTouchableOpacity>
 
                     {/* Title */}

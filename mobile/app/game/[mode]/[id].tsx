@@ -320,14 +320,14 @@ export default function GameScreen() {
     return (
         <ThemedView className="flex-1">
             <SafeAreaView edges={['top']} className="z-10" style={{ backgroundColor: brandColor }}>
-                <View className="relative items-center z-50" style={{ backgroundColor: brandColor, paddingTop: 6, paddingBottom: 24 }}>
+                <View className="relative justify-center items-center z-50" style={{ backgroundColor: brandColor, height: 60 }}>
 
                     {/* Left: Back Arrow - Hidden if game OVER and Guest */}
                     {!(isGuest && (gameState === 'won' || gameState === 'lost')) && (
-                        <View className="absolute left-4 top-4">
+                        <View className="absolute left-4" style={{ zIndex: 20 }}>
                             <TouchableOpacity
                                 onPress={handleBack}
-                                className="items-center justify-center bg-transparent"
+                                className="items-center justify-center bg-transparent p-2"
                             >
                                 <ChevronLeft size={28} color={headerIconColor} />
                             </TouchableOpacity>
@@ -335,15 +335,17 @@ export default function GameScreen() {
                     )}
 
                     {/* Center: Title */}
-                    <ThemedText size="4xl" className="text-white font-n-bold mb-2 pt-2 font-heading tracking-tight text-center">
-                        Elementle
-                    </ThemedText>
+                    <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                        <ThemedText size="4xl" className="text-white font-n-bold font-heading tracking-tight" style={{ textAlign: 'center' }}>
+                            Elementle
+                        </ThemedText>
+                    </View>
 
                     {/* Right: Help */}
-                    <View className="absolute right-4 top-4">
+                    <View className="absolute right-4" style={{ zIndex: 20 }}>
                         <TouchableOpacity
                             onPress={() => setHelpVisible(true)}
-                            className="items-center justify-center bg-transparent"
+                            className="items-center justify-center bg-transparent p-2"
                         >
                             <HelpCircle size={28} color={headerIconColor} />
                         </TouchableOpacity>
