@@ -248,16 +248,9 @@ const GameModePage = React.memo(({
 });
 
 export default function HomeScreen() {
-    const { width: SCREEN_WIDTH } = Dimensions.get('window'); // Keep using Dimensions for now as useWindowDimensions might cause re-render loops if not careful, but dynamic checking is better. 
-    // Actually, user requested useWindowDimensions. Let's stick to Dimensions.get('window') for simplistic global constant or use the hook.
-    // The previous code used a global constant. I will change it to use the hook inside the component for responsiveness.
-    // Wait, I can't easily change all references to SCREEN_WIDTH if I move it inside. 
-    // Let's Keep SCREEN_WIDTH as global for initial render but use a hook for the check?
-    // User asked for useWindowDimensions.
+    // [WEB FIX] Use useWindowDimensions hook for reactive width detection on web
+    const { width: SCREEN_WIDTH } = useWindowDimensions();
 
-    // Changing approach: kept logical flow simple. Using the global one for now as it was defined outside.
-    // BUT the requirement was "Use useWindowDimensions... to detect screen size".
-    // I should move SCREEN_WIDTH to be inside the component or use a reactive value.
     const router = useRouter();
     const params = useLocalSearchParams(); // Use params for initialMode
     const { user } = useAuth();
@@ -764,7 +757,8 @@ export default function HomeScreen() {
                             </StyledTouchableOpacity>
                         </StyledView>
 
-                        <ThemedText className="font-n-bold mb-6 pt-2 font-heading" baseSize={SCREEN_WIDTH >= 768 ? 48 : 36}>
+                        {/* [WEB FIX] Added pt-10 to clear absolutely positioned help/settings icons */}
+                        <ThemedText className="font-n-bold mb-6 pt-10 font-heading" baseSize={SCREEN_WIDTH >= 768 ? 48 : 36}>
                             Elementle
                         </ThemedText>
 

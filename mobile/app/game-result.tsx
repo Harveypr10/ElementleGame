@@ -378,7 +378,7 @@ export default function GameResultScreen() {
                             ) : (
                                 <>
                                     {/* Top Row: Stats and Share */}
-                                    <StyledView className="flex-row gap-3 mb-3">
+                                    <StyledView className="flex-row gap-3 mb-3" style={{ flexDirection: 'row' }}>
                                         {/* Stats Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
@@ -413,7 +413,7 @@ export default function GameResultScreen() {
                                     </StyledView>
 
                                     {/* Bottom Row: Home and Archive */}
-                                    <StyledView className="flex-row gap-3">
+                                    <StyledView className="flex-row gap-3" style={{ flexDirection: 'row' }}>
                                         {/* Home Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"

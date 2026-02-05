@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
+        fontFamily: 'Nunito_700Bold',
         textAlign: 'center',
     },
     hamsterContainer: {
@@ -174,13 +174,13 @@ const styles = StyleSheet.create({
     },
     prompt: {
         fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
+        fontFamily: 'Nunito_700Bold',
         textAlign: 'center',
         maxWidth: 280,
     },
     eventTitle: {
         fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
+        fontFamily: 'Nunito_700Bold',
         textAlign: 'center',
     },
     buttonsContainer: {
@@ -209,10 +209,10 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 20,
         fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
+        fontFamily: 'Nunito_700Bold',
     },
     dateText: {
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_400Regular',
         paddingTop: 16,
         textAlign: 'center',
     },
@@ -228,6 +228,6 @@ const styles = StyleSheet.create({
     devClearButtonText: {
         color: '#fff',
         fontSize: 12,
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_400Regular',
     },
 });

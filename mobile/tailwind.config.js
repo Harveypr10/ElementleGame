@@ -2,6 +2,8 @@
 module.exports = {
     // NativeWind v2 requires 'class' mode for manual dark mode toggling
     darkMode: 'class',
+    // [WEB FIX] Ensure styles override browser defaults
+    important: 'html',
     content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}", "./lib/**/*.{js,jsx,ts,tsx}"],
     theme: {
         extend: {

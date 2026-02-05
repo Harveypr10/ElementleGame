@@ -27,6 +27,7 @@ import { initializeAds } from '../lib/AdManager';
 import { initializeRevenueCat } from '../lib/RevenueCat';
 import { SplashScreen } from '../components/SplashScreen';
 import { hasCompletedAgeVerification } from '../lib/ageVerification';
+import { Asset } from 'expo-asset';
 import '../lib/typography'; // Global Font Patch
 
 /* 
@@ -61,15 +62,22 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     const [hasAgeVerification, setHasAgeVerification] = useState<boolean | null>(null);
 
     useEffect(() => {
+        // [WEB FIX] Much shorter splash on web (just to ensure render)
+        const delay = Platform.OS === 'web' ? 100 : 3000;
         const timer = setTimeout(() => {
             setSplashMinTimeMet(true);
-        }, 3000);
+        }, delay);
         return () => clearTimeout(timer);
     }, []);
 
     // Check age verification on mount AND when segments change
     // (re-check after user completes age verification and navigates)
+    // [WEB FIX] On web, skip async check - no age-gated ads needed
     useEffect(() => {
+        if (Platform.OS === 'web') {
+            setHasAgeVerification(true); // Web doesn't need age verification for ads
+            return;
+        }
         hasCompletedAgeVerification().then(setHasAgeVerification);
     }, [segments]);
 
@@ -129,7 +137,10 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     }, [router]);
 
     // 2. Logic to determine if splash should show
-    const showSplash = loading || !isSplashMinTimeMet || hasAgeVerification === null;
+    // [WEB FIX] On web, don't wait for auth loading (can hang indefinitely)
+    const showSplash = Platform.OS === 'web'
+        ? (!isSplashMinTimeMet || hasAgeVerification === null)
+        : (loading || !isSplashMinTimeMet || hasAgeVerification === null);
 
     // 3. Navigation Side Effects
     useEffect(() => {
@@ -213,6 +224,24 @@ export default function Layout() {
     // Initialize RevenueCat on mount (doesn't depend on age)
     useEffect(() => {
         initializeRevenueCat();
+    }, []);
+
+    // [WEB PERF] Preload critical assets during startup
+    useEffect(() => {
+        const preloadAssets = async () => {
+            try {
+                await Promise.all([
+                    Asset.fromModule(require('../assets/Welcome-Hamster-Cutout.png')).downloadAsync(),
+                    Asset.fromModule(require('../assets/hamster.png')).downloadAsync(),
+                    Asset.fromModule(require('../assets/splash-icon.png')).downloadAsync(),
+                    Asset.fromModule(require('../assets/icon.png')).downloadAsync(),
+                ]);
+                console.log('[Layout] Critical assets preloaded');
+            } catch (e) {
+                console.warn('[Layout] Asset preloading failed:', e);
+            }
+        };
+        preloadAssets();
     }, []);
 
     // Ad initialization is deferred - it happens in NavigationGuard

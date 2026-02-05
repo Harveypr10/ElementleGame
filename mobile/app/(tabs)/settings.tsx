@@ -158,9 +158,9 @@ export default function SettingsScreen() {
             <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
                 <StyledView
                     className="flex-row items-center justify-between px-4 py-3"
-                    style={{ backgroundColor: surfaceColor }}
+                    style={{ backgroundColor: surfaceColor, flexDirection: 'row' }}
                 >
-                    <StyledView className="flex-row items-center justify-center relative flex-1">
+                    <StyledView className="flex-row items-center justify-center relative flex-1" style={{ flexDirection: 'row' }}>
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
                             className="absolute left-0 z-10 p-2"
@@ -188,6 +188,7 @@ export default function SettingsScreen() {
                         <StyledTouchableOpacity
                             onPress={handleAccountInfo}
                             className="flex-row items-center py-3"
+                            style={{ flexDirection: 'row' }}
                         >
                             <StyledView className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 items-center justify-center">
                                 <User size={20} color="#2563eb" />
@@ -206,7 +207,7 @@ export default function SettingsScreen() {
                             <StyledTouchableOpacity
                                 onPress={handleProManage}
                                 className="flex-row items-center py-3 mt-1 rounded-xl px-3"
-                                style={{ backgroundColor: '#fb923c' }}
+                                style={{ backgroundColor: '#fb923c', flexDirection: 'row' }}
                             >
                                 <StyledView className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
                                     <Crown size={20} color="#ffffff" />
@@ -221,7 +222,7 @@ export default function SettingsScreen() {
                             <StyledTouchableOpacity
                                 onPress={handleGoProClick}
                                 className="flex-row items-center py-3 mt-1 rounded-xl px-3 border-2 border-amber-400"
-                                style={{ backgroundColor: goProBgColor }}
+                                style={{ backgroundColor: goProBgColor, flexDirection: 'row' }}
                             >
                                 <StyledView className="w-10 h-10 rounded-full bg-amber-100 items-center justify-center">
                                     <Crown size={20} color="#d97706" />
@@ -239,6 +240,7 @@ export default function SettingsScreen() {
                             <StyledTouchableOpacity
                                 onPress={handleCategories}
                                 className="flex-row items-center py-3 mt-1"
+                                style={{ flexDirection: 'row' }}
                             >
                                 <StyledView className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 items-center justify-center">
                                     <Grid size={20} color="#ea580c" />
@@ -256,6 +258,7 @@ export default function SettingsScreen() {
                             <StyledTouchableOpacity
                                 onPress={handleStreakSaver}
                                 className="flex-row items-center py-3 mt-1"
+                                style={{ flexDirection: 'row' }}
                             >
                                 <StyledView className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 items-center justify-center">
                                     <Flame size={20} color="#f97316" />
@@ -272,6 +275,7 @@ export default function SettingsScreen() {
                         <StyledTouchableOpacity
                             onPress={handleOptions}
                             className="flex-row items-center py-3 mt-1"
+                            style={{ flexDirection: 'row' }}
                         >
                             <StyledView className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 items-center justify-center">
                                 <SlidersHorizontal size={20} color="#9333ea" />
@@ -291,13 +295,13 @@ export default function SettingsScreen() {
                     >
                         <ThemedText style={{ fontSize: 14 * textScale, color: secondaryTextColor }} className="font-n-bold uppercase tracking-wide mb-2">Help & Info</ThemedText>
 
-                        <StyledTouchableOpacity onPress={handleBugReport} className="flex-row items-center py-2.5">
+                        <StyledTouchableOpacity onPress={handleBugReport} className="flex-row items-center py-2.5" style={{ flexDirection: 'row' }}>
                             <Bug size={18} color="#64748b" />
                             <ThemedText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium">Report a Bug</ThemedText>
                             <ChevronRight size={18} color="#94a3b8" />
                         </StyledTouchableOpacity>
 
-                        <StyledTouchableOpacity onPress={handleFeedback} className="flex-row items-center py-2.5">
+                        <StyledTouchableOpacity onPress={handleFeedback} className="flex-row items-center py-2.5" style={{ flexDirection: 'row' }}>
                             <MessageSquare size={18} color="#64748b" />
                             <ThemedText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium">Feedback</ThemedText>
                             <ChevronRight size={18} color="#94a3b8" />
@@ -305,19 +309,19 @@ export default function SettingsScreen() {
 
                         <StyledView className="h-px my-1" style={{ backgroundColor: borderColor }} />
 
-                        <StyledTouchableOpacity onPress={handleAbout} className="flex-row items-center py-2.5">
+                        <StyledTouchableOpacity onPress={handleAbout} className="flex-row items-center py-2.5" style={{ flexDirection: 'row' }}>
                             <Info size={18} color="#64748b" />
                             <ThemedText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium">About</ThemedText>
                             <ChevronRight size={18} color="#94a3b8" />
                         </StyledTouchableOpacity>
 
-                        <StyledTouchableOpacity onPress={handlePrivacy} className="flex-row items-center py-2.5">
+                        <StyledTouchableOpacity onPress={handlePrivacy} className="flex-row items-center py-2.5" style={{ flexDirection: 'row' }}>
                             <Lock size={18} color="#64748b" />
                             <ThemedText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium">Privacy</ThemedText>
                             <ChevronRight size={18} color="#94a3b8" />
                         </StyledTouchableOpacity>
 
-                        <StyledTouchableOpacity onPress={handleTerms} className="flex-row items-center py-2.5">
+                        <StyledTouchableOpacity onPress={handleTerms} className="flex-row items-center py-2.5" style={{ flexDirection: 'row' }}>
                             <FileText size={18} color="#64748b" />
                             <ThemedText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium">Terms</ThemedText>
                             <ChevronRight size={18} color="#94a3b8" />
@@ -329,7 +333,7 @@ export default function SettingsScreen() {
                         <StyledTouchableOpacity
                             onPress={handleAdmin}
                             className="rounded-2xl p-4 mb-3 flex-row items-center"
-                            style={{ backgroundColor: '#dc2626' }}
+                            style={{ backgroundColor: '#dc2626', flexDirection: 'row' }}
                         >
                             <StyledView className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
                                 <Shield size={20} color="#ffffff" />
@@ -348,6 +352,7 @@ export default function SettingsScreen() {
                             onPress={handleSignOut}
                             disabled={signingOut}
                             className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 mt-2 flex-row items-center justify-center"
+                            style={{ flexDirection: 'row' }}
                         >
                             <LogOut size={20} color="#dc2626" />
                             <Text style={{ fontSize: 16 * textScale }} className="font-n-bold text-red-600 dark:text-red-400 ml-2">
