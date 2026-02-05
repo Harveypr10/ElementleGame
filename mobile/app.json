@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.dobl.elementlegame",
       "usesAppleSignIn": true,
       "associatedDomains": [
-        "applinks:elementle.tech"
+        "applinks:elementle.tech",
+        "applinks:www.elementle.tech"
       ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
