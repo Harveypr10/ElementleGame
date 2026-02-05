@@ -382,6 +382,7 @@ serve(async (req) => {
 
         // Handle CHECK action
         if (action === 'check') {
+            // First check our linked_identities table
             const { data: linkedIdentity, error } = await supabaseAdmin
                 .from('linked_identities')
                 .select('user_id, provider_email, disabled_at')
@@ -393,14 +394,82 @@ serve(async (req) => {
                 console.error('[link-social-identity] Check error:', error)
             }
 
-            const response: CheckResponse = {
-                found: !!linkedIdentity,
-                userId: linkedIdentity?.user_id,
-                email: linkedIdentity?.provider_email || providerEmail,
-                disabled: !!linkedIdentity?.disabled_at
+            if (linkedIdentity) {
+                // Found in linked_identities table
+                const response: CheckResponse = {
+                    found: true,
+                    userId: linkedIdentity.user_id,
+                    email: linkedIdentity.provider_email || providerEmail,
+                    disabled: !!linkedIdentity.disabled_at
+                }
+                console.log(`[link-social-identity] CHECK result (linked_identities): found=true, disabled=${response.disabled}, userId=${response.userId}`)
+                return new Response(
+                    JSON.stringify(response),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
             }
 
-            console.log(`[link-social-identity] CHECK result: found=${response.found}, disabled=${response.disabled}, userId=${response.userId}`)
+            // Not found in linked_identities - also check Supabase auth.identities
+            // This catches users who signed up before we started populating linked_identities
+            console.log(`[link-social-identity] Not in linked_identities, checking auth.identities for ${provider}:${providerUserId}`)
+
+            try {
+                // Query auth.identities directly using a database function or raw query
+                // The provider_id in auth.identities stores the 'sub' claim value
+                const { data: authIdentity, error: authError } = await supabaseAdmin
+                    .rpc('find_user_by_identity', {
+                        p_provider: provider,
+                        p_provider_id: providerUserId
+                    })
+
+                if (authError) {
+                    console.log('[link-social-identity] auth.identities check via RPC failed:', authError.message)
+                    // Fall through to return not found
+                } else if (authIdentity && authIdentity.length > 0) {
+                    // Found in auth.identities - user exists in Supabase
+                    const userId = authIdentity[0].user_id
+                    console.log(`[link-social-identity] CHECK result (auth.identities): found existing user ${userId}`)
+
+                    // Auto-create the linked_identities entry so future checks are faster
+                    const { error: insertError } = await supabaseAdmin
+                        .from('linked_identities')
+                        .insert({
+                            user_id: userId,
+                            provider: provider,
+                            provider_user_id: providerUserId,
+                            provider_email: providerEmail
+                        })
+
+                    if (insertError && insertError.code !== '23505') { // Ignore duplicate key errors
+                        console.warn('[link-social-identity] Failed to backfill linked_identities:', insertError.message)
+                    } else {
+                        console.log('[link-social-identity] Backfilled linked_identities entry')
+                    }
+
+                    const response: CheckResponse = {
+                        found: true,
+                        userId: userId,
+                        email: providerEmail,
+                        disabled: false
+                    }
+                    return new Response(
+                        JSON.stringify(response),
+                        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    )
+                }
+            } catch (rpcError) {
+                console.error('[link-social-identity] RPC error checking auth.identities:', rpcError)
+                // Fall through to return not found
+            }
+
+            // Not found in either table
+            const response: CheckResponse = {
+                found: false,
+                email: providerEmail,
+                disabled: false
+            }
+
+            console.log(`[link-social-identity] CHECK result: found=false (not in linked_identities or auth.identities)`)
 
             return new Response(
                 JSON.stringify(response),

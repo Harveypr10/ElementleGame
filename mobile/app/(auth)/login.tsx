@@ -423,28 +423,90 @@ export default function LoginPage() {
         try {
             console.log('[Login] Starting native Apple sign-in');
 
-            // Sign in directly with Apple - Supabase handles existing vs new user detection
-            // This approach works even if linked_identities table wasn't populated on initial sign-up
-            const result = await signInWithApple();
+            // First, get the Apple credential to check for linked identity
+            const credential = await AppleAuthentication.signInAsync({
+                requestedScopes: [
+                    AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                    AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                ],
+            });
 
-            if (!result.success) {
-                if (result.error !== 'Sign in cancelled') {
-                    Alert.alert('Error', result.error || 'Failed to sign in with Apple');
-                }
+            if (!credential.identityToken) {
+                Alert.alert('Error', 'No identity token returned from Apple');
                 return;
             }
 
-            console.log('[Login] Apple sign-in successful, isNewUser:', result.isNewUser);
+            const userName = {
+                firstName: credential.fullName?.givenName || '',
+                lastName: credential.fullName?.familyName || '',
+            };
 
-            if (result.isNewUser) {
-                // New user - go through onboarding
-                router.replace({
-                    pathname: '/(auth)/age-verification',
-                    params: { returnTo: 'personalise' }
-                });
-            } else {
-                // Existing user - go to home
+            // Check if this Apple account is already linked to an existing user
+            console.log('[Login] Checking for linked Apple identity...');
+            const linkCheck = await checkLinkedIdentity('apple', credential.identityToken);
+
+            if (linkCheck.found) {
+                // Account exists - use the Edge Function to sign in as the linked user
+                console.log('[Login] Found linked Apple account, signing in via Edge Function...');
+                const signInResult = await signInWithLinkedIdentity('apple', credential.identityToken);
+
+                if (!signInResult.success) {
+                    Alert.alert('Error', signInResult.error || 'Failed to sign in with linked Apple account');
+                    return;
+                }
+
+                console.log('[Login] Successfully signed in as linked user:', signInResult.userId);
                 router.replace('/');
+            } else {
+                // No linked account - show confirmation dialog
+                Alert.alert(
+                    'Create New Account?',
+                    'No Elementle account is currently linked to this Apple account. Continue to create a new account?',
+                    [
+                        {
+                            text: 'Cancel',
+                            style: 'cancel',
+                            onPress: () => {
+                                setSocialAuthHelperText(
+                                    'To link your Apple account with an existing Elementle account, sign in with your existing method and then Link your account in Settings → Account Info.'
+                                );
+                            }
+                        },
+                        {
+                            text: 'Continue',
+                            onPress: async () => {
+                                setLoading(true);
+                                try {
+                                    const result = await signInWithApple();
+
+                                    if (!result.success) {
+                                        if (result.error !== 'Sign in cancelled') {
+                                            Alert.alert('Error', result.error || 'Failed to sign in with Apple');
+                                        }
+                                        return;
+                                    }
+
+                                    console.log('[Login] Apple sign-in successful, isNewUser:', result.isNewUser);
+
+                                    if (result.isNewUser) {
+                                        router.replace({
+                                            pathname: '/(auth)/age-verification',
+                                            params: {
+                                                returnTo: 'personalise',
+                                                firstName: userName.firstName,
+                                                lastName: userName.lastName
+                                            }
+                                        });
+                                    } else {
+                                        router.replace('/');
+                                    }
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }
+                    ]
+                );
             }
         } catch (error: any) {
             console.error('[Login] Apple sign-in error:', error);
