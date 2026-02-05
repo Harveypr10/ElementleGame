@@ -15,19 +15,15 @@ import {
     Lock,
     FileText,
     LogOut,
-    Shield,
-    SlidersHorizontal
+    Shield
 } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { ThemedText } from '../../components/ThemedText';
-import { ThemedView } from '../../components/ThemedView';
 import { useSettingsScreenLogic } from '../../hooks/useSettingsScreenLogic';
 
 // Styled Components
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
+const StyledText = styled(Text);
 
 export default function SettingsScreenWeb() {
     const {
@@ -35,8 +31,6 @@ export default function SettingsScreenWeb() {
         isAuthenticated,
         isAdmin,
         isPro,
-        textScale,
-        signingOut,
         handleSignOut,
         handleAccountInfo,
         handleProManage,
@@ -54,238 +48,225 @@ export default function SettingsScreenWeb() {
         colors
     } = useSettingsScreenLogic();
 
-    // Web-specific container styles for "Premium Card" look
-    const cardStyle = {
-        backgroundColor: colors.surface,
-        borderColor: colors.border,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 12,
-        elevation: 4
-    };
+    // Replicating Legacy Item Logic but wired to our Hook Handlers
 
-    const MenuItem = ({
-        icon: Icon,
-        iconColor,
-        iconBg,
-        title,
-        subtitle,
-        onPress,
-        isProAction = false,
-        isDestructive = false
-    }: any) => (
-        <StyledTouchableOpacity
-            onPress={onPress}
-            className={`flex-row items-center p-4 mb-2 rounded-xl transition-all duration-200 hover:bg-slate-50 dark:hover:bg-slate-800 ${isDestructive ? 'hover:bg-red-50 dark:hover:bg-red-900/10' : ''}`}
-            style={{
-                borderWidth: 1,
-                borderColor: 'transparent',
-                // Web hover effect simulation via border or background is handled by className, 
-                // but we can add explicit "cursor: pointer" equivalent here if needed, 
-                // though TouchableOpacity handles it.
-            }}
-        >
-            <StyledView className={`w-12 h-12 rounded-full items-center justify-center ${iconBg}`}>
-                <Icon size={24} color={iconColor} />
-            </StyledView>
-            <StyledView className="flex-1 ml-4 justify-center">
-                <ThemedText style={{ fontSize: 18 * textScale, color: isDestructive ? '#dc2626' : colors.text }} className="font-n-bold">
-                    {title}
-                </ThemedText>
-                {subtitle && (
-                    <ThemedText style={{ fontSize: 14 * textScale, color: colors.secondaryText }} className="mt-0.5">
-                        {subtitle}
-                    </ThemedText>
-                )}
-            </StyledView>
-            <ChevronRight size={20} color={colors.icon} style={{ opacity: 0.5 }} />
-        </StyledTouchableOpacity>
-    );
+    // Subscription-related items
+    const subscriptionItems = [
+        {
+            icon: Crown,
+            label: isPro ? "Pro" : "Go Pro",
+            inlineLabel: isPro ? "Manage your subscription" : null,
+            sublabel: !isPro ? "Remove ads & customize categories" : null,
+            onClick: isPro ? handleProManage : handleGoProClick,
+            testId: "button-subscription",
+            highlight: !isPro,
+            proItem: isPro,
+            disabled: false,
+        },
+        ...(isPro ? [{
+            icon: Grid,
+            label: "Select Categories",
+            inlineLabel: null,
+            sublabel: null,
+            onClick: handleCategories,
+            testId: "button-select-categories",
+            highlight: false,
+            proItem: true,
+            disabled: false,
+        }] : []),
+        ...(!isPro && isAuthenticated ? [{
+            icon: Flame,
+            label: "Streak Saver",
+            inlineLabel: null,
+            sublabel: null,
+            onClick: handleStreakSaver,
+            testId: "button-streak-saver",
+            highlight: false,
+            proItem: false,
+            disabled: false,
+        }] : []),
+    ];
+
+    const adminItems = isAdmin ? [{
+        icon: Shield,
+        label: "Admin",
+        onClick: handleAdmin,
+        testId: "button-admin",
+        adminItem: true,
+    }] : [];
+
+    const menuItems = [
+        {
+            icon: User,
+            label: "Account Info",
+            onClick: handleAccountInfo,
+            testId: "button-account-info",
+        },
+        ...subscriptionItems,
+        ...adminItems,
+        {
+            icon: SettingsIcon,
+            label: "Options",
+            onClick: handleOptions,
+            testId: "button-options-from-settings",
+        },
+        {
+            icon: Bug,
+            label: "Report a Bug",
+            onClick: handleBugReport,
+            testId: "button-bug-report",
+        },
+        {
+            icon: MessageSquare,
+            label: "Feedback",
+            onClick: handleFeedback,
+            testId: "button-feedback",
+        },
+        {
+            icon: Info,
+            label: "About",
+            onClick: handleAbout,
+            testId: "button-about",
+        },
+        {
+            icon: Lock,
+            label: "Privacy",
+            onClick: handlePrivacy,
+            testId: "button-privacy",
+        },
+        {
+            icon: FileText,
+            label: "Terms",
+            onClick: handleTerms,
+            testId: "button-terms",
+        },
+    ];
+
+    // Helper to determine Ad Banner activity (mocked/implied false for now or derived if needed)
+    const adBannerActive = false;
 
     return (
-        <ThemedView className="flex-1 bg-slate-50 dark:bg-slate-950">
-            {/* Web Header - Centered & Clean */}
-            <StyledView className="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm z-10 sticky top-0">
-                <StyledView className="max-w-4xl w-full mx-auto px-6 py-4 flex-row items-center justify-between" style={{ flexDirection: 'row' }}>
+        <StyledScrollView
+            className={`min-h-screen flex flex-col p-4 bg-white dark:bg-slate-950 ${adBannerActive ? 'pb-[50px]' : ''}`}
+            contentContainerStyle={{ flexGrow: 1 }}
+        >
+            <StyledView className="w-full max-w-md mx-auto space-y-4">
+
+                {/* Header */}
+                <StyledView className="flex-row items-center justify-between mb-6" style={{ flexDirection: 'row' }}>
                     <StyledTouchableOpacity
                         onPress={() => router.back()}
-                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                        // data-testid="button-back-from-settings"
+                        className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     >
-                        <ChevronLeft size={28} color={colors.text} />
+                        <ChevronLeft size={36} className="text-gray-700 dark:text-gray-200" color={colors.text} />
                     </StyledTouchableOpacity>
 
-                    <ThemedText size="3xl" className="font-n-bold text-center absolute left-0 right-0 pointer-events-none">
-                        Settings
-                    </ThemedText>
+                    <StyledView className="flex flex-col items-center">
+                        <StyledText className="text-4xl font-bold dark:text-white">Settings</StyledText>
+                    </StyledView>
 
-                    <View style={{ width: 44 }} /> {/* Spacer for symmetry */}
+                    {/* Spacer */}
+                    <StyledView className="w-14" />
                 </StyledView>
+
+                {/* Card */}
+                <StyledView className="p-4 space-y-2 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
+                    {menuItems.map((item: any) => {
+                        const Icon = item.icon;
+                        const isProItem = item.proItem;
+                        const isAdminItem = item.adminItem;
+                        const inlineLabel = item.inlineLabel;
+                        const sublabel = item.sublabel;
+                        const highlight = item.highlight;
+                        const isDisabled = item.disabled;
+
+                        // Calculate dynamic classes
+                        let bgClass = "";
+                        let textClass = "";
+                        let iconColor = "#64748b"; // muted foreground default
+
+                        if (isDisabled) {
+                            bgClass = "opacity-50";
+                        }
+
+                        // Exact logic from legacy: warning/danger/success gradients don't map 1:1 to Tailwind classes without config
+                        // but I will use closest Tailwind standard colors to replicate "orange-400 to orange-500"
+
+                        let styleOverride = {};
+
+                        if (isAdminItem) {
+                            // bg-gradient-to-r from-red-500 to-red-600 logic
+                            // NativeWind supports gradients via linear-gradient library usually, but standard bg-red-500 is safer if gradient plugin not installed.
+                            // I'll use simple colors.
+                            bgClass += " bg-red-600 hover:bg-red-700";
+                            textClass = "text-white";
+                            iconColor = "white";
+                        } else if (isProItem) {
+                            // bg-gradient-to-r from-orange-400 to-orange-500
+                            bgClass += " bg-orange-500 hover:bg-orange-600";
+                            textClass = "text-white";
+                            iconColor = "white";
+                        } else if (highlight) {
+                            bgClass += " bg-amber-50 dark:bg-amber-950/30";
+                            // hover-elevate ... I will just use hover:bg-amber-100
+                            iconColor = "#f59e0b"; // amber-500
+                        } else {
+                            bgClass += " hover:bg-gray-100 dark:hover:bg-gray-800";
+                            textClass = "text-gray-900 dark:text-gray-100";
+                            iconColor = colors.icon;
+                        }
+
+                        return (
+                            <StyledTouchableOpacity
+                                key={item.label}
+                                onPress={item.onClick}
+                                disabled={isDisabled}
+                                className={`w-full flex-row items-center justify-between p-3 rounded-md transition-colors ${bgClass}`}
+                                style={{ flexDirection: 'row' }}
+                            >
+                                <StyledView className="flex-row items-center gap-3 flex-1" style={{ flexDirection: 'row', gap: 12 }}>
+                                    <Icon size={20} color={iconColor} />
+
+                                    <StyledText className={`font-medium ${textClass}`}>
+                                        {item.label}
+                                    </StyledText>
+
+                                    {inlineLabel && (
+                                        <StyledText className={`text-sm ${isAdminItem || isProItem ? "text-white/90" : "text-gray-500"}`}>
+                                            {inlineLabel}
+                                        </StyledText>
+                                    )}
+
+                                    {sublabel && (
+                                        <StyledView className="flex-1 justify-center items-center">
+                                            <StyledText numberOfLines={1} className={`text-sm text-center ${isAdminItem || isProItem ? "text-white/90" : "text-gray-500"}`}>
+                                                {sublabel}
+                                            </StyledText>
+                                        </StyledView>
+                                    )}
+                                </StyledView>
+
+                                <ChevronRight size={20} color={isAdminItem || isProItem ? "white" : colors.icon} />
+                            </StyledTouchableOpacity>
+                        );
+                    })}
+                </StyledView>
+
+                {/* Sign Out Button */}
+                {isAuthenticated && (
+                    <StyledTouchableOpacity
+                        onPress={handleSignOut}
+                        className="w-full flex-row items-center justify-center p-3 rounded-md bg-red-600 hover:bg-red-700 mt-4"
+                        style={{ flexDirection: 'row' }}
+                    >
+                        <LogOut size={16} color="white" className="mr-2" style={{ marginRight: 8 }} />
+                        <StyledText className="text-white font-bold">
+                            Sign Out
+                        </StyledText>
+                    </StyledTouchableOpacity>
+                )}
             </StyledView>
-
-            {/* Main Content - Centered Card Layout */}
-            <StyledScrollView
-                className="flex-1 w-full"
-                contentContainerStyle={{ paddingVertical: 40, paddingHorizontal: 20, alignItems: 'center' }}
-            >
-                <StyledView className="w-full max-w-3xl">
-
-                    {/* Welcome / User Card */}
-                    {isAuthenticated && (
-                        <StyledView className="mb-8 flex-row items-center p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800" style={cardStyle}>
-                            <StyledView className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900/30 items-center justify-center mr-6">
-                                <User size={40} color="#2563eb" />
-                            </StyledView>
-                            <View>
-                                <ThemedText size="2xl" className="font-n-bold text-slate-900 dark:text-white">
-                                    {user?.email ? user.email.split('@')[0] : 'User'}
-                                </ThemedText>
-                                <ThemedText className="text-slate-500 dark:text-slate-400 mt-1">
-                                    {user?.email}
-                                </ThemedText>
-                                <StyledTouchableOpacity
-                                    onPress={handleAccountInfo}
-                                    className="mt-3 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-lg self-start"
-                                >
-                                    <ThemedText className="text-sm font-n-bold text-slate-700 dark:text-slate-300">Manage Account</ThemedText>
-                                </StyledTouchableOpacity>
-                            </View>
-                        </StyledView>
-                    )}
-
-                    <View className="flex-row gap-8 w-full" style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-
-                        {/* Left Column: Gameplay & Subscription */}
-                        <View className="flex-1 min-w-[340px]">
-                            <ThemedText className="text-sm font-n-bold uppercase text-slate-500 mb-4 ml-2">Subscription & Gameplay</ThemedText>
-                            <StyledView className="bg-white dark:bg-slate-900 rounded-2xl p-2 border border-slate-200 dark:border-slate-800 mb-8" style={cardStyle}>
-
-                                {isPro ? (
-                                    <MenuItem
-                                        icon={Crown}
-                                        iconColor="#ffffff"
-                                        iconBg="bg-orange-500"
-                                        title="Pro Membership"
-                                        subtitle="Active"
-                                        onPress={handleProManage}
-                                    />
-                                ) : (
-                                    <MenuItem
-                                        icon={Crown}
-                                        iconColor="#d97706"
-                                        iconBg="bg-amber-100"
-                                        title="Go Pro"
-                                        subtitle="Unlock unlimited play & features"
-                                        onPress={handleGoProClick}
-                                    />
-                                )}
-
-                                {isPro && (
-                                    <MenuItem
-                                        icon={Grid}
-                                        iconColor="#ea580c"
-                                        iconBg="bg-orange-100 dark:bg-orange-900/30"
-                                        title="Puzzle Categories"
-                                        subtitle="Customize your experience"
-                                        onPress={handleCategories}
-                                    />
-                                )}
-
-                                <MenuItem
-                                    icon={Flame}
-                                    iconColor="#f97316"
-                                    iconBg="bg-orange-100 dark:bg-orange-900/30"
-                                    title="Streak Savers"
-                                    subtitle="Manage your streak protection"
-                                    onPress={handleStreakSaver}
-                                />
-
-                                <MenuItem
-                                    icon={SlidersHorizontal}
-                                    iconColor="#9333ea"
-                                    iconBg="bg-purple-100 dark:bg-purple-900/30"
-                                    title="Game Options"
-                                    subtitle="Display & Sound settings"
-                                    onPress={handleOptions}
-                                />
-                            </StyledView>
-                        </View>
-
-                        {/* Right Column: Support */}
-                        <View className="flex-1 min-w-[340px]">
-                            <ThemedText className="text-sm font-n-bold uppercase text-slate-500 mb-4 ml-2">Support & Info</ThemedText>
-                            <StyledView className="bg-white dark:bg-slate-900 rounded-2xl p-2 border border-slate-200 dark:border-slate-800 mb-8" style={cardStyle}>
-                                <MenuItem
-                                    icon={Bug}
-                                    iconColor="#64748b"
-                                    iconBg="bg-slate-100 dark:bg-slate-800"
-                                    title="Report a Bug"
-                                    onPress={handleBugReport}
-                                />
-                                <MenuItem
-                                    icon={MessageSquare}
-                                    iconColor="#64748b"
-                                    iconBg="bg-slate-100 dark:bg-slate-800"
-                                    title="Feedback"
-                                    onPress={handleFeedback}
-                                />
-                                <MenuItem
-                                    icon={Info}
-                                    iconColor="#64748b"
-                                    iconBg="bg-slate-100 dark:bg-slate-800"
-                                    title="About Elementle"
-                                    onPress={handleAbout}
-                                />
-                                <MenuItem
-                                    icon={Lock}
-                                    iconColor="#64748b"
-                                    iconBg="bg-slate-100 dark:bg-slate-800"
-                                    title="Privacy Policy"
-                                    onPress={handlePrivacy}
-                                />
-                                <MenuItem
-                                    icon={FileText}
-                                    iconColor="#64748b"
-                                    iconBg="bg-slate-100 dark:bg-slate-800"
-                                    title="Terms of Service"
-                                    onPress={handleTerms}
-                                />
-                            </StyledView>
-                        </View>
-                    </View>
-
-                    {/* Footer Actions */}
-                    <View className="mt-4 flex-row justify-center gap-4" style={{ flexDirection: 'row' }}>
-                        {isAdmin && (
-                            <StyledTouchableOpacity
-                                onPress={handleAdmin}
-                                className="flex-row items-center px-6 py-3 rounded-full bg-red-600 hover:bg-red-700 transition-colors"
-                            >
-                                <Shield size={20} color="#ffffff" className="mr-2" />
-                                <Text className="text-white font-n-bold">Admin Panel</Text>
-                            </StyledTouchableOpacity>
-                        )}
-
-                        {isAuthenticated && (
-                            <StyledTouchableOpacity
-                                onPress={handleSignOut}
-                                disabled={signingOut}
-                                className="flex-row items-center px-6 py-3 rounded-full border border-red-200 bg-white hover:bg-red-50 dark:bg-slate-900 dark:border-red-900 transition-colors"
-                            >
-                                <LogOut size={20} color="#dc2626" className="mr-2" />
-                                <Text className="text-red-600 dark:text-red-400 font-n-bold">
-                                    {signingOut ? 'Signing Out...' : 'Sign Out'}
-                                </Text>
-                            </StyledTouchableOpacity>
-                        )}
-                    </View>
-
-                    <ThemedText className="text-center text-slate-400 text-sm mt-12 mb-8">
-                        Version 1.0.0 (Web Beta)
-                    </ThemedText>
-
-                </StyledView>
-            </StyledScrollView>
-        </ThemedView>
+        </StyledScrollView>
     );
 }
