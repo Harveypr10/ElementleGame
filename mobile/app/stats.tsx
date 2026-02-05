@@ -451,7 +451,7 @@ export default function StatsScreen() {
                                     elevation: 3,
                                 }}
                             >
-                                <StyledView className="flex-row items-center gap-2 mb-4">
+                                <StyledView className="flex-row items-center gap-2 mb-4" style={{ flexDirection: 'row' }}>
                                     <Flame size={22} color={theme.iconAccent} />
                                     <ThemedText className="font-n-bold text-lg" style={{ color: theme.textPrimary }}>
                                         Streak
@@ -495,7 +495,7 @@ export default function StatsScreen() {
                             >
                                 <StyledView className="flex-row items-center" style={{ flexDirection: 'row' }}>
                                     <StyledView className="flex-1">
-                                        <StyledView className="flex-row items-center gap-2 mb-1">
+                                        <StyledView className="flex-row items-center gap-2 mb-1" style={{ flexDirection: 'row' }}>
                                             <ThemedText className="font-n-bold text-lg" style={{ color: theme.textPrimary }}>
                                                 Monthly Ranking
                                             </ThemedText>
@@ -531,7 +531,7 @@ export default function StatsScreen() {
                                 }}
                             >
                                 <StyledView className="flex-row justify-between items-center mb-5" style={{ flexDirection: 'row' }}>
-                                    <StyledView className="flex-row items-center gap-2">
+                                    <StyledView className="flex-row items-center gap-2" style={{ flexDirection: 'row' }}>
                                         <Award size={22} color={theme.iconAccent} />
                                         <ThemedText className="font-n-bold text-lg" style={{ color: theme.textPrimary }}>
                                             Badges
@@ -540,6 +540,7 @@ export default function StatsScreen() {
                                     <StyledTouchableOpacity
                                         onPress={() => setShowBadgesModal(true)}
                                         className="flex-row items-center px-0 py-1"
+                                        style={{ flexDirection: 'row' }}
                                     >
                                         <ThemedText className="font-n-semibold text-sm mr-1" style={{ color: theme.viewAllText }}>
                                             View all
@@ -643,7 +644,7 @@ export default function StatsScreen() {
                                         elevation: 3,
                                     }}
                                 >
-                                    <StyledView className="flex-row items-center gap-2 mb-5">
+                                    <StyledView className="flex-row items-center gap-2 mb-5" style={{ flexDirection: 'row' }}>
                                         <TrendingUp size={22} color={theme.iconAccent} />
                                         <ThemedText className="font-n-bold text-lg" style={{ color: theme.textPrimary }}>
                                             Last 30 Days
@@ -698,7 +699,7 @@ export default function StatsScreen() {
                                     elevation: 3,
                                 }}
                             >
-                                <StyledView className="flex-row items-center gap-2 mb-5">
+                                <StyledView className="flex-row items-center gap-2 mb-5" style={{ flexDirection: 'row' }}>
                                     <BarChart3 size={22} color={theme.iconAccent} />
                                     <ThemedText className="font-n-bold text-lg" style={{ color: theme.textPrimary }}>
                                         Guess Distribution
@@ -717,7 +718,7 @@ export default function StatsScreen() {
                                                 </ThemedText>
                                                 <StyledView
                                                     className="flex-1 h-9 rounded-lg overflow-hidden flex-row items-center"
-                                                    style={{ backgroundColor: theme.chartTrack }}
+                                                    style={{ backgroundColor: theme.chartTrack, flexDirection: 'row' }}
                                                 >
                                                     {count > 0 ? (
                                                         <StyledView
@@ -746,7 +747,7 @@ export default function StatsScreen() {
                                         </ThemedText>
                                         <StyledView
                                             className="flex-1 h-9 rounded-lg overflow-hidden flex-row items-center"
-                                            style={{ backgroundColor: theme.lostTrack }}
+                                            style={{ backgroundColor: theme.lostTrack, flexDirection: 'row' }}
                                         >
                                             {losses > 0 ? (
                                                 <StyledView

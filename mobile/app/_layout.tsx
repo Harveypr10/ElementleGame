@@ -62,8 +62,8 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     const [hasAgeVerification, setHasAgeVerification] = useState<boolean | null>(null);
 
     useEffect(() => {
-        // [WEB FIX] Much shorter splash on web (just to ensure render)
-        const delay = Platform.OS === 'web' ? 100 : 3000;
+        // [WEB FIX] 2 second splash on web (user preference), 3s on mobile
+        const delay = Platform.OS === 'web' ? 2000 : 3000;
         const timer = setTimeout(() => {
             setSplashMinTimeMet(true);
         }, delay);

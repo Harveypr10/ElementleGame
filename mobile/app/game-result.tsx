@@ -323,11 +323,12 @@ export default function GameResultScreen() {
                                 </ThemedText>
                             </StyledView>
 
-                            {/* Hamster Image - Reduced height */}
+                            {/* Hamster Image - Reduced height with web-safe sizing */}
                             <StyledView className="items-center mb-6 h-40 justify-center">
                                 <StyledImage
                                     source={isWin ? WinHamsterImg : LoseHamsterImg}
                                     className={isLargeScreen ? "w-48 h-48" : "w-32 h-32"}
+                                    style={{ width: isLargeScreen ? 192 : 128, height: isLargeScreen ? 192 : 128, maxWidth: '100%', maxHeight: 160 }}
                                     resizeMode="contain"
                                 />
                             </StyledView>
@@ -382,7 +383,7 @@ export default function GameResultScreen() {
                                         {/* Stats Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: statsColor, height: isLargeScreen ? 94 : 64 }}
+                                            style={{ backgroundColor: statsColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row' }}
                                             onPress={() => router.push(`/stats?mode=${gameMode}`)}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Stats</StyledText>
@@ -398,7 +399,7 @@ export default function GameResultScreen() {
                                         {/* Share Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: shareColor, height: isLargeScreen ? 94 : 64 }}
+                                            style={{ backgroundColor: shareColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row' }}
                                             onPress={handleShare}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Share</StyledText>
@@ -417,7 +418,7 @@ export default function GameResultScreen() {
                                         {/* Home Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: homeColor, height: isLargeScreen ? 94 : 64 }}
+                                            style={{ backgroundColor: homeColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row' }}
                                             onPress={() => {
                                                 if (gameMode === 'REGION' || gameMode === 'USER') {
                                                     setGameMode(gameMode);
@@ -447,7 +448,7 @@ export default function GameResultScreen() {
                                         {/* Archive Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: archiveColor, height: isLargeScreen ? 94 : 64 }}
+                                            style={{ backgroundColor: archiveColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row' }}
                                             onPress={() => router.push({ pathname: '/archive', params: { mode: gameMode } })}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Archive</StyledText>
