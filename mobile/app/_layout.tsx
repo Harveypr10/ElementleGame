@@ -1,7 +1,11 @@
-import { View, ActivityIndicator, StyleSheet, Linking } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Linking, Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { styled } from 'nativewind';
 import { ThemedView } from '../components/ThemedView';
+import { WebContainer } from '../components/WebContainer';
+
+// Import global CSS for NativeWind web support
+import '../global.css';
 
 const StyledView = styled(View);
 import { useEffect, useState } from 'react';
@@ -249,37 +253,39 @@ export default function Layout() {
                                     <GuessCacheProvider>
                                         <StreakSaverProvider>
                                             <OptionsProvider>
-                                                <ThemedView className="flex-1">
-                                                    <NavigationGuard>
-                                                        <Stack screenOptions={{ headerShown: false }}>
-                                                            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                                            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                                            <Stack.Screen name="game" options={{ headerShown: false }} />
-                                                            <Stack.Screen
-                                                                name="archive"
-                                                                options={{
-                                                                    headerShown: false,
-                                                                    presentation: 'card'
-                                                                }}
-                                                            />
-                                                            <Stack.Screen
-                                                                name="stats"
-                                                                options={{
-                                                                    headerShown: false,
-                                                                    presentation: 'card'
-                                                                }}
-                                                            />
-                                                            <Stack.Screen name="index" options={{ headerShown: false }} />
-                                                            <Stack.Screen
-                                                                name="settings"
-                                                                options={{
-                                                                    headerShown: false,
-                                                                    presentation: 'card'
-                                                                }}
-                                                            />
-                                                        </Stack>
-                                                    </NavigationGuard>
-                                                </ThemedView>
+                                                <WebContainer>
+                                                    <ThemedView className="flex-1">
+                                                        <NavigationGuard>
+                                                            <Stack screenOptions={{ headerShown: false }}>
+                                                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                                                <Stack.Screen name="game" options={{ headerShown: false }} />
+                                                                <Stack.Screen
+                                                                    name="archive"
+                                                                    options={{
+                                                                        headerShown: false,
+                                                                        presentation: 'card'
+                                                                    }}
+                                                                />
+                                                                <Stack.Screen
+                                                                    name="stats"
+                                                                    options={{
+                                                                        headerShown: false,
+                                                                        presentation: 'card'
+                                                                    }}
+                                                                />
+                                                                <Stack.Screen name="index" options={{ headerShown: false }} />
+                                                                <Stack.Screen
+                                                                    name="settings"
+                                                                    options={{
+                                                                        headerShown: false,
+                                                                        presentation: 'card'
+                                                                    }}
+                                                                />
+                                                            </Stack>
+                                                        </NavigationGuard>
+                                                    </ThemedView>
+                                                </WebContainer>
                                                 <ConversionPromptModal />
                                             </OptionsProvider>
                                         </StreakSaverProvider>
