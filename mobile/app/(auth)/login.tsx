@@ -21,10 +21,17 @@ import { validatePassword } from '../../lib/passwordValidation';
 import { useAuth } from '../../lib/auth';
 import { supabase, checkLinkedIdentity, signInWithLinkedIdentity } from '../../lib/supabase';
 import { signInWithGoogle, signInWithApple, isAppleSignInAvailable, configureGoogleSignIn } from '../../lib/socialAuth';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { saveAgeVerification, getAgeVerification, setAgeVerificationDirect } from '../../lib/ageVerification';
 import { initializeAds } from '../../lib/AdManager';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
+// Conditionally import native-only modules to prevent web build failures
+const AppleAuthentication = Platform.OS !== 'web'
+    ? require('expo-apple-authentication')
+    : null;
+const GoogleSignin = Platform.OS !== 'web'
+    ? require('@react-native-google-signin/google-signin').GoogleSignin
+    : null;
+
 
 type LoginStep =
     | 'email'

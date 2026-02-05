@@ -17,9 +17,15 @@ import {
     configureGoogleSignIn,
 } from '../../../lib/socialAuth';
 import { disableIdentity, enableIdentity, unlinkIdentity } from '../../../lib/supabase';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { Info } from 'lucide-react-native';
+
+// Conditionally import native-only modules to prevent web build failures
+const GoogleSignin = Platform.OS !== 'web'
+    ? require('@react-native-google-signin/google-signin').GoogleSignin
+    : null;
+const AppleAuthentication = Platform.OS !== 'web'
+    ? require('expo-apple-authentication')
+    : null;
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
