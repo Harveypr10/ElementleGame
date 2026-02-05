@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
     ChevronLeft,
     ChevronRight,
@@ -168,54 +169,36 @@ export default function SettingsScreenWeb() {
                         const highlight = item.highlight;
                         const isDisabled = item.disabled;
 
-                        // Colors
-                        let iconColor = "#64748b"; // slate-500
-                        let labelColor = "#1e293b"; // slate-800
-                        let sublabelColor = "#64748b"; // slate-500
-                        let backgroundColor = "transparent";
-                        let hoverColor = "#f1f5f9"; // slate-100
+                        // Icons & Text Colors
+                        let iconColor = "#64748b"; // Slate-500
+                        let labelColor = "#334155"; // Slate-700
+                        let sublabelColor = "#64748b"; // Slate-500
+                        let hoverColor = "#f1f5f9"; // Slate-100
 
-                        if (isAdminItem) {
-                            backgroundColor = "#dc2626"; // red-600
-                            hoverColor = "#b91c1c"; // red-700
+                        if (isAdminItem || isProItem) {
                             iconColor = "white";
                             labelColor = "white";
                             sublabelColor = "rgba(255,255,255,0.9)";
-                        } else if (isProItem) {
-                            backgroundColor = "#f97316"; // orange-500
-                            hoverColor = "#ea580c"; // orange-600
-                            iconColor = "white";
-                            labelColor = "white";
-                            sublabelColor = "rgba(255,255,255,0.9)";
+                            hoverColor = "transparent"; // Gradients handle their own hover visually roughly, or we just overlay? 
+                            // Actually pure gradients don't change much on hover in the native sense unless we swap the gradient colors.
+                            // For simplicity, we'll keep gradient static but add opacity on press.
                         } else if (highlight) {
-                            backgroundColor = "#fffbeb"; // amber-50
-                            hoverColor = "#fef3c7"; // amber-100
-                            iconColor = "#f59e0b"; // amber-500
+                            hoverColor = "#fef3c7"; // Amber-100
+                            iconColor = "#f59e0b"; // Amber-500
                         }
 
-                        // Determine styles based on state
-                        const getButtonStyle = ({ hovered, pressed }: any) => [
-                            styles.menuItem,
-                            // Background overrides
-                            isAdminItem && { backgroundColor: hovered ? hoverColor : backgroundColor },
-                            isProItem && { backgroundColor: hovered ? hoverColor : backgroundColor },
-                            highlight && { backgroundColor: hovered ? hoverColor : backgroundColor },
-                            // Default hover
-                            (!isAdminItem && !isProItem && !highlight && hovered) && { backgroundColor: hoverColor },
-                            // Pressed state
-                            pressed && { opacity: 0.9 },
-                            isDisabled && { opacity: 0.5 },
-                        ];
+                        // Gradient Colors
+                        let gradientColors: readonly [string, string] | null = null;
+                        if (isAdminItem) gradientColors = ['#ef4444', '#dc2626']; // Red-500 -> Red-600
+                        if (isProItem) gradientColors = ['#fb923c', '#f97316']; // Orange-400 -> Orange-500
 
-                        return (
-                            <Pressable
-                                key={item.label || index}
-                                onPress={item.onClick}
-                                disabled={isDisabled}
-                                style={getButtonStyle}
-                            >
+                        const Content = (
+                            <View style={[
+                                styles.menuItemContent,
+                                highlight && { backgroundColor: '#fffbeb' }, // Amber-50 base
+                            ]}>
                                 <View style={styles.menuItemLeft}>
-                                    <Icon size={20} color={iconColor} />
+                                    <Icon size={22} color={iconColor} />
 
                                     <View style={styles.menuItemTextContainer}>
                                         <View style={styles.labelRow}>
@@ -238,6 +221,36 @@ export default function SettingsScreenWeb() {
                                 </View>
 
                                 <ChevronRight size={20} color={isAdminItem || isProItem ? "white" : "#94a3b8"} />
+                            </View>
+                        );
+
+                        // If Gradient, wrap Content in LinearGradient
+                        const InnerComponent = gradientColors ? (
+                            <LinearGradient
+                                colors={gradientColors}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.gradientItem}
+                            >
+                                {Content}
+                            </LinearGradient>
+                        ) : Content;
+
+                        return (
+                            <Pressable
+                                key={item.label || index}
+                                onPress={item.onClick}
+                                disabled={isDisabled}
+                                style={({ hovered, pressed }: any) => [
+                                    styles.menuItemWrapper,
+                                    // Hover Logic (Non-Gradient items only)
+                                    (!gradientColors && hovered) && { backgroundColor: hoverColor },
+                                    // Pressed Logic
+                                    pressed && { opacity: 0.9 },
+                                    isDisabled && { opacity: 0.5 },
+                                ]}
+                            >
+                                {InnerComponent}
                             </Pressable>
                         );
                     })}
@@ -264,7 +277,7 @@ export default function SettingsScreenWeb() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8FAFC', // slate-50
+        backgroundColor: '#F8FAFC', // Slate-50
         alignItems: 'center',
     },
     scrollView: {
@@ -286,9 +299,8 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 32,
-        fontWeight: 'bold',
-        color: '#0f172a', // slate-900
-        fontFamily: Platform.OS === 'web' ? 'Nunito, sans-serif' : 'System',
+        color: '#0f172a', // Slate-900
+        fontFamily: 'Nunito_700Bold',
     },
     backButton: {
         width: 48,
@@ -299,7 +311,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
     },
     backButtonHovered: {
-        backgroundColor: '#e2e8f0', // slate-200
+        backgroundColor: '#e2e8f0', // Slate-200
     },
     headerSpacer: {
         width: 48,
@@ -308,38 +320,43 @@ const styles = StyleSheet.create({
         width: '100%',
         maxWidth: 500,
         backgroundColor: 'white',
-        borderRadius: 16,
-        paddingVertical: 8,
-        // Shadow (iOS/Web)
+        borderRadius: 24, // Vibe Check: Roundness increased
+        // Shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 10,
-        // Elevation (Android)
         elevation: 3,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: '#e2e8f0', // slate-200
+        borderColor: '#e2e8f0',
     },
-    menuItem: {
+    menuItemWrapper: {
+        width: '100%',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9', // Subtle separator
+    },
+    gradientItem: {
+        width: '100%',
+    },
+    menuItemContent: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9', // slate-100
-        transitionDuration: '0.2s', // Web only
+        paddingVertical: 18, // Vibe Check: Spacing
+        paddingHorizontal: 20,
+        width: '100%',
     },
     menuItemLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         flex: 1,
-        gap: 12,
+        marginRight: 12,
     },
     menuItemTextContainer: {
         flex: 1,
         justifyContent: 'center',
-        marginLeft: 12,
+        marginLeft: 16, // Vibe Check: Spacing
     },
     labelRow: {
         flexDirection: 'row',
@@ -347,25 +364,26 @@ const styles = StyleSheet.create({
         flexWrap: 'wrap',
     },
     menuItemLabel: {
-        fontSize: 16,
-        fontWeight: '600',
-        fontFamily: Platform.OS === 'web' ? 'Nunito, sans-serif' : 'System',
+        fontSize: 17, // Slight bump for premium feel
+        fontFamily: 'Nunito_600SemiBold',
     },
     inlineLabel: {
         fontSize: 14,
         marginLeft: 8,
+        fontFamily: 'Nunito_600SemiBold',
     },
     sublabel: {
         fontSize: 13,
-        marginTop: 2,
+        marginTop: 3,
+        fontFamily: 'Nunito_600SemiBold',
     },
     signOutButton: {
         marginTop: 24,
         width: '100%',
         maxWidth: 500,
-        backgroundColor: '#dc2626', // red-600
-        padding: 14,
-        borderRadius: 12,
+        backgroundColor: '#dc2626', // Red-600
+        padding: 16,
+        borderRadius: 16,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -375,11 +393,11 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
     },
     signOutButtonHovered: {
-        backgroundColor: '#b91c1c', // red-700
+        backgroundColor: '#b91c1c', // Red-700
     },
     signOutText: {
         color: 'white',
-        fontWeight: 'bold',
+        fontFamily: 'Nunito_700Bold',
         fontSize: 16,
     },
 });
