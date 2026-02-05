@@ -9,7 +9,7 @@ module.exports = (() => {
         ...transformer,
         babelTransformerPath: require.resolve("react-native-svg-transformer"),
     };
-    config.resolver.assetExts.push("webp");
+    config.resolver.assetExts.push("webp", "lottie");
     config.resolver.sourceExts.push("svg");
     config.resolver.assetExts = config.resolver.assetExts.filter((ext) => ext !== "svg");
 
