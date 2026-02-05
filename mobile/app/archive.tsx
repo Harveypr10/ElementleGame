@@ -289,7 +289,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
         <StyledView className="w-full">
             <StyledView className="relative" style={{ minHeight: (width / 7) * 6 }}>
                 <Animated.View style={{ opacity: 1 }}>
-                    <StyledView className="flex-row flex-wrap">
+                    <StyledView className="flex-row flex-wrap" style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                         {days.map((day) => {
                             const dateKey = format(day, 'yyyy-MM-dd');
                             const data = monthData[dateKey];
@@ -624,7 +624,7 @@ export default function ArchiveScreen() {
                 }}
             >
                 {/* Header Row */}
-                <StyledView className="flex-row items-center justify-center py-3 w-full" style={{ position: 'relative' }}>
+                <StyledView className="flex-row items-center justify-center py-3 w-full" style={{ position: 'relative', flexDirection: 'row' }}>
                     {/* Back Button - Absolute positioned at left */}
                     <StyledTouchableOpacity onPress={() => router.back()} className="p-2" style={{ position: 'absolute', left: 8 }}>
                         <ChevronLeft size={24} color="#FFFFFF" />
@@ -639,7 +639,7 @@ export default function ArchiveScreen() {
 
             {/* Overlapping Navigation Controls - Matching Badge/Stats Cards style */}
             <StyledView className="w-full max-w-3xl self-center px-6 -mt-6 mb-4">
-                <StyledView className="flex-row items-center gap-3">
+                <StyledView className="flex-row items-center gap-3" style={{ flexDirection: 'row' }}>
 
                     {/* Left Arrow Card */}
                     <StyledTouchableOpacity
@@ -690,7 +690,7 @@ export default function ArchiveScreen() {
                 <StyledView className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm pb-4 pt-6 mb-4">
                     {/* Week Headers - with padding */}
                     <StyledView className={`${screenWidth >= 600 ? 'px-4' : 'px-2'} mb-4 border-b border-slate-100 dark:border-slate-700 pb-2`}>
-                        <StyledView className="flex-row">
+                        <StyledView className="flex-row" style={{ flexDirection: 'row' }}>
                             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                                 <StyledText key={day} style={{ fontSize: isTablet ? dateFontSize : 13 * textScale, width: '14.285714%' }} className="text-center font-n-bold text-slate-400 dark:text-slate-500 uppercase">
                                     {day}

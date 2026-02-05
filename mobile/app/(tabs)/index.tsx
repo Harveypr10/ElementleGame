@@ -180,7 +180,7 @@ const GameModePage = React.memo(({
                     scale={scale}
                 >
                     {todayStatus === 'solved' && (
-                        <View className="flex-row gap-2 mt-0 w-full">
+                        <View className="flex-row gap-2 mt-0 w-full" style={{ flexDirection: 'row' }}>
                             {/* Solved In Box */}
                             <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
                                 <ThemedText className="text-slate-700 font-n-medium text-sm">Solved in</ThemedText>
@@ -209,7 +209,7 @@ const GameModePage = React.memo(({
                     iconStyle={{ width: 78, height: 78 }}
                     scale={scale}
                 >
-                    <View className="flex-row w-full">
+                    <View className="flex-row w-full" style={{ flexDirection: 'row' }}>
                         <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
                             <ThemedText className="text-slate-700 font-n-medium text-sm">Played</ThemedText>
                             <ThemedText className="text-slate-700 font-n-bold text-xl">{totalGames}</ThemedText>
@@ -231,7 +231,7 @@ const GameModePage = React.memo(({
                     iconStyle={{ width: 78, height: 78 }}
                     scale={scale}
                 >
-                    <View className="flex-row gap-2 w-full">
+                    <View className="flex-row gap-2 w-full" style={{ flexDirection: 'row' }}>
                         <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
                             <ThemedText className="text-slate-700 font-n-medium text-sm">% Won</ThemedText>
                             <ThemedText className="text-slate-700 font-n-bold text-xl">{winRate}%</ThemedText>
@@ -806,7 +806,7 @@ export default function HomeScreen() {
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={{ paddingBottom: 40 }}
                     >
-                        <StyledView className="flex-row justify-center w-full max-w-7xl self-center px-6 gap-8" style={{ marginTop: 8 }}>
+                        <StyledView className="flex-row justify-center w-full max-w-7xl self-center px-6 gap-8" style={{ marginTop: 8, flexDirection: 'row' }}>
                             {/* Left Column: Region Game (UK/World) */}
                             <StyledView className="flex-1 max-w-lg">
                                 {/* Mode Label */}

@@ -319,7 +319,7 @@ export default function StatsScreen() {
             {/* Header with green accent */}
             <StyledView style={{ backgroundColor: theme.headerBg }}>
                 <SafeAreaView edges={['top']} className="px-5 pb-6">
-                    <StyledView className="flex-row items-center justify-between py-3">
+                    <StyledView className="flex-row items-center justify-between py-3" style={{ flexDirection: 'row' }}>
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
                             className="p-2 -ml-2"
@@ -359,7 +359,7 @@ export default function StatsScreen() {
                         {/* Main Stats Cards - Overlapping header */}
                         <StyledView className="px-4 w-full max-w-4xl self-center">
                             {/* Quick Stats Row */}
-                            <StyledView className="flex-row gap-3 mb-4">
+                            <StyledView className="flex-row gap-3 mb-4" style={{ flexDirection: 'row' }}>
                                 {/* Games Played */}
                                 <StyledView
                                     className="flex-1 rounded-2xl p-4 items-center"
@@ -458,7 +458,7 @@ export default function StatsScreen() {
                                     </ThemedText>
                                 </StyledView>
 
-                                <StyledView className="flex-row">
+                                <StyledView className="flex-row" style={{ flexDirection: 'row' }}>
                                     {/* Current Streak */}
                                     <StyledView className="flex-1 items-center py-3 border-r" style={{ borderColor: theme.cardBorder }}>
                                         <ThemedText className="font-n-bold text-3xl" style={{ color: theme.textPrimary }}>
@@ -493,7 +493,7 @@ export default function StatsScreen() {
                                     elevation: 3,
                                 }}
                             >
-                                <StyledView className="flex-row items-center">
+                                <StyledView className="flex-row items-center" style={{ flexDirection: 'row' }}>
                                     <StyledView className="flex-1">
                                         <StyledView className="flex-row items-center gap-2 mb-1">
                                             <ThemedText className="font-n-bold text-lg" style={{ color: theme.textPrimary }}>
@@ -530,7 +530,7 @@ export default function StatsScreen() {
                                     elevation: 3,
                                 }}
                             >
-                                <StyledView className="flex-row justify-between items-center mb-5">
+                                <StyledView className="flex-row justify-between items-center mb-5" style={{ flexDirection: 'row' }}>
                                     <StyledView className="flex-row items-center gap-2">
                                         <Award size={22} color={theme.iconAccent} />
                                         <ThemedText className="font-n-bold text-lg" style={{ color: theme.textPrimary }}>
@@ -548,7 +548,7 @@ export default function StatsScreen() {
                                     </StyledTouchableOpacity>
                                 </StyledView>
 
-                                <StyledView className="flex-row justify-around">
+                                <StyledView className="flex-row justify-around" style={{ flexDirection: 'row' }}>
                                     {/* Elementle Badge */}
                                     <StyledTouchableOpacity
                                         className="flex-1 items-center p-3 rounded-xl mx-1"
@@ -650,7 +650,7 @@ export default function StatsScreen() {
                                         </ThemedText>
                                     </StyledView>
 
-                                    <StyledView className="flex-row gap-3 items-start">
+                                    <StyledView className="flex-row gap-3 items-start" style={{ flexDirection: 'row' }}>
                                         {/* Y-Axis */}
                                         <StyledView className="h-32 justify-between items-end pb-0 pt-0.5">
                                             {['X', '5', '4', '3', '2', '1', '0'].map(label => (
@@ -662,7 +662,7 @@ export default function StatsScreen() {
 
                                         {/* Chart Bars */}
                                         <StyledView className="flex-1 h-32 relative">
-                                            <StyledView className="flex-row h-32 items-end gap-[2px]">
+                                            <StyledView className="flex-row h-32 items-end gap-[2px]" style={{ flexDirection: 'row' }}>
                                                 {recentActivity.map((day, idx) => {
                                                     const isLost = !day.won || day.guesses >= 6;
                                                     return (
@@ -711,7 +711,7 @@ export default function StatsScreen() {
                                         const percentage = maxGuesses > 0 ? (count / maxGuesses) * 100 : 0;
 
                                         return (
-                                            <StyledView key={guessNum} className="flex-row items-center gap-3">
+                                            <StyledView key={guessNum} className="flex-row items-center gap-3" style={{ flexDirection: 'row' }}>
                                                 <ThemedText className="w-5 text-center text-sm font-n-bold" style={{ color: theme.textSecondary }}>
                                                     {guessNum}
                                                 </ThemedText>
@@ -740,7 +740,7 @@ export default function StatsScreen() {
                                     })}
 
                                     {/* Lost Row */}
-                                    <StyledView className="flex-row items-center gap-3 mt-1">
+                                    <StyledView className="flex-row items-center gap-3 mt-1" style={{ flexDirection: 'row' }}>
                                         <ThemedText className="w-5 text-center text-sm font-n-bold" style={{ color: theme.lostBar }}>
                                             X
                                         </ThemedText>
