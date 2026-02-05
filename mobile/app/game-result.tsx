@@ -387,10 +387,11 @@ export default function GameResultScreen() {
                                             onPress={() => router.push(`/stats?mode=${gameMode}`)}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Stats</StyledText>
-                                            <View className="w-[60px] h-[60px] justify-center items-center">
+                                            <View className="w-[60px] h-[60px] justify-center items-center" style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                                                 <StyledImage
                                                     source={StatsHamsterImg}
                                                     className={isLargeScreen ? "w-full h-full" : "w-12 h-12"}
+                                                    style={{ width: isLargeScreen ? 60 : 48, height: isLargeScreen ? 60 : 48, maxWidth: 60, maxHeight: 60 }}
                                                     resizeMode="contain"
                                                 />
                                             </View>
@@ -403,10 +404,11 @@ export default function GameResultScreen() {
                                             onPress={handleShare}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Share</StyledText>
-                                            <View className="w-[60px] h-[60px] justify-center items-center">
+                                            <View className="w-[60px] h-[60px] justify-center items-center" style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                                                 <StyledImage
                                                     source={ShareHamsterImg}
                                                     className={isLargeScreen ? "w-full h-full" : "w-12 h-12"}
+                                                    style={{ width: isLargeScreen ? 60 : 48, height: isLargeScreen ? 60 : 48, maxWidth: 60, maxHeight: 60 }}
                                                     resizeMode="contain"
                                                 />
                                             </View>
@@ -436,10 +438,11 @@ export default function GameResultScreen() {
                                             }}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Home</StyledText>
-                                            <View className="w-[60px] h-[60px] justify-center items-center">
+                                            <View className="w-[60px] h-[60px] justify-center items-center" style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                                                 <StyledImage
                                                     source={HomeHamsterImg}
                                                     className={isLargeScreen ? "w-full h-full" : "w-12 h-12"}
+                                                    style={{ width: isLargeScreen ? 60 : 48, height: isLargeScreen ? 60 : 48, maxWidth: 60, maxHeight: 60 }}
                                                     resizeMode="contain"
                                                 />
                                             </View>
@@ -452,10 +455,11 @@ export default function GameResultScreen() {
                                             onPress={() => router.push({ pathname: '/archive', params: { mode: gameMode } })}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Archive</StyledText>
-                                            <View className="w-[60px] h-[60px] justify-center items-center">
+                                            <View className="w-[60px] h-[60px] justify-center items-center" style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                                                 <StyledImage
                                                     source={ArchiveHamsterImg}
                                                     className={isLargeScreen ? "w-full h-full" : "w-12 h-12"}
+                                                    style={{ width: isLargeScreen ? 60 : 48, height: isLargeScreen ? 60 : 48, maxWidth: 60, maxHeight: 60 }}
                                                     resizeMode="contain"
                                                 />
                                             </View>
