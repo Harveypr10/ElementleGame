@@ -40,6 +40,17 @@ const HomeCardComponent = ({
     const iconWidth = (iconStyle?.width || 96) * scale;
     const iconHeight = (iconStyle?.height || 96) * scale;
 
+    // For web, we need to extract the source from the require() result
+    // expo-image/RN Image wraps require() in an object with { uri: string }
+    const getImageSource = (src: ImageSourcePropType | undefined) => {
+        if (!src) return undefined;
+        // If it's a number (raw require result on native), return as-is
+        if (typeof src === 'number') return src;
+        // If it's already an object with uri, return it
+        if (typeof src === 'object' && 'uri' in src) return src;
+        return src;
+    };
+
     return (
         <TouchableOpacity
             testID={testID}
@@ -71,11 +82,11 @@ const HomeCardComponent = ({
                 )}
             </View>
 
-            {/* Icon Section */}
+            {/* Icon Section - using expo-image which should work on web */}
             {icon && (
                 <View style={styles.iconContainer}>
                     <Image
-                        source={icon}
+                        source={getImageSource(icon)}
                         style={{
                             width: iconWidth,
                             height: iconHeight,
@@ -100,24 +111,21 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         overflow: 'hidden',
         // Web shadow
-        ...(Platform.OS === 'web' && {
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            cursor: 'pointer',
-            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        }),
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        cursor: 'pointer',
     },
     content: {
         flex: 1,
         paddingRight: 8,
     },
     title: {
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito, sans-serif',
         fontWeight: '700',
         color: '#1e293b', // slate-800
         lineHeight: 26,
     },
     subtitle: {
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito, sans-serif',
         fontWeight: '500',
         color: '#475569', // slate-600
         marginTop: 4,

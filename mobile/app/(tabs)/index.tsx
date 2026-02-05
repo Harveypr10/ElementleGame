@@ -746,19 +746,19 @@ export default function HomeScreen() {
                 <SafeAreaView edges={['top']} className="z-50" style={{ backgroundColor: backgroundColor }}>
                     {/* Header - Fixed & Safe Area Adjusted */}
                     <StyledView
-                        className="items-center relative pb-2 z-50"
-                        style={{ backgroundColor: backgroundColor }}
+                        className="items-center pb-2 z-50"
+                        style={{ backgroundColor: backgroundColor, position: 'relative' }}
                     >
 
                         {/* Top Left Icon (Help) */}
-                        <StyledView className="absolute left-4 top-2">
+                        <StyledView style={{ position: 'absolute', left: 16, top: 8 }}>
                             <StyledTouchableOpacity onPress={() => setHelpVisible(true)}>
                                 <HelpCircle size={28} color={iconColor} />
                             </StyledTouchableOpacity>
                         </StyledView>
 
                         {/* Top Right: Settings Icon */}
-                        <StyledView className="absolute right-4 top-2">
+                        <StyledView style={{ position: 'absolute', right: 16, top: 8 }}>
                             <StyledTouchableOpacity onPress={() => router.push('/settings')}>
                                 <Settings size={28} color={iconColor} />
                             </StyledTouchableOpacity>
@@ -779,8 +779,8 @@ export default function HomeScreen() {
                         )}
 
                         {/* Greeting Row with Go Pro Button */}
-                        <StyledView className="w-full px-4 flex-row items-center justify-center relative">
-                            <StyledView className="absolute right-4">
+                        <StyledView style={{ width: '100%', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                            <StyledView style={{ position: 'absolute', right: 16 }}>
                                 <GoProButton
                                     onPress={() => {
                                         if (isPro) {
