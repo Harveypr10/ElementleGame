@@ -12,6 +12,9 @@ export interface UserProfile {
     categories_last_changed_at: string | null;
     postcode_last_changed_at: string | null;
     ads_consent: boolean;
+    password_created: boolean | null;
+    google_linked: boolean | null;
+    apple_linked: boolean | null;
 }
 
 export function useProfile() {
@@ -25,7 +28,7 @@ export function useProfile() {
 
             const { data, error } = await supabase
                 .from('user_profiles')
-                .select('id, first_name, last_name, region, postcode, is_admin, categories_last_changed_at, postcode_last_changed_at, ads_consent')
+                .select('id, first_name, last_name, region, postcode, is_admin, categories_last_changed_at, postcode_last_changed_at, ads_consent, password_created, google_linked, apple_linked')
                 .eq('id', user.id)
                 .single();
 

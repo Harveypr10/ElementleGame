@@ -37,7 +37,7 @@ export default function PasswordResetScreen() {
 
         try {
             const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: 'elementle://reset-password',
+                redirectTo: 'https://elementle.tech/reset-password',
             });
 
             if (resetError) {

@@ -67,6 +67,7 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
         }
 
         let migratedCount = 0;
+        const migratedModes = new Set<'REGION' | 'USER'>();
 
         // 2. Iterate and migrate each game
         for (const key of guestGameKeys) {
@@ -179,6 +180,8 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
                     console.log(`[GuestMigration] No guesses to insert for ${key}`);
                 }
 
+                migratedModes.add(mode);
+
                 migratedCount++;
                 // Remove key
                 await AsyncStorage.removeItem(key);
@@ -189,6 +192,11 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
         }
 
         console.log(`[GuestMigration] Migration complete: ${migratedCount} games migrated`);
+
+        // Recalculate stats for affected modes
+        for (const mode of Array.from(migratedModes)) {
+            await recalculateStatsForMode(userId, mode);
+        }
 
         // Invalidate queries to refresh UI with migrated data
         if (migratedCount > 0) {
@@ -210,6 +218,168 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
             error: error?.message || 'Unknown error'
         };
     }
+}
+
+/**
+ * Re-calculate user stats from DB attempts (Mirrors useGameEngine logic)
+ */
+async function recalculateStatsForMode(userId: string, mode: 'REGION' | 'USER') {
+    try {
+        console.log(`[GuestMigration] Recalculating stats for ${mode}...`);
+
+        const ATTEMPTS_TABLE = mode === 'REGION' ? 'game_attempts_region' : 'game_attempts_user';
+        const STATS_TABLE = mode === 'REGION' ? 'user_stats_region' : 'user_stats_user';
+
+        // Get user's region if in REGION mode
+        let userRegion = 'UK';
+        if (mode === 'REGION') {
+            const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('region')
+                .eq('id', userId)
+                .single();
+            userRegion = profile?.region || 'UK';
+        }
+
+        // Fetch ALL attempts
+        let query = supabase
+            .from(ATTEMPTS_TABLE)
+            .select(`
+                id,
+                result,
+                num_guesses,
+                completed_at,
+                streak_day_status,
+                ${mode === 'REGION' ? 'questions_allocated_region(puzzle_date, region)' : 'questions_allocated_user(puzzle_date)'}
+            `)
+            .eq('user_id', userId);
+
+        const { data: allAttempts, error: attemptsError } = await query;
+
+        if (attemptsError || !allAttempts) {
+            console.error('[GuestMigration] Error fetching attempts for stats:', attemptsError);
+            return;
+        }
+
+        // Filter by region and valid status
+        const filteredAttempts = (mode === 'REGION'
+            ? allAttempts.filter((a: any) => a.questions_allocated_region?.region === userRegion)
+            : allAttempts).filter((a: any) => a.result !== null || (a.streak_day_status !== null && a.streak_day_status !== undefined));
+
+        // Calculate stats
+        const playedGames = filteredAttempts.filter((a: any) => a.result !== null);
+        const gamesPlayed = playedGames.length;
+        const gamesWon = playedGames.filter((a: any) => a.result === 'won').length;
+
+        const guessDistribution: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+        playedGames.forEach((attempt: any) => {
+            if (attempt.result === 'won' && attempt.num_guesses >= 1 && attempt.num_guesses <= 5) {
+                const key = attempt.num_guesses.toString();
+                guessDistribution[key] = (guessDistribution[key] || 0) + 1;
+            }
+        });
+
+        // Calculate Streak
+        const dateMap = new Map<string, { result: string | null; streakDayStatus: number | null }>();
+        for (const attempt of filteredAttempts) {
+            const puzzleDate = mode === 'REGION'
+                ? (attempt as any).questions_allocated_region?.puzzle_date
+                : (attempt as any).questions_allocated_user?.puzzle_date;
+
+            if (puzzleDate) {
+                const streakStatus = (attempt as any).streak_day_status;
+                if (streakStatus !== null && streakStatus !== undefined) {
+                    dateMap.set(puzzleDate, { result: (attempt as any).result, streakDayStatus: streakStatus });
+                } else if ((attempt as any).result !== null) {
+                    dateMap.set(puzzleDate, { result: (attempt as any).result, streakDayStatus: null });
+                }
+            }
+        }
+
+        // Find max date (today or last played)
+        let maxDateStr = new Date().toISOString().split('T')[0];
+        filteredAttempts.forEach((a: any) => {
+            const d = mode === 'REGION' ? a.questions_allocated_region?.puzzle_date : a.questions_allocated_user?.puzzle_date;
+            if (d && d > maxDateStr) maxDateStr = d;
+        });
+
+        let checkDate = new Date(maxDateStr);
+        let currentStreak = 0;
+
+        // Loop backwards from max date
+        while (true) {
+            const dateStr = checkDate.toISOString().split('T')[0];
+            const dayData = dateMap.get(dateStr);
+
+            if (!dayData) break;
+            if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) break;
+
+            currentStreak += dayData.streakDayStatus;
+            checkDate.setDate(checkDate.getDate() - 1);
+        }
+
+        // Max Streak
+        const sortedDates = Array.from(dateMap.keys()).sort();
+        let maxStreak = 0;
+        let tempStreak = 0;
+        let prevDate: Date | null = null;
+
+        for (const currentDateStr of sortedDates) {
+            const currentDate = new Date(currentDateStr);
+            const dayData = dateMap.get(currentDateStr);
+
+            if (!dayData) {
+                tempStreak = 0;
+                prevDate = null;
+                continue;
+            }
+
+            if (prevDate) {
+                const dayDiff = Math.ceil((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+                if (dayDiff > 1) tempStreak = 0;
+            }
+
+            if (dayData.streakDayStatus === null || dayData.streakDayStatus === undefined) {
+                tempStreak = 0;
+            } else {
+                tempStreak += dayData.streakDayStatus;
+                maxStreak = Math.max(maxStreak, tempStreak);
+            }
+            prevDate = currentDate;
+        }
+
+        // Upsert Stats
+        const statsData: any = {
+            user_id: userId,
+            games_played: gamesPlayed,
+            games_won: gamesWon,
+            current_streak: currentStreak,
+            max_streak: maxStreak,
+            guess_distribution: guessDistribution
+        };
+        if (mode === 'REGION') statsData.region = userRegion;
+
+        const matchCriteria = mode === 'REGION' ? { user_id: userId, region: userRegion } : { user_id: userId };
+
+        // Check existing
+        const { data: existingStats } = await supabase
+            .from(STATS_TABLE)
+            .select('id')
+            .match(matchCriteria)
+            .maybeSingle();
+
+        if (existingStats) {
+            await supabase.from(STATS_TABLE).update(statsData).eq('id', existingStats.id);
+        } else {
+            await supabase.from(STATS_TABLE).insert(statsData);
+        }
+
+        console.log(`[GuestMigration] Stats recalculated for ${mode}: Streak=${currentStreak}, Max=${maxStreak}`);
+
+    } catch (error) {
+        console.error(`[GuestMigration] Failed to recalculate stats for ${mode}`, error);
+    }
+
 }
 
 /**

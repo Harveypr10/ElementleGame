@@ -26,7 +26,7 @@ export function HelpModal({ visible, onClose }: HelpModalProps) {
     const tileBaseBg = surfaceColor;
     const tileBaseBorder = borderColor;
 
-    const ExampleRow = ({ digits, feedback, description }: { digits: string[], feedback: ('correct' | 'inSequence' | 'ruledOut')[], description: string }) => (
+    const ExampleRow = ({ digits, feedback, description }: { digits: string[], feedback: ('correct' | 'inSequence' | 'ruledOut' | 'unfilled')[], description: string }) => (
         <StyledView className="mb-6">
             <StyledView className="flex-row justify-center mb-2 space-x-1">
                 {digits.map((digit, index) => {
@@ -46,8 +46,12 @@ export function HelpModal({ visible, onClose }: HelpModalProps) {
                         tileStyle = { backgroundColor: '#fbbf24', borderColor: '#fbbf24' };
                         textStyle = { color: '#ffffff' };
                     } else if (feedback[index] === 'ruledOut') {
-                        tileStyle = { backgroundColor: '#94a3b8', borderColor: '#94a3b8' }; // Slate 400
+                        tileStyle = { backgroundColor: '#555555', borderColor: '#555555' }; // Neutral grey as requested
                         textStyle = { color: '#ffffff' };
+                    } else {
+                        // 'unfilled' - white background with black border like input tiles
+                        tileStyle = { backgroundColor: '#ffffff', borderColor: '#000000' };
+                        textStyle = { color: '#000000' };
                     }
 
                     return (
@@ -83,20 +87,24 @@ export function HelpModal({ visible, onClose }: HelpModalProps) {
                 >
                     {/* Header */}
                     <StyledView
-                        className="flex-row items-center justify-between px-6 py-5 border-b"
+                        className="flex-row items-center justify-center px-6 py-5 border-b relative" // Added relative and justify-center
                         style={{ borderColor: borderColor }}
                     >
-                        <ThemedText className="text-2xl font-bold">
+                        <ThemedText className="text-2xl font-bold text-center">
                             How to Play
                         </ThemedText>
-                        <StyledTouchableOpacity onPress={onClose} className="p-2 -mr-2">
-                            <X size={24} color={iconColor} />
-                        </StyledTouchableOpacity>
+
+                        {/* Wrap the button in absolute positioning to pull it out of the flex flow */}
+                        <StyledView className="absolute right-4">
+                            <StyledTouchableOpacity onPress={onClose} className="p-2">
+                                <X size={24} color={iconColor} />
+                            </StyledTouchableOpacity>
+                        </StyledView>
                     </StyledView>
 
                     <ScrollView className="flex-1 px-6 pt-6" contentContainerStyle={{ paddingBottom: 40 }}>
                         <Text style={{ fontSize: 16, color: secondaryTextColor, marginBottom: 24, lineHeight: 24 }}>
-                            Guess the date of the event in 5 tries.
+                            Guess the date of the historical event in 5 tries.
                         </Text>
 
                         <Text style={{ fontSize: 16, color: secondaryTextColor, marginBottom: 32, lineHeight: 24 }}>
@@ -111,21 +119,21 @@ export function HelpModal({ visible, onClose }: HelpModalProps) {
                         {/* Correct Example */}
                         <ExampleRow
                             digits={['3', '1', '1', '0', '8', '4']}
-                            feedback={['correct', 'ruledOut', 'ruledOut', 'ruledOut', 'ruledOut', 'ruledOut']}
+                            feedback={['correct', 'unfilled', 'unfilled', 'unfilled', 'unfilled', 'unfilled']}
                             description="The digit 3 is in the correct spot."
                         />
 
                         {/* Amber Example */}
                         <ExampleRow
-                            digits={['1', '1', '0', '5', '9', '0']}
-                            feedback={['ruledOut', 'inSequence', 'ruledOut', 'ruledOut', 'ruledOut', 'ruledOut']}
+                            digits={['2', '1', '0', '5', '9', '0']}
+                            feedback={['unfilled', 'inSequence', 'unfilled', 'unfilled', 'unfilled', 'unfilled']}
                             description="The digit 1 is in the date but in the wrong spot."
                         />
 
                         {/* Grey Example */}
                         <ExampleRow
-                            digits={['2', '0', '0', '1', '2', '5']}
-                            feedback={['ruledOut', 'ruledOut', 'ruledOut', 'ruledOut', 'ruledOut', 'ruledOut']}
+                            digits={['3', '0', '0', '7', '2', '5']}
+                            feedback={['unfilled', 'unfilled', 'unfilled', 'unfilled', 'ruledOut', 'unfilled']}
                             description="The digit 2 is not in the date in any spot."
                         />
 
@@ -134,7 +142,7 @@ export function HelpModal({ visible, onClose }: HelpModalProps) {
                                 Hint
                             </Text>
                             <Text className="text-blue-600 dark:text-blue-300 text-sm">
-                                Look out for arrows! If you see an arrow on an amber or grey tile, it tells you if the correct digit for that specific slot is higher or lower.
+                                Look out for arrows! The arrows tell you if the correct digit for that specific slot is higher or lower.
                             </Text>
                         </StyledView>
                     </ScrollView>

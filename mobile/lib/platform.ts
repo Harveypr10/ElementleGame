@@ -71,7 +71,7 @@ export function setupDeepLinking(callback: (url: string) => void): () => void {
  * Parse deep link URL
  */
 export function parseDeepLink(url: string): {
-    type: 'game' | 'archive' | 'stats' | 'unknown';
+    type: 'game' | 'archive' | 'stats' | 'reset-password' | 'unknown';
     params?: Record<string, string>;
 } {
     try {
@@ -79,6 +79,7 @@ export function parseDeepLink(url: string): {
         // elementle://game/REGION/12345
         // elementle://archive
         // elementle://stats?mode=USER
+        // elementle://reset-password#access_token=...
 
         const urlObj = new URL(url);
         const pathParts = urlObj.pathname.split('/').filter(Boolean);
@@ -103,6 +104,17 @@ export function parseDeepLink(url: string): {
                 type: 'stats',
                 params: {
                     mode: searchParams.get('mode') || 'USER',
+                },
+            };
+        }
+
+        // Password reset deep link from email
+        if (pathParts[0] === 'reset-password' || url.includes('reset-password')) {
+            return {
+                type: 'reset-password',
+                params: {
+                    // The hash fragment contains the access token
+                    hash: urlObj.hash || '',
                 },
             };
         }

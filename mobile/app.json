@@ -16,11 +16,23 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dobl.elementlegame",
+      "usesAppleSignIn": true,
+      "associatedDomains": [
+        "applinks:elementle.tech"
+      ],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.426763707720-m7cq94j06j16bsehf9fpnb3omcp503e8"
+            ]
+          }
+        ]
       }
     },
     "android": {
+      "package": "com.dobl.elementlegame",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -46,7 +58,9 @@
           "androidAppId": "ca-app-pub-3940256099942544~3347511713",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin",
+      "expo-apple-authentication"
     ],
     "extra": {
       "router": {

@@ -3,20 +3,26 @@
  * 
  * Manages interstitial ad display after game completion
  * Uses Google AdMob for real ads
+ * Only shown to non-Pro users who are 16+
  */
 
 import { useEffect, useRef, useState } from 'react';
 import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { useSubscription } from './useSubscription';
 import { AD_UNITS } from '../lib/adConfig';
+import { getActiveProvider } from '../lib/AdManager';
 
 export function useInterstitialAd(onAdClosed?: () => void) {
     const { isPro } = useSubscription();
+    const activeProvider = getActiveProvider();
     const interstitialRef = useRef<InterstitialAd | null>(null);
     const isLoadedRef = useRef(false);
     const onAdClosedRef = useRef(onAdClosed); // Ref to avoid stale closure
     const [isLoaded, setIsLoaded] = useState(false);
     const [isClosed, setIsClosed] = useState(false);
+
+    // Should ads be disabled?
+    const adsDisabled = isPro || activeProvider === 'none';
 
     // Keep callback ref up to date
     useEffect(() => {
@@ -25,8 +31,12 @@ export function useInterstitialAd(onAdClosed?: () => void) {
 
     // Initialize interstitial ad
     useEffect(() => {
-        if (isPro) {
-            console.log('[InterstitialAd] Pro user - ads disabled');
+        if (adsDisabled) {
+            if (isPro) {
+                console.log('[InterstitialAd] Pro user - ads disabled');
+            } else {
+                console.log('[InterstitialAd] Under-16 user - ads disabled');
+            }
             return;
         }
 
@@ -73,11 +83,15 @@ export function useInterstitialAd(onAdClosed?: () => void) {
             unsubscribeClosed();
             unsubscribeError();
         };
-    }, [isPro]);
+    }, [adsDisabled, isPro]);
 
     const showAd = () => {
-        if (isPro) {
-            console.log('[InterstitialAd] Pro user - not showing ad');
+        if (adsDisabled) {
+            if (isPro) {
+                console.log('[InterstitialAd] Pro user - not showing ad');
+            } else {
+                console.log('[InterstitialAd] Under-16 user - not showing ad');
+            }
             return;
         }
 

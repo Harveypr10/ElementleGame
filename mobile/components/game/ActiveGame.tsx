@@ -115,6 +115,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
         isValidGuess,
         invalidShake, // Using this to trigger shake animation if needed
         isRestored,
+        wasInitiallyComplete, // True only when viewing a previously completed game
         numDigits, // Get authoritative digit count
         finalStreak, // Get authoritative calculated streak
         streakDayStatus // Get the DB status for today's game
@@ -439,31 +440,35 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
 
 
     // Enable Continue button 1 second after ad starts (for standard users)
-    // Restored games (viewing completed): enable immediately since no ad
+    // wasInitiallyComplete games (viewing completed): enable immediately since no ad
     useEffect(() => {
-        // For restored games, enable immediately - no ad plays when viewing
-        if (isRestored && (gameState === 'won' || gameState === 'lost')) {
-            console.log('[ActiveGame] Restored game - enabling Continue immediately');
+        console.log('[ActiveGame] Button enable check - isPro:', isPro, 'isGuest:', isGuest, 'wasInitiallyComplete:', wasInitiallyComplete, 'readyForCelebration:', readyForCelebration, 'buttonEnabled:', buttonEnabled, 'gameState:', gameState);
+
+        // For games that were initially loaded as complete (viewing), enable immediately - no ad plays
+        if (wasInitiallyComplete && (gameState === 'won' || gameState === 'lost')) {
+            console.log('[ActiveGame] Viewing completed game - enabling Continue immediately');
             setButtonEnabled(true);
             return;
         }
 
         if (!readyForCelebration) return;
         if (isPro || isGuest) {
-            // Pro users and guests: enable immediately (guests see ad before game, not after)
+            // Pro users: don't see ads
+            // Guests: see ad before game (in age verification), not after
+            console.log('[ActiveGame] Enabling immediately - isPro:', isPro, 'isGuest:', isGuest);
             setButtonEnabled(true);
             return;
         }
 
         // Standard users: wait 2 seconds for ad to fully appear on screen
-        console.log('[ActiveGame] Waiting 2s before enabling Continue button');
+        console.log('[ActiveGame] Standard user - Waiting 4s before enabling Continue button');
         const timer = setTimeout(() => {
-            console.log('[ActiveGame] Enabling Continue button');
+            console.log('[ActiveGame] Enabling Continue button after 4s wait');
             setButtonEnabled(true);
-        }, 2000);
+        }, 4000);
 
         return () => clearTimeout(timer);
-    }, [readyForCelebration, isPro, isGuest, isRestored, gameState]);
+    }, [readyForCelebration, isPro, isGuest, wasInitiallyComplete, gameState]);
 
 
 
@@ -585,15 +590,15 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                                         setStreakToDisplay(displayStreak);
                                         navigateToResult();
                                     }}
-                                    disabled={!isPro && !isGuest && !isRestored && !buttonEnabled} // Guests, Pro, and restored skip ad wait
-                                    className={`w-full py-4 rounded-xl items-center ${!isPro && !isGuest && !isRestored && !buttonEnabled
+                                    disabled={!isPro && !isGuest && !wasInitiallyComplete && !buttonEnabled} // Guests, Pro, and viewing completed skip ad wait
+                                    className={`w-full py-4 rounded-xl items-center ${!isPro && !isGuest && !wasInitiallyComplete && !buttonEnabled
                                         ? 'bg-slate-200 dark:bg-slate-800'
                                         : 'bg-slate-300 dark:bg-slate-700 active:bg-slate-400 dark:active:bg-slate-600'
                                         }`}
                                     style={{ transform: [{ translateY: 0 }] }} // Ensure button is reachable
                                 >
                                     <ThemedText
-                                        className={`font-n-bold ${!isPro && !isGuest && !isRestored && !buttonEnabled
+                                        className={`font-n-bold ${!isPro && !isGuest && !wasInitiallyComplete && !buttonEnabled
                                             ? 'text-slate-400 dark:text-slate-600'
                                             : 'text-slate-900 dark:text-white'
                                             }`}

@@ -16,11 +16,15 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { PasswordInput } from '../../components/ui/PasswordInput';
+import { YearMonthPicker, useYearMonthPicker } from '../../components/ui/YearMonthPicker';
 import { validatePassword } from '../../lib/passwordValidation';
 import { useAuth } from '../../lib/auth';
-import { supabase } from '../../lib/supabase';
-import * as AuthSession from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
+import { supabase, checkLinkedIdentity, signInWithLinkedIdentity } from '../../lib/supabase';
+import { signInWithGoogle, signInWithApple, isAppleSignInAvailable, configureGoogleSignIn } from '../../lib/socialAuth';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { saveAgeVerification, getAgeVerification, setAgeVerificationDirect } from '../../lib/ageVerification';
+import { initializeAds } from '../../lib/AdManager';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 type LoginStep =
     | 'email'
@@ -62,6 +66,29 @@ export default function LoginPage() {
     const [magicLinkSent, setMagicLinkSent] = useState(false);
     const [magicLinkCountdown, setMagicLinkCountdown] = useState(0);
     const [userAuthInfo, setUserAuthInfo] = useState<UserAuthInfo | null>(null);
+    const [appleAvailable, setAppleAvailable] = useState(false);
+    const [socialAuthHelperText, setSocialAuthHelperText] = useState<string | null>(null);
+
+    // Check Apple Sign-In availability on mount
+    useEffect(() => {
+        isAppleSignInAvailable().then(setAppleAvailable);
+    }, []);
+
+    // Clear helper text when navigating away
+    useEffect(() => {
+        if (step !== 'email') {
+            setSocialAuthHelperText(null);
+        }
+    }, [step]);
+
+    // Age picker state for account creation
+    const {
+        selectedYear,
+        setSelectedYear,
+        selectedMonth,
+        setSelectedMonth,
+        showMonthSlider,
+    } = useYearMonthPicker();
 
     // Refs for keyboard navigation
     const emailRef = useRef<TextInput>(null);
@@ -80,6 +107,29 @@ export default function LoginPage() {
             return () => clearTimeout(timer);
         }
     }, [magicLinkCountdown]);
+
+    // Prefill age picker from existing guest age verification data
+    useEffect(() => {
+        if (step === 'create-account') {
+            getAgeVerification().then((existingData) => {
+                if (existingData?.ageDate) {
+                    // Parse year and month from stored ageDate (YYYY-MM-DD)
+                    const [yearStr, monthStr] = existingData.ageDate.split('-');
+                    const year = parseInt(yearStr, 10);
+                    const month = parseInt(monthStr, 10) - 1; // 0-indexed
+
+                    // The stored date is 1st of the month AFTER birth month,
+                    // so we need to subtract 1 month to get actual birth month
+                    const actualMonth = month === 0 ? 11 : month - 1;
+                    const actualYear = month === 0 ? year - 1 : year;
+
+                    console.log('[Login] Prefilling age from guest data:', { actualYear, actualMonth: actualMonth + 1 });
+                    setSelectedYear(actualYear);
+                    setSelectedMonth(actualMonth);
+                }
+            });
+        }
+    }, [step]);
 
     const handleEmailContinue = async () => {
         if (!isValidEmail(email)) {
@@ -138,6 +188,26 @@ export default function LoginPage() {
             }
 
             console.log('Login successful');
+
+            // Sync age data from user_profiles to AsyncStorage for ad targeting
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.id) {
+                const { data: profile } = await supabase
+                    .from('user_profiles')
+                    .select('age_date, is_adult')
+                    .eq('id', user.id)
+                    .single();
+
+                const profileData = profile as { age_date?: string; is_adult?: boolean } | null;
+                if (profileData?.age_date) {
+                    await setAgeVerificationDirect(profileData.age_date, profileData.is_adult ?? false);
+                    console.log('[Login] Synced age data from DB:', { age_date: profileData.age_date, is_adult: profileData.is_adult });
+
+                    // Reinitialize ads with updated age data
+                    await initializeAds(true);
+                }
+            }
+
             router.replace('/');
         } catch (error: any) {
             console.error('Login error:', error);
@@ -182,6 +252,13 @@ export default function LoginPage() {
                 return;
             }
 
+            // Save age verification data
+            const month = showMonthSlider ? selectedMonth + 1 : undefined;
+            await saveAgeVerification(selectedYear, month);
+            console.log('[Login] Age verification saved for new account');
+
+            // Initialize ads with correct age settings (force re-init since age just changed)
+            await initializeAds(true);
 
             console.log('Account created successfully');
             if (nextRoute) {
@@ -224,90 +301,228 @@ export default function LoginPage() {
     };
 
     const handleGoogleSignIn = async () => {
+        setLoading(true);
+        setSocialAuthHelperText(null);
         try {
-            // Generate proper redirect URI that works in both Expo Go and standalone builds
-            const redirectUri = AuthSession.makeRedirectUri({ path: 'google-auth' });
-            console.log('[Login] OAuth redirect URI:', redirectUri);
+            console.log('[Login] Starting native Google sign-in');
 
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: redirectUri,
-                    skipBrowserRedirect: false,
-                },
-            });
+            // Configure and get Google credential first
+            configureGoogleSignIn();
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-            if (error) {
-                Alert.alert('Error', error.message || 'Failed to sign in with Google');
+            // Sign out first to ensure fresh account selection
+            try {
+                await GoogleSignin.signOut();
+            } catch (e) {
+                // Ignore signout errors
+            }
+
+            const userInfo = await GoogleSignin.signIn();
+
+            if (!userInfo.data?.idToken) {
+                Alert.alert('Error', 'No identity token returned from Google');
                 return;
             }
 
-            if (data?.url) {
-                console.log('[Login] Opening OAuth URL:', data.url);
-                // Manually open the OAuth URL in a browser
-                const result = await WebBrowser.openAuthSessionAsync(
-                    data.url,
-                    redirectUri
-                );
+            const userName = {
+                firstName: userInfo.data.user?.givenName || '',
+                lastName: userInfo.data.user?.familyName || '',
+            };
 
-                console.log('[Login] Browser result:', result);
+            // Check if this Google account is already linked to an existing user
+            console.log('[Login] Checking for linked Google identity...');
+            const linkCheck = await checkLinkedIdentity('google', userInfo.data.idToken);
 
-                if (result.type === 'success') {
-                    console.log('[Login] OAuth success, session should update automatically');
+            if (linkCheck.found) {
+                // Account exists - use the Edge Function to sign in as the linked user
+                console.log('[Login] Found linked Google account, signing in via Edge Function...');
+                const signInResult = await signInWithLinkedIdentity('google', userInfo.data.idToken);
+
+                if (!signInResult.success) {
+                    if (signInResult.isDisabled) {
+                        Alert.alert('Account Disabled', 'This Google account has been disabled. Please re-enable it in Settings → Account Info.');
+                    } else {
+                        Alert.alert('Error', signInResult.error || 'Failed to sign in with linked Google account');
+                    }
+                    return;
                 }
+
+                console.log('[Login] Successfully signed in as linked user:', signInResult.userId);
+                router.replace('/');
+            } else {
+                // No linked account - show confirmation dialog
+                Alert.alert(
+                    'Create New Account?',
+                    'No Elementle account is currently linked to this Google account. Continue to create a new account?',
+                    [
+                        {
+                            text: 'Cancel',
+                            style: 'cancel',
+                            onPress: () => {
+                                setSocialAuthHelperText(
+                                    'To link your Google account with an existing Elementle account, sign in with your existing method and then Link your account in Settings → Account Info.'
+                                );
+                            }
+                        },
+                        {
+                            text: 'Continue',
+                            onPress: async () => {
+                                setLoading(true);
+                                try {
+                                    const result = await signInWithGoogle();
+
+                                    if (!result.success) {
+                                        if (result.error !== 'Sign in cancelled') {
+                                            Alert.alert('Error', result.error || 'Failed to sign in with Google');
+                                        }
+                                        return;
+                                    }
+
+                                    console.log('[Login] Google sign-in successful, isNewUser:', result.isNewUser);
+
+                                    if (result.isNewUser) {
+                                        router.replace({
+                                            pathname: '/(auth)/age-verification',
+                                            params: {
+                                                returnTo: 'personalise',
+                                                firstName: userName.firstName,
+                                                lastName: userName.lastName
+                                            }
+                                        });
+                                    } else {
+                                        router.replace('/');
+                                    }
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }
+                    ]
+                );
             }
         } catch (error: any) {
-            console.error('Google sign-in error:', error);
-            Alert.alert('Error', error.message || 'Failed to sign in with Google');
+            console.error('[Login] Google sign-in error:', error);
+            if (error.code !== 'SIGN_IN_CANCELLED' && error.message !== 'Sign in cancelled') {
+                Alert.alert('Error', error.message || 'Failed to sign in with Google');
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleAppleSignIn = async () => {
-        try {
-            // Generate proper redirect URI that works in both Expo Go and standalone builds
-            const redirectUri = AuthSession.makeRedirectUri({ path: 'apple-auth' });
-            console.log('[Login] OAuth redirect URI:', redirectUri);
+        // Check if Apple Sign-In is available
+        const available = await isAppleSignInAvailable();
+        if (!available) {
+            Alert.alert('Not Available', 'Apple Sign-In is only available on iOS devices');
+            return;
+        }
 
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'apple',
-                options: {
-                    redirectTo: redirectUri,
-                    skipBrowserRedirect: true, // We'll handle browser manually
-                },
+        setLoading(true);
+        setSocialAuthHelperText(null);
+        try {
+            console.log('[Login] Starting native Apple sign-in');
+
+            // First, get the Apple credential to check for linked identity
+            const credential = await AppleAuthentication.signInAsync({
+                requestedScopes: [
+                    AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                    AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                ],
             });
 
-            if (error) {
-                Alert.alert('Error', error.message || 'Failed to sign in with Apple');
+            if (!credential.identityToken) {
+                Alert.alert('Error', 'No identity token returned from Apple');
                 return;
             }
 
-            if (data?.url) {
-                console.log('[Login] Opening OAuth URL:', data.url);
-                // Manually open the OAuth URL in a browser
-                const result = await WebBrowser.openAuthSessionAsync(
-                    data.url,
-                    redirectUri
-                );
+            const userName = {
+                firstName: credential.fullName?.givenName || '',
+                lastName: credential.fullName?.familyName || '',
+            };
 
-                console.log('[Login] Browser result:', result);
+            // Check if this Apple account is already linked to an existing user
+            console.log('[Login] Checking for linked Apple identity...');
+            const linkCheck = await checkLinkedIdentity('apple', credential.identityToken);
 
-                if (result.type === 'success') {
-                    console.log('[Login] OAuth success, session should update automatically');
+            if (linkCheck.found) {
+                // Account exists - use the Edge Function to sign in as the linked user
+                console.log('[Login] Found linked Apple account, signing in via Edge Function...');
+                const signInResult = await signInWithLinkedIdentity('apple', credential.identityToken);
+
+                if (!signInResult.success) {
+                    Alert.alert('Error', signInResult.error || 'Failed to sign in with linked Apple account');
+                    return;
                 }
+
+                console.log('[Login] Successfully signed in as linked user:', signInResult.userId);
+                router.replace('/');
+            } else {
+                // No linked account - show confirmation dialog
+                Alert.alert(
+                    'Create New Account?',
+                    'No Elementle account is currently linked to this Apple account. Continue to create a new account?',
+                    [
+                        {
+                            text: 'Cancel',
+                            style: 'cancel',
+                            onPress: () => {
+                                setSocialAuthHelperText(
+                                    'To link your Apple account with an existing Elementle account, sign in with your existing method and then Link your account in Settings → Account Info.'
+                                );
+                            }
+                        },
+                        {
+                            text: 'Continue',
+                            onPress: async () => {
+                                setLoading(true);
+                                try {
+                                    const result = await signInWithApple();
+
+                                    if (!result.success) {
+                                        if (result.error !== 'Sign in cancelled') {
+                                            Alert.alert('Error', result.error || 'Failed to sign in with Apple');
+                                        }
+                                        return;
+                                    }
+
+                                    console.log('[Login] Apple sign-in successful, isNewUser:', result.isNewUser);
+
+                                    if (result.isNewUser) {
+                                        router.replace({
+                                            pathname: '/(auth)/age-verification',
+                                            params: {
+                                                returnTo: 'personalise',
+                                                firstName: userName.firstName,
+                                                lastName: userName.lastName
+                                            }
+                                        });
+                                    } else {
+                                        router.replace('/');
+                                    }
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }
+                    ]
+                );
             }
         } catch (error: any) {
-            console.error('Apple sign-in error:', error);
-            Alert.alert('Error', error.message || 'Failed to sign in with Apple');
+            console.error('[Login] Apple sign-in error:', error);
+            if (error.code !== 'ERR_CANCELED') {
+                Alert.alert('Error', error.message || 'Failed to sign in with Apple');
+            }
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleBack = () => {
         if (step === 'email') {
-            if (router.canGoBack()) {
-                router.back();
-            } else {
-                router.replace('/(auth)/onboarding'); // Fallback to Onboarding
-            }
+            // Always use replace to go back to onboarding - this avoids
+            // "GO_BACK not handled" errors when the stack is empty
+            router.replace('/(auth)/onboarding');
         } else {
             setStep('email');
             setPassword('');
@@ -355,6 +570,8 @@ export default function LoginPage() {
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 autoCorrect={false}
+                                autoComplete="email"
+                                textContentType="emailAddress"
                                 returnKeyType="go"
                                 onSubmitEditing={handleEmailContinue}
                                 blurOnSubmit={false}
@@ -383,20 +600,53 @@ export default function LoginPage() {
                             </View>
 
                             <TouchableOpacity
-                                style={styles.oauthButton}
+                                style={[styles.oauthButton, styles.googleButton]}
                                 onPress={handleGoogleSignIn}
                                 onPressIn={() => Keyboard.dismiss()}
+                                disabled={loading}
                             >
-                                <Text style={styles.oauthButtonText}>Continue with Google</Text>
+                                <View style={styles.oauthButtonContent}>
+                                    <View style={styles.googleIcon}>
+                                        <Text style={styles.googleIconText}>G</Text>
+                                    </View>
+                                    <Text style={styles.oauthButtonText}>Continue with Google</Text>
+                                </View>
                             </TouchableOpacity>
 
-                            <TouchableOpacity
-                                style={styles.oauthButton}
-                                onPress={handleAppleSignIn}
-                                onPressIn={() => Keyboard.dismiss()}
-                            >
-                                <Text style={styles.oauthButtonText}>Continue with Apple</Text>
-                            </TouchableOpacity>
+                            {/* Native Apple Sign-In Button (iOS only) */}
+                            {Platform.OS === 'ios' && appleAvailable ? (
+                                <AppleAuthentication.AppleAuthenticationButton
+                                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                                    buttonStyle={isDarkMode
+                                        ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                                        : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                                    }
+                                    cornerRadius={8}
+                                    style={styles.appleNativeButton}
+                                    onPress={handleAppleSignIn}
+                                />
+                            ) : (
+                                <TouchableOpacity
+                                    style={[styles.oauthButton, styles.appleButton, !appleAvailable && styles.disabledButton]}
+                                    onPress={handleAppleSignIn}
+                                    onPressIn={() => Keyboard.dismiss()}
+                                    disabled={!appleAvailable || loading}
+                                >
+                                    <View style={styles.oauthButtonContent}>
+                                        <Text style={styles.appleIcon}></Text>
+                                        <Text style={[styles.oauthButtonText, !appleAvailable && { color: '#999' }]}>
+                                            {appleAvailable ? 'Continue with Apple' : 'Apple (iOS only)'}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+
+                            {/* Helper text when user cancels social auth */}
+                            {socialAuthHelperText && (
+                                <Text style={styles.socialAuthHelperText}>
+                                    {socialAuthHelperText}
+                                </Text>
+                            )}
 
                             <Text style={[styles.termsText, { color: textColor }]}>
                                 By continuing, you agree to our{' '}
@@ -423,13 +673,45 @@ export default function LoginPage() {
                                 value={password}
                                 onChangeText={setPassword}
                                 placeholder="Password"
+                                textContentType="password"
+                                autoComplete="password"
                                 returnKeyType="go"
                                 onSubmitEditing={handlePasswordLogin}
                             />
 
                             <TouchableOpacity
                                 style={styles.forgotPasswordButton}
-                                onPress={() => Alert.alert('Forgot Password', 'Password reset functionality coming soon!')}
+                                onPress={() => {
+                                    // Mask email (e.g., "p...y@gmail.com")
+                                    const maskEmail = (emailAddr: string) => {
+                                        if (!emailAddr) return '';
+                                        const [local, domain] = emailAddr.split('@');
+                                        if (local.length <= 2) return emailAddr;
+                                        return `${local[0]}...${local[local.length - 1]}@${domain}`;
+                                    };
+
+                                    Alert.alert(
+                                        'Reset Password',
+                                        `A password reset link will be sent to ${maskEmail(email)}. Continue?`,
+                                        [
+                                            { text: 'Cancel', style: 'cancel' },
+                                            {
+                                                text: 'Continue',
+                                                onPress: async () => {
+                                                    try {
+                                                        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                                                            redirectTo: 'https://elementle.tech/reset-password',
+                                                        });
+                                                        if (error) throw error;
+                                                        Alert.alert('Email Sent', 'Check your inbox for the password reset link.');
+                                                    } catch (err: any) {
+                                                        Alert.alert('Error', err.message || 'Failed to send reset email.');
+                                                    }
+                                                },
+                                            },
+                                        ]
+                                    );
+                                }}
                             >
                                 <Text style={styles.secondaryButtonText}>Forgot your password?</Text>
                             </TouchableOpacity>
@@ -516,6 +798,8 @@ export default function LoginPage() {
                                 value={password}
                                 onChangeText={setPassword}
                                 placeholder="Password"
+                                textContentType="newPassword"
+                                autoComplete="new-password"
                                 returnKeyType="next"
                                 onSubmitEditing={() => confirmPasswordRef.current?.focus()}
                             />
@@ -525,13 +809,27 @@ export default function LoginPage() {
                                 value={confirmPassword}
                                 onChangeText={setConfirmPassword}
                                 placeholder="Confirm password"
-                                returnKeyType="go"
-                                onSubmitEditing={handleCreateAccount}
+                                textContentType="newPassword"
+                                autoComplete="new-password"
+                                returnKeyType="done"
+                                onSubmitEditing={() => Keyboard.dismiss()}
                             />
 
                             <Text style={[styles.helperText, { color: textColor }]}>
                                 At least 8 characters including 1 letter, 1 number, and 1 special character
                             </Text>
+
+                            {/* Age Picker */}
+                            <View style={styles.agePickerSection}>
+                                <YearMonthPicker
+                                    selectedYear={selectedYear}
+                                    selectedMonth={selectedMonth}
+                                    showMonthSlider={showMonthSlider}
+                                    onYearChange={setSelectedYear}
+                                    onMonthChange={setSelectedMonth}
+                                    variant="dark"
+                                />
+                            </View>
 
                             <TouchableOpacity
                                 style={[
@@ -826,5 +1124,61 @@ const styles = StyleSheet.create({
         color: '#7DAAE8',
         fontSize: 14,
         fontFamily: 'Nunito',
+    },
+    agePickerSection: {
+        width: '100%',
+        marginTop: 16,
+        marginBottom: 8,
+    },
+    agePickerLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        fontFamily: 'Nunito-Bold',
+        marginBottom: 8,
+    },
+    // OAuth button styles
+    googleButton: {
+        backgroundColor: '#fff',
+        borderWidth: 2,
+        borderColor: '#d1d5db',
+    },
+    appleButton: {
+        backgroundColor: '#000',
+    },
+    oauthButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    googleIcon: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    googleIconText: {
+        color: '#ea4335',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    appleIcon: {
+        fontSize: 20,
+        color: '#fff',
+        marginRight: 12,
+    },
+    appleNativeButton: {
+        height: 52,
+        marginTop: 12,
+    },
+    socialAuthHelperText: {
+        color: '#dc2626',
+        fontSize: 12,
+        fontFamily: 'Nunito-Regular',
+        textAlign: 'center',
+        marginTop: 12,
+        paddingHorizontal: 8,
     },
 });

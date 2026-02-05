@@ -49,6 +49,7 @@ export function useGameEngine({
     const [wrongGuessCount, setWrongGuessCount] = useState(0);
     const [invalidShake, setInvalidShake] = useState(0); // Counter to trigger shake
     const [isRestored, setIsRestored] = useState(false);
+    const [wasInitiallyComplete, setWasInitiallyComplete] = useState(false); // True only when game was loaded in completed state
     const { showAd: showInterstitialAd } = useInterstitialAd();
     const { streakSaverSession } = useStreakSaver();
     const { holidayActive } = useStreakSaverStatus();
@@ -453,6 +454,7 @@ export function useGameEngine({
                         if (attempts.result) {
                             setGameState(attempts.result === 'won' ? 'won' : 'lost');
                             setIsRestored(true);
+                            setWasInitiallyComplete(true); // Game was loaded as already completed
                         } else {
                             setGameState('playing');
                         }
@@ -505,6 +507,7 @@ export function useGameEngine({
                         if (localResult) {
                             setGameState(localResult === 'won' ? 'won' : 'lost');
                             setIsRestored(true);
+                            setWasInitiallyComplete(true); // Game was loaded as already completed
                         } else {
                             setGameState('playing');
                         }
@@ -1006,6 +1009,7 @@ export function useGameEngine({
         isValidGuess: currentInput.length === numDigits,
         invalidShake, // Return counter
         isRestored: attemptId !== null && gameState !== 'loading' && gameState !== 'playing', // Derived state for restoration
+        wasInitiallyComplete, // True only if game was loaded as completed (for ad timing)
         numDigits // Expose authoritative digit count
     };
 }

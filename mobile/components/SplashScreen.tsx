@@ -39,7 +39,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             <Animated.View style={[styles.content, animatedStyle]}>
                 <ThemedText
                     className="font-n-bold text-white mb-8"
-                    baseSize={40}
+                    baseSize={50}
                     adjustsFontSizeToFit
                     numberOfLines={1}
                 >

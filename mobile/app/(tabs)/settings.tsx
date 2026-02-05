@@ -50,6 +50,7 @@ export default function SettingsScreen() {
     const textColor = useThemeColor({}, 'text');
     const iconColor = useThemeColor({}, 'icon');
     const secondaryTextColor = iconColor;
+    const goProBgColor = useThemeColor({ light: '#fffbeb', dark: '#451a03' }, 'background');
 
     const handleSignOut = async () => {
         Alert.alert(
@@ -63,11 +64,20 @@ export default function SettingsScreen() {
                     onPress: async () => {
                         setSigningOut(true);
                         try {
-                            await signOut();
+                            // Race between signOut and a 6-second timeout
+                            const timeoutPromise = new Promise<never>((_, reject) => {
+                                setTimeout(() => reject(new Error('timeout')), 6000);
+                            });
+
+                            await Promise.race([signOut(), timeoutPromise]);
                             router.replace('/(auth)/onboarding');
-                        } catch (error) {
+                        } catch (error: any) {
                             console.error('[Settings] Sign out error:', error);
-                            Alert.alert('Error', 'Failed to sign out. Please try again.');
+                            if (error?.message === 'timeout') {
+                                Alert.alert('Sign Out Failed', 'The request timed out. Please try again.');
+                            } else {
+                                Alert.alert('Error', 'Failed to sign out. Please try again.');
+                            }
                         } finally {
                             setSigningOut(false);
                         }
@@ -211,7 +221,7 @@ export default function SettingsScreen() {
                             <StyledTouchableOpacity
                                 onPress={handleGoProClick}
                                 className="flex-row items-center py-3 mt-1 rounded-xl px-3 border-2 border-amber-400"
-                                style={{ backgroundColor: useThemeColor({ light: '#fffbeb', dark: '#451a03' }, 'background') }}
+                                style={{ backgroundColor: goProBgColor }}
                             >
                                 <StyledView className="w-10 h-10 rounded-full bg-amber-100 items-center justify-center">
                                     <Crown size={20} color="#d97706" />

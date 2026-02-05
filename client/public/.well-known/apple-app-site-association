@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "RD9K3HDBZV.com.dobl.elementlegame",
+        "paths": ["/reset-password", "/reset-password/*"]
+      }
+    ]
+  }
+}

@@ -85,11 +85,9 @@ export default function GameScreen() {
 
     const performBackNavigation = () => {
         if (isGuest) {
-            if (router.canGoBack()) {
-                router.back();
-            } else {
-                router.replace('/(auth)/onboarding');
-            }
+            // For guests, always replace to onboarding - don't use router.back()
+            // as the navigation stack may contain unintended destinations
+            router.replace('/(auth)/onboarding');
         } else {
             router.back();
         }

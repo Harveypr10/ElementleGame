@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useInterstitialAd } from '../../hooks/useInterstitialAd';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
+import { hasCompletedAgeVerification } from '../../lib/ageVerification';
 
 export default function OnboardingPage() {
     const router = useRouter();
@@ -105,7 +106,22 @@ export default function OnboardingPage() {
     };
 
     const handlePlay = async () => {
-        // Play as guest
+        // Check if age verification is complete before playing as guest
+        const hasVerifiedAge = await hasCompletedAgeVerification();
+
+        if (!hasVerifiedAge) {
+            // Redirect to age verification, passing puzzle date for return navigation
+            router.push({
+                pathname: '/(auth)/age-verification',
+                params: {
+                    returnTo: 'game',
+                    puzzleDate: puzzleDate || 'today'
+                }
+            });
+            return;
+        }
+
+        // Age verified - proceed with game
         // Trigger Ad if loaded
         if (isLoaded) {
             setWaitingForAd(true);

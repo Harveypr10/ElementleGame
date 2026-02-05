@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { styled } from 'nativewind';
-import { Trash2, Trophy, Flag } from 'lucide-react-native';
+import { Trash2, Trophy, Flag, RefreshCw } from 'lucide-react-native';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -340,6 +340,21 @@ export default function DebugControlPanel() {
         }
     };
 
+    // ACTION 8: Clear ALL AsyncStorage (for testing first-run)
+    const handleClearAllAsyncStorage = async () => {
+        setLoading('clear_storage');
+        try {
+            await AsyncStorage.clear();
+            invalidateAllQueries();
+            showToast('All AsyncStorage cleared! Reload app to test as new user.');
+        } catch (error) {
+            console.error('[DebugPanel] Clear AsyncStorage error:', error);
+            showToast(`Failed to clear AsyncStorage: ${error}`, true);
+        } finally {
+            setLoading(null);
+        }
+    };
+
     const debugActions: DebugAction[] = [
         {
             label: '⚠️ HARD RESET ACCOUNT',
@@ -383,6 +398,13 @@ export default function DebugControlPanel() {
             color: '#d97706',
             icon: Flag,
             onPress: () => handleSetMissedFlag('USER')
+        },
+        {
+            label: '🗑️ Clear All AsyncStorage',
+            color: '#8b5cf6',
+            icon: RefreshCw,
+            onPress: handleClearAllAsyncStorage,
+            confirmMessage: 'This will clear ALL AsyncStorage data (age verification, settings, caches, etc). Use to test first-run experience. Continue?'
         }
     ];
 

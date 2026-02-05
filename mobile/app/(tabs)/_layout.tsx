@@ -78,6 +78,13 @@ export default function TabLayout() {
                     ),
                 }}
             />
+            {/* Hide account-info from tab bar - it's accessed via Settings screen */}
+            <Tabs.Screen
+                name="settings/account-info"
+                options={{
+                    href: null, // Always hidden from tab bar
+                }}
+            />
         </Tabs>
     );
 }

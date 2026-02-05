@@ -43,7 +43,7 @@ interface CellProps {
 const RESULT_COLORS = {
     correct: '#22c55e',       // Green-500 (Matches approx HSL(142, 71%, 45%))
     inSequence: '#F59E0B',    // Amber-500 (Matches approx HSL(38, 92%, 55%))
-    notInSequence: '#94A3B8', // Slate-400 (Darker Grey as requested)
+    notInSequence: '#555555', // Neutral grey as requested
 };
 
 function Cell({

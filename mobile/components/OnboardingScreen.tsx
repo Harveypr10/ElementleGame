@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { formatCanonicalDateWithOrdinal } from '../lib/dateFormat';
 import { ThemedView } from './ThemedView';
@@ -34,6 +35,15 @@ export function OnboardingScreen({
     const backgroundColor = isDarkMode ? 'hsl(222, 47%, 11%)' : '#FAFAFA';
     const textColor = isDarkMode ? '#FAFAFA' : '#54524F';
     const secondaryTextColor = isDarkMode ? 'rgba(255, 255, 255, 0.6)' : '#999';
+
+    const handleClearAsyncStorage = async () => {
+        try {
+            await AsyncStorage.clear();
+            Alert.alert('Cleared', 'AsyncStorage cleared. Reload app to test fresh.');
+        } catch (e) {
+            Alert.alert('Error', 'Failed to clear storage');
+        }
+    };
 
     return (
         <ThemedView
@@ -115,6 +125,17 @@ export function OnboardingScreen({
                     Puzzle date: {displayDate}
                 </ThemedText>
             </View>
+
+            {/* DEV: Clear AsyncStorage overlay button */}
+            {__DEV__ && (
+                <TouchableOpacity
+                    onPress={handleClearAsyncStorage}
+                    style={styles.devClearButton}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.devClearButtonText}>🗑️ Clear Storage</Text>
+                </TouchableOpacity>
+            )}
         </ThemedView>
     );
 }
@@ -194,5 +215,19 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito',
         paddingTop: 16,
         textAlign: 'center',
+    },
+    devClearButton: {
+        position: 'absolute',
+        bottom: 40,
+        alignSelf: 'center',
+        backgroundColor: 'rgba(139, 92, 246, 0.9)',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+    },
+    devClearButtonText: {
+        color: '#fff',
+        fontSize: 12,
+        fontFamily: 'Nunito',
     },
 });

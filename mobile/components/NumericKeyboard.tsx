@@ -48,10 +48,10 @@ export function NumericKeyboard({
             case "inSequence":
                 return { className: "bg-game-inSequence border-game-inSequence" };
             case "ruledOut":
-                // User requested darker grey: #94A3B8 (Slate-400)
+                // Neutral grey as requested: #555555
                 return {
                     className: "",
-                    style: { backgroundColor: '#94A3B8', borderColor: '#94A3B8' }
+                    style: { backgroundColor: '#555555', borderColor: '#555555' }
                 };
             default:
                 // Manual theme logic - Borders removed
