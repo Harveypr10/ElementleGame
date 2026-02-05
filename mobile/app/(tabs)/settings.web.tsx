@@ -1,6 +1,4 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { styled } from 'nativewind';
 import {
     ChevronLeft,
     ChevronRight,
@@ -18,12 +16,6 @@ import {
     Shield
 } from 'lucide-react-native';
 import { useSettingsScreenLogic } from '../../hooks/useSettingsScreenLogic';
-
-// Styled Components
-const StyledView = styled(View);
-const StyledTouchableOpacity = styled(TouchableOpacity);
-const StyledScrollView = styled(ScrollView);
-const StyledText = styled(Text);
 
 export default function SettingsScreenWeb() {
     const {
@@ -146,32 +138,33 @@ export default function SettingsScreenWeb() {
     const adBannerActive = false;
 
     return (
-        <StyledScrollView
+        <div
             className={`min-h-screen flex flex-col p-4 bg-white dark:bg-slate-950 ${adBannerActive ? 'pb-[50px]' : ''}`}
-            contentContainerStyle={{ flexGrow: 1 }}
+            style={{ fontFamily: 'Nunito, sans-serif' }}
         >
-            <StyledView className="w-full max-w-md mx-auto space-y-4">
+            <div className="w-full max-w-md mx-auto space-y-4">
 
                 {/* Header */}
-                <StyledView className="flex-row items-center justify-between mb-6" style={{ flexDirection: 'row' }}>
-                    <StyledTouchableOpacity
-                        onPress={() => router.back()}
-                        // data-testid="button-back-from-settings"
+                <div className="flex items-center justify-between mb-6">
+                    <button
+                        onClick={() => router.back()}
+                        data-testid="button-back-from-settings"
                         className="w-14 h-14 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        style={{ cursor: 'pointer' }}
                     >
                         <ChevronLeft size={36} className="text-gray-700 dark:text-gray-200" color={colors.text} />
-                    </StyledTouchableOpacity>
+                    </button>
 
-                    <StyledView className="flex flex-col items-center">
-                        <StyledText className="text-4xl font-bold dark:text-white">Settings</StyledText>
-                    </StyledView>
+                    <div className="flex flex-col items-center">
+                        <h1 className="text-4xl font-bold dark:text-white">Settings</h1>
+                    </div>
 
                     {/* Spacer */}
-                    <StyledView className="w-14" />
-                </StyledView>
+                    <div className="w-14" />
+                </div>
 
                 {/* Card */}
-                <StyledView className="p-4 space-y-2 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
+                <div className="p-4 space-y-2 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-sm">
                     {menuItems.map((item: any) => {
                         const Icon = item.icon;
                         const isProItem = item.proItem;
@@ -187,86 +180,76 @@ export default function SettingsScreenWeb() {
                         let iconColor = "#64748b"; // muted foreground default
 
                         if (isDisabled) {
-                            bgClass = "opacity-50";
+                            bgClass = "opacity-50 cursor-not-allowed";
+                        } else {
+                            bgClass = "cursor-pointer";
                         }
 
-                        // Exact logic from legacy: warning/danger/success gradients don't map 1:1 to Tailwind classes without config
-                        // but I will use closest Tailwind standard colors to replicate "orange-400 to orange-500"
-
-                        let styleOverride = {};
-
                         if (isAdminItem) {
-                            // bg-gradient-to-r from-red-500 to-red-600 logic
-                            // NativeWind supports gradients via linear-gradient library usually, but standard bg-red-500 is safer if gradient plugin not installed.
-                            // I'll use simple colors.
-                            bgClass += " bg-red-600 hover:bg-red-700";
+                            bgClass += " bg-red-600 hover:bg-red-700 text-white";
                             textClass = "text-white";
                             iconColor = "white";
                         } else if (isProItem) {
-                            // bg-gradient-to-r from-orange-400 to-orange-500
-                            bgClass += " bg-orange-500 hover:bg-orange-600";
+                            bgClass += " bg-orange-500 hover:bg-orange-600 text-white";
                             textClass = "text-white";
                             iconColor = "white";
                         } else if (highlight) {
-                            bgClass += " bg-amber-50 dark:bg-amber-950/30";
-                            // hover-elevate ... I will just use hover:bg-amber-100
+                            bgClass += " bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40";
                             iconColor = "#f59e0b"; // amber-500
                         } else {
-                            bgClass += " hover:bg-gray-100 dark:hover:bg-gray-800";
+                            bgClass += " hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors";
                             textClass = "text-gray-900 dark:text-gray-100";
                             iconColor = colors.icon;
                         }
 
                         return (
-                            <StyledTouchableOpacity
+                            <button
                                 key={item.label}
-                                onPress={item.onClick}
+                                onClick={item.onClick}
                                 disabled={isDisabled}
-                                className={`w-full flex-row items-center justify-between p-3 rounded-md transition-colors ${bgClass}`}
-                                style={{ flexDirection: 'row' }}
+                                className={`w-full flex items-center justify-between p-3 rounded-md transition-colors ${bgClass}`}
                             >
-                                <StyledView className="flex-row items-center gap-3 flex-1" style={{ flexDirection: 'row', gap: 12 }}>
-                                    <Icon size={20} color={iconColor} />
+                                <div className="flex items-center gap-3 flex-1">
+                                    <Icon size={20} color={iconColor} className="flex-shrink-0" />
 
-                                    <StyledText className={`font-medium ${textClass}`}>
+                                    <span className={`font-medium whitespace-nowrap ${textClass}`}>
                                         {item.label}
-                                    </StyledText>
+                                    </span>
 
                                     {inlineLabel && (
-                                        <StyledText className={`text-sm ${isAdminItem || isProItem ? "text-white/90" : "text-gray-500"}`}>
+                                        <span className={`text-sm ${isAdminItem || isProItem ? "text-white/90" : "text-gray-500"}`}>
                                             {inlineLabel}
-                                        </StyledText>
+                                        </span>
                                     )}
 
                                     {sublabel && (
-                                        <StyledView className="flex-1 justify-center items-center">
-                                            <StyledText numberOfLines={1} className={`text-sm text-center ${isAdminItem || isProItem ? "text-white/90" : "text-gray-500"}`}>
+                                        <div className="flex-1 flex justify-center">
+                                            <div className={`text-sm max-w-[150px] text-center ${isAdminItem || isProItem ? "text-white/90" : "text-gray-500"}`}>
                                                 {sublabel}
-                                            </StyledText>
-                                        </StyledView>
+                                            </div>
+                                        </div>
                                     )}
-                                </StyledView>
+                                </div>
 
-                                <ChevronRight size={20} color={isAdminItem || isProItem ? "white" : colors.icon} />
-                            </StyledTouchableOpacity>
+                                <ChevronRight size={20} color={isAdminItem || isProItem ? "white" : colors.icon} className="flex-shrink-0" />
+                            </button>
                         );
                     })}
-                </StyledView>
+                </div>
 
                 {/* Sign Out Button */}
                 {isAuthenticated && (
-                    <StyledTouchableOpacity
-                        onPress={handleSignOut}
-                        className="w-full flex-row items-center justify-center p-3 rounded-md bg-red-600 hover:bg-red-700 mt-4"
-                        style={{ flexDirection: 'row' }}
+                    <button
+                        onClick={handleSignOut}
+                        className="w-full flex items-center justify-center p-3 rounded-md bg-red-600 hover:bg-red-700 mt-4 transition-colors cursor-pointer"
                     >
-                        <LogOut size={16} color="white" className="mr-2" style={{ marginRight: 8 }} />
-                        <StyledText className="text-white font-bold">
+                        <LogOut size={16} color="white" className="mr-2" />
+                        <span className="text-white font-bold">
                             Sign Out
-                        </StyledText>
-                    </StyledTouchableOpacity>
+                        </span>
+                    </button>
                 )}
-            </StyledView>
-        </StyledScrollView>
+            </div>
+        </div>
     );
 }
