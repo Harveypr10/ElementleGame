@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { styled } from 'nativewind';
 import {
     ChevronLeft,
@@ -20,152 +19,54 @@ import {
     SlidersHorizontal
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../../lib/auth';
-import { useProfile } from '../../hooks/useProfile';
-import { useSubscription } from '../../hooks/useSubscription';
-import { useOptions } from '../../lib/options';
 
-import { useRestrictions } from '../../hooks/useRestrictions';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
-import { useThemeColor } from '../../hooks/useThemeColor';
+import { useSettingsScreenLogic } from '../../hooks/useSettingsScreenLogic';
 
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
 
 export default function SettingsScreen() {
-    const router = useRouter();
-    const { user, isAuthenticated, signOut } = useAuth();
-    const { profile, isAdmin } = useProfile();
-    const { isPro, tierName, tierType } = useSubscription();
-    const { textScale } = useOptions();
-    const { checkCategories } = useRestrictions();
-
-    const [signingOut, setSigningOut] = useState(false);
-
-    const backgroundColor = useThemeColor({}, 'background');
-    const surfaceColor = useThemeColor({}, 'surface');
-    const borderColor = useThemeColor({}, 'border');
-    const textColor = useThemeColor({}, 'text');
-    const iconColor = useThemeColor({}, 'icon');
-    const secondaryTextColor = iconColor;
-    const goProBgColor = useThemeColor({ light: '#fffbeb', dark: '#451a03' }, 'background');
-
-    const handleSignOut = async () => {
-        Alert.alert(
-            'Sign Out',
-            'Are you sure you want to sign out?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Sign Out',
-                    style: 'destructive',
-                    onPress: async () => {
-                        setSigningOut(true);
-                        try {
-                            // Race between signOut and a 6-second timeout
-                            const timeoutPromise = new Promise<never>((_, reject) => {
-                                setTimeout(() => reject(new Error('timeout')), 6000);
-                            });
-
-                            await Promise.race([signOut(), timeoutPromise]);
-                            router.replace('/(auth)/onboarding');
-                        } catch (error: any) {
-                            console.error('[Settings] Sign out error:', error);
-                            if (error?.message === 'timeout') {
-                                Alert.alert('Sign Out Failed', 'The request timed out. Please try again.');
-                            } else {
-                                Alert.alert('Error', 'Failed to sign out. Please try again.');
-                            }
-                        } finally {
-                            setSigningOut(false);
-                        }
-                    },
-                },
-            ]
-        );
-    };
-
-    const handleAccountInfo = () => {
-        if (!isAuthenticated) {
-            Alert.alert('Sign In Required', 'Please sign in to view account information.');
-            return;
-        }
-        router.push('/settings/account-info');
-    };
-
-    const handleProManage = () => {
-        // TODO: Navigate to manage subscription
-        router.push('/manage-subscription');
-    };
-
-    const handleGoProClick = () => {
-        router.push('/subscription');
-    };
-
-    const handleCategories = () => {
-        const { canChange, nextChangeDate } = checkCategories();
-
-        if (!canChange && nextChangeDate) {
-            Alert.alert(
-                'Restrictions Apply',
-                `You recently changed your category preferences. You can change them again on ${nextChangeDate}.`,
-                [{ text: 'OK', style: 'default' }]
-            );
-            return;
-        }
-
-        router.push('/category-selection');
-    };
-
-    const handleStreakSaver = () => {
-        // For Standard users, show manage subscription (limited view)
-        router.push('/manage-subscription');
-    };
-
-    const handleOptions = () => {
-        router.push('/(tabs)/options');
-    };
-
-    const handleBugReport = () => {
-        router.push('/bug-report');
-    };
-
-    const handleFeedback = () => {
-        router.push('/feedback');
-    };
-
-    const handleAbout = () => {
-        router.push('/about');
-    };
-
-    const handlePrivacy = () => {
-        router.push('/privacy');
-    };
-
-    const handleTerms = () => {
-        router.push('/terms');
-    };
-
-    const handleAdmin = () => {
-        router.push('/settings/admin');
-    };
+    const {
+        user,
+        isAuthenticated,
+        isAdmin,
+        isPro,
+        textScale,
+        signingOut,
+        handleSignOut,
+        handleAccountInfo,
+        handleProManage,
+        handleGoProClick,
+        handleCategories,
+        handleStreakSaver,
+        handleOptions,
+        handleBugReport,
+        handleFeedback,
+        handleAbout,
+        handlePrivacy,
+        handleTerms,
+        handleAdmin,
+        router,
+        colors
+    } = useSettingsScreenLogic();
 
     return (
         <ThemedView className="flex-1">
             {/* Compact Header */}
-            <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
+            <SafeAreaView edges={['top']} style={{ backgroundColor: colors.surface }}>
                 <StyledView
                     className="flex-row items-center justify-between px-4 py-3"
-                    style={{ backgroundColor: surfaceColor, flexDirection: 'row' }}
+                    style={{ backgroundColor: colors.surface, flexDirection: 'row' }}
                 >
                     <StyledView className="flex-row items-center justify-center relative flex-1" style={{ flexDirection: 'row' }}>
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
                             className="absolute left-0 z-10 p-2"
                         >
-                            <ChevronLeft size={28} color={iconColor} />
+                            <ChevronLeft size={28} color={colors.icon} />
                         </StyledTouchableOpacity>
                         <ThemedText size="2xl" className="font-n-bold text-center">
                             Settings
@@ -182,7 +83,7 @@ export default function SettingsScreen() {
                     {/* Group 1: Account, Subscription & Options */}
                     <StyledView
                         className="rounded-2xl p-4 mb-3 border"
-                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        style={{ backgroundColor: colors.surface, borderColor: colors.border }}
                     >
                         {/* Account Info */}
                         <StyledTouchableOpacity
@@ -195,7 +96,7 @@ export default function SettingsScreen() {
                             </StyledView>
                             <StyledView className="flex-1 ml-3">
                                 <ThemedText style={{ fontSize: 16 * textScale }} className="font-n-bold">Account</ThemedText>
-                                <ThemedText style={{ fontSize: 14 * textScale, color: secondaryTextColor }}>
+                                <ThemedText style={{ fontSize: 14 * textScale, color: colors.secondaryText }}>
                                     {user?.email || 'Not signed in'}
                                 </ThemedText>
                             </StyledView>
@@ -222,7 +123,7 @@ export default function SettingsScreen() {
                             <StyledTouchableOpacity
                                 onPress={handleGoProClick}
                                 className="flex-row items-center py-3 mt-1 rounded-xl px-3 border-2 border-amber-400"
-                                style={{ backgroundColor: goProBgColor, flexDirection: 'row' }}
+                                style={{ backgroundColor: colors.goProBg, flexDirection: 'row' }}
                             >
                                 <StyledView className="w-10 h-10 rounded-full bg-amber-100 items-center justify-center">
                                     <Crown size={20} color="#d97706" />
@@ -247,7 +148,7 @@ export default function SettingsScreen() {
                                 </StyledView>
                                 <StyledView className="flex-1 ml-3">
                                     <ThemedText style={{ fontSize: 16 * textScale }} className="font-n-bold">Categories</ThemedText>
-                                    <ThemedText style={{ fontSize: 14 * textScale, color: secondaryTextColor }}>Customize your puzzles</ThemedText>
+                                    <ThemedText style={{ fontSize: 14 * textScale, color: colors.secondaryText }}>Customize your puzzles</ThemedText>
                                 </StyledView>
                                 <ChevronRight size={20} color="#94a3b8" />
                             </StyledTouchableOpacity>
@@ -265,7 +166,7 @@ export default function SettingsScreen() {
                                 </StyledView>
                                 <StyledView className="flex-1 ml-3">
                                     <ThemedText style={{ fontSize: 16 * textScale }} className="font-n-bold">Streak Savers</ThemedText>
-                                    <ThemedText style={{ fontSize: 14 * textScale, color: secondaryTextColor }}>View your allowances</ThemedText>
+                                    <ThemedText style={{ fontSize: 14 * textScale, color: colors.secondaryText }}>View your allowances</ThemedText>
                                 </StyledView>
                                 <ChevronRight size={20} color="#94a3b8" />
                             </StyledTouchableOpacity>
@@ -282,7 +183,7 @@ export default function SettingsScreen() {
                             </StyledView>
                             <StyledView className="flex-1 ml-3">
                                 <ThemedText style={{ fontSize: 16 * textScale }} className="font-n-bold">Options</ThemedText>
-                                <ThemedText style={{ fontSize: 14 * textScale, color: secondaryTextColor }}>Display, Sound & Gameplay</ThemedText>
+                                <ThemedText style={{ fontSize: 14 * textScale, color: colors.secondaryText }}>Display, Sound & Gameplay</ThemedText>
                             </StyledView>
                             <ChevronRight size={20} color="#94a3b8" />
                         </StyledTouchableOpacity>
@@ -291,9 +192,9 @@ export default function SettingsScreen() {
                     {/* Group 3: Help & Legal */}
                     <StyledView
                         className="rounded-2xl p-4 mb-3 border"
-                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        style={{ backgroundColor: colors.surface, borderColor: colors.border }}
                     >
-                        <ThemedText style={{ fontSize: 14 * textScale, color: secondaryTextColor }} className="font-n-bold uppercase tracking-wide mb-2">Help & Info</ThemedText>
+                        <ThemedText style={{ fontSize: 14 * textScale, color: colors.secondaryText }} className="font-n-bold uppercase tracking-wide mb-2">Help & Info</ThemedText>
 
                         <StyledTouchableOpacity onPress={handleBugReport} className="flex-row items-center py-2.5" style={{ flexDirection: 'row' }}>
                             <Bug size={18} color="#64748b" />
@@ -307,7 +208,7 @@ export default function SettingsScreen() {
                             <ChevronRight size={18} color="#94a3b8" />
                         </StyledTouchableOpacity>
 
-                        <StyledView className="h-px my-1" style={{ backgroundColor: borderColor }} />
+                        <StyledView className="h-px my-1" style={{ backgroundColor: colors.border }} />
 
                         <StyledTouchableOpacity onPress={handleAbout} className="flex-row items-center py-2.5" style={{ flexDirection: 'row' }}>
                             <Info size={18} color="#64748b" />
