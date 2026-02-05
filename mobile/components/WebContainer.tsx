@@ -1,7 +1,7 @@
 /**
  * WebContainer - Web-only wrapper that centers content like a mobile app
  * 
- * On web, this constrains the app to a max width (like a tablet)
+ * On web, this constrains the app to a max width (like a phone)
  * and centers it on the screen for a clean mobile-in-browser experience.
  */
 
@@ -26,11 +26,11 @@ export function WebContainer({ children }: WebContainerProps): React.ReactElemen
     return (
         <View style={[
             styles.outerContainer,
-            { backgroundColor: isDark ? '#0f172a' : '#e0e7ff' } // slate-900 : indigo-100
+            { backgroundColor: isDark ? '#101010' : '#e0e7ff' }
         ]}>
             <View style={[
                 styles.innerContainer,
-                { backgroundColor: isDark ? '#1e293b' : '#ffffff' } // slate-800 : white
+                { backgroundColor: isDark ? '#1a1a2e' : '#ffffff' }
             ]}>
                 {children}
             </View>
@@ -43,19 +43,19 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
+        width: '100%',
+        height: '100%',
     },
     innerContainer: {
         flex: 1,
         width: '100%',
         maxWidth: 500, // Mobile phone width
-        // Add subtle shadow for depth
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        // Web-only shadow fallback
+        height: '100%',
+        maxHeight: '100%',
+        overflow: 'hidden',
+        // Add subtle shadow for depth on web
         ...(Platform.OS === 'web' && {
-            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.15)',
+            boxShadow: '0 0 40px rgba(0, 0, 0, 0.3)',
         }),
     },
 });
