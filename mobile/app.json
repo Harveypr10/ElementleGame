@@ -23,6 +23,7 @@
       ],
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow Elementle to access your photos to save or share game content.",
+        "NSMicrophoneUsageDescription": "Allow Elementle to access the microphone for game audio features.",
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
           {

@@ -1,15 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert, Linking } from 'react-native';
-import { useRouter } from 'expo-router';
+import React from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
 import { styled } from 'nativewind';
 import { ChevronLeft, Star } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useOptions } from '../lib/options';
-import { useAuth } from '../lib/auth';
+import { useFeedbackLogic } from '../hooks/useFeedbackLogic';
 
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
@@ -17,57 +14,39 @@ const StyledScrollView = styled(ScrollView);
 const StyledTextInput = styled(TextInput);
 
 export default function FeedbackScreen() {
-    const router = useRouter();
-    const { textScale } = useOptions();
-    const { user } = useAuth();
-    const [feedback, setFeedback] = useState('');
-    const [rating, setRating] = useState(0);
+    const {
+        feedback,
+        setFeedback,
+        rating,
+        setRating,
+        isSubmitting,
+        submitFeedback,
+        goBack,
+        textScale,
+        colors
+    } = useFeedbackLogic();
 
-    const backgroundColor = useThemeColor({}, 'background');
-    const surfaceColor = useThemeColor({}, 'surface');
-    const borderColor = useThemeColor({}, 'border');
-    const textColor = useThemeColor({}, 'text');
-    const iconColor = useThemeColor({}, 'icon');
-
-    const handleSubmit = async () => {
-        if (!feedback.trim()) {
-            Alert.alert('Error', 'Please enter your feedback');
-            return;
-        }
-
-        const userEmail = user?.email || 'Anonymous';
-        const subject = 'Feedback - Elementle';
-        const ratingText = rating > 0 ? `Rating: ${rating}/5 stars\n\n` : '';
-        const body = `Feedback from: ${userEmail}\n\n${ratingText}Feedback:\n${feedback}`;
-        const mailtoUrl = `mailto:no-reply@dobl.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-        try {
-            const canOpen = await Linking.canOpenURL(mailtoUrl);
-            if (canOpen) {
-                await Linking.openURL(mailtoUrl);
-                // Optional: Clear form or go back, but staying lets them adjust if mail app fails
-                Alert.alert('Opening Mail', 'Redirecting to your email app to send feedback.');
-            } else {
-                Alert.alert('Error', 'Could not open email client. Please email us at no-reply@dobl.uk');
-            }
-        } catch (error) {
-            console.error('Error opening email:', error);
-            Alert.alert('Error', 'An unexpected error occurred.');
+    const handlePressSubmit = async () => {
+        const result = await submitFeedback();
+        if (!result.success && result.error) {
+            Alert.alert('Error', result.error);
+        } else if (result.success && result.message) {
+            Alert.alert('Opening Mail', result.message);
         }
     };
 
     return (
         <ThemedView className="flex-1">
-            <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
+            <SafeAreaView edges={['top']} style={{ backgroundColor: colors.surface }}>
                 <StyledView
                     className="flex-row items-center justify-between px-4 py-3"
-                    style={{ backgroundColor: surfaceColor }}
+                    style={{ backgroundColor: colors.surface }}
                 >
                     <StyledTouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={goBack}
                         className="w-10 h-10 items-center justify-center p-2"
                     >
-                        <ChevronLeft size={28} color={iconColor} />
+                        <ChevronLeft size={28} color={colors.icon} />
                     </StyledTouchableOpacity>
                     <ThemedText size="2xl" className="font-n-bold">Feedback</ThemedText>
                     <StyledView className="w-10" />
@@ -79,7 +58,7 @@ export default function FeedbackScreen() {
                     {/* Rating */}
                     <StyledView
                         className="rounded-2xl p-5 mb-4 border"
-                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        style={{ backgroundColor: colors.surface, borderColor: colors.border }}
                     >
                         <ThemedText size="base" className="font-n-bold mb-3 opacity-80 text-center">Do you like playing Elementle?</ThemedText>
                         <StyledView className="flex-row justify-center gap-2">
@@ -98,14 +77,14 @@ export default function FeedbackScreen() {
                     {/* Feedback Text */}
                     <StyledView
                         className="rounded-2xl p-4 mb-4 border"
-                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        style={{ backgroundColor: colors.surface, borderColor: colors.border }}
                     >
                         <ThemedText size="base" className="font-n-bold mb-2 opacity-60">Your Feedback</ThemedText>
                         <StyledTextInput
                             style={{
                                 fontSize: 16 * textScale,
-                                backgroundColor: backgroundColor,
-                                color: textColor
+                                backgroundColor: colors.background,
+                                color: colors.text
                             }}
                             className="rounded-xl px-3 py-3 min-h-[120px]"
                             placeholder="Tell us what you think..."
@@ -118,10 +97,13 @@ export default function FeedbackScreen() {
                     </StyledView>
 
                     <StyledTouchableOpacity
-                        onPress={handleSubmit}
-                        className="bg-blue-500 rounded-2xl py-3 px-4 shadow-sm"
+                        onPress={handlePressSubmit}
+                        disabled={isSubmitting}
+                        className={`bg-blue-500 rounded-2xl py-3 px-4 shadow-sm ${isSubmitting ? 'opacity-70' : ''}`}
                     >
-                        <ThemedText size="lg" className="text-center font-n-bold text-white">Send Feedback</ThemedText>
+                        <ThemedText size="lg" className="text-center font-n-bold text-white">
+                            {isSubmitting ? 'Opening Link...' : 'Send Feedback'}
+                        </ThemedText>
                     </StyledTouchableOpacity>
 
                     <ThemedText size="sm" className="text-center mt-4 opacity-50">
