@@ -327,8 +327,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     cellText: {
-        fontFamily: 'Nunito, sans-serif',
-        fontWeight: '400',
+        fontFamily: 'Nunito_700Bold, Nunito',
+        fontWeight: '700',
         paddingTop: 4,
         paddingLeft: 2,
     },

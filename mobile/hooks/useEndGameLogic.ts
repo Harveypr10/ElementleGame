@@ -106,10 +106,10 @@ export function useEndGameLogic(params: EndGameParams): UseEndGameLogicReturn {
     // ========================================================================
 
     const colors = useMemo(() => ({
-        stats: isLocalMode ? '#93cd78' : '#4ade80',    // Green
-        share: '#f472b6',                                // Pink
-        home: isLocalMode ? '#66becb' : '#60a5fa',       // Blue
-        archive: isLocalMode ? '#fdab58' : '#facc15',    // Yellow
+        stats: isLocalMode ? '#93cd78' : '#A4DB57',    // Green
+        share: '#e87daa',                                // Pink (Fixed to match mobile)
+        home: isLocalMode ? '#66becb' : '#7DAAE8',       // Blue
+        archive: isLocalMode ? '#fdab58' : '#FFD429',    // Yellow
     }), [isLocalMode]);
 
     // ========================================================================

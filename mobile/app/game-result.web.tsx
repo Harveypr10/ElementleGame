@@ -204,10 +204,11 @@ export default function GameResultScreenWeb() {
                     {/* Action Buttons */}
                     {isGuest ? (
                         <Pressable
-                            style={[styles.fullButton, { backgroundColor: homeColor }]}
+                            style={[styles.fullButton, { backgroundColor: statsColor, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 24 }]}
                             onPress={goLogin}
                         >
                             <Text style={styles.buttonText}>Continue</Text>
+                            <Image source={StatsHamster} style={{ width: 40, height: 40 }} contentFit="contain" />
                         </Pressable>
                     ) : (
                         <View style={styles.buttonGrid}>
@@ -288,7 +289,7 @@ const styles = StyleSheet.create({
     headerText: {
         fontSize: 32,
         fontWeight: '800',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_800ExtraBold, Nunito',
         color: '#1e293b',
         textAlign: 'center',
         marginBottom: 16,
@@ -305,7 +306,7 @@ const styles = StyleSheet.create({
     dateText: {
         fontSize: 24,
         fontWeight: '700',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
         color: '#1e293b',
         textAlign: 'center',
         marginBottom: 16,
@@ -320,7 +321,7 @@ const styles = StyleSheet.create({
     factTitle: {
         fontSize: 18,
         fontWeight: '700',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
         color: '#1e293b',
         textAlign: 'center',
         marginBottom: 8,
@@ -328,7 +329,7 @@ const styles = StyleSheet.create({
     factDescription: {
         fontSize: 14,
         fontWeight: '500',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_500Medium, Nunito',
         color: '#64748B',
         textAlign: 'center',
         lineHeight: 20,
@@ -336,7 +337,7 @@ const styles = StyleSheet.create({
     guessesText: {
         fontSize: 14,
         fontWeight: '600',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_600SemiBold, Nunito',
         color: '#64748B',
         textAlign: 'center',
         marginBottom: 24,
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
     buttonText: {
         fontSize: 18,
         fontWeight: '700',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
         color: '#1e293b',
     },
     buttonHamster: {

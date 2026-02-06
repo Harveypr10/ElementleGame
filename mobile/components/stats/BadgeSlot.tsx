@@ -15,7 +15,7 @@ const StyledImage = styled(Image);
 // Since I can't guarantee the image is there, I'll use a Lucide icon as fallback or a network image.
 // Let's assume we brought over the assets. I'll rely on the user having the asset or handle error.
 // Found hamster.png in assets root
-const HAMSTER_IMAGE = require('../../assets/hamster.png');
+const HAMSTER_IMAGE = require('../../assets/Welcome-Hamster-Cutout.png');
 
 // Static mapping for WebP badges
 const BADGE_IMAGES: Record<string, any> = {

@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Elementle",
+    "slug": "elementle",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/Icon-512.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "scheme": "elementle",
@@ -14,7 +14,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "buildNumber": "2",
+      "buildNumber": "8",
       "supportsTablet": true,
       "bundleIdentifier": "com.dobl.elementlegame",
       "usesAppleSignIn": true,
@@ -26,6 +26,8 @@
         "NSPhotoLibraryUsageDescription": "Allow Elementle to access your photos to save or share game content.",
         "NSMicrophoneUsageDescription": "Allow Elementle to access the microphone for game audio features.",
         "NSLocationWhenInUseUsageDescription": "Allow Elementle to access your location for regional leaderboards.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow Elementle to access your location for regional leaderboards.",
+        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
           {
@@ -39,14 +41,16 @@
     "android": {
       "package": "com.dobl.elementlegame",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/Icon-512.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -67,7 +71,13 @@
         }
       ],
       "@react-native-google-signin/google-signin",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Elementle to access your location for regional leaderboards."
+        }
+      ]
     ],
     "extra": {
       "router": {

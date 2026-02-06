@@ -79,6 +79,30 @@ export default function GameScreenWeb() {
         setIntroPhase('hidden');
     };
 
+    // [FIX] Immediate redirect for pre-completed puzzles
+    // If returning to a puzzle that was already won/lost, skip everything and go to result
+    useEffect(() => {
+        if (!loading && puzzle && (puzzle.isWin || puzzle.isLoss)) {
+            console.log('[GameScreenWeb] Puzzle already completed, redirecting to result');
+            router.replace({
+                pathname: '/game-result',
+                params: {
+                    isWin: (puzzle.isWin || false).toString(),
+                    guessesCount: (puzzle.guesses?.length || 0).toString(),
+                    maxGuesses: '5',
+                    answerDateCanonical: puzzle.solutionDate,
+                    eventTitle: puzzle.title,
+                    eventDescription: puzzle.eventDescription || '',
+                    gameMode: mode,
+                    puzzleId: puzzle.id.toString(),
+                    isStreakSaverGame: isStreakSaverGame.toString(),
+                    isToday: isTodayPuzzle.toString(),
+                    justFinished: 'false', // Not just finished - returning
+                }
+            });
+        }
+    }, [loading, puzzle, mode, isStreakSaverGame, isTodayPuzzle, router]);
+
     // Show loading state while fetching puzzle
     if (loading) {
         return (
@@ -367,31 +391,7 @@ function GameView({
         }
     }, [numDigits, dateFormatOrder]);
 
-    // Navigate to result when game ends
-    useEffect(() => {
-        if (engineGameState === 'won' || engineGameState === 'lost') {
-            const timer = setTimeout(() => {
-                router.replace({
-                    pathname: '/game-result',
-                    params: {
-                        isWin: (engineGameState === 'won').toString(),
-                        guessesCount: guesses.length.toString(),
-                        maxGuesses: '5',
-                        answerDateCanonical: puzzle.solutionDate,
-                        eventTitle: puzzle.title,
-                        eventDescription: puzzle.eventDescription || '',
-                        gameMode: mode,
-                        puzzleId: puzzle.id.toString(),
-                        isStreakSaverGame: isStreakSaverGame.toString(),
-                        isToday: isTodayPuzzle.toString(),
-                        justFinished: 'true',
-                    }
-                });
-            }, 1500);
-
-            return () => clearTimeout(timer);
-        }
-    }, [engineGameState, guesses.length, puzzle, mode, isStreakSaverGame, isTodayPuzzle, router]);
+    // Note: Removed auto-navigation to result. User now manually clicks Continue button.
 
     return (
         <View style={styles.container}>
@@ -443,6 +443,29 @@ function GameView({
                             <Text style={styles.endStateText}>
                                 {gameState === 'won' ? '🎉 Congratulations!' : '😔 Better luck next time!'}
                             </Text>
+                            <Pressable
+                                style={[styles.continueButton, { backgroundColor: gameState === 'won' ? '#22C55E' : '#64748B' }]}
+                                onPress={() => {
+                                    router.replace({
+                                        pathname: '/game-result',
+                                        params: {
+                                            isWin: (gameState === 'won').toString(),
+                                            guessesCount: guesses.length.toString(),
+                                            maxGuesses: '5',
+                                            answerDateCanonical: puzzle.solutionDate,
+                                            eventTitle: puzzle.title,
+                                            eventDescription: puzzle.eventDescription || '',
+                                            gameMode: mode,
+                                            puzzleId: puzzle.id.toString(),
+                                            isStreakSaverGame: isStreakSaverGame.toString(),
+                                            isToday: isTodayPuzzle.toString(),
+                                            justFinished: 'true',
+                                        }
+                                    });
+                                }}
+                            >
+                                <Text style={styles.continueButtonText}>Continue</Text>
+                            </Pressable>
                         </View>
                     )}
                 </View>
@@ -486,7 +509,7 @@ const styles = StyleSheet.create({
         fontSize: 28,
         fontWeight: '700',
         color: '#FFFFFF',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
         letterSpacing: -0.5,
     },
 
@@ -500,7 +523,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 16,
         color: '#64748B',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_400Regular, Nunito',
     },
     errorContainer: {
         flex: 1,
@@ -512,7 +535,7 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: '700',
         color: '#1e293b',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
         marginBottom: 8,
     },
     errorText: {
@@ -520,7 +543,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         color: '#64748B',
         marginBottom: 24,
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_400Regular, Nunito',
     },
     actionButton: {
         flexDirection: 'row',
@@ -535,7 +558,7 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '600',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_600SemiBold, Nunito',
     },
 
     // ========== Intro View ==========
@@ -592,7 +615,7 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         textAlign: 'center',
         marginBottom: 8,
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_500Medium, Nunito',
         maxWidth: 300,
     },
     introQuestionBox: {
@@ -603,14 +626,14 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         textAlign: 'center',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
         marginBottom: 4,
     },
     introTitle: {
         fontSize: 18,
         fontWeight: '700',
         textAlign: 'center',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
     },
     playButton: {
         paddingHorizontal: 56,
@@ -622,12 +645,12 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 18,
         fontWeight: '700',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
         letterSpacing: 1,
     },
     dateFooter: {
         fontSize: 14,
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_400Regular, Nunito',
     },
 
     // ========== Game View ==========
@@ -656,7 +679,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '700',
         color: '#22C55E',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
         letterSpacing: 0.5,
         marginBottom: 2,
     },
@@ -664,7 +687,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '700',
         color: '#1e293b',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_700Bold, Nunito',
         textAlign: 'center',
     },
     gridWrapper: {
@@ -687,6 +710,19 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: '600',
         color: '#64748B',
-        fontFamily: 'Nunito',
+        fontFamily: 'Nunito_600SemiBold, Nunito',
+        marginBottom: 16,
+    },
+    continueButton: {
+        paddingHorizontal: 48,
+        paddingVertical: 16,
+        borderRadius: 24,
+        marginTop: 8,
+    },
+    continueButtonText: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        fontFamily: 'Nunito_700Bold, Nunito',
     },
 });

@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
         cursor: 'pointer',
     },
     keyText: {
-        fontFamily: 'Nunito, sans-serif',
+        fontFamily: 'Nunito_700Bold, Nunito',
         fontWeight: '700',
         fontSize: 20,
     },
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
         cursor: 'pointer',
     },
     enterText: {
-        fontFamily: 'Nunito, sans-serif',
+        fontFamily: 'Nunito_700Bold, Nunito',
         fontWeight: '700',
         fontSize: 18,
         color: 'white',

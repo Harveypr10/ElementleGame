@@ -22,6 +22,10 @@ export interface PuzzleData {
     location?: string;
     eventDescription?: string;
     solutionDate: string;      // The canonical answer (historical date)
+    // Game State props (optional as they come from joined data)
+    guesses?: any[];
+    isWin?: boolean;
+    isLoss?: boolean;
 }
 
 export type IntroPhase = 'visible' | 'fading' | 'hidden';
@@ -122,6 +126,16 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
     // Theme (default to light mode on web, mobile can override)
     const theme = useMemo(() => getPlayTheme(false), []);
 
+    // [FIX] Auto-hide intro if game is already started/finished
+    useEffect(() => {
+        if (!loading && puzzle) {
+            const hasStarted = (puzzle.guesses && puzzle.guesses.length > 0) || puzzle.isWin || puzzle.isLoss;
+            if (hasStarted) {
+                setIntroPhase('hidden');
+            }
+        }
+    }, [loading, puzzle]);
+
     // ========================================================================
     // Puzzle Fetching
     // ========================================================================
@@ -142,23 +156,22 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
             setLoading(true);
             setDebugInfo('');
 
-            // 1. Try Cache First
-            if (Platform.OS !== 'web') {
-                try {
-                    const cached = await AsyncStorage.getItem(CACHE_KEY);
-                    if (cached) {
-                        const parsed = JSON.parse(cached);
-                        console.log('[usePlayLogic] Loaded puzzle from cache:', CACHE_KEY);
-                        setPuzzle(parsed);
+            // 1. Try Cache First (All platforms)
+            try {
+                const cached = await AsyncStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    console.log('[usePlayLogic] Loaded puzzle from cache:', CACHE_KEY);
+                    setPuzzle(parsed);
 
-                        if (isConnected === false) {
-                            setLoading(false);
-                            return;
-                        }
+                    // If offline, return early with cached data
+                    if (isConnected === false) {
+                        setLoading(false);
+                        return;
                     }
-                } catch (e) {
-                    console.log('[usePlayLogic] Cache read error', e);
                 }
+            } catch (e) {
+                console.log('[usePlayLogic] Cache read error', e);
             }
 
             // 2. Network Fetch
@@ -172,6 +185,7 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
 
             let allocationData: any = null;
             let masterData: any = null;
+            let attemptData: any = null;
 
             if (isRegion) {
                 // REGION MODE QUERY
@@ -196,11 +210,9 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
                 }
 
                 const { data: allocRes, error: allocError } = await regionQuery.maybeSingle();
-
                 if (allocError) throw allocError;
 
                 if (!allocRes) {
-                    console.warn(`[usePlayLogic] No Region allocation found for ${puzzleIdParam}`);
                     setDebugInfo(`No puzzle found for ${puzzleIdParam}.`);
                     setPuzzle(null);
                     setLoading(false);
@@ -209,6 +221,7 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
 
                 allocationData = allocRes;
 
+                // Fetch Master Data
                 if (allocRes.question_id) {
                     const { data: master } = await supabase
                         .from('questions_master_region')
@@ -216,6 +229,17 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
                         .eq('id', allocRes.question_id)
                         .maybeSingle();
                     masterData = master;
+
+                    // Fetch Attempts (if user exists)
+                    if (user?.id) {
+                        const { data: attempts } = await supabase
+                            .from('game_attempts_region')
+                            .select('guesses, is_win, is_loss')
+                            .eq('question_id', allocRes.question_id)
+                            .eq('user_id', user.id)
+                            .maybeSingle();
+                        attemptData = attempts;
+                    }
                 }
 
             } else {
@@ -246,7 +270,6 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
                 }
 
                 const { data: allocRes, error: allocError } = await query.maybeSingle();
-
                 if (allocError) throw allocError;
 
                 if (!allocRes) {
@@ -258,6 +281,7 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
 
                 allocationData = allocRes;
 
+                // Fetch Master Data
                 if (allocRes.question_id) {
                     const { data: master } = await supabase
                         .from('questions_master_user')
@@ -265,6 +289,15 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
                         .eq('id', allocRes.question_id)
                         .maybeSingle();
                     masterData = master;
+
+                    // Fetch Attempts
+                    const { data: attempts } = await supabase
+                        .from('game_attempts_user')
+                        .select('guesses, is_win, is_loss')
+                        .eq('question_id', allocRes.question_id)
+                        .eq('user_id', user.id)
+                        .maybeSingle();
+                    attemptData = attempts;
                 }
             }
 
@@ -281,18 +314,20 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
                     location: allocationData?.categories?.id === 999 && masterData?.populated_places?.name1
                         ? masterData.populated_places.name1
                         : '',
-                    eventDescription: masterData?.event_description || masterData?.description || ''
+                    eventDescription: masterData?.event_description || masterData?.description || '',
+                    // Apply attempt data if found
+                    guesses: attemptData?.guesses || undefined,
+                    isWin: attemptData?.is_win || false,
+                    isLoss: attemptData?.is_loss || false
                 };
 
                 setPuzzle(finalPuzzle);
 
-                // Cache save (mobile only)
-                if (Platform.OS !== 'web') {
-                    try {
-                        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(finalPuzzle));
-                    } catch (e) {
-                        console.error('[usePlayLogic] Error saving puzzle cache', e);
-                    }
+                // Cache save (All platforms)
+                try {
+                    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(finalPuzzle));
+                } catch (e) {
+                    console.error('[usePlayLogic] Error saving puzzle cache', e);
                 }
             }
 
@@ -306,7 +341,7 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
         } finally {
             setLoading(false);
         }
-    }, [puzzleIdParam, isRegion, user?.id, isConnected, puzzle]);
+    }, [puzzleIdParam, isRegion, user, isConnected, puzzle]);
 
     // Fetch on mount
     useEffect(() => {
