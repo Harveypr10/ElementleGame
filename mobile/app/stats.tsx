@@ -366,9 +366,9 @@ export default function StatsScreen() {
                         style={{ marginTop: -20 }}
                     >
                         {/* Main Stats Cards - Overlapping header */}
-                        <StyledView className="px-4 w-full max-w-4xl self-center">
+                        <StyledView style={{ paddingHorizontal: 16, width: '100%', maxWidth: 896, alignSelf: 'center' }}>
                             {/* Quick Stats Row */}
-                            <StyledView className="flex-row gap-3 mb-4" style={{ flexDirection: 'row' }}>
+                            <StyledView style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
                                 {/* Games Played */}
                                 <StyledView
                                     className="flex-1 rounded-2xl p-4 items-center"

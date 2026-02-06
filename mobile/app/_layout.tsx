@@ -3,12 +3,13 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { styled } from 'nativewind';
 import { ThemedView } from '../components/ThemedView';
 import { WebContainer } from '../components/WebContainer';
+import * as ExpoSplashScreen from 'expo-splash-screen';
 
 // Import global CSS for NativeWind web support
 import '../global.css';
 
 const StyledView = styled(View);
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../lib/auth';
@@ -29,6 +30,9 @@ import { SplashScreen } from '../components/SplashScreen';
 import { hasCompletedAgeVerification } from '../lib/ageVerification';
 import { Asset } from 'expo-asset';
 import '../lib/typography'; // Global Font Patch
+
+// [FONT FIX] Prevent native splash from auto-hiding before fonts load
+ExpoSplashScreen.preventAutoHideAsync();
 
 /* 
   Initialize TanStack Query Client
@@ -266,6 +270,14 @@ export default function Layout() {
 
     // Let's modify NavigationGuard to show SplashScreen while loading.
 
+    // [FONT FIX] Hide native splash once fonts are loaded
+    // NOTE: This hook must be called BEFORE any early returns (Rules of Hooks)
+    const onLayoutRootView = useCallback(async () => {
+        if (fontsLoaded) {
+            await ExpoSplashScreen.hideAsync();
+        }
+    }, [fontsLoaded]);
+
     if (!fontsLoaded) {
         // Show Splash while system dependencies load
         return <SplashScreen onComplete={() => { }} />;
@@ -283,7 +295,7 @@ export default function Layout() {
                                         <StreakSaverProvider>
                                             <OptionsProvider>
                                                 <WebContainer>
-                                                    <ThemedView className="flex-1">
+                                                    <ThemedView className="flex-1" onLayout={onLayoutRootView}>
                                                         <NavigationGuard>
                                                             <Stack screenOptions={{ headerShown: false }}>
                                                                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

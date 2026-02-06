@@ -497,24 +497,9 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             )}
 
             {!isLoading && introPhase === 'hidden' && (
-                <Animated.View className="flex-1 w-full" style={{ opacity: gameFadeAnim }}>
+                <Animated.View className="flex-1 w-full" style={{ opacity: gameFadeAnim, paddingTop: cluesEnabled ? 100 : 0 }}>
 
-                    {/* Clue Box - Moved from GameScreen to sync animations */}
-                    <Animated.View
-                        className={`mx-6 -mt-6 mb-2 rounded-3xl items-center ${cluesEnabled ? 'bg-white dark:bg-slate-800 shadow-sm p-4' : 'h-10'}`}
-                        style={{ zIndex: 100, maxWidth: 582, alignSelf: 'center', width: '100%' }}
-                    >
-                        {cluesEnabled && (
-                            <>
-                                <ThemedText className="font-n-bold text-[#3b82f6] mb-1 tracking-wide text-center" size="base">
-                                    {puzzle.category}
-                                </ThemedText>
-                                <ThemedText className="font-n-bold text-center leading-7" size="xl">
-                                    {puzzle.title}
-                                </ThemedText>
-                            </>
-                        )}
-                    </Animated.View>
+                    {/* Clue Box now rendered in [id].tsx with absolute positioning */}
 
                     <ThemedView className={`flex-1 w-full max-w-md mx-auto px-4 ${cluesEnabled ? 'justify-start' : 'justify-center'}`} style={{ paddingTop: cluesEnabled ? 16 : 0, paddingBottom: cluesEnabled ? 8 : 0 }}>
                         <InputGrid

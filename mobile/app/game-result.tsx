@@ -387,11 +387,11 @@ export default function GameResultScreen() {
                             ) : (
                                 <>
                                     {/* Top Row: Stats and Share */}
-                                    <StyledView className="flex-row gap-3 mb-3" style={{ flexDirection: 'row' }}>
+                                    <StyledView style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
                                         {/* Stats Button */}
                                         <StyledTouchableOpacity
-                                            className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: statsColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row' }}
+                                            className="flex-1 rounded-3xl shadow-sm active:opacity-90"
+                                            style={{ backgroundColor: statsColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}
                                             onPress={() => router.push(`/stats?mode=${gameMode}`)}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Stats</StyledText>
@@ -407,8 +407,8 @@ export default function GameResultScreen() {
 
                                         {/* Share Button */}
                                         <StyledTouchableOpacity
-                                            className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: shareColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row' }}
+                                            className="flex-1 rounded-3xl shadow-sm active:opacity-90"
+                                            style={{ backgroundColor: shareColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}
                                             onPress={handleShare}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Share</StyledText>
@@ -424,11 +424,11 @@ export default function GameResultScreen() {
                                     </StyledView>
 
                                     {/* Bottom Row: Home and Archive */}
-                                    <StyledView className="flex-row gap-3" style={{ flexDirection: 'row' }}>
+                                    <StyledView style={{ flexDirection: 'row', gap: 12 }}>
                                         {/* Home Button */}
                                         <StyledTouchableOpacity
-                                            className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: homeColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row' }}
+                                            className="flex-1 rounded-3xl shadow-sm active:opacity-90"
+                                            style={{ backgroundColor: homeColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}
                                             onPress={() => {
                                                 if (gameMode === 'REGION' || gameMode === 'USER') {
                                                     setGameMode(gameMode);
@@ -458,8 +458,8 @@ export default function GameResultScreen() {
 
                                         {/* Archive Button */}
                                         <StyledTouchableOpacity
-                                            className="flex-1 flex-row items-center justify-between px-4 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: archiveColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row' }}
+                                            className="flex-1 rounded-3xl shadow-sm active:opacity-90"
+                                            style={{ backgroundColor: archiveColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}
                                             onPress={() => router.push({ pathname: '/archive', params: { mode: gameMode } })}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Archive</StyledText>

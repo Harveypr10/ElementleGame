@@ -326,94 +326,123 @@ export default function GameScreen() {
     console.log('[GameScreen] isToday Calculation:', { id, puzzleDate: puzzle?.date, todayStr, isToday: isTodayPuzzleValue });
 
     return (
-        <ThemedView className="flex-1">
-            <SafeAreaView edges={['top']} className="z-10" style={{ backgroundColor: brandColor }}>
-                <View className="relative justify-center items-center z-50" style={{ backgroundColor: brandColor, height: 60 }}>
+        <View style={{ flex: 1, position: 'relative' }}>
+            <ThemedView className="flex-1">
+                <SafeAreaView edges={['top']} style={{ zIndex: 10, backgroundColor: brandColor, paddingBottom: 24 }}>
+                    <View style={{ position: 'relative', justifyContent: 'center', alignItems: 'center', zIndex: 50, backgroundColor: brandColor, height: 60, width: '100%' }}>
 
-                    {/* Left: Back Arrow - Hidden if game OVER and Guest */}
-                    {!(isGuest && (gameState === 'won' || gameState === 'lost')) && (
-                        <View className="absolute left-4" style={{ zIndex: 20 }}>
+                        {/* Left: Back Arrow - Hidden if game OVER and Guest */}
+                        {!(isGuest && (gameState === 'won' || gameState === 'lost')) && (
+                            <View style={{ position: 'absolute', left: 16, zIndex: 20 }}>
+                                <TouchableOpacity
+                                    onPress={handleBack}
+                                    className="items-center justify-center bg-transparent p-2"
+                                >
+                                    <ChevronLeft size={28} color={headerIconColor} />
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {/* Center: Title */}
+                        <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <ThemedText size="4xl" className="text-white font-n-bold font-heading tracking-tight" style={{ textAlign: 'center' }}>
+                                Elementle
+                            </ThemedText>
+                        </View>
+
+                        {/* Right: Help */}
+                        <View style={{ position: 'absolute', right: 16, zIndex: 20 }}>
                             <TouchableOpacity
-                                onPress={handleBack}
+                                onPress={() => setHelpVisible(true)}
                                 className="items-center justify-center bg-transparent p-2"
                             >
-                                <ChevronLeft size={28} color={headerIconColor} />
+                                <HelpCircle size={28} color={headerIconColor} />
                             </TouchableOpacity>
                         </View>
+                    </View>
+                </SafeAreaView>
+
+                {/* Main Content Area: Handles Loading, Error, and Active Game */}
+                <View className="flex-1">
+                    {loading ? (
+                        <View className="flex-1 justify-center items-center">
+                            <ActivityIndicator size="large" color="#3b82f6" />
+                            <Text className="text-slate-900 dark:text-white mt-4 font-body">Loading Puzzle...</Text>
+                        </View>
+                    ) : !puzzle ? (
+                        <View className="flex-1 justify-center items-center px-6">
+                            <Text className="text-slate-900 dark:text-white text-xl font-display mb-2 text-center">No Puzzle Found</Text>
+                            <Text className="text-slate-500 dark:text-slate-400 text-center mb-6">
+                                {debugInfo || `We couldn't find a puzzle for ${modeStr} mode on this date.`}
+                            </Text>
+                            <TouchableOpacity
+                                className="bg-blue-600 px-6 py-3 rounded-xl flex-row items-center mb-4"
+                                onPress={() => router.replace('/archive')}
+                            >
+                                <Calendar className="text-white mr-2" size={20} />
+                                <Text className="text-white font-bold text-lg">Pick Another Date</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                className="bg-slate-700 px-6 py-3 rounded-xl flex-row items-center"
+                                onPress={() => router.back()}
+                            >
+                                <ChevronLeft className="text-white mr-2" size={20} />
+                                <Text className="text-white font-bold text-lg">Go Back</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <View style={{ flex: 1, marginTop: -20 }}>
+                            <ActiveGame
+                                puzzle={puzzle}
+                                gameMode={modeStr}
+                                backgroundColor={backgroundColor}
+                                onGameStateChange={setGameState}
+                                isStreakSaverGame={isInStreakSaverMode}
+                                onStreakSaverExit={handleConfirmExit}
+                                isTodayPuzzle={isTodayPuzzleValue}
+                            />
+                        </View>
                     )}
-
-                    {/* Center: Title */}
-                    <View style={{ width: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                        <ThemedText size="4xl" className="text-white font-n-bold font-heading tracking-tight" style={{ textAlign: 'center' }}>
-                            Elementle
-                        </ThemedText>
-                    </View>
-
-                    {/* Right: Help */}
-                    <View className="absolute right-4" style={{ zIndex: 20 }}>
-                        <TouchableOpacity
-                            onPress={() => setHelpVisible(true)}
-                            className="items-center justify-center bg-transparent p-2"
-                        >
-                            <HelpCircle size={28} color={headerIconColor} />
-                        </TouchableOpacity>
-                    </View>
                 </View>
-            </SafeAreaView>
 
-            {/* Main Content Area: Handles Loading, Error, and Active Game */}
-            <View className="flex-1">
-                {loading ? (
-                    <View className="flex-1 justify-center items-center">
-                        <ActivityIndicator size="large" color="#3b82f6" />
-                        <Text className="text-slate-900 dark:text-white mt-4 font-body">Loading Puzzle...</Text>
-                    </View>
-                ) : !puzzle ? (
-                    <View className="flex-1 justify-center items-center px-6">
-                        <Text className="text-slate-900 dark:text-white text-xl font-display mb-2 text-center">No Puzzle Found</Text>
-                        <Text className="text-slate-500 dark:text-slate-400 text-center mb-6">
-                            {debugInfo || `We couldn't find a puzzle for ${modeStr} mode on this date.`}
-                        </Text>
-                        <TouchableOpacity
-                            className="bg-blue-600 px-6 py-3 rounded-xl flex-row items-center mb-4"
-                            onPress={() => router.replace('/archive')}
-                        >
-                            <Calendar className="text-white mr-2" size={20} />
-                            <Text className="text-white font-bold text-lg">Pick Another Date</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            className="bg-slate-700 px-6 py-3 rounded-xl flex-row items-center"
-                            onPress={() => router.back()}
-                        >
-                            <ChevronLeft className="text-white mr-2" size={20} />
-                            <Text className="text-white font-bold text-lg">Go Back</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View className="flex-1 z-20">
-                        <ActiveGame
-                            puzzle={puzzle}
-                            gameMode={modeStr}
-                            backgroundColor={backgroundColor}
-                            onGameStateChange={setGameState}
-                            isStreakSaverGame={isInStreakSaverMode}
-                            onStreakSaverExit={handleConfirmExit}
-                            isTodayPuzzle={isTodayPuzzleValue}
-                        />
-                    </View>
-                )}
-            </View>
+                {/* Streak Saver Exit Warning */}
+                <StreakSaverExitWarning
+                    visible={showExitWarning}
+                    onClose={() => setShowExitWarning(false)}
+                    onContinuePlaying={() => setShowExitWarning(false)}
+                    onCancelAndLoseStreak={handleConfirmExit}
+                />
 
-            {/* Streak Saver Exit Warning */}
-            <StreakSaverExitWarning
-                visible={showExitWarning}
-                onClose={() => setShowExitWarning(false)}
-                onContinuePlaying={() => setShowExitWarning(false)}
-                onCancelAndLoseStreak={handleConfirmExit}
-            />
+                {/* Help Modal */}
+                <HelpModal visible={helpVisible} onClose={() => setHelpVisible(false)} />
+            </ThemedView>
 
-            {/* Help Modal */}
-            <HelpModal visible={helpVisible} onClose={() => setHelpVisible(false)} />
-        </ThemedView >
+            {/* Clue Box - Absolutely positioned to overlap header */}
+            {puzzle && cluesEnabled && !loading && (
+                <View style={{
+                    position: 'absolute',
+                    top: 120, // Positioned to overlap bottom of header like Archive
+                    left: 16,
+                    right: 16,
+                    zIndex: 100,
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 24,
+                    padding: 16,
+                    alignItems: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                    elevation: 4,
+                }}>
+                    <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>
+                        {puzzle.category}
+                    </Text>
+                    <Text style={{ color: '#1e293b', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
+                        {puzzle.title}
+                    </Text>
+                </View>
+            )}
+        </View>
     );
 }

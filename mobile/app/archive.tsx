@@ -649,8 +649,8 @@ export default function ArchiveScreen() {
             </StyledView>
 
             {/* Overlapping Navigation Controls - Matching Badge/Stats Cards style */}
-            <StyledView className="w-full max-w-3xl self-center px-6 -mt-6 mb-4">
-                <StyledView className="flex-row items-center gap-3" style={{ flexDirection: 'row' }}>
+            <StyledView style={{ width: '100%', maxWidth: 768, alignSelf: 'center', paddingHorizontal: 24, marginTop: -24, marginBottom: 16 }}>
+                <StyledView style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
 
                     {/* Left Arrow Card */}
                     <StyledTouchableOpacity
@@ -696,7 +696,7 @@ export default function ArchiveScreen() {
             )}
 
             {/* Main Content Area */}
-            <StyledView className="flex-1 px-4 w-full max-w-3xl self-center">
+            <StyledView style={{ flex: 1, paddingHorizontal: 16, width: '100%', maxWidth: 768, alignSelf: 'center' }}>
                 {/* Calendar Card Container */}
                 <StyledView className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm pb-4 pt-6 mb-4">
                     {/* Week Headers - with padding */}
