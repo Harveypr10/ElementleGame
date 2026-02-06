@@ -232,7 +232,7 @@ export default function Layout() {
             try {
                 await Promise.all([
                     Asset.fromModule(require('../assets/Welcome-Hamster-Cutout.png')).downloadAsync(),
-                    Asset.fromModule(require('../assets/hamster.png')).downloadAsync(),
+
                     Asset.fromModule(require('../assets/splash-icon.png')).downloadAsync(),
                     Asset.fromModule(require('../assets/icon.png')).downloadAsync(),
                 ]);
