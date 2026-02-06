@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Share, Image, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Share, Image, useWindowDimensions, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOptions } from '../lib/options';
+
+// Platform-specific web component
+import GameResultScreenWeb from './game-result.web';
 
 // Hamster images
 // Hamster images
@@ -32,6 +35,11 @@ const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledImage = styled(Image);
 
 export default function GameResultScreen() {
+    // Platform-specific rendering: Web uses dedicated web component
+    if (Platform.OS === 'web') {
+        return <GameResultScreenWeb />;
+    }
+
     const router = useRouter();
     const queryClient = useQueryClient();
     const { textScale, setGameMode } = useOptions();

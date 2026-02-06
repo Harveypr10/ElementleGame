@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Dimensions, Animated, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Dimensions, Animated, useWindowDimensions, Platform } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { styled } from 'nativewind';
@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     format,
     startOfMonth,
+
     endOfMonth,
     startOfWeek,
     endOfWeek,
@@ -34,6 +35,9 @@ import { useNetwork } from '../contexts/NetworkContext';
 import { useStreakSaverStatus } from '../hooks/useStreakSaverStatus';
 import { HolidayActiveModal } from '../components/game/HolidayActiveModal';
 import { endHolidayMode } from '../lib/supabase-rpc';
+
+// Web version import
+import ArchiveScreenWeb from './archive.web';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -345,6 +349,11 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
 });
 
 export default function ArchiveScreen() {
+    // Render web version on web platform
+    if (Platform.OS === 'web') {
+        return <ArchiveScreenWeb />;
+    }
+
     const { width: screenWidth } = useWindowDimensions();
     const isTablet = screenWidth >= 768;
     const dateFontSize = isTablet ? 14 * 1.5 : 14;

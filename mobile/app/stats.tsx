@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Image, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNetwork } from '../contexts/NetworkContext';
 import { AllBadgesModal } from '../components/stats/AllBadgesModal';
@@ -21,6 +21,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ThemedView } from '../components/ThemedView';
 import { ThemedText } from '../components/ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
+
+// Web version import
+import StatsScreenWeb from './stats.web';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -47,7 +50,13 @@ interface DailyAttempt {
 }
 
 export default function StatsScreen() {
+    // Render web version on web platform
+    if (Platform.OS === 'web') {
+        return <StatsScreenWeb />;
+    }
+
     const router = useRouter();
+
     const { user, isGuest } = useAuth();
     const { textScale } = useOptions();
     const searchParams = useLocalSearchParams();

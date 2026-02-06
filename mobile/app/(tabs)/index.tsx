@@ -1,8 +1,11 @@
-import { View, Text, TouchableOpacity, Image, ScrollView, RefreshControl, Animated, Dimensions, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, RefreshControl, Animated, Dimensions, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions, Platform } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { useAuth } from '../../lib/auth';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+
+// Web version import
+import HomeScreenWeb from './index.web';
 import { supabase } from '../../lib/supabase';
 import { HelpCircle, Settings } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -248,6 +251,11 @@ const GameModePage = React.memo(({
 });
 
 export default function HomeScreen() {
+    // Render web version on web platform
+    if (Platform.OS === 'web') {
+        return <HomeScreenWeb />;
+    }
+
     // [WEB FIX] Use useWindowDimensions hook for reactive width detection on web
     const { width: SCREEN_WIDTH } = useWindowDimensions();
 

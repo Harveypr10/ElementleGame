@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "scheme": "elementle",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -14,6 +14,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "buildNumber": "2",
       "supportsTablet": true,
       "bundleIdentifier": "com.dobl.elementlegame",
       "usesAppleSignIn": true,
@@ -24,6 +25,7 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow Elementle to access your photos to save or share game content.",
         "NSMicrophoneUsageDescription": "Allow Elementle to access the microphone for game audio features.",
+        "NSLocationWhenInUseUsageDescription": "Allow Elementle to access your location for regional leaderboards.",
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
           {

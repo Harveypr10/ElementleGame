@@ -1,7 +1,10 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ActivityIndicator, Alert, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, ActivityIndicator, Alert, TouchableOpacity, Animated, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Web-specific implementation
+import GameScreenWeb from './[id].web';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Calendar, HelpCircle } from 'lucide-react-native';
@@ -20,6 +23,11 @@ import { HelpModal } from '../../../components/HelpModal';
 import { useNetwork } from '../../../contexts/NetworkContext';
 
 export default function GameScreen() {
+    // Platform-specific rendering: Web uses dedicated web component
+    if (Platform.OS === 'web') {
+        return <GameScreenWeb />;
+    }
+
     const backgroundColor = useThemeColor({}, 'background');
     const iconColor = useThemeColor({}, 'icon');
     const surfaceColor = useThemeColor({}, 'surface');

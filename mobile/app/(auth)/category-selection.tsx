@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, useColorScheme, useWindowDimensions, LayoutChangeEvent } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, useColorScheme, useWindowDimensions, LayoutChangeEvent, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { useRouter } from 'expo-router';
@@ -21,6 +21,9 @@ import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
 
+// Web version import
+import CategorySelectionWeb from './category-selection.web';
+
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
@@ -32,7 +35,13 @@ interface Category {
 }
 
 export default function CategorySelectionScreen() {
+    // Render web version on web platform
+    if (Platform.OS === 'web') {
+        return <CategorySelectionWeb />;
+    }
+
     const router = useRouter();
+
     const { user } = useAuth();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === 'dark';

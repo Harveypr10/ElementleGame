@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Modal, FlatList, Switch } from 'react-native';
-import { ChevronLeft, Key, Save, Check, X, ChevronDown, Info } from 'lucide-react-native';
+import { ChevronLeft, Key, Save, Check, X, ChevronDown, Info, Mail } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAccountInfoLogic } from '../../../hooks/useAccountInfoLogic';
 import { PostcodeAutocomplete } from '../../../components/PostcodeAutocomplete';
@@ -240,7 +240,6 @@ export default function AccountInfoWeb() {
                                 disabled={togglingMagicLink || !hasPassword}
                                 trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
                                 thumbColor={'#ffffff'}
-                                activeThumbColor={'#ffffff'}
                             />
                         </View>
                     </View>
