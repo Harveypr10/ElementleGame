@@ -46,7 +46,6 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "0.76.9",
-    "react-native-google-mobile-ads": "^16.0.3",
     "react-native-purchases": "^9.7.1",
     "react-native-purchases-ui": "^9.7.1",
     "react-native-reanimated": "~3.16.1",
