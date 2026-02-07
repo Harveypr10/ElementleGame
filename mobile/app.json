@@ -14,7 +14,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "buildNumber": "8",
+      "buildNumber": "10",
       "supportsTablet": true,
       "bundleIdentifier": "com.dobl.elementlegame",
       "usesAppleSignIn": true,
