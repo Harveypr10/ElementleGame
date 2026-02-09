@@ -32,12 +32,12 @@ export const APPLOVIN_CONFIG = {
 
 export const ADMOB_CONFIG = {
     banner: Platform.select({
-        ios: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY',
-        android: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY',
+        ios: 'ca-app-pub-6974310366527526/5514109458',
+        android: 'ca-app-pub-6974310366527526/8100754084',
     }) ?? '',
     interstitial: Platform.select({
-        ios: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY',
-        android: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY',
+        ios: 'ca-app-pub-6974310366527526/5106915348',
+        android: 'cca-app-pub-6974310366527526/5845281948',
     }) ?? '',
 };
 

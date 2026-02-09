@@ -16,7 +16,7 @@ interface AdConfig {
 // Production ad unit IDs (replace these with your actual AdMob unit IDs)
 const PRODUCTION_AD_UNITS: AdConfig = {
     banner: Platform.select({
-        ios: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY', // TODO: Replace with production iOS banner ID
+        ios: 'ca-app-pub-6974310366527526/5514109458', // TODO: Replace with production iOS banner ID
         android: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY', // TODO: Replace with production Android banner ID
     })!,
     interstitial: Platform.select({

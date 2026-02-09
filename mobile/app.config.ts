@@ -31,13 +31,13 @@ const plugins: any[] = [
 ];
 
 // Only include Google Mobile Ads plugin on non-Android builds
-// During local dev (EAS_BUILD_PLATFORM undefined), include it for iOS simulator
+// During local dev (EAS_BUILD_PLATFORM undefined), include it for iOS simulator - Android is the test code, ios is real
 if (!isAndroidBuild) {
     plugins.push([
         "react-native-google-mobile-ads",
         {
-            androidAppId: "ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy",
-            iosAppId: "ca-app-pub-xxxxxxxxxxxxxxxx~yyyyyyyyyy",
+            androidAppId: "ca-app-pub-6974310366527526~3682153035",
+            iosAppId: "ca-app-pub-6974310366527526~9453354469",
         },
     ]);
 }
