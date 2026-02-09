@@ -3,6 +3,7 @@ import { View, Text, Modal, Animated, TouchableOpacity, Image } from 'react-nati
 import { styled } from 'nativewind';
 import { X } from 'lucide-react-native';
 const StreakHamsterImg = require('../../assets/ui/Streak-Hamster-Black.png');
+import { StreakBadge } from '../StreakBadge';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -108,24 +109,8 @@ export function StreakCelebration({ visible, streak, onClose, showCloseButton = 
                     )}
 
                     {/* Hamster with Number Overlay */}
-                    <View className="relative w-72 h-72 justify-center items-center mb-8">
-                        <StyledImage
-                            source={StreakHamsterImg}
-                            className="w-full h-full"
-                            resizeMode="contain"
-                        />
-                        <View className="absolute inset-x-0 bottom-12 items-center">
-                            {/* Dynamic Sizing based on digits */}
-                            <StyledText
-                                className={`text-red-600 font-black ${streak.toString().length === 1 ? 'text-6xl' : streak.toString().length === 2 ? 'text-5xl' : 'text-4xl'}`}
-                                style={{
-                                    textShadowColor: 'rgba(255, 255, 255, 0.8)',
-                                    textShadowOffset: { width: 0, height: 0 },
-                                    textShadowRadius: 10
-                                }}>
-                                {streak}
-                            </StyledText>
-                        </View>
+                    <View style={{ width: 288, height: 288, justifyContent: 'center', alignItems: 'center', marginBottom: 32 }}>
+                        <StreakBadge streak={streak} size={288} imageSource={StreakHamsterImg} />
                     </View>
 
                     {/* Text Content */}

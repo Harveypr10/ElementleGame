@@ -625,7 +625,7 @@ export default function ArchiveScreen() {
     const calendarContentWidth = calendarCardWidth - innerPadding;
 
     return (
-        <ThemedView className="flex-1 bg-slate-100 dark:bg-slate-900">
+        <ThemedView className="flex-1" style={{ backgroundColor: darkMode ? '#0f172a' : '#f1f5f9' }}>
             {/* Extended Header Background */}
             <StyledView
                 style={{
@@ -656,19 +656,42 @@ export default function ArchiveScreen() {
                     <StyledTouchableOpacity
                         onPress={handlePrev}
                         disabled={isPrevDisabled}
-                        className={`bg-white dark:bg-slate-800 rounded-3xl shadow-sm items-center justify-center ${isPrevDisabled ? 'opacity-50' : 'opacity-100'}`}
-                        style={{ width: 48, height: 60 }}
+                        style={{
+                            backgroundColor: darkMode ? '#1e293b' : '#FFFFFF',
+                            borderRadius: 24,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 48,
+                            height: 60,
+                            opacity: isPrevDisabled ? 0.5 : 1,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: darkMode ? 0 : 0.05,
+                            shadowRadius: 2,
+                            elevation: darkMode ? 0 : 1,
+                        }}
                     >
                         <ChevronLeft size={24} color={darkMode ? '#FFFFFF' : '#64748B'} />
                     </StyledTouchableOpacity>
 
                     {/* Month Title Card (Middle) */}
                     <StyledView
-                        className="flex-1 bg-white dark:bg-slate-800 rounded-3xl shadow-sm items-center justify-center"
-                        style={{ height: 60 }}
+                        style={{
+                            flex: 1,
+                            backgroundColor: darkMode ? '#1e293b' : '#FFFFFF',
+                            borderRadius: 24,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: 60,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: darkMode ? 0 : 0.05,
+                            shadowRadius: 2,
+                            elevation: darkMode ? 0 : 1,
+                        }}
                     >
-                        <TouchableOpacity onPress={() => setModalVisible(true)} className="items-center justify-center w-full h-full">
-                            <ThemedText style={{ fontSize: isTablet ? 30 : 20 }} className="font-n-bold text-slate-800 dark:text-white" numberOfLines={1} adjustsFontSizeToFit>
+                        <TouchableOpacity onPress={() => setModalVisible(true)} style={{ alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                            <ThemedText style={{ fontSize: isTablet ? 30 : 20, color: darkMode ? '#FFFFFF' : '#1e293b' }} className="font-n-bold" numberOfLines={1} adjustsFontSizeToFit>
                                 {currentTitle}
                             </ThemedText>
                         </TouchableOpacity>
@@ -678,8 +701,20 @@ export default function ArchiveScreen() {
                     <StyledTouchableOpacity
                         onPress={handleNext}
                         disabled={isNextDisabled}
-                        className={`bg-white dark:bg-slate-800 rounded-3xl shadow-sm items-center justify-center ${isNextDisabled ? 'opacity-50' : 'opacity-100'}`}
-                        style={{ width: 48, height: 60 }}
+                        style={{
+                            backgroundColor: darkMode ? '#1e293b' : '#FFFFFF',
+                            borderRadius: 24,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 48,
+                            height: 60,
+                            opacity: isNextDisabled ? 0.5 : 1,
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 1 },
+                            shadowOpacity: darkMode ? 0 : 0.05,
+                            shadowRadius: 2,
+                            elevation: darkMode ? 0 : 1,
+                        }}
                     >
                         <ChevronRight size={24} color={darkMode ? '#FFFFFF' : '#64748B'} />
                     </StyledTouchableOpacity>
@@ -689,21 +724,21 @@ export default function ArchiveScreen() {
 
             {/* Offline Indicator */}
             {!isConnected && (
-                <StyledView className="mx-6 mb-4 p-2 bg-slate-800 dark:bg-slate-700 rounded-xl items-center flex-row justify-center gap-2">
-                    <View className="w-2 h-2 rounded-full bg-red-400" />
-                    <ThemedText className="text-white text-xs font-n-bold">Offline Mode - Showing Cached Data</ThemedText>
+                <StyledView style={{ marginHorizontal: 24, marginBottom: 16, padding: 8, backgroundColor: darkMode ? '#334155' : '#1e293b', borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#f87171' }} />
+                    <ThemedText className="font-n-bold" style={{ color: '#FFFFFF', fontSize: 12 }}>Offline Mode - Showing Cached Data</ThemedText>
                 </StyledView>
             )}
 
             {/* Main Content Area */}
             <StyledView style={{ flex: 1, paddingHorizontal: 16, width: '100%', maxWidth: 768, alignSelf: 'center' }}>
                 {/* Calendar Card Container */}
-                <StyledView className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm pb-4 pt-6 mb-4">
+                <StyledView style={{ backgroundColor: darkMode ? '#1e293b' : '#FFFFFF', borderRadius: 24, paddingBottom: 16, paddingTop: 24, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: darkMode ? 0 : 0.05, shadowRadius: 2, elevation: darkMode ? 0 : 1 }}>
                     {/* Week Headers - with padding */}
-                    <StyledView className={`${screenWidth >= 600 ? 'px-4' : 'px-2'} mb-4 border-b border-slate-100 dark:border-slate-700 pb-2`}>
-                        <StyledView className="flex-row" style={{ flexDirection: 'row' }}>
+                    <StyledView style={{ paddingHorizontal: screenWidth >= 600 ? 16 : 8, marginBottom: 16, borderBottomWidth: 1, borderColor: darkMode ? '#334155' : '#f1f5f9', paddingBottom: 8 }}>
+                        <StyledView style={{ flexDirection: 'row' }}>
                             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                                <StyledText key={day} style={{ fontSize: isTablet ? dateFontSize : 13 * textScale, width: '14.285714%' }} className="text-center font-n-bold text-slate-400 dark:text-slate-500 uppercase">
+                                <StyledText key={day} style={{ fontSize: isTablet ? dateFontSize : 13 * textScale, width: '14.285714%', textAlign: 'center', fontFamily: 'Nunito-Bold', color: darkMode ? '#475569' : '#94a3b8', textTransform: 'uppercase' }}>
                                     {day}
                                 </StyledText>
                             ))}
@@ -711,7 +746,7 @@ export default function ArchiveScreen() {
                     </StyledView>
 
                     {/* Swipeable Calendar - with padding to match headers */}
-                    <StyledView className={screenWidth >= 600 ? 'px-4' : 'px-2'}>
+                    <StyledView style={{ paddingHorizontal: screenWidth >= 600 ? 16 : 8 }}>
                         <FlatList
                             ref={flatListRef}
                             data={months}
@@ -751,10 +786,10 @@ export default function ArchiveScreen() {
 
             {/* Return to Today Button (Bottom Floating/Fixed) */}
             {!isTodaySelected && (
-                <StyledView className="absolute bottom-10 left-0 right-0 items-center z-10">
+                <StyledView style={{ position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center', zIndex: 10 }}>
                     <ThemedView
                         variant="surface"
-                        className="px-6 py-3 rounded-full shadow-lg border border-slate-100 dark:border-slate-700"
+                        style={{ paddingHorizontal: 24, paddingVertical: 12, borderRadius: 9999, borderWidth: 1, borderColor: darkMode ? '#334155' : '#f1f5f9', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 }}
                     >
                         <TouchableOpacity onPress={returnToToday}>
                             <ThemedText style={{ fontSize: 16 * textScale, color: brandColorDark }} className="font-n-bold">

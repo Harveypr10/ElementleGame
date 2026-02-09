@@ -172,15 +172,16 @@ function Cell({
     return (
         <View className="flex-1 min-h-[60px] max-w-[54px] mx-0.5 my-1" style={{ height: 60 }}>
             <StyledAnimatedView
+                className={`flex-1 rounded-md justify-center items-center`}
                 style={[
                     {
                         transform,
                         borderColor: borderColor,
                         borderWidth: borderWidth,
                         backgroundColor: backgroundColor,
+                        position: 'relative' as const,
                     }
                 ]}
-                className={`flex-1 rounded-md justify-center items-center`}
             >
                 {/* Digit: Reduced font weight (font-nunito instead of bold), Pushed slightly down/right */}
                 <ThemedText
@@ -193,7 +194,7 @@ function Cell({
 
                 {/* Arrows: Pushed closer to corner (right-0.5 top-0.5), Smaller */}
                 {isRevealed && arrow && (
-                    <View className="absolute top-0.5 right-0.5">
+                    <View style={{ position: 'absolute', top: 2, right: 2 }}>
                         {arrow === 'up' ? (
                             <ArrowUp size={14} color="white" strokeWidth={2.5} />
                         ) : (

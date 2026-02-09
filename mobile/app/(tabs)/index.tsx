@@ -765,8 +765,8 @@ export default function HomeScreen() {
                             </StyledTouchableOpacity>
                         </StyledView>
 
-                        {/* [WEB FIX] Added pt-10 to clear absolutely positioned help/settings icons */}
-                        <ThemedText className="font-n-bold mb-6 pt-10 font-heading" baseSize={SCREEN_WIDTH >= 768 ? 48 : 36}>
+                        {/* Title - reduced top padding by 60% */}
+                        <ThemedText className="font-n-bold mb-3 font-heading" baseSize={SCREEN_WIDTH >= 768 ? 48 : 36} style={{ paddingTop: 16 }}>
                             Elementle
                         </ThemedText>
 

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -68,6 +69,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isGuest, setIsGuest] = useState(false);
     const [loading, setLoading] = useState(true);
+    const appStateRef = useRef(AppState.currentState);
+
+    // ============================================================
+    // AppState lifecycle: refresh Supabase connection on foreground resume
+    // Fixes iOS production issue where backgrounding the app for 30+ min
+    // causes the Supabase socket/session to go stale, hanging all requests.
+    // ============================================================
+    useEffect(() => {
+        const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
+            if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+                console.log('[Auth] App resumed to foreground — refreshing connection');
+                supabase.auth.startAutoRefresh();
+
+                // Validate session is still alive with a lightweight call
+                try {
+                    const { error } = await supabase.auth.getUser();
+                    if (error) {
+                        console.warn('[Auth] Session stale on resume, attempting refresh...', error.message);
+                        const { error: refreshError } = await supabase.auth.refreshSession();
+                        if (refreshError) {
+                            console.error('[Auth] Session refresh failed:', refreshError.message);
+                        } else {
+                            console.log('[Auth] Session refreshed successfully after resume');
+                        }
+                    } else {
+                        console.log('[Auth] Session validated successfully on resume');
+                    }
+                } catch (e) {
+                    console.error('[Auth] Failed to validate session on resume:', e);
+                }
+            } else if (nextAppState.match(/inactive|background/)) {
+                console.log('[Auth] App entering background — stopping auto refresh');
+                supabase.auth.stopAutoRefresh();
+            }
+            appStateRef.current = nextAppState;
+        });
+
+        return () => subscription.remove();
+    }, []);
 
     useEffect(() => {
         const initAuth = async () => {

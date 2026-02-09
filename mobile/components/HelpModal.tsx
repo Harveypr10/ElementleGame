@@ -82,21 +82,20 @@ export function HelpModal({ visible, onClose }: HelpModalProps) {
         >
             <StyledView className="flex-1 justify-end bg-black/50">
                 <StyledView
-                    className="rounded-t-3xl h-[85%] w-full flex-col"
-                    style={{ backgroundColor: surfaceColor }}
+                    className="rounded-t-3xl w-full flex-col"
+                    style={{ backgroundColor: surfaceColor, height: '89.5%' }}
                 >
                     {/* Header */}
                     <StyledView
-                        className="flex-row items-center justify-center px-6 py-5 border-b relative" // Added relative and justify-center
-                        style={{ borderColor: borderColor }}
+                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 20, borderBottomWidth: 1, borderColor: borderColor, position: 'relative' }}
                     >
-                        <ThemedText className="text-2xl font-bold text-center">
+                        <ThemedText className="font-bold" style={{ fontSize: 24, textAlign: 'center' }}>
                             How to Play
                         </ThemedText>
 
-                        {/* Wrap the button in absolute positioning to pull it out of the flex flow */}
-                        <StyledView className="absolute right-4">
-                            <StyledTouchableOpacity onPress={onClose} className="p-2">
+                        {/* Close button - absolute positioned */}
+                        <StyledView style={{ position: 'absolute', right: 16, top: 0, bottom: 0, justifyContent: 'center' }}>
+                            <StyledTouchableOpacity onPress={onClose} style={{ padding: 8 }}>
                                 <X size={24} color={iconColor} />
                             </StyledTouchableOpacity>
                         </StyledView>

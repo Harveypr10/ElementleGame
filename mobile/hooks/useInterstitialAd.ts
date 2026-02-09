@@ -1,11 +1,3 @@
-/**
- * Interstitial Ad Hook - Production Implementation
- * 
- * Manages interstitial ad display after game completion
- * Uses Google AdMob for real ads
- * Only shown to non-Pro users who are 16+
- */
-
 import { useEffect, useRef, useState } from 'react';
 import { InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { useSubscription } from './useSubscription';
@@ -15,9 +7,9 @@ import { getActiveProvider } from '../lib/AdManager';
 export function useInterstitialAd(onAdClosed?: () => void) {
     const { isPro } = useSubscription();
     const activeProvider = getActiveProvider();
-    const interstitialRef = useRef<InterstitialAd | null>(null);
+    const interstitialRef = useRef<any>(null);
     const isLoadedRef = useRef(false);
-    const onAdClosedRef = useRef(onAdClosed); // Ref to avoid stale closure
+    const onAdClosedRef = useRef(onAdClosed);
     const [isLoaded, setIsLoaded] = useState(false);
     const [isClosed, setIsClosed] = useState(false);
 
@@ -32,11 +24,7 @@ export function useInterstitialAd(onAdClosed?: () => void) {
     // Initialize interstitial ad
     useEffect(() => {
         if (adsDisabled) {
-            if (isPro) {
-                console.log('[InterstitialAd] Pro user - ads disabled');
-            } else {
-                console.log('[InterstitialAd] Under-16 user - ads disabled');
-            }
+            console.log('[InterstitialAd] Ads disabled');
             return;
         }
 
@@ -57,17 +45,16 @@ export function useInterstitialAd(onAdClosed?: () => void) {
             isLoadedRef.current = false;
             setIsLoaded(false);
             setIsClosed(true);
-            setTimeout(() => setIsClosed(false), 500); // Reset closed state
-            interstitial.load();
 
             // Call the callback if provided (immediate, doesn't wait for state)
             if (onAdClosedRef.current) {
                 console.log('[InterstitialAd] Calling onAdClosed callback');
                 onAdClosedRef.current();
             }
+            interstitial.load();
         });
 
-        const unsubscribeError = interstitial.addAdEventListener(AdEventType.ERROR, (error) => {
+        const unsubscribeError = interstitial.addAdEventListener(AdEventType.ERROR, (error: any) => {
             console.log('[InterstitialAd] Error loading ad:', error);
             isLoadedRef.current = false;
             setIsLoaded(false);
@@ -86,27 +73,15 @@ export function useInterstitialAd(onAdClosed?: () => void) {
     }, [adsDisabled, isPro]);
 
     const showAd = () => {
-        if (adsDisabled) {
-            if (isPro) {
-                console.log('[InterstitialAd] Pro user - not showing ad');
-            } else {
-                console.log('[InterstitialAd] Under-16 user - not showing ad');
-            }
-            return;
-        }
+        if (adsDisabled) return;
 
-        if (!interstitialRef.current) {
-            console.log('[InterstitialAd] Ad not initialized');
-            return;
-        }
-
-        if (!isLoadedRef.current) {
-            console.log('[InterstitialAd] Ad not loaded yet');
+        if (!interstitialRef.current || !isLoadedRef.current) {
+            console.log('[InterstitialAd] Ad not ready');
             return;
         }
 
         console.log('[InterstitialAd] Showing interstitial ad');
-        setIsClosed(false); // Reset before showing
+        setIsClosed(false);
         interstitialRef.current.show();
     };
 

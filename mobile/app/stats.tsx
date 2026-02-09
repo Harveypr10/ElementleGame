@@ -562,7 +562,7 @@ export default function StatsScreen() {
                                     {/* Elementle Badge */}
                                     <StyledTouchableOpacity
                                         className="flex-1 items-center p-3 rounded-xl mx-1"
-                                        style={{ backgroundColor: highestBadges.elementle ? theme.badgeWonBg : theme.accentVeryLight }}
+                                        style={{ backgroundColor: highestBadges.elementle ? theme.badgeWonBg : theme.accentVeryLight, opacity: highestBadges.elementle ? 1 : 0.5 }}
                                         onPress={() => { setSelectedCategory('elementle'); setShowBadgesModal(true); }}
                                     >
                                         <ThemedText className="font-n-bold text-xs mb-2" style={{ color: highestBadges.elementle ? '#FFFFFF' : theme.badgeText }}>
@@ -586,7 +586,7 @@ export default function StatsScreen() {
                                     {/* Streak Badge */}
                                     <StyledTouchableOpacity
                                         className="flex-1 items-center p-3 rounded-xl mx-1"
-                                        style={{ backgroundColor: highestBadges.streak ? theme.badgeWonBg : theme.accentVeryLight }}
+                                        style={{ backgroundColor: highestBadges.streak ? theme.badgeWonBg : theme.accentVeryLight, opacity: highestBadges.streak ? 1 : 0.5 }}
                                         onPress={() => { setSelectedCategory('streak'); setShowBadgesModal(true); }}
                                     >
                                         <ThemedText className="font-n-bold text-xs mb-2" style={{ color: highestBadges.streak ? '#FFFFFF' : theme.badgeText }}>
@@ -610,7 +610,7 @@ export default function StatsScreen() {
                                     {/* Percentile Badge */}
                                     <StyledTouchableOpacity
                                         className="flex-1 items-center p-3 rounded-xl mx-1"
-                                        style={{ backgroundColor: highestBadges.percentile ? theme.badgeWonBg : theme.accentVeryLight }}
+                                        style={{ backgroundColor: highestBadges.percentile ? theme.badgeWonBg : theme.accentVeryLight, opacity: highestBadges.percentile ? 1 : 0.5 }}
                                         onPress={() => { setSelectedCategory('percentile'); setShowBadgesModal(true); }}
                                     >
                                         <ThemedText className="font-n-bold text-xs mb-2" style={{ color: highestBadges.percentile ? '#FFFFFF' : theme.badgeText }}>
@@ -638,6 +638,8 @@ export default function StatsScreen() {
                                 onClose={() => setShowBadgesModal(false)}
                                 gameType="REGION"
                                 initialCategory={selectedCategory}
+                                brandColor={theme.headerBg}
+                                playButtonColor={mode === 'REGION' ? '#7DAAE8' : '#66becb'}
                             />
 
                             {/* Last 30 Days Chart */}

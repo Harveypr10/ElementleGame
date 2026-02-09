@@ -328,8 +328,8 @@ export default function GameScreen() {
     return (
         <View style={{ flex: 1, position: 'relative' }}>
             <ThemedView className="flex-1">
-                <SafeAreaView edges={['top']} style={{ zIndex: 10, backgroundColor: brandColor, paddingBottom: 24 }}>
-                    <View style={{ position: 'relative', justifyContent: 'center', alignItems: 'center', zIndex: 50, backgroundColor: brandColor, height: 60, width: '100%' }}>
+                <SafeAreaView edges={['top']} style={{ backgroundColor: brandColor, paddingBottom: 8 }}>
+                    <View style={{ position: 'relative', justifyContent: 'center', alignItems: 'center', zIndex: 10, backgroundColor: brandColor, height: 60, width: '100%' }}>
 
                         {/* Left: Back Arrow - Hidden if game OVER and Guest */}
                         {!(isGuest && (gameState === 'won' || gameState === 'lost')) && (
@@ -362,10 +362,13 @@ export default function GameScreen() {
                     </View>
                 </SafeAreaView>
 
+                {/* Secondary color strip - extends header color down so content cards overlap it */}
+                <View style={{ backgroundColor: brandColor, height: 30 }} />
+
                 {/* Main Content Area: Handles Loading, Error, and Active Game */}
-                <View className="flex-1">
+                <View style={{ flex: 1, marginTop: -30, zIndex: 5 }}>
                     {loading ? (
-                        <View className="flex-1 justify-center items-center">
+                        <View style={{ flex: 1, paddingTop: 30, backgroundColor: backgroundColor }} className="justify-center items-center">
                             <ActivityIndicator size="large" color="#3b82f6" />
                             <Text className="text-slate-900 dark:text-white mt-4 font-body">Loading Puzzle...</Text>
                         </View>
@@ -391,7 +394,7 @@ export default function GameScreen() {
                             </TouchableOpacity>
                         </View>
                     ) : (
-                        <View style={{ flex: 1, marginTop: -20 }}>
+                        <View style={{ flex: 1 }}>
                             <ActiveGame
                                 puzzle={puzzle}
                                 gameMode={modeStr}
@@ -416,33 +419,6 @@ export default function GameScreen() {
                 {/* Help Modal */}
                 <HelpModal visible={helpVisible} onClose={() => setHelpVisible(false)} />
             </ThemedView>
-
-            {/* Clue Box - Absolutely positioned to overlap header */}
-            {puzzle && cluesEnabled && !loading && (
-                <View style={{
-                    position: 'absolute',
-                    top: 120, // Positioned to overlap bottom of header like Archive
-                    left: 16,
-                    right: 16,
-                    zIndex: 100,
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 24,
-                    padding: 16,
-                    alignItems: 'center',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 8,
-                    elevation: 4,
-                }}>
-                    <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>
-                        {puzzle.category}
-                    </Text>
-                    <Text style={{ color: '#1e293b', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
-                        {puzzle.title}
-                    </Text>
-                </View>
-            )}
         </View>
     );
 }

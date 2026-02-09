@@ -64,7 +64,7 @@ export default function SettingsScreen() {
                     <StyledView className="flex-row items-center justify-center relative flex-1" style={{ flexDirection: 'row' }}>
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
-                            className="absolute left-0 z-10 p-2"
+                            style={{ position: 'absolute', left: 0, zIndex: 10, padding: 8 }}
                         >
                             <ChevronLeft size={28} color={colors.icon} />
                         </StyledTouchableOpacity>

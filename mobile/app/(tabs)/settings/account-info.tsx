@@ -98,7 +98,7 @@ export default function AccountInfoPage() {
                     <StyledView className="flex-row items-center justify-center relative">
                         <StyledTouchableOpacity
                             onPress={() => router.replace('/(tabs)/settings')}
-                            className="absolute left-0"
+                            style={{ position: 'absolute', left: 0 }}
                         >
                             <ChevronLeft size={28} color={textColor} />
                         </StyledTouchableOpacity>
@@ -115,7 +115,8 @@ export default function AccountInfoPage() {
                     style={{ backgroundColor: surfaceColor }}
                 >
                     <ScrollView
-                        className="flex-1 px-4 py-4"
+                        className="flex-1"
+                        style={{ paddingHorizontal: 16, paddingVertical: 16 }}
                         keyboardShouldPersistTaps="handled"
                     >
                         {/* Profile Section */}

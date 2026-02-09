@@ -126,7 +126,7 @@ export function OnboardingScreen({
                 </ThemedText>
             </View>
 
-            {/* DEV: Clear AsyncStorage overlay button */}
+            {/* DEV: Clear AsyncStorage overlay button - commented out, kept for future use
             {__DEV__ && (
                 <TouchableOpacity
                     onPress={handleClearAsyncStorage}
@@ -136,6 +136,7 @@ export function OnboardingScreen({
                     <Text style={styles.devClearButtonText}>🗑️ Clear Storage</Text>
                 </TouchableOpacity>
             )}
+            */}
         </ThemedView>
     );
 }

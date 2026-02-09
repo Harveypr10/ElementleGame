@@ -10,6 +10,7 @@ import { ChevronLeft } from 'lucide-react-native';
 import { ThemedText } from '../ThemedText';
 
 import StreakHamster from '../../assets/ui/webp_assets/Streak-Hamster-Black.webp';
+import { StreakBadge } from '../StreakBadge';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -97,26 +98,8 @@ export function IntroScreen({
                 {/* Mascot */}
                 <StyledView className="mb-8 items-center justify-center h-48 w-48 relative">
                     {isStreakGame ? (
-                        <View className="relative w-full h-full justify-center items-center">
-                            <Image
-                                source={require('../../assets/ui/webp_assets/Streak-Hamster-Black.webp')}
-                                style={{ width: 180, height: 180 }}
-                                contentFit="contain"
-                                cachePolicy="disk"
-                            />
-                            {/* Overlay Number - Centered on Mascot - Matched to StreakCelebration */}
-                            <View className="absolute inset-x-0 bottom-8 items-center">
-                                <ThemedText
-                                    className={`text-red-600 font-extrabold shadow-lg ${(currentStreak || 0).toString().length === 1 ? 'text-4xl' : (currentStreak || 0).toString().length === 2 ? 'text-3xl' : 'text-2xl'}`}
-                                    style={{
-                                        textShadowColor: 'rgba(255, 255, 255, 0.8)',
-                                        textShadowOffset: { width: 0, height: 0 },
-                                        textShadowRadius: 10
-                                    }}
-                                >
-                                    {currentStreak || 0}
-                                </ThemedText>
-                            </View>
+                        <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                            <StreakBadge streak={currentStreak || 0} size={180} />
                         </View>
                     ) : (
                         <Image

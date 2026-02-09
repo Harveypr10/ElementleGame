@@ -178,12 +178,37 @@ export function BadgeSlot(props: BadgeSlotProps) {
                 animatedStyle,
                 { alignItems: 'center', justifyContent: 'center' }
             ]}>
-                <StyledImage
-                    source={getBadgeImage()}
-                    style={{ width: currentSize.width, height: currentSize.height, opacity: isEmpty ? 0.3 : 1 }}
-                    contentFit="contain"
-                    cachePolicy="disk"
-                />
+                <View style={{ position: 'relative', alignItems: 'center', justifyContent: 'center' }}>
+                    <StyledImage
+                        source={getBadgeImage()}
+                        style={{
+                            width: category === 'percentile' ? currentSize.width * 0.96 : currentSize.width,
+                            height: category === 'percentile' ? currentSize.height * 0.96 : currentSize.height,
+                            opacity: isEmpty ? 0.3 : 1
+                        }}
+                        contentFit="contain"
+                        cachePolicy="disk"
+                    />
+                    {/* Percentile text overlay for minimal mode */}
+                    {!isEmpty && category === 'percentile' && badge && (
+                        <StyledView style={{
+                            position: 'absolute',
+                            top: '45%',
+                            left: 0,
+                            right: 0,
+                            alignItems: 'center',
+                        }}>
+                            <StyledText style={{
+                                fontSize: currentSize.icon * 0.45,
+                                fontWeight: 'bold',
+                                color: '#6B5D4F',
+                                textAlign: 'center',
+                            }}>
+                                {getBadgeValue()}
+                            </StyledText>
+                        </StyledView>
+                    )}
+                </View>
             </Animated.View>
         );
     }
@@ -200,7 +225,11 @@ export function BadgeSlot(props: BadgeSlotProps) {
                     {/* Badge Image (Dynamic) */}
                     <StyledImage
                         source={getBadgeImage()}
-                        style={{ width: currentSize.width * 0.6, height: currentSize.height * 0.6, opacity: isEmpty ? 0.3 : 1 }}
+                        style={{
+                            width: category === 'percentile' ? currentSize.width * 0.72 : currentSize.width * 0.6,
+                            height: category === 'percentile' ? currentSize.height * 0.72 : currentSize.height * 0.6,
+                            opacity: isEmpty ? 0.3 : 1
+                        }}
                         contentFit="contain"
                         cachePolicy="disk"
                     />
@@ -209,13 +238,13 @@ export function BadgeSlot(props: BadgeSlotProps) {
                     {!isEmpty && category === 'percentile' && badge && (
                         <StyledView style={{
                             position: 'absolute',
-                            top: '52%',
+                            top: '45%',
                             left: 0,
                             right: 0,
                             alignItems: 'center',
                         }}>
                             <StyledText style={{
-                                fontSize: currentSize.icon * 1.5,
+                                fontSize: currentSize.icon * 0.45,
                                 fontWeight: 'bold',
                                 color: '#6B5D4F',
                                 textAlign: 'center',
@@ -227,10 +256,10 @@ export function BadgeSlot(props: BadgeSlotProps) {
                 </StyledView>
             </Animated.View>
 
-            {!isEmpty && (
+            {!isEmpty && size !== 'xxl' && (
                 <StyledText
                     className={`${currentSize.text} text-slate-500 text-center font-n-medium`}
-                    style={{ marginTop: size === 'xxl' ? -50 : 0, maxWidth: size === 'xxl' ? 200 : 80 }}
+                    style={{ marginTop: 0, maxWidth: 80 }}
                     numberOfLines={2}
                 >
                     {badge.badge?.name || badge.name}

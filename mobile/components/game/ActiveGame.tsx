@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -460,12 +460,12 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             return;
         }
 
-        // Standard users: wait 2 seconds for ad to fully appear on screen
-        console.log('[ActiveGame] Standard user - Waiting 4s before enabling Continue button');
+        // Standard users: wait 1 second for ad to fully appear on screen
+        console.log('[ActiveGame] Standard user - Waiting 1s before enabling Continue button');
         const timer = setTimeout(() => {
-            console.log('[ActiveGame] Enabling Continue button after 4s wait');
+            console.log('[ActiveGame] Enabling Continue button after 1s wait');
             setButtonEnabled(true);
-        }, 4000);
+        }, 1000);
 
         return () => clearTimeout(timer);
     }, [readyForCelebration, isPro, isGuest, wasInitiallyComplete, gameState]);
@@ -474,7 +474,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
 
     if (gameState === 'loading') {
         return (
-            <View className="flex-1 justify-center items-center">
+            <View className="flex-1 justify-center items-center" style={{ backgroundColor }}>
                 <ActivityIndicator size="large" color="#3b82f6" />
             </View>
         );
@@ -497,9 +497,35 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             )}
 
             {!isLoading && introPhase === 'hidden' && (
-                <Animated.View className="flex-1 w-full" style={{ opacity: gameFadeAnim, paddingTop: cluesEnabled ? 100 : 0 }}>
+                <Animated.View className="flex-1 w-full" style={{ opacity: gameFadeAnim }}>
 
-                    {/* Clue Box now rendered in [id].tsx with absolute positioning */}
+                    {/* Clue Box - rendered inline with stats-screen overlap pattern */}
+                    {cluesEnabled ? (
+                        <View style={{
+                            marginTop: -20,
+                            marginHorizontal: 16,
+                            zIndex: 20,
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: 24,
+                            padding: 16,
+                            alignItems: 'center',
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 8,
+                            elevation: 4,
+                        }}>
+                            <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>
+                                {puzzle.category}
+                            </Text>
+                            <Text style={{ color: '#1e293b', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
+                                {puzzle.title}
+                            </Text>
+                        </View>
+                    ) : (
+                        /* Spacer when clues OFF - pushes grid below header */
+                        <View style={{ height: 50 }} />
+                    )}
 
                     <ThemedView className={`flex-1 w-full max-w-md mx-auto px-4 ${cluesEnabled ? 'justify-start' : 'justify-center'}`} style={{ paddingTop: cluesEnabled ? 16 : 0, paddingBottom: cluesEnabled ? 8 : 0 }}>
                         <InputGrid
@@ -513,7 +539,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     </ThemedView>
 
                     {/* Keyboard or Continue Button */}
-                    <View style={{ paddingBottom: 25, paddingTop: 8, maxWidth: 582, alignSelf: 'center', width: '100%' }}>
+                    <View style={{ paddingBottom: Dimensions.get('window').height < 700 ? 8 : 25, paddingTop: 8, maxWidth: 582, alignSelf: 'center', width: '100%' }}>
                         {(gameState === 'playing') ? (
                             <NumericKeyboard
                                 onDigitPress={handleDigitPress}
@@ -524,7 +550,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                                 canSubmit={isValidGuess}
                             />
                         ) : (
-                            <View className="items-center px-4">
+                            <View style={{ alignItems: 'center', paddingHorizontal: 16 }}>
                                 <TouchableOpacity
                                     onPress={async () => {
                                         // Prioritize authoritative finalStreak if available (from local hook state)

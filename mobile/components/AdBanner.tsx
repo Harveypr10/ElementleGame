@@ -1,10 +1,3 @@
-/**
- * AdBanner Component - Production Implementation
- * 
- * Displays Google AdMob banner ads at the bottom of screens
- * Only shown to non-Pro users who are 16+
- */
-
 import React from 'react';
 import { View } from 'react-native';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';

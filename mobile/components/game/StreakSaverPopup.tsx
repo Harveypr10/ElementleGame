@@ -13,6 +13,7 @@ import { useProfile } from '../../hooks/useProfile';
 import hapticsManager from '../../lib/hapticsManager';
 import soundManager from '../../lib/soundManager';
 import { HolidayActivationModal } from './HolidayActivationModal';
+import { StreakBadge } from '../StreakBadge';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -371,12 +372,7 @@ export function StreakSaverPopup({
                                 {/* Hamster Image */}
                                 <StyledView className="items-center mb-6">
                                     <StyledView className="w-40 h-40 items-center justify-center mb-2">
-                                        <Image
-                                            source={require('../../assets/ui/webp_assets/Streak-Hamster-Black.webp')}
-                                            style={{ width: 150, height: 150 }}
-                                            contentFit="contain"
-                                            cachePolicy="disk"
-                                        />
+                                        <StreakBadge streak={currentStreak} size={150} />
                                     </StyledView>
 
                                     <StyledText className="text-3xl font-n-bold text-slate-900">

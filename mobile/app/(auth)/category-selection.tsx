@@ -307,33 +307,33 @@ export default function CategorySelectionScreen() {
         <ThemedView className="flex-1" style={{ backgroundColor: isDark ? systemBackgroundColor : '#FAFBFC' }}>
             {/* Header with Orange Accent */}
             <StyledView style={{ backgroundColor: '#f97316' }}>
-                <SafeAreaView edges={['top']} className="px-5 pb-6">
-                    <StyledView className="flex-row items-center justify-between py-2 relative">
+                <SafeAreaView edges={['top']} style={{ paddingHorizontal: 20, paddingBottom: 24 }}>
+                    <StyledView style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, position: 'relative' }}>
                         {/* Back Button - Absolute Left */}
                         <StyledTouchableOpacity
                             onPress={handleExit}
-                            className="absolute left-0 top-2 p-2 -ml-2 z-10"
+                            style={{ position: 'absolute', left: 0, top: 8, padding: 8, marginLeft: -8, zIndex: 10 }}
                         >
                             <ChevronLeft size={28} color="#FFFFFF" />
                         </StyledTouchableOpacity>
 
                         {/* Title - Centered */}
-                        <StyledView className="flex-1 items-center px-12">
-                            <ThemedText className="font-n-bold font-heading text-center" size={isLargeScreen ? "4xl" : "3xl"} style={{ color: '#FFFFFF', lineHeight: isLargeScreen ? 48 : 32 }}>
-                                Select Your{'\n'}Categories
+                        <StyledView style={{ flex: 1, alignItems: 'center', paddingHorizontal: isLargeScreen ? 48 : 40 }}>
+                            <ThemedText className="font-n-bold font-heading" style={{ color: '#FFFFFF', lineHeight: isLargeScreen ? 48 : 36, textAlign: 'center', maxWidth: '100%' }} size={isLargeScreen ? "4xl" : "3xl"} numberOfLines={2} adjustsFontSizeToFit>
+                                Select Your Categories
                             </ThemedText>
-                            <ThemedText className="font-n-medium text-center mt-1" size={isLargeScreen ? "xl" : "base"} style={{ color: 'rgba(255,255,255,0.8)' }}>
+                            <ThemedText className="font-n-medium" style={{ color: 'rgba(255,255,255,0.8)', textAlign: 'center', marginTop: 4 }} size={isLargeScreen ? "xl" : "base"} numberOfLines={1}>
                                 Choose at least 3 categories
                             </ThemedText>
                         </StyledView>
 
                         {/* Hamster Image - Absolute Right */}
                         <StyledView
-                            className="absolute"
                             style={{
-                                right: isLargeScreen ? 32 : 0, // Double distance (approx, assuming 16 default padding context) 
-                                top: isLargeScreen ? '50%' : 0, // Middle vertically if large
-                                transform: isLargeScreen ? [{ translateY: -36 }] : [], // Center offset
+                                position: 'absolute',
+                                right: isLargeScreen ? 32 : 0,
+                                top: isLargeScreen ? '50%' : 0,
+                                transform: isLargeScreen ? [{ translateY: -36 }] : [],
                             }}
                         >
                             <Image
@@ -349,20 +349,17 @@ export default function CategorySelectionScreen() {
 
             {/* Categories Grid - Overlapping Header */}
             <StyledScrollView
-                className="flex-1"
+                style={{ flex: 1, marginTop: -18 }}
                 showsVerticalScrollIndicator={false}
-                style={{ marginTop: -18 }} // Pull up overlap (reduced from -24 to move down slightly)
-                contentContainerStyle={{ paddingBottom: 160 }} // Extra padding for taller button area
+                contentContainerStyle={{ paddingBottom: 160 }}
                 onContentSizeChange={(w, h) => setContentHeight(h)}
                 onLayout={(e: LayoutChangeEvent) => setContainerHeight(e.nativeEvent.layout.height)}
             >
-                <StyledView className="px-4 w-full max-w-3xl self-center">
-                    <StyledView className="flex-row flex-wrap gap-2 pb-6 justify-center">
+                <StyledView style={{ paddingHorizontal: 16, width: '100%', maxWidth: 768, alignSelf: 'center' }}>
+                    <StyledView style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 24, justifyContent: 'center' }}>
                         {categories.map(category => {
                             const isSelected = selectedCategories.includes(category.id);
-                            // Darker Grey #64748B for selected state
                             const itemBg = isSelected ? '#64748B' : (isDark ? systemSurfaceColor : '#FFFFFF');
-                            // No border when unselected
                             const itemBorder = isSelected ? '#64748B' : 'transparent';
 
                             return (
@@ -370,20 +367,27 @@ export default function CategorySelectionScreen() {
                                     key={category.id}
                                     onPress={() => toggleCategory(category.id)}
                                     style={{
-                                        minHeight: 68, // Increased height (+20%)
+                                        flex: 1,
+                                        minWidth: '44%',
+                                        minHeight: 68,
                                         borderColor: itemBorder,
                                         backgroundColor: itemBg,
-                                        borderWidth: 1, // Keep border width for structure
+                                        borderWidth: 1,
+                                        borderRadius: 12,
+                                        paddingHorizontal: 12,
+                                        paddingVertical: 12,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
                                         shadowColor: '#000',
                                         shadowOffset: { width: 0, height: 2 },
-                                        shadowOpacity: isSelected || isDark ? 0 : 0.05, // Only shadow on white cards
+                                        shadowOpacity: isSelected || isDark ? 0 : 0.05,
                                         shadowRadius: 3,
                                         elevation: isSelected || isDark ? 0 : 2,
                                     }}
-                                    className={`flex-1 min-w-[44%] px-3 py-3 rounded-xl items-center justify-center`} // Reduced width ~10% via min-w
                                 >
                                     <ThemedText
-                                        className={`font-n-bold text-center ${isSelected ? 'text-white' : ''}`}
+                                        className="font-n-bold"
+                                        style={{ textAlign: 'center', color: isSelected ? '#FFFFFF' : textColor }}
                                         size={isLargeScreen ? "xl" : "sm"}
                                     >
                                         {category.name}
@@ -396,18 +400,14 @@ export default function CategorySelectionScreen() {
             </StyledScrollView>
 
             {/* Bottom Action Area - Fixed at Bottom */}
-            <StyledView className="absolute bottom-0 left-0 right-0 px-6 pb-8 pt-0 border-t border-transparent"
-                style={{
-                    // Gradient handled by LinearGradient
-                }}
-            >
+            <SafeAreaView edges={['bottom']} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 24, paddingTop: 0 }}>
                 {/* Fade Effect - Conditional & Revised Height */}
                 {isScrollable && (
                     <LinearGradient
                         colors={['transparent', isDark ? systemBackgroundColor : '#FAFBFC']}
                         style={{
                             position: 'absolute',
-                            top: isLargeScreen ? -30 : -60, // Half height on large screens
+                            top: isLargeScreen ? -30 : -60,
                             left: 0,
                             right: 0,
                             bottom: 0
@@ -416,44 +416,51 @@ export default function CategorySelectionScreen() {
                     />
                 )}
 
-                <StyledView className="w-full items-center" style={{ paddingHorizontal: 0 }}>
-                    {/* Width constrained button wrapper */}
+                <StyledView style={{ width: '100%', alignItems: 'center', paddingBottom: 16 }}>
                     <StyledView style={{ width: isLargeScreen ? 696 : '100%', maxWidth: '100%' }}>
                         <StyledTouchableOpacity
                             onPress={handleContinue}
                             disabled={!canGenerate || saving || generating}
-                            className={`rounded-full items-center shadow-lg justify-center w-full`}
                             style={{
-                                backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : '#48EDF3', // Blue-500 or Cyan (User request)
-                                opacity: 1, // Solid opacity always
-                                paddingVertical: 24, // Increased height
+                                borderRadius: 9999,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '100%',
+                                backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : '#48EDF3',
+                                opacity: 1,
+                                paddingVertical: 24,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 4 },
+                                shadowOpacity: 0.15,
+                                shadowRadius: 8,
+                                elevation: 4,
                             }}
                         >
                             {saving || generating ? (
-                                <StyledView className="items-center">
-                                    <StyledView className="flex-row items-center mb-1">
-                                        <Loader2 size={24} color="white" className="mr-2" />
-                                        <ThemedText className="text-white font-n-bold" size="lg">
+                                <StyledView style={{ alignItems: 'center' }}>
+                                    <StyledView style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                        <Loader2 size={24} color="white" style={{ marginRight: 8 }} />
+                                        <ThemedText className="font-n-bold" size="lg" style={{ color: '#FFFFFF' }}>
                                             {generating ? 'Generating...' : 'Saving...'}
                                         </ThemedText>
                                     </StyledView>
-                                    <ThemedText className="text-white font-n-medium opacity-80" size="sm">
+                                    <ThemedText className="font-n-medium" size="sm" style={{ color: 'rgba(255,255,255,0.8)' }}>
                                         Please wait
                                     </ThemedText>
                                 </StyledView>
                             ) : (
-                                <StyledView className="items-center">
+                                <StyledView style={{ alignItems: 'center' }}>
                                     <ThemedText
                                         className="font-n-bold"
                                         size={isLargeScreen ? "2xl" : "lg"}
-                                        style={{ color: canGenerate ? '#FFFFFF' : textColor }} // White or Default Text Color
+                                        style={{ color: canGenerate ? '#FFFFFF' : textColor }}
                                     >
                                         {initialCategories.length === 0 ? 'Generate' : 'Re-Generate'}
                                     </ThemedText>
                                     <ThemedText
-                                        className="font-n-medium opacity-90 mt-0.5"
+                                        className="font-n-medium"
                                         size={isLargeScreen ? "base" : "sm"}
-                                        style={{ color: canGenerate ? '#FFFFFF' : textColor }} // White or Default Text Color
+                                        style={{ color: canGenerate ? '#FFFFFF' : textColor, opacity: 0.9, marginTop: 2 }}
                                     >
                                         {selectedCategories.length} {selectedCategories.length === 1 ? 'Category' : 'Categories'} Selected
                                     </ThemedText>
@@ -462,7 +469,7 @@ export default function CategorySelectionScreen() {
                         </StyledTouchableOpacity>
                     </StyledView>
                 </StyledView>
-            </StyledView>
+            </SafeAreaView>
 
             {/* Welcome Pro Modal */}
             <Modal

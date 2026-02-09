@@ -271,12 +271,21 @@ export default function Layout() {
     // Let's modify NavigationGuard to show SplashScreen while loading.
 
     // [FONT FIX] Hide native splash once fonts are loaded
-    // NOTE: This hook must be called BEFORE any early returns (Rules of Hooks)
-    const onLayoutRootView = useCallback(async () => {
+    // Uses direct useEffect instead of onLayout to avoid race conditions in Release builds
+    useEffect(() => {
         if (fontsLoaded) {
-            await ExpoSplashScreen.hideAsync();
+            ExpoSplashScreen.hideAsync().catch(console.warn);
         }
     }, [fontsLoaded]);
+
+    // [SAFETY] Force-hide splash after 3 seconds to prevent indefinite hang
+    useEffect(() => {
+        const safetyTimer = setTimeout(() => {
+            console.warn('[Layout] Safety timeout: force-hiding splash screen after 3s');
+            ExpoSplashScreen.hideAsync().catch(console.warn);
+        }, 3000);
+        return () => clearTimeout(safetyTimer);
+    }, []);
 
     if (!fontsLoaded) {
         // Show Splash while system dependencies load
@@ -295,7 +304,7 @@ export default function Layout() {
                                         <StreakSaverProvider>
                                             <OptionsProvider>
                                                 <WebContainer>
-                                                    <ThemedView className="flex-1" onLayout={onLayoutRootView}>
+                                                    <ThemedView className="flex-1">
                                                         <NavigationGuard>
                                                             <Stack screenOptions={{ headerShown: false }}>
                                                                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
