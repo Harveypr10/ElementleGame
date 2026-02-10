@@ -24,6 +24,7 @@ interface HomeCardProps {
     testID?: string; // Test identifier
     iconStyle?: any; // Optional custom icon style
     scale?: number; // Scale factor for responsive sizing (default 1)
+    disabled?: boolean; // When true, dims the card and ignores taps
 }
 
 const HomeCardComponent = ({
@@ -37,16 +38,18 @@ const HomeCardComponent = ({
     children,
     testID,
     iconStyle,
-    scale = 1
+    scale = 1,
+    disabled = false
 }: HomeCardProps) => {
 
     return (
         <StyledTouchableOpacity
             testID={testID}
             className={`w-full rounded-3xl flex-row items-center justify-between px-5 overflow-hidden mb-4 ${className}`}
-            style={{ backgroundColor, height: height * scale, ...getCardShadow('md') }}
+            style={{ backgroundColor, height: height * scale, opacity: disabled ? 0.6 : 1, ...getCardShadow('md') }}
             onPress={onPress}
             activeOpacity={0.9}
+            disabled={disabled}
         >
             <StyledView className="flex-1 py-4">
                 <ThemedText className="font-n-bold text-slate-900 leading-tight" size="xl">

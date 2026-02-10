@@ -53,9 +53,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     newArchEnabled: false,
     scheme: "elementle",
     splash: {
-        image: "./assets/splash-icon.png",
+        image: "./assets/ui/Welcome-Hamster-Blue.png",
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#7DAAE8",
     },
     ios: {
         buildNumber: "11",

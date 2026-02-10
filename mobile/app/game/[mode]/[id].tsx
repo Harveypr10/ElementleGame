@@ -188,98 +188,83 @@ export default function GameScreen() {
 
             console.log(`[GameScreen] Fetching Puzzle from DB. Mode: ${modeStr}, Param: ${puzzleIdParam}, ID: ${resolvedId}`);
 
-            let allocationData: any = null;
-            let masterData: any = null;
+            // Wrap network fetch in an 8-second timeout
+            const FETCH_TIMEOUT_MS = 8000;
+            const fetchWithTimeout = async () => {
+                let allocationData: any = null;
+                let masterData: any = null;
 
-            if (isRegion) {
-                // REGION MODE QUERY
-                let regionQuery = supabase.from('questions_allocated_region').select('*, categories(id, name)');
+                if (isRegion) {
+                    // REGION MODE QUERY
+                    let regionQuery = supabase.from('questions_allocated_region').select('*, categories(id, name)');
 
-                if (puzzleIdParam === 'today') {
-                    regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', today);
-                } else if (/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)) {
-                    regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', puzzleIdParam);
-                } else {
-                    const idInt = parseInt(puzzleIdParam, 10);
-                    if (!isNaN(idInt)) {
-                        regionQuery = regionQuery.eq('id', idInt).eq('region', 'UK');
-                    } else {
-                        console.error("Invalid puzzle ID:", puzzleIdParam);
-                        setPuzzle(null); setLoading(false); return;
-                    }
-                }
-
-                const { data: allocRes, error: allocError } = await regionQuery.maybeSingle();
-
-                if (allocError) {
-                    // Start offline fallback if needed (handled by catch below usually)
-                    throw allocError;
-                }
-
-                if (!allocRes) {
-                    console.warn(`[GameScreen] No Region allocation found for ${puzzleIdParam}`);
                     if (puzzleIdParam === 'today') {
-                        /* ... recent logic omitted for brevity, keeping simple error ... */
-                        setDebugInfo(`No puzzle found for today (${today}).`);
-                    }
-                    setPuzzle(null); setLoading(false); return;
-                }
-
-                allocationData = allocRes;
-
-                if (allocRes.question_id) {
-                    const { data: master, error: masterError } = await supabase
-                        .from('questions_master_region')
-                        .select('*')
-                        .eq('id', allocRes.question_id)
-                        .maybeSingle();
-                    masterData = master;
-                }
-
-            } else {
-                // USER MODE QUERY
-                if (!user?.id) {
-                    setPuzzle(null); setLoading(false); return;
-                }
-
-                let query = supabase.from('questions_allocated_user').select('*, categories(id, name)');
-
-                if (puzzleIdParam === 'next') {
-                    query = query.eq('user_id', user.id).eq('puzzle_date', today);
-                } else if (/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)) {
-                    query = query.eq('user_id', user.id).eq('puzzle_date', puzzleIdParam);
-                } else {
-                    const idInt = parseInt(puzzleIdParam, 10);
-                    if (!isNaN(idInt)) {
-                        query = query.eq('id', idInt).eq('user_id', user.id);
+                        regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', today);
+                    } else if (/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)) {
+                        regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', puzzleIdParam);
                     } else {
-                        setPuzzle(null); setLoading(false); return;
+                        const idInt = parseInt(puzzleIdParam, 10);
+                        if (!isNaN(idInt)) {
+                            regionQuery = regionQuery.eq('id', idInt).eq('region', 'UK');
+                        } else {
+                            console.error("Invalid puzzle ID:", puzzleIdParam);
+                            return null;
+                        }
+                    }
+
+                    const { data: allocRes, error: allocError } = await regionQuery.maybeSingle();
+                    if (allocError) throw allocError;
+                    if (!allocRes) return null;
+
+                    allocationData = allocRes;
+
+                    if (allocRes.question_id) {
+                        const { data: master, error: masterError } = await supabase
+                            .from('questions_master_region')
+                            .select('*')
+                            .eq('id', allocRes.question_id)
+                            .maybeSingle();
+                        masterData = master;
+                    }
+
+                } else {
+                    // USER MODE QUERY
+                    if (!user?.id) return null;
+
+                    let query = supabase.from('questions_allocated_user').select('*, categories(id, name)');
+
+                    if (puzzleIdParam === 'next') {
+                        query = query.eq('user_id', user.id).eq('puzzle_date', today);
+                    } else if (/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)) {
+                        query = query.eq('user_id', user.id).eq('puzzle_date', puzzleIdParam);
+                    } else {
+                        const idInt = parseInt(puzzleIdParam, 10);
+                        if (!isNaN(idInt)) {
+                            query = query.eq('id', idInt).eq('user_id', user.id);
+                        } else {
+                            return null;
+                        }
+                    }
+
+                    const { data: allocRes, error: allocError } = await query.maybeSingle();
+                    if (allocError) throw allocError;
+                    if (!allocRes) return null;
+
+                    allocationData = allocRes;
+
+                    if (allocRes.question_id) {
+                        const { data: master, error: masterError } = await supabase
+                            .from('questions_master_user')
+                            .select('*, populated_places!populated_place_id(name1)')
+                            .eq('id', allocRes.question_id)
+                            .maybeSingle();
+                        masterData = master;
                     }
                 }
 
-                const { data: allocRes, error: allocError } = await query.maybeSingle();
+                if (!allocationData) return null;
 
-                if (allocError) throw allocError;
-
-                if (!allocRes) {
-                    setDebugInfo(`No puzzle found for ${puzzleIdParam}`);
-                    setPuzzle(null); setLoading(false); return;
-                }
-
-                allocationData = allocRes;
-
-                if (allocRes.question_id) {
-                    const { data: master, error: masterError } = await supabase
-                        .from('questions_master_user')
-                        .select('*, populated_places!populated_place_id(name1)')
-                        .eq('id', allocRes.question_id)
-                        .maybeSingle();
-                    masterData = master;
-                }
-            }
-
-            if (allocationData) {
-                const finalPuzzle = {
+                return {
                     id: allocationData.id,
                     title: masterData?.event_title || masterData?.title || `Puzzle #${allocationData.id}`,
                     date: allocationData.puzzle_date,
@@ -293,13 +278,47 @@ export default function GameScreen() {
                         : "",
                     eventDescription: masterData?.event_description || masterData?.description || ""
                 };
+            };
 
-                setPuzzle(finalPuzzle);
+            // Race the fetch against a timeout
+            const timeoutPromise = new Promise<null>((_, reject) =>
+                setTimeout(() => reject(new Error('PUZZLE_FETCH_TIMEOUT')), FETCH_TIMEOUT_MS)
+            );
 
-                // CACHE SAVE
-                try {
-                    await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(finalPuzzle));
-                } catch (e) { console.error('Error saving puzzle cache', e); }
+            try {
+                const finalPuzzle = await Promise.race([fetchWithTimeout(), timeoutPromise]);
+
+                if (finalPuzzle) {
+                    setPuzzle(finalPuzzle);
+
+                    // CACHE SAVE
+                    try {
+                        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(finalPuzzle));
+                    } catch (e) { console.error('Error saving puzzle cache', e); }
+                } else {
+                    // No puzzle data found — clear readiness cache and navigate back
+                    console.warn('[GameScreen] No puzzle data returned from network');
+                    await AsyncStorage.removeItem('puzzle_readiness_cache');
+                    Alert.alert(
+                        "Couldn't load the puzzle",
+                        "Let's try again.",
+                        [{ text: "OK", onPress: () => router.back() }]
+                    );
+                    return;
+                }
+            } catch (raceError: any) {
+                if (raceError?.message === 'PUZZLE_FETCH_TIMEOUT') {
+                    console.error('[GameScreen] Puzzle fetch timed out after 8s');
+                    // Clear readiness cache so home screen re-polls
+                    await AsyncStorage.removeItem('puzzle_readiness_cache');
+                    Alert.alert(
+                        "Couldn't load the puzzle",
+                        "It's taking longer than expected. Let's try again.",
+                        [{ text: "OK", onPress: () => router.back() }]
+                    );
+                    return;
+                }
+                throw raceError; // Re-throw non-timeout errors to outer catch
             }
 
         } catch (e) {
@@ -307,12 +326,19 @@ export default function GameScreen() {
             if (isConnected === false) {
                 setDebugInfo("You are offline. Connect to the internet to play.");
             } else {
-                Alert.alert("Error", "Unexpected crash loading puzzle.");
+                // Clear readiness cache for next attempt
+                AsyncStorage.removeItem('puzzle_readiness_cache').catch(() => { });
+                Alert.alert(
+                    "Couldn't load the puzzle",
+                    "Let's try again.",
+                    [{ text: "OK", onPress: () => router.back() }]
+                );
             }
         } finally {
             setLoading(false);
         }
     };
+
 
 
     // Loading and Error states are now handled inline below to preserve Header visibility

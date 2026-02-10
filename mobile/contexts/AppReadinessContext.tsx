@@ -2,9 +2,10 @@ import { createContext, useContext, ReactNode } from 'react';
 
 interface AppReadinessContextType {
     isAppReady: boolean;
+    userPuzzleReady: boolean;
 }
 
-const AppReadinessContext = createContext<AppReadinessContextType>({ isAppReady: false });
+const AppReadinessContext = createContext<AppReadinessContextType>({ isAppReady: false, userPuzzleReady: false });
 
 export function useAppReadiness() {
     return useContext(AppReadinessContext);
@@ -12,13 +13,15 @@ export function useAppReadiness() {
 
 export function AppReadinessProvider({
     children,
-    isReady
+    isReady,
+    userPuzzleReady = false
 }: {
     children: ReactNode;
     isReady: boolean;
+    userPuzzleReady?: boolean;
 }) {
     return (
-        <AppReadinessContext.Provider value={{ isAppReady: isReady }}>
+        <AppReadinessContext.Provider value={{ isAppReady: isReady, userPuzzleReady }}>
             {children}
         </AppReadinessContext.Provider>
     );

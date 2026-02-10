@@ -33,6 +33,7 @@ import { AdBanner } from '../../components/AdBanner';
 import { AdBannerContext } from '../../contexts/AdBannerContext';
 import { useProfile } from '../../hooks/useProfile';
 import { getTodaysPuzzleDate } from '../../lib/dateUtils';
+import { usePuzzleReadiness } from '../../hooks/usePuzzleReadiness';
 
 // Import hamster images - trying UI folder versions which appear to be transparent
 const HistorianHamsterBlue = require('../../assets/ui/webp_assets/Historian-Hamster.webp');
@@ -67,7 +68,10 @@ const GameModePage = React.memo(({
     router,
     incrementInteraction,
     width,
-    todaysPuzzleDate
+    todaysPuzzleDate,
+    userPuzzleReady,
+    isCheckingPuzzle,
+    dismissedHolidayModal
 }: {
     isRegion: boolean,
     todayStatus: 'not-played' | 'solved' | 'failed',
@@ -82,7 +86,10 @@ const GameModePage = React.memo(({
     router: any,
     incrementInteraction: () => void,
     width?: number, // Optional for flex-based tablet layout
-    todaysPuzzleDate: string // CRITICAL: Today's puzzle date from parent
+    todaysPuzzleDate: string, // CRITICAL: Today's puzzle date from parent
+    userPuzzleReady?: boolean, // Whether today's personal puzzle is available
+    isCheckingPuzzle?: boolean, // Whether the readiness check is in progress
+    dismissedHolidayModal?: boolean // Guard to prevent holiday modal from re-showing after dismissal
 }) => {
     // Colors from Web App
     const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
@@ -160,17 +167,22 @@ const GameModePage = React.memo(({
                 {/* 1. PLAY BUTTON */}
                 <HomeCard
                     testID="home-card-play"
-                    title={todayStatus === 'solved' ? "Today's puzzle solved!" : "Play Today"}
-                    subtitle={todayStatus !== 'solved' ? "Good luck!" : undefined}
+                    title={
+                        !isRegion && !userPuzzleReady && !isCheckingPuzzle
+                            ? "One moment, Hammie is still cooking up today's puzzle..."
+                            : todayStatus === 'solved' ? "Today's puzzle solved!" : "Play Today"
+                    }
+                    subtitle={!isRegion && !userPuzzleReady ? undefined : (todayStatus !== 'solved' ? "Good luck!" : undefined)}
                     icon={playIcon}
                     backgroundColor={playColor}
+                    disabled={!isRegion && !userPuzzleReady && todayStatus === 'not-played'}
                     onPress={() => {
                         incrementInteraction();
                         console.log(`[Home] Play Today pressed. HolidayActive: ${holidayActive}, Status: ${todayStatus}`);
 
                         // [FIX] Only show Holiday Popup if the game hasn't been played yet.
                         // If it's solved or failed, we allow navigation to review.
-                        if (holidayActive && todayStatus === 'not-played') {
+                        if (holidayActive && todayStatus === 'not-played' && !dismissedHolidayModal) {
                             setHolidayModalMode(isRegion ? 'REGION' : 'USER');
                             setShowHolidayModal(true);
                         } else {
@@ -267,6 +279,7 @@ export default function HomeScreen() {
     const userRegion = profile?.region || 'UK';
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
     const [showHolidayModal, setShowHolidayModal] = useState(false);
+    const [dismissedHolidayModal, setDismissedHolidayModal] = useState(false);
 
     // CRITICAL: Single source of truth for "today's puzzle date"
     // This is calculated ONCE when the component mounts and when it refocuses
@@ -358,6 +371,12 @@ export default function HomeScreen() {
     // Contexts for Timing and Focus
     const { isAppReady } = useAppReadiness();
     // isFocused already declared above for date refresh logic
+
+    // Puzzle readiness check (personal mode only — region puzzles are pre-generated)
+    const { userReady: userPuzzleReady, isChecking: isCheckingPuzzle } = usePuzzleReadiness(
+        user?.id,
+        todaysPuzzleDate
+    );
 
     // Data States
     const [loading, setLoading] = useState(true);
@@ -832,6 +851,9 @@ export default function HomeScreen() {
                                     incrementInteraction={incrementInteraction}
                                     width={undefined} // Let it take container width
                                     todaysPuzzleDate={todaysPuzzleDate}
+                                    userPuzzleReady={true}
+                                    isCheckingPuzzle={false}
+                                    dismissedHolidayModal={dismissedHolidayModal}
                                 />
                             </StyledView>
 
@@ -858,6 +880,9 @@ export default function HomeScreen() {
                                     incrementInteraction={incrementInteraction}
                                     width={undefined} // Let it take container width
                                     todaysPuzzleDate={todaysPuzzleDate}
+                                    userPuzzleReady={userPuzzleReady}
+                                    isCheckingPuzzle={isCheckingPuzzle}
+                                    dismissedHolidayModal={dismissedHolidayModal}
                                 />
                             </StyledView>
                         </StyledView>
@@ -892,6 +917,9 @@ export default function HomeScreen() {
                             incrementInteraction={incrementInteraction}
                             width={SCREEN_WIDTH}
                             todaysPuzzleDate={todaysPuzzleDate}
+                            userPuzzleReady={true}
+                            isCheckingPuzzle={false}
+                            dismissedHolidayModal={dismissedHolidayModal}
                         />
 
                         {/* User Page */}
@@ -910,6 +938,9 @@ export default function HomeScreen() {
                             incrementInteraction={incrementInteraction}
                             width={SCREEN_WIDTH}
                             todaysPuzzleDate={todaysPuzzleDate}
+                            userPuzzleReady={userPuzzleReady}
+                            isCheckingPuzzle={isCheckingPuzzle}
+                            dismissedHolidayModal={dismissedHolidayModal}
                         />
                     </Animated.ScrollView>
                 )}
@@ -1003,6 +1034,7 @@ export default function HomeScreen() {
                 onContinueHoliday={() => {
                     console.log(`[Home] Continuing in Holiday Mode for ${holidayModalMode}`);
                     setShowHolidayModal(false);
+                    setDismissedHolidayModal(true);
                     // Navigate with flag to preserve status
                     if (holidayModalMode === 'REGION') {
                         router.push({

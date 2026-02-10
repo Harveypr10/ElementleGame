@@ -5,6 +5,7 @@ import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { migrateGuestDataToUser } from './guestMigration';
 import { logInRevenueCat, logOutRevenueCat } from './RevenueCat';
+import { queryClient } from '../app/_layout';
 
 type AuthContextType = {
     session: Session | null;
@@ -89,7 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         console.warn('[Auth] Session stale on resume, attempting refresh...', error.message);
                         const { error: refreshError } = await supabase.auth.refreshSession();
                         if (refreshError) {
-                            console.error('[Auth] Session refresh failed:', refreshError.message);
+                            console.error('[Auth] Session refresh permanently failed — signing out:', refreshError.message);
+                            // Permanent failure: force full sign-out to redirect user to login
+                            await signOutAndClearCaches();
                         } else {
                             console.log('[Auth] Session refreshed successfully after resume');
                         }
@@ -243,8 +246,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
 
+    // Internal helper: clear all caches and local state ("Nuke & Pave")
+    const signOutAndClearCaches = async () => {
+        console.log('[Auth] Clearing all caches and local state...');
+        try {
+            // 1. Clear React Query caches to prevent stale data leaking between accounts
+            queryClient.removeQueries();
+
+            // 2. Clear AsyncStorage caches (game status, puzzle data, profile)
+            const keysToRemove = [
+                'cached_first_name',
+                'cached_game_status_region',
+                'cached_game_status_user',
+                'cached_subscription_status',
+                'puzzle_readiness_cache',
+                'is_guest',
+            ];
+            await AsyncStorage.multiRemove(keysToRemove);
+
+            // Also clear any puzzle data caches (keyed dynamically)
+            const allKeys = await AsyncStorage.getAllKeys();
+            const puzzleCacheKeys = allKeys.filter(k => k.startsWith('puzzle_data_'));
+            if (puzzleCacheKeys.length > 0) {
+                await AsyncStorage.multiRemove(puzzleCacheKeys);
+            }
+
+            console.log('[Auth] All caches cleared successfully');
+        } catch (e) {
+            console.error('[Auth] Error clearing caches:', e);
+        }
+
+        // 3. Reset auth state
+        setSession(null);
+        setUser(null);
+        setIsGuest(false);
+    };
+
     const signOut = async () => {
         console.log('[Auth] Signing out...');
+
+        // Clear all caches BEFORE signing out of Supabase
+        await signOutAndClearCaches();
+
         try {
             // Remove explicit RevenueCat logout here - the onAuthStateChange listener handles it
             // This prevents a "double logout" error where the second call fails because user is already anonymous
@@ -253,8 +296,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Ignore iOS BrowserEngineKit errors usually caused by terminating empty auth sessions
             console.log('[Auth] Supabase signOut completed with note:', error);
         }
-        setIsGuest(false);
-        await AsyncStorage.removeItem('is_guest');
     };
 
     const hasCompletedFirstLogin = () => {

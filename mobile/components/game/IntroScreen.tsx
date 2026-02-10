@@ -90,106 +90,116 @@ export function IntroScreen({
     return (
         /* Replaced Modal with Absolute View to prevent navigation flash and allow smoother transitions */
         <StyledView
-            className="absolute top-0 bottom-0 left-0 right-0 z-50 justify-center items-center p-4"
+            className="absolute top-0 bottom-0 left-0 right-0 z-50"
             style={{ backgroundColor: isStreakGame ? '#000000' : backgroundColor }}
         >
-            <Animated.View style={{ opacity: fadeAnim, width: '100%', maxWidth: 400, alignItems: 'center' }}>
+            <Animated.View style={{ opacity: fadeAnim, flex: 1 }}>
 
-                {/* Mascot */}
-                <StyledView className="mb-8 items-center justify-center h-48 w-48 relative">
-                    {isStreakGame ? (
-                        <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-                            <StreakBadge streak={currentStreak || 0} size={180} />
-                        </View>
-                    ) : (
-                        <Image
-                            source={require('../../assets/ui/webp_assets/Sherlock-Hamster.webp')}
-                            style={{ width: 160, height: 160 }}
-                            contentFit="contain"
-                            cachePolicy="disk"
-                        />
-                    )}
-                </StyledView>
-
-                {/* Text Content */}
-                <StyledView className="items-center mb-8 space-y-4 px-4 w-full">
-                    <StyledView className="max-w-[270px]">
-                        {isStreakGame ? (
-                            <Text className="text-center font-body text-red-500 text-lg font-bold">
-                                Continue your streak!
-                            </Text>
-                        ) : (
-                            <ThemedText
-                                className="text-center font-body text-slate-500"
-                                size="lg"
-                            >
-                                {promptText}
-                            </ThemedText>
-                        )}
-                    </StyledView>
-
-                    {/* Event Category & Title - Show even if streak game (if clues enabled) */}
-                    {cluesEnabled && (
-                        <>
-                            {category && (
-                                <Text className={`text-center font-display font-bold text-xl mt-2 ${isStreakGame ? 'text-yellow-400' : 'text-blue-900'}`}>
-                                    {category}
-                                </Text>
+                {/* Center Content Area — mascot + text centered in the upper portion */}
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
+                    <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
+                        {/* Mascot */}
+                        <StyledView className="mb-8 items-center justify-center h-48 w-48 relative">
+                            {isStreakGame ? (
+                                <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                                    <StreakBadge streak={currentStreak || 0} size={180} />
+                                </View>
+                            ) : (
+                                <Image
+                                    source={require('../../assets/ui/webp_assets/Sherlock-Hamster.webp')}
+                                    style={{ width: 160, height: 160 }}
+                                    contentFit="contain"
+                                    cachePolicy="disk"
+                                />
                             )}
-                            {eventTitle && (
-                                <ThemedText
-                                    className="text-center font-display font-bold mt-2 text-slate-500"
-                                    size="xl"
-                                    style={isStreakGame ? { color: '#ffffff' } : undefined}
-                                >
-                                    {eventTitle}
-                                </ThemedText>
+                        </StyledView>
+
+                        {/* Text Content */}
+                        <StyledView className="items-center space-y-4 px-4 w-full">
+                            <StyledView className="max-w-[270px]">
+                                {isStreakGame ? (
+                                    <Text className="text-center font-body text-red-500 text-lg font-bold">
+                                        Continue your streak!
+                                    </Text>
+                                ) : (
+                                    <ThemedText
+                                        className="text-center font-body text-slate-500"
+                                        size="lg"
+                                    >
+                                        {promptText}
+                                    </ThemedText>
+                                )}
+                            </StyledView>
+
+                            {/* Event Category & Title - Show even if streak game (if clues enabled) */}
+                            {cluesEnabled && (
+                                <>
+                                    {category && (
+                                        <Text className={`text-center font-display font-bold text-xl mt-2 ${isStreakGame ? 'text-yellow-400' : 'text-blue-900'}`}>
+                                            {category}
+                                        </Text>
+                                    )}
+                                    {eventTitle && (
+                                        <ThemedText
+                                            className="text-center font-display font-bold mt-2 text-slate-500"
+                                            size="xl"
+                                            style={isStreakGame ? { color: '#ffffff' } : undefined}
+                                        >
+                                            {eventTitle}
+                                        </ThemedText>
+                                    )}
+                                </>
                             )}
-                        </>
-                    )}
-                </StyledView>
-
-                {/* Buttons */}
-                <View className="w-full items-center space-y-3">
-                    <StyledTouchableOpacity
-                        onPress={onStart}
-                        className={`w-3/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center ${gameMode === 'USER' ? 'bg-[#66becb]' : 'bg-[#7DAAE8]'
-                            }`}
-                    >
-                        <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
-                            Play
-                        </ThemedText>
-                    </StyledTouchableOpacity>
-
-                    {isGuest && (
-                        <>
-                            <StyledTouchableOpacity
-                                onPress={() => router.push('/(auth)/login')}
-                                className="w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center bg-slate-600"
-                            >
-                                <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
-                                    Log in
-                                </ThemedText>
-                            </StyledTouchableOpacity>
-
-                            <StyledTouchableOpacity
-                                onPress={() => router.push('/(auth)/subscription-flow')}
-                                className="w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center bg-slate-400"
-                            >
-                                <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
-                                    Subscribe
-                                </ThemedText>
-                            </StyledTouchableOpacity>
-                        </>
-                    )}
+                        </StyledView>
+                    </View>
                 </View>
 
-                {/* Date Footer */}
-                {formattedDate && (
-                    <ThemedText className="text-slate-500 dark:text-slate-400 mt-8 font-body opacity-80" size="sm">
-                        Puzzle date: {formattedDate}
-                    </ThemedText>
-                )}
+                {/* Bottom Section — Play button + optional buttons anchored to bottom */}
+                <View style={{ paddingHorizontal: 16, paddingBottom: 48, alignItems: 'center' }}>
+                    <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
+                        {/* Buttons */}
+                        <View className="w-full items-center space-y-3">
+                            <StyledTouchableOpacity
+                                onPress={onStart}
+                                className={`w-3/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center ${gameMode === 'USER' ? 'bg-[#66becb]' : 'bg-[#7DAAE8]'
+                                    }`}
+                            >
+                                <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
+                                    Play
+                                </ThemedText>
+                            </StyledTouchableOpacity>
+
+                            {isGuest && (
+                                <>
+                                    <StyledTouchableOpacity
+                                        onPress={() => router.push('/(auth)/login')}
+                                        className="w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center bg-slate-600"
+                                    >
+                                        <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
+                                            Log in
+                                        </ThemedText>
+                                    </StyledTouchableOpacity>
+
+                                    <StyledTouchableOpacity
+                                        onPress={() => router.push('/(auth)/subscription-flow')}
+                                        className="w-4/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center bg-slate-400"
+                                    >
+                                        <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">
+                                            Subscribe
+                                        </ThemedText>
+                                    </StyledTouchableOpacity>
+                                </>
+                            )}
+                        </View>
+
+                        {/* Date Footer */}
+                        {formattedDate && (
+                            <ThemedText className="text-slate-500 dark:text-slate-400 mt-6 font-body opacity-80" size="sm">
+                                Puzzle date: {formattedDate}
+                            </ThemedText>
+                        )}
+                    </View>
+                </View>
 
             </Animated.View>
         </StyledView>

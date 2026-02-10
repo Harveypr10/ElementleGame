@@ -7,6 +7,7 @@ import { PostcodeAutocomplete } from '../../../components/PostcodeAutocomplete';
 import { ThemedView } from '../../../components/ThemedView';
 import { ThemedText } from '../../../components/ThemedText';
 import { useAccountInfoLogic } from '../../../hooks/useAccountInfoLogic';
+import { DeleteAccountModal } from '../../../components/DeleteAccountModal';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -72,6 +73,9 @@ export default function AccountInfoPage() {
         handleDisableApple,
         handleEnableApple,
         handleUnlinkApple,
+        handleDeleteAccount,
+        deleteModalVisible, setDeleteModalVisible,
+        deletingAccount,
 
         backgroundColor,
         surfaceColor,
@@ -141,7 +145,8 @@ export default function AccountInfoPage() {
                                     style={{
                                         backgroundColor: backgroundColor,
                                         borderColor: borderColor,
-                                        color: textColor
+                                        color: textColor,
+                                        paddingLeft: 16
                                     }}
                                 />
                             </StyledView>
@@ -159,7 +164,8 @@ export default function AccountInfoPage() {
                                     style={{
                                         backgroundColor: backgroundColor,
                                         borderColor: borderColor,
-                                        color: textColor
+                                        color: textColor,
+                                        paddingLeft: 16
                                     }}
                                 />
                             </StyledView>
@@ -179,7 +185,8 @@ export default function AccountInfoPage() {
                                     style={{
                                         backgroundColor: backgroundColor,
                                         borderColor: borderColor,
-                                        color: textColor
+                                        color: textColor,
+                                        paddingLeft: 16
                                     }}
                                 />
                             </StyledView>
@@ -462,6 +469,24 @@ export default function AccountInfoPage() {
                                     </StyledTouchableOpacity>
                                 )}
                             </StyledView>
+                        </StyledView>
+
+                        {/* Delete Account Section */}
+                        <StyledView
+                            className="rounded-2xl p-4 mb-4 border"
+                            style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        >
+                            <StyledTouchableOpacity
+                                onPress={() => setDeleteModalVisible(true)}
+                                className="py-2"
+                            >
+                                <StyledText className="text-red-500 font-n-bold text-base">
+                                    Delete Account
+                                </StyledText>
+                                <StyledText className="text-red-400 text-xs mt-1 font-n-medium">
+                                    All game history and associated data will be lost
+                                </StyledText>
+                            </StyledTouchableOpacity>
                         </StyledView>
                     </ScrollView>
                 </KeyboardAvoidingView>
@@ -788,6 +813,17 @@ export default function AccountInfoPage() {
                         </StyledView>
                     </StyledView>
                 </Modal>
+
+                {/* Delete Account Modal */}
+                <DeleteAccountModal
+                    visible={deleteModalVisible}
+                    onClose={() => setDeleteModalVisible(false)}
+                    onDelete={handleDeleteAccount}
+                    email={email}
+                    firstName={firstName}
+                    lastName={lastName}
+                    isDeleting={deletingAccount}
+                />
             </SafeAreaView>
         </ThemedView>
     );

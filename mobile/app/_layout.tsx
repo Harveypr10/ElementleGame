@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react';
 import { View, ActivityIndicator, StyleSheet, Linking, Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { styled } from 'nativewind';
@@ -18,6 +19,8 @@ import { StreakSaverProvider } from '../contexts/StreakSaverContext';
 import { ToastProvider } from '../contexts/ToastContext';
 import { ConversionPromptProvider } from '../contexts/ConversionPromptContext';
 import { AppReadinessProvider } from '../contexts/AppReadinessContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase';
 import { GuessCacheProvider } from '../contexts/GuessCacheContext';
 import { NetworkProvider, useNetwork } from '../contexts/NetworkContext';
 import { syncPendingGames } from '../lib/sync';
@@ -27,6 +30,13 @@ import { ConversionPromptModal } from '../components/ConversionPromptModal';
 import { initializeAds } from '../lib/AdManager';
 import { initializeRevenueCat } from '../lib/RevenueCat';
 import { SplashScreen } from '../components/SplashScreen';
+// Lazy-loaded to avoid adding to _layout.tsx's initial module graph,
+// which has fragile pre-existing require cycles through guestMigration → auth
+const SubscriptionLifecycleManager = React.lazy(
+    () => import('../components/subscription/SubscriptionLifecycleManager').then(
+        m => ({ default: m.SubscriptionLifecycleManager })
+    )
+);
 import { hasCompletedAgeVerification } from '../lib/ageVerification';
 import { Asset } from 'expo-asset';
 import '../lib/typography'; // Global Font Patch
@@ -65,6 +75,9 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // 1b. Age Verification State
     const [hasAgeVerification, setHasAgeVerification] = useState<boolean | null>(null);
 
+    // 1c. Puzzle Readiness State (checked concurrently during splash)
+    const [userPuzzleReady, setUserPuzzleReady] = useState(false);
+
     useEffect(() => {
         // [WEB FIX] 2 second splash on web (user preference), 3s on mobile
         const delay = Platform.OS === 'web' ? 2000 : 3000;
@@ -84,6 +97,44 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         }
         hasCompletedAgeVerification().then(setHasAgeVerification);
     }, [segments]);
+
+    // Check puzzle readiness during splash period (no extra delay, runs in parallel)
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const checkReadiness = async () => {
+            try {
+                // 1. Try cache first
+                const cached = await AsyncStorage.getItem('puzzle_readiness_cache');
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    const today = new Date().toISOString().split('T')[0];
+                    if (parsed.date === today && parsed.userReady) {
+                        setUserPuzzleReady(true);
+                        return;
+                    }
+                }
+
+                // 2. Quick network check
+                const today = new Date().toISOString().split('T')[0];
+                const { data } = await supabase
+                    .from('questions_allocated_user')
+                    .select('id, question_id')
+                    .eq('user_id', user.id)
+                    .eq('puzzle_date', today)
+                    .maybeSingle();
+
+                if (data?.question_id != null) {
+                    setUserPuzzleReady(true);
+                    await AsyncStorage.setItem('puzzle_readiness_cache', JSON.stringify({ date: today, userReady: true }));
+                }
+            } catch (e) {
+                console.warn('[NavGuard] Puzzle readiness check failed:', e);
+            }
+        };
+
+        checkReadiness();
+    }, [user?.id]);
 
     // Initialize ads AFTER age verification is confirmed (deferred init)
     useEffect(() => {
@@ -200,7 +251,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // 4. Wrap children in Readiness Context so screens know when to trigger modals
     return (
         <View style={{ flex: 1 }}>
-            <AppReadinessProvider isReady={!showSplash}>
+            <AppReadinessProvider isReady={!showSplash} userPuzzleReady={userPuzzleReady}>
                 {/* Always render children (Navigator) so router can work */}
                 {children}
             </AppReadinessProvider>
@@ -337,6 +388,9 @@ export default function Layout() {
                                                     </ThemedView>
                                                 </WebContainer>
                                                 <ConversionPromptModal />
+                                                <Suspense fallback={null}>
+                                                    <SubscriptionLifecycleManager />
+                                                </Suspense>
                                             </OptionsProvider>
                                         </StreakSaverProvider>
                                     </GuessCacheProvider>

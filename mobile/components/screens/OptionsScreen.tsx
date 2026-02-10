@@ -150,17 +150,16 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                         className="flex-row items-center justify-between px-4 py-3"
                         style={{ backgroundColor: surfaceColor }}
                     >
-                        <StyledView className="flex-row items-center justify-center relative flex-1">
-                            <StyledTouchableOpacity
-                                onPress={handleBack}
-                                className="absolute left-0 z-10 p-2"
-                            >
-                                <ChevronLeft size={28} color={iconColor} />
-                            </StyledTouchableOpacity>
-                            <ThemedText size="2xl" className="font-n-bold text-center">
-                                Options
-                            </ThemedText>
-                        </StyledView>
+                        <StyledTouchableOpacity
+                            onPress={handleBack}
+                            className="w-10 h-10 items-center justify-center"
+                        >
+                            <ChevronLeft size={28} color={iconColor} />
+                        </StyledTouchableOpacity>
+                        <ThemedText size="2xl" className="font-n-bold text-center">
+                            Options
+                        </ThemedText>
+                        <StyledView className="w-10" />
                     </StyledView>
                 </SafeAreaView>
 

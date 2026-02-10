@@ -33,6 +33,10 @@ export function useProfile() {
                 .single();
 
             if (error) {
+                // PGRST116 = 0 rows from .single() — happens after account deletion
+                if (error.code === 'PGRST116') {
+                    return null;
+                }
                 console.error('[useProfile] Error fetching profile:', error);
                 throw error;
             }

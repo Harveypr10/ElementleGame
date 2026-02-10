@@ -290,6 +290,10 @@ export async function linkGoogleAccount(): Promise<SocialAuthResult> {
 
         if (!result.success) {
             console.error('[SocialAuth] Edge Function link failed:', result.error);
+            const errorMsg = (result.error || '').toLowerCase();
+            if (errorMsg.includes('non-2xx') || errorMsg.includes('already linked') || errorMsg.includes('already exists')) {
+                return { success: false, error: 'The Google account is already linked to another Elementle account and cannot be linked to a second account.' };
+            }
             return { success: false, error: result.error || 'Failed to link Google account' };
         }
 
@@ -352,6 +356,10 @@ export async function linkAppleAccount(): Promise<SocialAuthResult> {
 
         if (!result.success) {
             console.error('[SocialAuth] Edge Function link failed:', result.error);
+            const errorMsg = (result.error || '').toLowerCase();
+            if (errorMsg.includes('non-2xx') || errorMsg.includes('already linked') || errorMsg.includes('already exists')) {
+                return { success: false, error: 'The Apple account is already linked to another Elementle account and cannot be linked to a second account.' };
+            }
             return { success: false, error: result.error || 'Failed to link Apple account' };
         }
 

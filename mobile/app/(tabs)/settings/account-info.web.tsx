@@ -60,10 +60,17 @@ export default function AccountInfoWeb() {
         backgroundColor,
         surfaceColor,
         borderColor,
-        textColor
+        textColor,
+
+        deleteModalVisible, setDeleteModalVisible,
+        deletingAccount,
+        handleDeleteAccount,
     } = useAccountInfoLogic();
 
     const router = useRouter();
+
+    // Delete account confirmation steps
+    const [deleteStep, setDeleteStep] = useState(0); // 0=hidden, 1=warning, 2=confirm
 
     // Hover states
     const [backHover, setBackHover] = useState(false);
@@ -326,6 +333,19 @@ export default function AccountInfoWeb() {
                         </View>
                     </View>
 
+                    <View style={styles.divider} />
+
+                    {/* Delete Account Section */}
+                    <View style={styles.section}>
+                        {renderSectionHeader('Danger Zone')}
+                        <Pressable
+                            onPress={() => setDeleteStep(1)}
+                            style={styles.deleteButton}
+                        >
+                            <Text style={styles.deleteButtonText}>Delete Account</Text>
+                        </Pressable>
+                    </View>
+
                 </View>
             </View>
 
@@ -405,6 +425,30 @@ export default function AccountInfoWeb() {
                 singleButton
             />
 
+            {/* Delete Account Step 1: Warning */}
+            <WebMessageModal
+                visible={deleteStep === 1}
+                title="Delete Account?"
+                message={`This action is permanent. All streaks, badges, and history will be lost.\n\nNote: This does NOT cancel your subscription. Please manage your subscription via the platform you signed up on.`}
+                onCancel={() => setDeleteStep(0)}
+                onConfirm={() => setDeleteStep(2)}
+                destructive
+            />
+
+            {/* Delete Account Step 2: Confirm Identity */}
+            <WebMessageModal
+                visible={deleteStep === 2}
+                title="Are you sure?"
+                message={`Confirm account deletion for ${email || [firstName, lastName].filter(Boolean).join(' ') || 'this account'}?`}
+                onCancel={() => setDeleteStep(0)}
+                onConfirm={async () => {
+                    await handleDeleteAccount();
+                    setDeleteStep(0);
+                }}
+                destructive
+                loading={deletingAccount}
+            />
+
         </View>
     );
 }
@@ -427,21 +471,31 @@ const WebModal = ({ visible, onClose, title, children }: any) => {
     );
 };
 
-const WebMessageModal = ({ visible, title, message, onCancel, onConfirm, singleButton }: any) => {
+const WebMessageModal = ({ visible, title, message, onCancel, onConfirm, singleButton, destructive, loading: isLoading }: any) => {
     if (!visible) return null;
     return (
         <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { maxWidth: 400 }]}>
-                <Text style={styles.modalTitle}>{title}</Text>
+                <Text style={[styles.modalTitle, destructive && { color: '#DC2626' }]}>{title}</Text>
                 <Text style={styles.modalMessage}>{message}</Text>
                 <View style={styles.modalActions}>
                     {!singleButton && (
-                        <Pressable onPress={onCancel} style={styles.modalCancelButton}>
+                        <Pressable onPress={onCancel} style={styles.modalCancelButton} disabled={isLoading}>
                             <Text style={styles.modalCancelText}>Cancel</Text>
                         </Pressable>
                     )}
-                    <Pressable onPress={onConfirm} style={styles.modalConfirmButton}>
-                        <Text style={styles.modalConfirmText}>{singleButton ? 'OK' : 'Confirm'}</Text>
+                    <Pressable
+                        onPress={onConfirm}
+                        style={[destructive ? styles.modalDestructiveButton : styles.modalConfirmButton, isLoading && { opacity: 0.6 }]}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                            <Text style={styles.modalConfirmText}>
+                                {singleButton ? 'OK' : destructive ? 'Confirm' : 'Confirm'}
+                            </Text>
+                        )}
                     </Pressable>
                 </View>
             </View>
@@ -768,5 +822,25 @@ const styles = StyleSheet.create({
     modalConfirmText: {
         fontFamily: 'Nunito_700Bold',
         color: '#fff',
+    },
+    modalDestructiveButton: {
+        flex: 1,
+        paddingVertical: 12,
+        backgroundColor: '#DC2626',
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    deleteButton: {
+        paddingVertical: 14,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#FCA5A5',
+        backgroundColor: '#FEF2F2',
+        alignItems: 'center',
+    },
+    deleteButtonText: {
+        fontFamily: 'Nunito_700Bold',
+        fontSize: 15,
+        color: '#DC2626',
     },
 });

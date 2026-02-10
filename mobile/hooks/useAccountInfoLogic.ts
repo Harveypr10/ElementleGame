@@ -27,7 +27,7 @@ export interface Region {
 
 export const useAccountInfoLogic = () => {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const { profile, updateProfile } = useProfile();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -71,6 +71,8 @@ export const useAccountInfoLogic = () => {
     const [regionConfirmModal, setRegionConfirmModal] = useState(false);
     const [postcodeConfirmModal, setPostcodeConfirmModal] = useState(false);
     const [restrictionModal, setRestrictionModal] = useState(false);
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [deletingAccount, setDeletingAccount] = useState(false);
 
     const [restrictionMessage, setRestrictionMessage] = useState('');
     const [restrictionDays, setRestrictionDays] = useState(14);
@@ -192,7 +194,7 @@ export const useAccountInfoLogic = () => {
         if (restricted && nextDate) {
             Alert.alert(
                 "Change Restricted",
-                `You generally cannot change your region yet. You will be able to change it after ${nextDate.toLocaleDateString()}.`
+                `You recently set your region and so it is locked. You will be able to change it after ${nextDate.toLocaleDateString()}.`
             );
             return;
         }
@@ -204,7 +206,7 @@ export const useAccountInfoLogic = () => {
         if (restricted && nextDate) {
             Alert.alert(
                 "Change Restricted",
-                `You generally cannot change your postcode yet. You will be able to change it after ${nextDate.toLocaleDateString()}.`
+                `You recently set your postcode and so it is locked You will be able to change it after ${nextDate.toLocaleDateString()}.`
             );
             return;
         }
@@ -251,7 +253,7 @@ export const useAccountInfoLogic = () => {
                 setRestrictionMessage(error.message);
                 setRestrictionModal(true);
             } else {
-                Alert.alert('Error', 'Failed to update profile: ' + error.message);
+                Alert.alert('Error', 'Unable to save your profile. Please check your internet connection and try again.');
             }
         } finally {
             setSaving(false);
@@ -373,7 +375,12 @@ export const useAccountInfoLogic = () => {
                 setIsGoogleDisabled(false);
                 Alert.alert('Success', 'Google sign-in re-enabled');
             } else {
-                Alert.alert('Error', result.error || 'Failed to enable Google');
+                const errorMsg = (result.error || '').toLowerCase();
+                if (errorMsg.includes('non-2xx') || errorMsg.includes('already linked') || errorMsg.includes('already exists')) {
+                    Alert.alert('Linking Failed', 'The Google account is already linked to another Elementle account and cannot be linked to a second account.');
+                } else {
+                    Alert.alert('Error', result.error || 'Failed to enable Google');
+                }
             }
         } catch (error: any) {
             if (error.code !== 'SIGN_IN_CANCELLED') {
@@ -495,7 +502,12 @@ export const useAccountInfoLogic = () => {
                 setIsAppleDisabled(false);
                 Alert.alert('Success', 'Apple sign-in re-enabled');
             } else {
-                Alert.alert('Error', result.error || 'Failed to enable Apple');
+                const errorMsg = (result.error || '').toLowerCase();
+                if (errorMsg.includes('non-2xx') || errorMsg.includes('already linked') || errorMsg.includes('already exists')) {
+                    Alert.alert('Linking Failed', 'The Apple account is already linked to another Elementle account and cannot be linked to a second account.');
+                } else {
+                    Alert.alert('Error', result.error || 'Failed to enable Apple');
+                }
             }
         } catch (error: any) {
             if (error.code !== 'ERR_CANCELED') {
@@ -535,6 +547,24 @@ export const useAccountInfoLogic = () => {
                 },
             ]
         );
+    };
+
+    const handleDeleteAccount = async () => {
+        setDeletingAccount(true);
+        try {
+            const { error } = await supabase.rpc('delete_user_account' as any);
+            if (error) {
+                Alert.alert('Error', error.message || 'Failed to delete account. Please try again.');
+                setDeletingAccount(false);
+                return;
+            }
+            // Account deleted — sign out and let nav guard redirect to onboarding
+            setDeleteModalVisible(false);
+            await signOut();
+        } catch (err: any) {
+            Alert.alert('Error', 'Unable to delete your account. Please check your internet connection and try again.');
+            setDeletingAccount(false);
+        }
     };
 
     return {
@@ -580,6 +610,8 @@ export const useAccountInfoLogic = () => {
         postcodeConfirmModal, setPostcodeConfirmModal,
         restrictionModal, setRestrictionModal,
         restrictionMessage,
+        deleteModalVisible, setDeleteModalVisible,
+        deletingAccount,
 
         // Handlers
         router,
@@ -601,6 +633,7 @@ export const useAccountInfoLogic = () => {
         handleDisableApple,
         handleEnableApple,
         handleUnlinkApple,
+        handleDeleteAccount,
 
         // Colors
         backgroundColor,

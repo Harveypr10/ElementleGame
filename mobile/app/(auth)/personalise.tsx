@@ -385,7 +385,7 @@ export default function PersonalisePage() {
                         </View>
 
                         {/* Postcode Field */}
-                        <View style={styles.fieldContainer}>
+                        <View style={[styles.fieldContainer, { zIndex: 100, position: 'relative' }]}>
                             <View style={styles.labelRow}>
                                 <ThemedText style={[styles.label, { color: textColor }]} size="sm">Postcode</ThemedText>
                                 <TouchableOpacity

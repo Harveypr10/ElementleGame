@@ -6,6 +6,7 @@ import {
     Animated,
     Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../lib/auth';
@@ -434,9 +435,16 @@ export default function GeneratingQuestionsScreen() {
                 };
 
                 // Start polling in background
-                pollForQuestions().then(success => {
+                pollForQuestions().then(async (success) => {
                     if (success) {
-                        console.log('[GeneratingQuestions] Questions ready, will redirect when animation completes');
+                        console.log('[GeneratingQuestions] Questions ready, warming readiness cache');
+                        // Warm the puzzle readiness cache so Home screen Play button is immediately enabled
+                        try {
+                            const today = new Date().toISOString().split('T')[0];
+                            await AsyncStorage.setItem('puzzle_readiness_cache', JSON.stringify({ date: today, userReady: true }));
+                        } catch (e) {
+                            console.warn('[GeneratingQuestions] Failed to warm readiness cache:', e);
+                        }
                     } else {
                         console.warn('[GeneratingQuestions] Questions not ready, but will redirect anyway');
                     }

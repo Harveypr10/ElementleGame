@@ -259,9 +259,12 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
+        height: 48,
         paddingVertical: 0,
         paddingTop: 0,
         paddingBottom: 0,
+        fontSize: 16,
+        lineHeight: 20,
         textAlignVertical: 'center',
     },
     loader: {
