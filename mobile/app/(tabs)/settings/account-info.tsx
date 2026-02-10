@@ -198,7 +198,7 @@ export default function AccountInfoPage() {
                                 <StyledTouchableOpacity
                                     onPress={handleRegionPress}
                                     className="border rounded-lg px-4 py-3 flex-row items-center justify-between"
-                                    style={{ backgroundColor: backgroundColor, borderColor: borderColor }}
+                                    style={{ backgroundColor: backgroundColor, borderColor: borderColor, paddingLeft: 16, paddingVertical: 12 }}
                                 >
                                     <ThemedText className="font-n-medium">
                                         {getRegionName(region)}

@@ -296,6 +296,7 @@ export default function SetNewPasswordScreen() {
                                         <StyledTextInput
                                             testID="current-password-input"
                                             className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
+                                            style={{ paddingLeft: 16, paddingVertical: 16, paddingRight: 48 }}
                                             placeholder="Enter current password"
                                             placeholderTextColor="#94a3b8"
                                             value={currentPassword}
@@ -336,6 +337,7 @@ export default function SetNewPasswordScreen() {
                                     <StyledTextInput
                                         testID="new-password-input"
                                         className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
+                                        style={{ paddingLeft: 16, paddingVertical: 16, paddingRight: 48 }}
                                         placeholder="Enter new password"
                                         placeholderTextColor="#94a3b8"
                                         value={newPassword}
@@ -397,6 +399,7 @@ export default function SetNewPasswordScreen() {
                                                 ? 'border-2 border-green-500'
                                                 : ''
                                             }`}
+                                        style={{ paddingLeft: 16, paddingVertical: 16, paddingRight: 48 }}
                                         placeholder="Confirm new password"
                                         placeholderTextColor="#94a3b8"
                                         value={confirmPassword}

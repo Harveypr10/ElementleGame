@@ -19,14 +19,16 @@ interface SplashScreenProps {
 }
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
-    const opacity = useSharedValue(1);
+    const opacity = useSharedValue(0);
 
     useEffect(() => {
-        // Image is already visible (matches native splash) — hold for a moment
-        // then trigger completion so the app can take over.
+        // Fade in the image onto the solid blue background
+        opacity.value = withTiming(1, { duration: 800 });
+
+        // Hold for a moment after fade-in, then trigger completion
         const timer = setTimeout(() => {
             onComplete();
-        }, 2000);
+        }, 2500);
 
         return () => clearTimeout(timer);
     }, []);
