@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     hamsterContainer: {
         alignItems: 'center',
         marginBottom: 32,
-        marginTop: 32,
+        marginTop: 56,
     },
     hamsterImage: {
         width: 176,

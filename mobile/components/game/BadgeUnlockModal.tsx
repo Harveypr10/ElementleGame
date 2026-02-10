@@ -293,7 +293,7 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
                             </StyledView>
                         )}
 
-                        <StyledText className="text-white/40 text-sm absolute bottom-[-100px]">
+                        <StyledText style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, marginTop: 48, paddingBottom: 40 }}>
                             Click anywhere to dismiss
                         </StyledText>
 

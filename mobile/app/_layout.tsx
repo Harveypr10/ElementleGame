@@ -250,7 +250,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 
     // 4. Wrap children in Readiness Context so screens know when to trigger modals
     return (
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, backgroundColor: '#7DAAE8' }}>
             <AppReadinessProvider isReady={!showSplash} userPuzzleReady={userPuzzleReady}>
                 {/* Always render children (Navigator) so router can work */}
                 {children}
@@ -339,8 +339,11 @@ export default function Layout() {
     }, []);
 
     if (!fontsLoaded) {
-        // Show Splash while system dependencies load
-        return <SplashScreen onComplete={() => { }} />;
+        return (
+            <View style={{ flex: 1, backgroundColor: '#7DAAE8' }}>
+                <SplashScreen onComplete={() => { }} />
+            </View>
+        );
     }
 
     return (

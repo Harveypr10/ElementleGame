@@ -204,7 +204,7 @@ export default function SetNewPasswordScreen() {
 
         Alert.alert(
             'Reset Password',
-            `A password reset link will be sent to ${maskEmail(email)}. Continue?`,
+            `A password reset link will be sent to ${email}. Continue?`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {

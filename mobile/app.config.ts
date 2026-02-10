@@ -52,6 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     userInterfaceStyle: "automatic",
     newArchEnabled: false,
     scheme: "elementle",
+    backgroundColor: "#7DAAE8",
     splash: {
         backgroundColor: "#7DAAE8",
     },

@@ -25,6 +25,7 @@ interface HomeCardProps {
     iconStyle?: any; // Optional custom icon style
     scale?: number; // Scale factor for responsive sizing (default 1)
     disabled?: boolean; // When true, dims the card and ignores taps
+    titleSize?: 'sm' | 'base' | 'lg' | 'xl' | '2xl'; // Override title text size (default 'xl')
 }
 
 const HomeCardComponent = ({
@@ -39,7 +40,8 @@ const HomeCardComponent = ({
     testID,
     iconStyle,
     scale = 1,
-    disabled = false
+    disabled = false,
+    titleSize = 'xl'
 }: HomeCardProps) => {
 
     return (
@@ -52,7 +54,7 @@ const HomeCardComponent = ({
             disabled={disabled}
         >
             <StyledView className="flex-1 py-4">
-                <ThemedText className="font-n-bold text-slate-900 leading-tight" size="xl">
+                <ThemedText className="font-n-bold text-slate-900 leading-tight" size={titleSize}>
                     {title}
                 </ThemedText>
                 {subtitle && (

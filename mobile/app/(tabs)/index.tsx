@@ -172,6 +172,7 @@ const GameModePage = React.memo(({
                             ? "One moment, Hammie is still cooking up today's puzzle..."
                             : todayStatus === 'solved' ? "Today's puzzle solved!" : "Play Today"
                     }
+                    titleSize={!isRegion && !userPuzzleReady && !isCheckingPuzzle ? 'base' : 'xl'}
                     subtitle={!isRegion && !userPuzzleReady ? undefined : (todayStatus !== 'solved' ? "Good luck!" : undefined)}
                     icon={playIcon}
                     backgroundColor={playColor}

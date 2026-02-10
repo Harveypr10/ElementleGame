@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { styled } from 'nativewind';
@@ -11,6 +11,7 @@ const StyledView = styled(View);
 export function AdBanner() {
     const { isPro } = useSubscription();
     const activeProvider = getActiveProvider();
+    const [isVisible, setIsVisible] = useState(true);
 
     // Don't show ads to Pro users
     if (isPro) {
@@ -23,6 +24,11 @@ export function AdBanner() {
         return null;
     }
 
+    // Collapse the container if the ad failed to load
+    if (!isVisible) {
+        return null;
+    }
+
     return (
         <StyledView className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 items-center justify-center">
             <BannerAd
@@ -32,10 +38,12 @@ export function AdBanner() {
                     requestNonPersonalizedAdsOnly: false,
                 }}
                 onAdFailedToLoad={(error) => {
-                    console.log('[AdBanner] Failed to load ad:', error);
+                    console.log('[AdBanner] Failed to load ad, collapsing container:', error);
+                    setIsVisible(false);
                 }}
                 onAdLoaded={() => {
                     console.log('[AdBanner] Ad loaded successfully');
+                    setIsVisible(true);
                 }}
             />
         </StyledView>
