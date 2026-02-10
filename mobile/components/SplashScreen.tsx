@@ -39,12 +39,14 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         <View style={styles.container}>
             <StatusBar style="light" />
             <Animated.View style={[styles.content, animatedStyle]}>
-                <Image
-                    source={SplashImage}
-                    style={styles.image}
-                    contentFit="contain"
-                    cachePolicy="disk"
-                />
+                <View style={styles.imageContainer}>
+                    <Image
+                        source={SplashImage}
+                        style={styles.image}
+                        contentFit="contain"
+                        cachePolicy="disk"
+                    />
+                </View>
             </Animated.View>
         </View>
     );
@@ -69,5 +71,14 @@ const styles = StyleSheet.create({
         maxWidth: 400,
         maxHeight: 720,
         marginTop: height * 0.56 * 0.1, // Push down by ~20% of image height
+    },
+    imageContainer: {
+        width: width * 0.68,
+        height: height * 0.56,
+        maxWidth: 400,
+        maxHeight: 720,
+        overflow: 'hidden',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

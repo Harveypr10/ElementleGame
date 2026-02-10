@@ -52,7 +52,7 @@ export default function BugReportScreen() {
                 </StyledView>
             </SafeAreaView>
 
-            <StyledScrollView className="flex-1 px-4 py-4">
+            <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}>
                 <StyledView className="w-full max-w-3xl self-center">
                     <StyledView
                         className="rounded-2xl p-4 mb-4 border"

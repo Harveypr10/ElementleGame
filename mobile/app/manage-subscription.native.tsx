@@ -134,7 +134,7 @@ export default function ManageSubscriptionScreen() {
                     </StyledView>
                 </SafeAreaView>
 
-                <StyledScrollView className="flex-1 px-4 py-4">
+                <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}>
                     <StyledView className="w-full max-w-3xl self-center">
                         {/* Standard Tier Card */}
                         <StyledView
@@ -224,7 +224,7 @@ export default function ManageSubscriptionScreen() {
                 </StyledView>
             </SafeAreaView>
 
-            <StyledScrollView className="flex-1 px-4 py-4">
+            <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}>
                 <StyledView className="w-full max-w-3xl self-center">
                     {/* Subscription Tier Card */}
                     <StyledView className="rounded-2xl p-4 mb-3" style={{ backgroundColor: '#fb923c' }}>

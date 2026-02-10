@@ -76,7 +76,7 @@ export default function TermsScreen() {
                 </StyledView>
             </SafeAreaView>
 
-            <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 40 }}>
+            <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 40 }}>
                 <StyledView className="w-full max-w-3xl self-center">
                     <ThemedText size="sm" style={{ color: secondaryTextColor }} className="mb-6 text-center">
                         Last updated: October 2025

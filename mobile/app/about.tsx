@@ -47,7 +47,7 @@ export default function AboutScreen() {
                 </StyledView>
             </SafeAreaView>
 
-            <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 40 }}>
+            <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 40 }}>
                 <StyledView className="w-full max-w-3xl self-center">
                     {/* Intro Card */}
                     <StyledView

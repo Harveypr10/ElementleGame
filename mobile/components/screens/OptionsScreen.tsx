@@ -163,7 +163,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                     </StyledView>
                 </SafeAreaView>
 
-                <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 100, alignItems: 'center' }}>
+                <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 100, alignItems: 'center' }}>
                     <StyledView className="w-full" style={{ maxWidth: 768, alignSelf: 'center' }}>
                         {/* Display Options Card */}
                         <StyledView

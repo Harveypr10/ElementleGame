@@ -110,7 +110,7 @@ export default function PrivacyScreen() {
                 </StyledView>
             </SafeAreaView>
 
-            <StyledScrollView className="flex-1 px-4 py-4" contentContainerStyle={{ paddingBottom: 60 }}>
+            <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 60 }}>
                 <StyledView className="w-full max-w-3xl self-center">
                     {/* Last Updated */}
                     <ThemedText size="sm" style={{ color: secondaryTextColor }} className="mb-6 text-center">

@@ -53,7 +53,7 @@ export default function FeedbackScreen() {
                 </StyledView>
             </SafeAreaView>
 
-            <StyledScrollView className="flex-1 px-4 py-4">
+            <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16 }}>
                 <StyledView className="w-full max-w-3xl self-center">
                     {/* Rating */}
                     <StyledView

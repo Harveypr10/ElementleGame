@@ -245,7 +245,7 @@ export default function SetNewPasswordScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 className="flex-1"
             >
-                <StyledScrollView className="flex-1 px-6" keyboardShouldPersistTaps="handled">
+                <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 24 }} keyboardShouldPersistTaps="handled">
                     {/* Header */}
                     <StyledView className="flex-row items-center py-4">
                         <StyledTouchableOpacity
@@ -292,7 +292,7 @@ export default function SetNewPasswordScreen() {
                                     <StyledText className="text-slate-700 dark:text-slate-300 font-n-medium mb-2">
                                         Current Password
                                     </StyledText>
-                                    <StyledView className="relative">
+                                    <StyledView style={{ position: 'relative' }}>
                                         <StyledTextInput
                                             testID="current-password-input"
                                             className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
@@ -307,7 +307,7 @@ export default function SetNewPasswordScreen() {
                                         />
                                         <StyledTouchableOpacity
                                             onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-                                            className="absolute right-4 top-4"
+                                            style={{ position: 'absolute', right: 16, top: 16 }}
                                         >
                                             {showCurrentPassword ? (
                                                 <EyeOff size={20} color="#94a3b8" />
@@ -332,7 +332,7 @@ export default function SetNewPasswordScreen() {
                                 <StyledText className="text-slate-700 dark:text-slate-300 font-n-medium mb-2">
                                     {mode === 'change' ? 'New Password' : 'Password'}
                                 </StyledText>
-                                <StyledView className="relative">
+                                <StyledView style={{ position: 'relative' }}>
                                     <StyledTextInput
                                         testID="new-password-input"
                                         className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
@@ -347,7 +347,7 @@ export default function SetNewPasswordScreen() {
                                     />
                                     <StyledTouchableOpacity
                                         onPress={() => setShowNewPassword(!showNewPassword)}
-                                        className="absolute right-4 top-4"
+                                        style={{ position: 'absolute', right: 16, top: 16 }}
                                     >
                                         {showNewPassword ? (
                                             <EyeOff size={20} color="#94a3b8" />
@@ -388,7 +388,7 @@ export default function SetNewPasswordScreen() {
                                 <StyledText className="text-slate-700 dark:text-slate-300 font-n-medium mb-2">
                                     Confirm Password
                                 </StyledText>
-                                <StyledView className="relative">
+                                <StyledView style={{ position: 'relative' }}>
                                     <StyledTextInput
                                         testID="confirm-password-input"
                                         className={`bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12 ${confirmPassword.length > 0 && !passwordsMatch
@@ -408,7 +408,7 @@ export default function SetNewPasswordScreen() {
                                     />
                                     <StyledTouchableOpacity
                                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className="absolute right-4 top-4"
+                                        style={{ position: 'absolute', right: 16, top: 16 }}
                                     >
                                         {showConfirmPassword ? (
                                             <EyeOff size={20} color="#94a3b8" />

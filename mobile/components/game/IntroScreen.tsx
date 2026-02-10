@@ -90,8 +90,15 @@ export function IntroScreen({
     return (
         /* Replaced Modal with Absolute View to prevent navigation flash and allow smoother transitions */
         <StyledView
-            className="absolute top-0 bottom-0 left-0 right-0 z-50"
-            style={{ backgroundColor: isStreakGame ? '#000000' : backgroundColor }}
+            style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: 0,
+                right: 0,
+                zIndex: 50,
+                backgroundColor: isStreakGame ? '#000000' : backgroundColor,
+            }}
         >
             <Animated.View style={{ opacity: fadeAnim, flex: 1 }}>
 
