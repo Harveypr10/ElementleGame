@@ -54,8 +54,8 @@ const BADGE_IMAGES: Record<string, any> = {
         }
     },
     percentile: {
-        REGION: require('../../assets/badges/webp_new/Badge - Region - Top %.webp'),
-        USER: require('../../assets/badges/webp_new/Badge - User - Top %.webp'),
+        REGION: require('../../assets/badges/webp_new/Badge - Region - Top Percent.webp'),
+        USER: require('../../assets/badges/webp_new/Badge - User - Top Percent.webp'),
     }
 };
 
