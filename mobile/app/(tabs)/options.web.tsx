@@ -167,10 +167,11 @@ export default function OptionsWeb() {
 
                     {isPro ? (
                         <ToggleRow
-                            label="Holiday Protection"
-                            subLabel="Pause streak while you're away"
+                            label="Holiday Protection Reminders"
+                            subLabel="Show holiday protection popup"
                             value={holidaySaverActive}
                             onToggle={toggleHolidaySaver}
+                            disabled={!streakSaverActive}
                             isStreakCard
                         />
                     ) : (
@@ -182,7 +183,7 @@ export default function OptionsWeb() {
                         >
                             <View style={styles.upgradeInfo}>
                                 <View style={styles.upgradeLabel}>
-                                    <Text style={styles.upgradeLabelText}>Holiday Protection</Text>
+                                    <Text style={styles.upgradeLabelText}>Holiday Protection Reminders</Text>
                                     <View style={styles.proBadge}>
                                         <Crown size={10} color="#ffffff" />
                                         <Text style={styles.proBadgeText}>PRO</Text>

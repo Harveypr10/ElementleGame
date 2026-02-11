@@ -1,6 +1,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, Modal, Image, Dimensions, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, Image, Dimensions, Animated, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { styled } from 'nativewind';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay } from 'date-fns';
 import { ThemedText } from '../ThemedText';
@@ -302,21 +302,24 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
 
                     {/* [FIX] Always show Continue button to prevent size changes, but disable until last month */}
                     <StyledView className="mt-4">
-                        <StyledView
-                            onTouchEnd={() => {
-                                // Only respond to touch on last month
+                        <TouchableOpacity
+                            onPress={() => {
                                 if (currentMonthIndex === monthsToShow.length - 1) {
                                     onClose();
                                 }
                             }}
-                            className="rounded-full py-4 items-center shadow-md"
+                            disabled={currentMonthIndex !== monthsToShow.length - 1}
+                            activeOpacity={0.7}
                             style={{
+                                borderRadius: 9999,
+                                paddingVertical: 16,
+                                alignItems: 'center',
                                 backgroundColor: currentMonthIndex === monthsToShow.length - 1 ? '#000000' : '#64748b',
                                 opacity: currentMonthIndex === monthsToShow.length - 1 ? 1 : 0.5,
                             }}
                         >
                             <Text className="text-white font-n-bold text-lg">Continue</Text>
-                        </StyledView>
+                        </TouchableOpacity>
                     </StyledView>
                 </StyledView>
             </View>

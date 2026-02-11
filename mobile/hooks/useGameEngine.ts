@@ -837,8 +837,16 @@ export function useGameEngine({
                 }
                 // NORMAL PLAY (Real Streak Impact)
                 else {
+                    // [FIX] If this game was already set to holiday (status 0), ALWAYS preserve it.
+                    // This covers: replaying an old holiday game when no longer in holiday mode.
+                    // The only exception (resetting today's puzzle on exit holiday) is handled
+                    // at the Home/Archive screen level, not in the game engine.
+                    if (streakDayStatus === 0) {
+                        console.log('[GameEngine] Normal Mode but game has holiday status (0) - preserving');
+                        newStreakDayStatus = 0;
+                    }
                     // Start with strict Today check
-                    if (isWin) {
+                    else if (isWin) {
                         // Check Streak Saver?
                         if (streakSaverSession && streakSaverSession.puzzleDate === (puzzleDate || answerDateCanonical)) {
                             console.log('[GameEngine] Win + Streak Saver Session Match -> Status = 1');

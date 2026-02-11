@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { useSubscription } from './useSubscription';
+import { useOptions } from '../lib/options';
 import { activateHolidayMode, endHolidayMode } from '../lib/supabase-rpc';
 import { format } from 'date-fns';
 import { addDays, parseLocalDate } from '../lib/dateUtils';
@@ -37,10 +38,11 @@ export function useStreakSaverStatus(todaysPuzzleDate?: string) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const { streakSavers, holidaySavers, holidayDurationDays, isPro } = useSubscription();
+    const { streakSaverActive, holidaySaverActive } = useOptions();
 
     // Fetch streak saver status from database
     const { data: status, isLoading, refetch } = useQuery({
-        queryKey: ['streak-saver-status', user?.id, todaysPuzzleDate],
+        queryKey: ['streak-saver-status', user?.id, todaysPuzzleDate, streakSaverActive, holidaySaverActive],
         queryFn: async () => {
             if (!user) return null;
 
@@ -164,14 +166,35 @@ export function useStreakSaverStatus(todaysPuzzleDate?: string) {
                 console.log(`[StreakDebug] Region Last: ${regionLastDate} (Gap: ${regionGap}), User Last: ${userLastDate} (Gap: ${userGap})`);
 
                 // --- LAZY RESET LOGIC (Match Server Behavior) ---
-                // If streak > 0 BUT gap > 7 (Lookback Limit), we must reset streak to 0 in DB.
+                // If streak > 0 BUT gap > lookback limit, we must reset streak to 0 in DB.
                 // This ensures "broken" streaks are recorded even if no cron job ran.
-                const lookbackLimit = 7; // Matches server/admin default
-                const resetThreshold = lookbackLimit + 1; // If gap > 7 (i.e. 8 or more), it's dead.
+
+                // Fetch lookback limit from admin_settings (matches server behavior)
+                let lookbackLimit = 7; // fallback default
+                const { data: adminSetting } = await supabase
+                    .from('admin_settings')
+                    .select('value')
+                    .eq('key', 'holiday_max_lookback_days')
+                    .maybeSingle();
+                if (adminSetting?.value) {
+                    lookbackLimit = parseInt(adminSetting.value, 10) || 7;
+                }
+                const resetThreshold = lookbackLimit + 1; // If gap > lookback (i.e. lookback+1 or more), it's dead.
+
+                // [FIX] Reset threshold depends on toggle state:
+                // - streakSaver OFF: reset at gap >= 2 (no protection at all)
+                // - streakSaver ON, holiday OFF: reset at gap >= 3 (streak saver only covers gap=2/missed yesterday;
+                //   anything beyond that is unrecoverable without holiday rescue)
+                // - streakSaver ON, holiday ON: reset at gap >= 8 (normal lookback, holiday rescue covers gap 2-8)
+                const effectiveResetThreshold = !streakSaverActive
+                    ? 2
+                    : !holidaySaverActive
+                        ? 3
+                        : resetThreshold;
 
                 // Check Region
-                if ((regionStats?.current_streak || 0) > 0 && regionGap >= resetThreshold) {
-                    console.log(`[StreakStatus] Auto-resetting Region Streak (Gap ${regionGap} > ${lookbackLimit})`);
+                if ((regionStats?.current_streak || 0) > 0 && regionGap >= effectiveResetThreshold) {
+                    console.log(`[StreakStatus] Auto-resetting Region Streak (Gap ${regionGap} >= ${effectiveResetThreshold}, streakSaverActive=${streakSaverActive})`);
                     await supabase.from('user_stats_region').update({
                         current_streak: 0,
                         missed_yesterday_flag_region: false
@@ -184,17 +207,8 @@ export function useStreakSaverStatus(todaysPuzzleDate?: string) {
                 }
 
                 // Check User
-                if ((userStats?.current_streak || 0) > 0 && userGap >= resetThreshold) {
-                    // Only reset if NOT on holiday (Holiday keeps streak alive, but check logic is complex... 
-                    // Actually server logic: "!holidayActive" check usually applies to setting the flag, but here we are checking ANCIENT history.
-                    // If holiday is active, the gap might be large but valid?
-                    // Server: "If a mode has current_streak > 0 but NO recent activity, reset...". 
-                    // Server logic lines 3220 does NOT check holidayActive! It just checks recent activity.
-                    // BUT holiday attempts (status=0) COUNT as activity.
-                    // Since 'lastUserAttempt' query includes status=0 (not('streak_day_status', 'is', null)), 
-                    // if they are on holiday, 'userGap' will be small (yesterday/today).
-                    // So this logic is safe.
-                    console.log(`[StreakStatus] Auto-resetting User Streak (Gap ${userGap} > ${lookbackLimit})`);
+                if ((userStats?.current_streak || 0) > 0 && userGap >= effectiveResetThreshold) {
+                    console.log(`[StreakStatus] Auto-resetting User Streak (Gap ${userGap} >= ${effectiveResetThreshold}, streakSaverActive=${streakSaverActive})`);
                     await supabase.from('user_stats_user').update({
                         current_streak: 0,
                         missed_yesterday_flag_user: false

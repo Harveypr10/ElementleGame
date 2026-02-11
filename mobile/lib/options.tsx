@@ -354,7 +354,18 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         const newValue = !streakSaverActive;
         setStreakSaverActive(newValue);
         await AsyncStorage.setItem('opt_streak_saver_active', newValue.toString());
-        if (user) {
+
+        // [FIX] When turning OFF streak saver, also disable holiday saver
+        if (!newValue && holidaySaverActive) {
+            setHolidaySaverActive(false);
+            await AsyncStorage.setItem('opt_holiday_saver_active', 'false');
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ streak_saver_active: false, holiday_saver_active: false })
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error updating streak saver:', error) });
+            }
+        } else if (user) {
             supabase.from('user_settings')
                 .update({ streak_saver_active: newValue })
                 .eq('user_id', user.id)
@@ -363,6 +374,9 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     };
 
     const toggleHolidaySaver = async () => {
+        // [FIX] Can't enable holiday if streak saver is off
+        if (!streakSaverActive) return;
+
         const newValue = !holidaySaverActive;
         setHolidaySaverActive(newValue);
         await AsyncStorage.setItem('opt_holiday_saver_active', newValue.toString());

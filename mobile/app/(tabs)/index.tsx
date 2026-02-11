@@ -71,7 +71,6 @@ const GameModePage = React.memo(({
     todaysPuzzleDate,
     userPuzzleReady,
     isCheckingPuzzle,
-    dismissedHolidayModal
 }: {
     isRegion: boolean,
     todayStatus: 'not-played' | 'solved' | 'failed',
@@ -89,7 +88,6 @@ const GameModePage = React.memo(({
     todaysPuzzleDate: string, // CRITICAL: Today's puzzle date from parent
     userPuzzleReady?: boolean, // Whether today's personal puzzle is available
     isCheckingPuzzle?: boolean, // Whether the readiness check is in progress
-    dismissedHolidayModal?: boolean // Guard to prevent holiday modal from re-showing after dismissal
 }) => {
     // Colors from Web App
     const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
@@ -181,9 +179,9 @@ const GameModePage = React.memo(({
                         incrementInteraction();
                         console.log(`[Home] Play Today pressed. HolidayActive: ${holidayActive}, Status: ${todayStatus}`);
 
-                        // [FIX] Only show Holiday Popup if the game hasn't been played yet.
-                        // If it's solved or failed, we allow navigation to review.
-                        if (holidayActive && todayStatus === 'not-played' && !dismissedHolidayModal) {
+                        // [FIX] Reactive holiday check - always evaluate on press, no one-shot dismissal flag.
+                        // Show popup if holiday mode is active AND the game hasn't been completed (solved/failed).
+                        if (holidayActive && todayStatus !== 'solved' && todayStatus !== 'failed') {
                             setHolidayModalMode(isRegion ? 'REGION' : 'USER');
                             setShowHolidayModal(true);
                         } else {
@@ -275,12 +273,12 @@ export default function HomeScreen() {
     const router = useRouter();
     const params = useLocalSearchParams(); // Use params for initialMode
     const { user } = useAuth();
-    const { gameMode, setGameMode } = useOptions();
+    const { gameMode, setGameMode, streakSaverActive, holidaySaverActive } = useOptions();
     const { profile } = useProfile();
     const userRegion = profile?.region || 'UK';
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
     const [showHolidayModal, setShowHolidayModal] = useState(false);
-    const [dismissedHolidayModal, setDismissedHolidayModal] = useState(false);
+    // dismissedHolidayModal removed — holiday check is now reactive on every press
 
     // CRITICAL: Single source of truth for "today's puzzle date"
     // This is calculated ONCE when the component mounts and when it refocuses
@@ -435,7 +433,8 @@ export default function HomeScreen() {
 
         // Only show popup when app is ready, screen is focused, loaded, and not dismissed
         // [FIX] Also suppress if we are currently IN a streak saver mode (e.g. just clicked "Use")
-        if (isAppReady && isFocused && !loading && user && !dismissedPopup && !isInStreakSaverMode) {
+        // [FIX] If streak saver toggle is OFF, never show any popup
+        if (isAppReady && isFocused && !loading && user && !dismissedPopup && !isInStreakSaverMode && streakSaverActive) {
 
             // Extract new flags from status (default to false if loading/null)
             const regionOfferStreakSaver = streakSaverStatus?.region?.offerStreakSaver ?? false;
@@ -478,7 +477,10 @@ export default function HomeScreen() {
             if (!isJustCompleted('REGION')) {
                 // [FIX] Do NOT show rescue popup if Holiday Mode is ALREADY active.
                 // The gap logic might still see a gap, but if we are on holiday, it's protected.
-                if ((regionOfferHolidayRescue || regionOfferStreakSaver) && !holidayActive) {
+                // [FIX] If holidaySaverActive is OFF, only show streak saver (gap=2), not holiday rescue (gap>2)
+                const regionShowSaver = regionOfferStreakSaver && !holidayActive;
+                const regionShowRescue = regionOfferHolidayRescue && !holidayActive && holidaySaverActive;
+                if (regionShowSaver || regionShowRescue) {
                     console.log('[Home PopupCheck] Showing REGION popup');
                     setPopupMode('REGION');
                     setStreakSaverVisible(true);
@@ -488,7 +490,9 @@ export default function HomeScreen() {
 
             // 2. User Checks
             if (!isJustCompleted('USER')) {
-                if ((userOfferHolidayRescue || userOfferStreakSaver) && !holidayActive) {
+                const userShowSaver = userOfferStreakSaver && !holidayActive;
+                const userShowRescue = userOfferHolidayRescue && !holidayActive && holidaySaverActive;
+                if (userShowSaver || userShowRescue) {
                     console.log('[Home PopupCheck] Showing USER popup');
                     setPopupMode('USER');
                     setStreakSaverVisible(true);
@@ -498,7 +502,7 @@ export default function HomeScreen() {
 
             console.log('[Home PopupCheck] No popup to show');
         }
-    }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup, streakSaverVisible, popupMode, isInStreakSaverMode, holidayActive]);
+    }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup, streakSaverVisible, popupMode, isInStreakSaverMode, holidayActive, streakSaverActive, holidaySaverActive]);
 
 
 
@@ -833,7 +837,7 @@ export default function HomeScreen() {
                             <StyledView className="flex-1 max-w-lg">
                                 {/* Mode Label */}
                                 <StyledView className="items-center" style={{ marginBottom: 10 }}>
-                                    <ThemedText className="font-n-bold text-slate-900 dark:text-white" baseSize={25}>
+                                    <ThemedText className="font-n-bold" lightColor="#0f172a" darkColor="#ffffff" baseSize={25}>
                                         {userRegion} Edition
                                     </ThemedText>
                                 </StyledView>
@@ -854,7 +858,7 @@ export default function HomeScreen() {
                                     todaysPuzzleDate={todaysPuzzleDate}
                                     userPuzzleReady={true}
                                     isCheckingPuzzle={false}
-                                    dismissedHolidayModal={dismissedHolidayModal}
+
                                 />
                             </StyledView>
 
@@ -862,7 +866,7 @@ export default function HomeScreen() {
                             <StyledView className="flex-1 max-w-lg">
                                 {/* User Name Label */}
                                 <StyledView className="items-center" style={{ marginBottom: 10 }}>
-                                    <ThemedText className="font-n-bold text-slate-900 dark:text-white" baseSize={25}>
+                                    <ThemedText className="font-n-bold" lightColor="#0f172a" darkColor="#ffffff" baseSize={25}>
                                         {firstName}
                                     </ThemedText>
                                 </StyledView>
@@ -883,7 +887,7 @@ export default function HomeScreen() {
                                     todaysPuzzleDate={todaysPuzzleDate}
                                     userPuzzleReady={userPuzzleReady}
                                     isCheckingPuzzle={isCheckingPuzzle}
-                                    dismissedHolidayModal={dismissedHolidayModal}
+
                                 />
                             </StyledView>
                         </StyledView>
@@ -920,7 +924,7 @@ export default function HomeScreen() {
                             todaysPuzzleDate={todaysPuzzleDate}
                             userPuzzleReady={true}
                             isCheckingPuzzle={false}
-                            dismissedHolidayModal={dismissedHolidayModal}
+
                         />
 
                         {/* User Page */}
@@ -941,7 +945,7 @@ export default function HomeScreen() {
                             todaysPuzzleDate={todaysPuzzleDate}
                             userPuzzleReady={userPuzzleReady}
                             isCheckingPuzzle={isCheckingPuzzle}
-                            dismissedHolidayModal={dismissedHolidayModal}
+
                         />
                     </Animated.ScrollView>
                 )}
@@ -1012,7 +1016,46 @@ export default function HomeScreen() {
                             supabase.from('user_stats_region').select('holiday_active').eq('user_id', user.id).single()
                         ]);
 
-                        // 3. Navigate to Game (Standard Mode)
+                        // 3. [FIX] Reset today's puzzle streak_day_status from 0 → NULL
+                        // so it receives normal streak treatment when played
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        console.log(`[Home] Resetting today's (${todayStr}) holiday status to NULL`);
+
+                        // Reset in BOTH tables - find today's attempt via allocation join
+                        const resetRegion = supabase
+                            .from('game_attempts_region')
+                            .select('id, streak_day_status, questions_allocated_region!inner(puzzle_date)')
+                            .eq('user_id', user.id)
+                            .eq('questions_allocated_region.puzzle_date', todayStr)
+                            .eq('streak_day_status', 0)
+                            .maybeSingle();
+
+                        const resetUser = supabase
+                            .from('game_attempts_user')
+                            .select('id, streak_day_status, questions_allocated_user!inner(puzzle_date)')
+                            .eq('user_id', user.id)
+                            .eq('questions_allocated_user.puzzle_date', todayStr)
+                            .eq('streak_day_status', 0)
+                            .maybeSingle();
+
+                        const [regionAttempt, userAttempt] = await Promise.all([resetRegion, resetUser]);
+
+                        if (regionAttempt.data?.id) {
+                            await supabase
+                                .from('game_attempts_region')
+                                .update({ streak_day_status: null })
+                                .eq('id', regionAttempt.data.id);
+                            console.log('[Home] Reset region attempt holiday status to NULL');
+                        }
+                        if (userAttempt.data?.id) {
+                            await supabase
+                                .from('game_attempts_user')
+                                .update({ streak_day_status: null })
+                                .eq('id', userAttempt.data.id);
+                            console.log('[Home] Reset user attempt holiday status to NULL');
+                        }
+
+                        // 4. Navigate to Game (Standard Mode)
                         setShowHolidayModal(false);
                         setTimeout(() => {
                             if (holidayModalMode === 'REGION') {
@@ -1035,7 +1078,6 @@ export default function HomeScreen() {
                 onContinueHoliday={() => {
                     console.log(`[Home] Continuing in Holiday Mode for ${holidayModalMode}`);
                     setShowHolidayModal(false);
-                    setDismissedHolidayModal(true);
                     // Navigate with flag to preserve status
                     if (holidayModalMode === 'REGION') {
                         router.push({

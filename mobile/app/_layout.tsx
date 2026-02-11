@@ -266,6 +266,74 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     );
 }
 
+/**
+ * [FIX] UserScopedProviders
+ * Wraps all user-data-dependent providers with a key tied to the user's ID.
+ * When the user changes (sign out → sign in), React unmounts and remounts
+ * the entire tree, clearing stale hooks/state from the previous user.
+ */
+function UserScopedProviders() {
+    const { user } = useAuth();
+
+    // Clear React Query cache when user changes
+    useEffect(() => {
+        console.log('[Layout] User changed, clearing query cache:', user?.id ?? 'signed-out');
+        queryClient.clear();
+    }, [user?.id]);
+
+    return (
+        <React.Fragment key={user?.id ?? 'anon'}>
+            <NetworkProvider>
+                <ConversionPromptProvider>
+                    <GuessCacheProvider>
+                        <StreakSaverProvider>
+                            <OptionsProvider>
+                                <WebContainer>
+                                    <ThemedView className="flex-1">
+                                        <NavigationGuard>
+                                            <Stack screenOptions={{ headerShown: false }}>
+                                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                                <Stack.Screen name="game" options={{ headerShown: false }} />
+                                                <Stack.Screen
+                                                    name="archive"
+                                                    options={{
+                                                        headerShown: false,
+                                                        presentation: 'card'
+                                                    }}
+                                                />
+                                                <Stack.Screen
+                                                    name="stats"
+                                                    options={{
+                                                        headerShown: false,
+                                                        presentation: 'card'
+                                                    }}
+                                                />
+                                                <Stack.Screen name="index" options={{ headerShown: false }} />
+                                                <Stack.Screen
+                                                    name="settings"
+                                                    options={{
+                                                        headerShown: false,
+                                                        presentation: 'card'
+                                                    }}
+                                                />
+                                            </Stack>
+                                        </NavigationGuard>
+                                    </ThemedView>
+                                </WebContainer>
+                                <ConversionPromptModal />
+                                <Suspense fallback={null}>
+                                    <SubscriptionLifecycleManager />
+                                </Suspense>
+                            </OptionsProvider>
+                        </StreakSaverProvider>
+                    </GuessCacheProvider>
+                </ConversionPromptProvider>
+            </NetworkProvider>
+        </React.Fragment>
+    );
+}
+
 export default function Layout() {
     const [adsInitialized, setAdsInitialized] = useState(false);
     let [fontsLoaded] = useFonts({
@@ -352,53 +420,7 @@ export default function Layout() {
                 <SafeAreaProvider>
                     <QueryClientProvider client={queryClient}>
                         <AuthProvider>
-                            <NetworkProvider>
-                                <ConversionPromptProvider>
-                                    <GuessCacheProvider>
-                                        <StreakSaverProvider>
-                                            <OptionsProvider>
-                                                <WebContainer>
-                                                    <ThemedView className="flex-1">
-                                                        <NavigationGuard>
-                                                            <Stack screenOptions={{ headerShown: false }}>
-                                                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                                                <Stack.Screen name="game" options={{ headerShown: false }} />
-                                                                <Stack.Screen
-                                                                    name="archive"
-                                                                    options={{
-                                                                        headerShown: false,
-                                                                        presentation: 'card'
-                                                                    }}
-                                                                />
-                                                                <Stack.Screen
-                                                                    name="stats"
-                                                                    options={{
-                                                                        headerShown: false,
-                                                                        presentation: 'card'
-                                                                    }}
-                                                                />
-                                                                <Stack.Screen name="index" options={{ headerShown: false }} />
-                                                                <Stack.Screen
-                                                                    name="settings"
-                                                                    options={{
-                                                                        headerShown: false,
-                                                                        presentation: 'card'
-                                                                    }}
-                                                                />
-                                                            </Stack>
-                                                        </NavigationGuard>
-                                                    </ThemedView>
-                                                </WebContainer>
-                                                <ConversionPromptModal />
-                                                <Suspense fallback={null}>
-                                                    <SubscriptionLifecycleManager />
-                                                </Suspense>
-                                            </OptionsProvider>
-                                        </StreakSaverProvider>
-                                    </GuessCacheProvider>
-                                </ConversionPromptProvider>
-                            </NetworkProvider>
+                            <UserScopedProviders />
                         </AuthProvider>
                     </QueryClientProvider>
                 </SafeAreaProvider>

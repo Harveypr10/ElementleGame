@@ -10,6 +10,7 @@ import { useStreakSaver } from '../../contexts/StreakSaverContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useProfile } from '../../hooks/useProfile';
+import { useOptions } from '../../lib/options';
 import hapticsManager from '../../lib/hapticsManager';
 import soundManager from '../../lib/soundManager';
 import { HolidayActivationModal } from './HolidayActivationModal';
@@ -41,6 +42,7 @@ export function StreakSaverPopup({
     const { toast } = useToast();
     const { startStreakSaverSession } = useStreakSaver();
     const { isPro } = useSubscription(); // Direct sub check
+    const { holidaySaverActive } = useOptions();
     const {
         regionStreakSaversRemaining,
         userStreakSaversRemaining,
@@ -423,29 +425,32 @@ export function StreakSaverPopup({
                                         )
                                     )}
 
-                                    <StyledTouchableOpacity
-                                        onPress={isPro ? handleStartHoliday : handleGetHolidayAllowance}
-                                        disabled={isPro && (isStartingHoliday || holidaysRemaining <= 0 || !hasAnyValidStreakForHoliday)}
-                                        className={`py-3 rounded-2xl ${!isPro
-                                            ? 'bg-indigo-500 active:bg-indigo-600'
-                                            : (holidaysRemaining > 0 && hasAnyValidStreakForHoliday)
-                                                ? 'bg-blue-400 active:bg-blue-500'
-                                                : 'bg-slate-400 opacity-60'
-                                            }`}
-                                    >
-                                        <StyledText className="text-white font-n-bold text-center text-lg">
-                                            {isPro
-                                                ? (isStartingHoliday
-                                                    ? 'Starting...'
-                                                    : !hasAnyValidStreakForHoliday
-                                                        ? 'No streak to protect'
-                                                        : holidaysRemaining <= 0
-                                                            ? 'No holidays remaining'
-                                                            : `Go on holiday (up to ${holidayDurationDays} days)`)
-                                                : 'Get a holiday allowance'
-                                            }
-                                        </StyledText>
-                                    </StyledTouchableOpacity>
+                                    {/* [FIX] Only show holiday button if holidaySaverActive is ON */}
+                                    {holidaySaverActive && (
+                                        <StyledTouchableOpacity
+                                            onPress={isPro ? handleStartHoliday : handleGetHolidayAllowance}
+                                            disabled={isPro && (isStartingHoliday || holidaysRemaining <= 0 || !hasAnyValidStreakForHoliday)}
+                                            className={`py-3 rounded-2xl ${!isPro
+                                                ? 'bg-indigo-500 active:bg-indigo-600'
+                                                : (holidaysRemaining > 0 && hasAnyValidStreakForHoliday)
+                                                    ? 'bg-blue-400 active:bg-blue-500'
+                                                    : 'bg-slate-400 opacity-60'
+                                                }`}
+                                        >
+                                            <StyledText className="text-white font-n-bold text-center text-lg">
+                                                {isPro
+                                                    ? (isStartingHoliday
+                                                        ? 'Starting...'
+                                                        : !hasAnyValidStreakForHoliday
+                                                            ? 'No streak to protect'
+                                                            : holidaysRemaining <= 0
+                                                                ? 'No holidays remaining'
+                                                                : `Go on holiday (up to ${holidayDurationDays} days)`)
+                                                    : 'Get a holiday allowance'
+                                                }
+                                            </StyledText>
+                                        </StyledTouchableOpacity>
+                                    )}
 
                                     <StyledTouchableOpacity
                                         onPress={handleDecline}
@@ -499,9 +504,13 @@ export function StreakSaverPopup({
                     gameType="REGION"
                     onClose={() => {
                         setRegionAnimationVisible(false);
-                        // [FIX] After Region modal closes, show User modal
-                        console.log('[StreakSaverPopup] Region modal closed, showing User modal');
-                        setUserAnimationVisible(true);
+                        // [FIX] Delay User modal to let iOS finish Region modal fade-out animation.
+                        // iOS cannot handle two <Modal> components transitioning simultaneously.
+                        console.log('[StreakSaverPopup] Region modal closed, scheduling User modal');
+                        setTimeout(() => {
+                            console.log('[StreakSaverPopup] Showing User modal');
+                            setUserAnimationVisible(true);
+                        }, 500);
                     }}
                 />
 

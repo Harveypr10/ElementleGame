@@ -361,9 +361,12 @@ export default function ManageSubscriptionScreen() {
                 gameType="REGION"
                 onClose={() => {
                     setRegionAnimationVisible(false);
-                    // [FIX] After Region modal closes, show User modal
-                    console.log('[ManageSubscription] Region modal closed, showing User modal');
-                    setUserAnimationVisible(true);
+                    // [FIX] Delay User modal to let iOS finish Region modal fade-out animation
+                    console.log('[ManageSubscription] Region modal closed, scheduling User modal');
+                    setTimeout(() => {
+                        console.log('[ManageSubscription] Showing User modal');
+                        setUserAnimationVisible(true);
+                    }, 500);
                 }}
             />
 

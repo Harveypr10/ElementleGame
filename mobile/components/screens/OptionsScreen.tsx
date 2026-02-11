@@ -288,10 +288,11 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
 
                             {isPro ? (
                                 <ToggleRow
-                                    label="Holiday Protection"
-                                    subLabel="Pause streak while away"
+                                    label="Holiday Protection Reminders"
+                                    subLabel="Show holiday protection popup"
                                     value={holidaySaverActive}
                                     onToggle={toggleHolidaySaver}
+                                    disabled={!streakSaverActive}
                                     borderColor={borderColor}
                                 />
                             ) : (
@@ -303,7 +304,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                                     <StyledView className="flex-1 pr-3 justify-center">
                                         <StyledView className="flex-row items-center gap-2 mb-0.5">
                                             <ThemedText className="font-n-bold opacity-60" size="base">
-                                                Holiday Protection
+                                                Holiday Protection Reminders
                                             </ThemedText>
                                             <StyledView className="px-2 py-0.5 rounded-full" style={{ backgroundColor: '#f97316' }}>
                                                 <ThemedText className="text-white font-n-bold" size="xs">Pro</ThemedText>

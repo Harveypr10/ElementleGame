@@ -828,6 +828,44 @@ export default function ArchiveScreen() {
                     console.log(`[Archive] Exiting Holiday Mode`);
                     try {
                         await endHolidayMode(user.id, true);
+
+                        // [FIX] Reset today's puzzle streak_day_status from 0 → NULL
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        console.log(`[Archive] Resetting today's (${todayStr}) holiday status to NULL`);
+
+                        const resetRegion = supabase
+                            .from('game_attempts_region')
+                            .select('id, streak_day_status, questions_allocated_region!inner(puzzle_date)')
+                            .eq('user_id', user.id)
+                            .eq('questions_allocated_region.puzzle_date', todayStr)
+                            .eq('streak_day_status', 0)
+                            .maybeSingle();
+
+                        const resetUser = supabase
+                            .from('game_attempts_user')
+                            .select('id, streak_day_status, questions_allocated_user!inner(puzzle_date)')
+                            .eq('user_id', user.id)
+                            .eq('questions_allocated_user.puzzle_date', todayStr)
+                            .eq('streak_day_status', 0)
+                            .maybeSingle();
+
+                        const [regionAttempt, userAttempt] = await Promise.all([resetRegion, resetUser]);
+
+                        if (regionAttempt.data?.id) {
+                            await supabase
+                                .from('game_attempts_region')
+                                .update({ streak_day_status: null })
+                                .eq('id', regionAttempt.data.id);
+                            console.log('[Archive] Reset region attempt holiday status to NULL');
+                        }
+                        if (userAttempt.data?.id) {
+                            await supabase
+                                .from('game_attempts_user')
+                                .update({ streak_day_status: null })
+                                .eq('id', userAttempt.data.id);
+                            console.log('[Archive] Reset user attempt holiday status to NULL');
+                        }
+
                         setShowHolidayModal(false);
                         if (pendingPuzzleId) {
                             router.push(`/game/${gameMode}/${pendingPuzzleId}`);

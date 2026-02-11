@@ -21,8 +21,6 @@ import { useBadgeSystem, Badge } from '../../hooks/useBadgeSystem';
 import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
-import { HolidayActiveModal } from './HolidayActiveModal';
-import { useStreakSaverStatus } from '../../hooks/useStreakSaverStatus';
 import { StreakCelebration } from './StreakCelebration';
 import { checkAndAwardStreakBadge, checkAndAwardElementleBadge, checkAndAwardPercentileBadge } from '../../lib/supabase-rpc';
 
@@ -85,9 +83,6 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     const [introPhase, setIntroPhase] = React.useState<'visible' | 'fading' | 'hidden'>('hidden');
     const gameFadeAnim = React.useRef(new Animated.Value(0)).current;
 
-    // Restore missing state
-    const [hasCheckedHoliday, setHasCheckedHoliday] = React.useState(false);
-
     // Trigger Game Fade In when Intro is fully gone
     useEffect(() => {
         if (introPhase === 'hidden' && !isLoading) {
@@ -98,8 +93,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             }).start();
         }
     }, [introPhase, isLoading]);
-    const { endHoliday, holidayActive } = useStreakSaverStatus();
-    const [showHolidayPopup, setShowHolidayPopup] = React.useState(false);
+    // Holiday popup removed — interception now happens at Home/Archive screen level
 
     // Pass the correct props to useGameEngine
     // Note: useGameEngine expects { puzzleId, answerDateCanonical, mode }
@@ -178,67 +172,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     // Prevent double-processing of game end
     const processedGame = React.useRef(false);
 
-    // HOLIDAY CHECK: After loading, check if this game is a holiday (status === 0)
-    // Only check if playing,    // Check for Holiday Mode on mount (Safety Check, though Index handles it now)
-    // We removed generic modal triggering here to avoid double-popup
-    // HOLIDAY CHECK: After loading, check if this game is a holiday (status === 0)
-    // Re-enabled to support triggering when entering from Archive (Deep Link)
-    // HOLIDAY CHECK: After loading, check if this game is a holiday (status === 0)
-    // Re-enabled to support triggering when entering from Archive (Deep Link)
-    useEffect(() => {
-        // [FIX] Only show if we are actually PLAYING (and not just loading).
-        // AND checks if it is TODAY'S puzzle.
-        // User Requirement: "If the game is partially played then the user should see the popup... if the game is won or lost... shouldn't appear"
-        // We ensure data is restored (isRestored) so we trust gameState.
 
-        // Calculate Today string for comparison
-        const todayStr = new Date().toISOString().split('T')[0];
-        const isTodayPuzzle = puzzle.date === todayStr;
-
-        // Condition breakdown:
-        // 1. Not already checked
-        // 2. Game is loaded and actively PLAYING (not won/lost/loading)
-        // 3. Game state IS restored (we know for sure it's not a fresh init race condition)
-        // 4. It's a Holiday Game (status 0)
-        // 5. Global Holiday Mode is Active
-        if (!hasCheckedHoliday && gameState === 'playing' && isRestored && streakDayStatus === 0 && !preserveStreakStatus && holidayActive) {
-
-            if (isTodayPuzzle) {
-                console.log("[ActiveGame] Game detected as Holiday Mode (Status 0) AND Global Holiday Active AND Today. Triggering Modal.");
-                setHasCheckedHoliday(true);
-                setShowHolidayPopup(true);
-            } else {
-                console.log("[ActiveGame] Holiday Mode detected but treating as Archive Game (Not Today). No Popup.");
-                setHasCheckedHoliday(true); // Mark checked so we don't re-check
-            }
-        } else if (!hasCheckedHoliday && isRestored && (gameState === 'won' || gameState === 'lost')) {
-            // [FIX] If restored and already done, mark checked to prevent future triggers
-            setHasCheckedHoliday(true);
-        }
-    }, [gameState, streakDayStatus, hasCheckedHoliday, preserveStreakStatus, holidayActive, puzzle.date, isRestored]);
-
-    // Format Holiday End Date (Example: "Wednesday 11 February")
-
-    // Format Holiday End Date (Example: "Wednesday 11 February")
-    // We don't have the *actual* holiday end date here easily without checking subscription/settings.
-    // For now, let's format Today + Remaining Days? 
-    // Or just use a placeholder/generic or try to fetch it?
-    // User stats might have "holiday_end_date"? No.
-    // Let's rely on what we have. 
-    // Wait, the prompt screenshot showed "Holiday runs until...".
-    // I can't easily get the end date without a new fetch. 
-    // I will mock it or leave generic for now, or just calculate based on max lookback?
-    // Actually, `streak_day_status` doesn't tell us when holiday ENDS.
-    // I'll leave the date hardcoded or generic, or just "until you exit".
-    // Wait, let's use a simple date for now (e.g. Tomorrow?) or just "until deactivated".
-    // Re-reading screenshot: "Wednesday 11 February".
-    // I'll format a date 14 days from now? No.
-    // I'll format the current date for now as a fallback.
-    const holidayEndDateDisplay = React.useMemo(() => {
-        const d = new Date();
-        d.setDate(d.getDate() + 14); // Assumption/Placeholder
-        return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
-    }, []);
 
     // Loading logic: Wait for game state to be loaded AND minimum 1.5s
     useEffect(() => {
@@ -509,6 +443,9 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                             borderRadius: 24,
                             padding: 16,
                             alignItems: 'center',
+                            maxWidth: 582,
+                            alignSelf: 'center',
+                            width: '100%',
                             shadowColor: '#000',
                             shadowOffset: { width: 0, height: 2 },
                             shadowOpacity: 0.1,
@@ -651,26 +588,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                 />
             )}
 
-            {/* Holiday Modal - Independent of Intro Logic */}
-            {!isLoading && (
-                <HolidayActiveModal
-                    visible={showHolidayPopup}
-                    holidayEndDate={holidayEndDateDisplay}
-                    onContinueHoliday={() => setShowHolidayPopup(false)}
-                    onExitHoliday={async () => {
-                        setShowHolidayPopup(false);
-                        try {
-                            await endHoliday(false);
-                            // [FIX] Reload the game screen to show streak intro
-                            // Use replace to reload with fresh state
-                            console.log('[ActiveGame] Holiday exited - reloading game to show streak intro');
-                            router.replace(`/game/${gameMode}/${puzzle.date}`);
-                        } catch (e) {
-                            console.error("Failed to exit holiday mode", e);
-                        }
-                    }}
-                />
-            )}
+
 
         </ThemedView >
     );
