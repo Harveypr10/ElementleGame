@@ -180,14 +180,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 // CRITICAL: Link RevenueCat identity with Supabase user ID
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    console.log('[Auth] Linking RevenueCat identity...');
-                    await logInRevenueCat(session.user.id);
+                    // [FIX] Re-gate loading to prevent NavigationGuard routing
+                    // before profile data is ready (fixes ghost state on social login)
+                    setLoading(true);
+                    try {
+                        console.log('[Auth] Linking RevenueCat identity...');
+                        await logInRevenueCat(session.user.id);
 
-                    // Sync OAuth provider linkage to database
-                    await syncOAuthProfile(session.user);
+                        // Sync OAuth provider linkage to database
+                        await syncOAuthProfile(session.user);
 
-                    // [FIX] Wait for profile data before declaring auth ready
-                    await ensureProfileReady(session.user.id);
+                        // [FIX] Wait for profile data before declaring auth ready
+                        await ensureProfileReady(session.user.id);
+                    } catch (e) {
+                        console.error('[Auth] Error during sign-in setup:', e);
+                    } finally {
+                        setLoading(false);
+                    }
+                    return; // already set loading=false above
                 }
             } else if (event === 'SIGNED_OUT') {
                 // Log out from RevenueCat when signing out

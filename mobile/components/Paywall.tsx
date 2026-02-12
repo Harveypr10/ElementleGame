@@ -193,9 +193,13 @@ export default function Paywall({ onPurchaseSuccess, onPurchaseCancel, onLoginRe
         }
     };
 
-    // Derive labels dynamically from RevenueCat's packageType enum
-    // This prevents mislabelling (e.g. "Quarterly" shown as "Monthly")
+    // Derive labels from identifier first (safety override), then fall back to packageType
     const getPackageLabel = (pkg: any): string => {
+        const id = (pkg.product?.identifier ?? pkg.identifier ?? '').toLowerCase();
+        if (id.includes('quarterly') || id.includes('3month') || id.includes('three_month')) return 'Quarterly';
+        if (id.includes('annual') || id.includes('yearly')) return 'Annual';
+        if (id.includes('lifetime')) return 'Lifetime';
+        // Fallback to RevenueCat packageType
         switch (pkg.packageType) {
             case 'ANNUAL': return 'Annual';
             case 'SIX_MONTH': return '6 Month';
@@ -204,11 +208,16 @@ export default function Paywall({ onPurchaseSuccess, onPurchaseCancel, onLoginRe
             case 'MONTHLY': return 'Monthly';
             case 'WEEKLY': return 'Weekly';
             case 'LIFETIME': return 'Lifetime';
-            default: return pkg.identifier; // custom packages fallback to identifier
+            default: return pkg.identifier;
         }
     };
 
     const getPackageDuration = (pkg: any): string => {
+        const id = (pkg.product?.identifier ?? pkg.identifier ?? '').toLowerCase();
+        if (id.includes('quarterly') || id.includes('3month') || id.includes('three_month')) return '/ 3 months';
+        if (id.includes('annual') || id.includes('yearly')) return '/ year';
+        if (id.includes('lifetime')) return '';
+        // Fallback to RevenueCat packageType
         switch (pkg.packageType) {
             case 'ANNUAL': return '/ year';
             case 'SIX_MONTH': return '/ 6 months';

@@ -30,7 +30,7 @@ export function AdBanner() {
     }
 
     return (
-        <StyledView className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 items-center justify-center">
+        <StyledView className="absolute bottom-0 left-0 right-0 items-center" style={{ overflow: 'hidden' }}>
             <BannerAd
                 unitId={AD_UNITS.banner}
                 size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}

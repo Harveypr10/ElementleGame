@@ -90,18 +90,20 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         return () => clearTimeout(timer);
     }, []);
 
-    // [FIX] Watchdog: if splash is still showing after 8s, force past it
+    // [FIX] HARD Watchdog: Runs independently — if we're still on splash after 8s,
+    // something went wrong (network hang, auth timeout, etc.). Force navigate.
+    const splashRef = useRef(true); // Tracks showSplash in a ref for timeout closure
+    // NOTE: sync effect is placed after showSplash definition below
     useEffect(() => {
         if (Platform.OS === 'web') return;
         const watchdog = setTimeout(() => {
-            if (loading) {
-                console.warn('[NavGuard] Watchdog: splash stuck for 8s — forcing past loading state');
-                // Navigate to onboarding as a safe fallback
+            if (splashRef.current) {
+                console.warn('[NavGuard] HARD WATCHDOG: Splash stuck for 8s — forcing to onboarding');
                 router.replace('/(auth)/onboarding');
             }
         }, 8000);
         return () => clearTimeout(watchdog);
-    }, [loading]);
+    }, []); // Empty deps = runs ONCE on mount, independent of any state
 
     // [FIX] AppState listener: refresh session if backgrounded >1 hour
     useEffect(() => {
@@ -203,16 +205,17 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             const { url } = event;
             console.log('[NavGuard] Deep link received:', url);
 
-            if (url.includes('reset-password')) {
-                console.log('[NavGuard] Password reset deep link detected');
+            // Handle password reset links (both /reset-password and root magic links)
+            const isResetLink = url.includes('reset-password');
+            const isMagicLink = url.includes('token_hash') && url.includes('type=recovery');
 
-                // The URL contains a hash fragment with access_token
-                // Supabase will automatically detect and set the session
-                // We just need to wait a moment and then navigate to the password screen
+            if (isResetLink || isMagicLink) {
+                console.log('[NavGuard] Password reset / magic link detected:', { isResetLink, isMagicLink });
 
                 // Give Supabase time to process the token from the URL
                 setTimeout(() => {
-                    router.push({
+                    // [FIX] Use replace instead of push to avoid flash of "unmatched" route
+                    router.replace({
                         pathname: '/(auth)/set-new-password',
                         params: { mode: 'reset' }
                     });
@@ -225,8 +228,8 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 
         // Check if app was opened with a deep link
         Linking.getInitialURL().then((url) => {
-            if (url && url.includes('reset-password')) {
-                console.log('[NavGuard] App opened with password reset link:', url);
+            if (url && (url.includes('reset-password') || (url.includes('token_hash') && url.includes('type=recovery')))) {
+                console.log('[NavGuard] App opened with password reset / magic link:', url);
                 handleDeepLink({ url });
             }
         });
@@ -241,6 +244,11 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     const showSplash = Platform.OS === 'web'
         ? (!isSplashMinTimeMet || hasAgeVerification === null)
         : (loading || !isSplashMinTimeMet || hasAgeVerification === null);
+
+    // Sync splashRef for the watchdog timeout closure
+    useEffect(() => {
+        splashRef.current = showSplash;
+    }, [showSplash]);
 
     // 3. Navigation Side Effects
     useEffect(() => {

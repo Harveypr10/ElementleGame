@@ -119,7 +119,19 @@ export async function checkAndAwardStreakBadge(
             .single();
 
         if (insertError) {
-            console.error('[BadgeLogic] Failed to award streak badge:', insertError);
+            console.error('[BadgeLogic] Failed to award streak badge:', {
+                error: insertError,
+                code: insertError.code,
+                message: insertError.message,
+                userId,
+                badgeId: badge.id,
+                region,
+                gameType,
+                hint: insertError.code?.startsWith('PGRST') || insertError.message?.includes('policy')
+                    ? 'LIKELY RLS ISSUE — check user_badges INSERT policy'
+                    : insertError.code === '23505' ? 'Duplicate key — badge already exists'
+                        : 'Unknown error'
+            });
             return null;
         }
 
@@ -260,7 +272,18 @@ export async function checkAndAwardElementleBadge(
                 }
             }
 
-            console.error('[BadgeLogic] Failed to award elementle badge:', insertError);
+            console.error('[BadgeLogic] Failed to award elementle badge:', {
+                error: insertError,
+                code: insertError.code,
+                message: insertError.message,
+                userId,
+                badgeId: badge.id,
+                region,
+                gameType,
+                hint: insertError.code?.startsWith('PGRST') || insertError.message?.includes('policy')
+                    ? 'LIKELY RLS ISSUE — check user_badges INSERT policy'
+                    : 'Unknown error'
+            });
             return null;
         }
 

@@ -394,12 +394,12 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             return;
         }
 
-        // Standard users: wait 1 second for ad to fully appear on screen
-        console.log('[ActiveGame] Standard user - Waiting 1s before enabling Continue button');
+        // Standard users: wait 5 seconds for ad to fully appear on screen
+        console.log('[ActiveGame] Standard user - Waiting 5s before enabling Continue button');
         const timer = setTimeout(() => {
-            console.log('[ActiveGame] Enabling Continue button after 1s wait');
+            console.log('[ActiveGame] Enabling Continue button after 5s wait');
             setButtonEnabled(true);
-        }, 1000);
+        }, 5000);
 
         return () => clearTimeout(timer);
     }, [readyForCelebration, isPro, isGuest, wasInitiallyComplete, gameState]);

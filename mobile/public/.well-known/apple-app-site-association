@@ -5,6 +5,8 @@
             {
                 "appID": "859LK5Q44X.com.dobl.elementlegame",
                 "paths": [
+                    "/",
+                    "/?*",
                     "/reset-password",
                     "/reset-password/*"
                 ]
