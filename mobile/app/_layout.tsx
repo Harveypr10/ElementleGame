@@ -406,6 +406,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 
         const inGameFlow = segments[0] === 'game' || segments[0] === 'game-result';
         const inRootIndex = segments.length === 0 || segments[0] === 'index';
+        const inPublicPages = segments.includes('privacy') || segments.includes('support') || segments.includes('terms');
 
         console.log('[NavGuard] Session:', !!session, 'Guest:', isGuest, 'Segments:', segments);
 
@@ -419,7 +420,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        if (!session && !isGuest && !inAuthGroup && !inGameFlow) {
+        if (!session && !isGuest && !inAuthGroup && !inGameFlow && !inPublicPages) {
             if (!inRootIndex) {
                 console.log('[NavGuard] Unauthorized access -> Redirecting to onboarding');
                 router.replace('/(auth)/onboarding');
