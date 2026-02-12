@@ -360,6 +360,9 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
         if (!user) {
             // Guest - go to onboarding
             router.replace('/(auth)/onboarding');
+        } else if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history.length <= 2) {
+            // Web: no meaningful back history (e.g. arrived via router.replace from onboarding)
+            router.replace('/(tabs)');
         } else {
             router.back();
         }

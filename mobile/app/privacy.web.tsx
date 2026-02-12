@@ -2,15 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Linking } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-// Optional: useProfile for adsConsent if we want to enable toggle on web
-// Legacy PrivacyPage has ads consent toggle.
-// I should duplicate that logic if possible.
-// Legacy uses useProfile.
 import { useProfile } from '../hooks/useProfile';
+import { useAuth } from '../lib/auth';
 import { Switch } from 'react-native';
 
 export default function PrivacyWeb() {
     const router = useRouter();
+    const { user } = useAuth();
     const [backHover, setBackHover] = useState(false);
 
     // Ads Consent Logic
@@ -123,23 +121,25 @@ export default function PrivacyWeb() {
                             </Text>
                         </View>
 
-                        {/* Ads Consent */}
-                        <View style={[styles.section, styles.consentSection]}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <View style={{ flex: 1, paddingRight: 16 }}>
-                                    <Text style={styles.paragraph}>
-                                        I consent to my data being used to tailor ads. <Text style={styles.bold}>If you do not consent, your ads will not be tailored.</Text>
-                                    </Text>
+                        {/* Ads Consent - only for logged-in users */}
+                        {user && (
+                            <View style={[styles.section, styles.consentSection]}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <View style={{ flex: 1, paddingRight: 16 }}>
+                                        <Text style={styles.paragraph}>
+                                            I consent to my data being used to tailor ads. <Text style={styles.bold}>If you do not consent, your ads will not be tailored.</Text>
+                                        </Text>
+                                    </View>
+                                    <Switch
+                                        value={adsConsent}
+                                        onValueChange={handleAdsToggle}
+                                        disabled={saving}
+                                        trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                                        thumbColor={'#ffffff'}
+                                    />
                                 </View>
-                                <Switch
-                                    value={adsConsent} // Use safe check if property doesn't exist
-                                    onValueChange={handleAdsToggle}
-                                    disabled={saving}
-                                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
-                                    thumbColor={'#ffffff'}
-                                />
                             </View>
-                        </View>
+                        )}
 
                     </ScrollView>
                 </View>

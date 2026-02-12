@@ -66,14 +66,16 @@ export default function SupportWeb() {
                         </Text>
                     </View>
 
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Your Email</Text>
-                        <TextInput
-                            value={user?.email || ''}
-                            editable={false}
-                            style={[styles.input, styles.inputDisabled]}
-                        />
-                    </View>
+                    {user && (
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Your Email</Text>
+                            <TextInput
+                                value={user?.email || ''}
+                                editable={false}
+                                style={[styles.input, styles.inputDisabled]}
+                            />
+                        </View>
+                    )}
 
                     <View style={styles.formGroup}>
                         <Text style={styles.label}>Your Message</Text>
