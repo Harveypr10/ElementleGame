@@ -65,7 +65,7 @@ export const queryClient = new QueryClient({
   Handles redirection based on auth state and "First Login Setup"
 */
 function NavigationGuard({ children }: { children: React.ReactNode }) {
-    const { session, loading, hasCompletedFirstLogin, isGuest, user } = useAuth();
+    const { session, loading, profileLoading, hasCompletedFirstLogin, isGuest, user } = useAuth();
     const segments = useSegments();
     const router = useRouter();
 
@@ -253,6 +253,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // 3. Navigation Side Effects
     useEffect(() => {
         if (showSplash) return; // Wait until ready
+        if (profileLoading) return; // [FIX] Wait for profile data after sign-in (no splash, login screen stays)
 
         const inAuthGroup = segments.includes('(auth)') || segments.includes('login');
         const inTabsGroup = segments[0] === '(tabs)';
@@ -299,7 +300,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 router.replace('/(tabs)');
             }
         }
-    }, [session, isGuest, showSplash, segments, hasCompletedFirstLogin, hasAgeVerification]);
+    }, [session, isGuest, showSplash, profileLoading, segments, hasCompletedFirstLogin, hasAgeVerification]);
 
     // 4. Wrap children in Readiness Context so screens know when to trigger modals
     return (

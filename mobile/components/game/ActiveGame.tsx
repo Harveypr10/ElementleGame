@@ -437,27 +437,30 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     {cluesEnabled ? (
                         <View style={{
                             marginTop: -20,
-                            marginHorizontal: 16,
+                            paddingHorizontal: 24, // [FIX] Match app-wide padding pattern (px-6)
                             zIndex: 20,
-                            backgroundColor: '#FFFFFF',
-                            borderRadius: 24,
-                            padding: 16,
-                            alignItems: 'center',
                             maxWidth: 582,
                             alignSelf: 'center',
                             width: '100%',
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.1,
-                            shadowRadius: 8,
-                            elevation: 4,
                         }}>
-                            <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>
-                                {puzzle.category}
-                            </Text>
-                            <Text style={{ color: '#1e293b', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
-                                {puzzle.title}
-                            </Text>
+                            <View style={{
+                                backgroundColor: '#FFFFFF',
+                                borderRadius: 24,
+                                padding: 16,
+                                alignItems: 'center',
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 8,
+                                elevation: 4,
+                            }}>
+                                <Text style={{ color: '#3b82f6', fontWeight: '700', fontSize: 14, marginBottom: 4 }}>
+                                    {puzzle.category}
+                                </Text>
+                                <Text style={{ color: '#1e293b', fontWeight: '700', fontSize: 18, textAlign: 'center' }}>
+                                    {puzzle.title}
+                                </Text>
+                            </View>
                         </View>
                     ) : (
                         /* Spacer when clues OFF - pushes grid below header */

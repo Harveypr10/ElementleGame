@@ -13,6 +13,7 @@ type AuthContextType = {
     isGuest: boolean;
     isAuthenticated: boolean;
     loading: boolean;
+    profileLoading: boolean; // True while profile data is being fetched after sign-in
     signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
     signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
     isGuest: false,
     isAuthenticated: false,
     loading: true,
+    profileLoading: false,
     signInWithEmail: async () => ({ error: null }),
     signUpWithEmail: async () => ({ error: null }),
     signOut: async () => { },
@@ -70,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isGuest, setIsGuest] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [profileLoading, setProfileLoading] = useState(false);
     const appStateRef = useRef(AppState.currentState);
 
     // ============================================================
@@ -180,9 +183,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 // CRITICAL: Link RevenueCat identity with Supabase user ID
                 if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    // [FIX] Re-gate loading to prevent NavigationGuard routing
-                    // before profile data is ready (fixes ghost state on social login)
-                    setLoading(true);
+                    // [FIX] Use profileLoading (not loading) to gate NavigationGuard
+                    // routing WITHOUT triggering the splash overlay
+                    setProfileLoading(true);
                     try {
                         console.log('[Auth] Linking RevenueCat identity...');
                         await logInRevenueCat(session.user.id);
@@ -195,14 +198,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     } catch (e) {
                         console.error('[Auth] Error during sign-in setup:', e);
                     } finally {
-                        setLoading(false);
+                        setProfileLoading(false);
                     }
-                    return; // already set loading=false above
+                    return; // profileLoading handled above
                 }
             } else if (event === 'SIGNED_OUT') {
                 // Log out from RevenueCat when signing out
                 console.log('[Auth] Logging out from RevenueCat...');
-                await logOutRevenueCat();
+                try {
+                    await logOutRevenueCat();
+                } catch (e) {
+                    // [FIX] Gracefully handle network errors on sign-out
+                    console.warn('[Auth] RevenueCat logout failed (likely network):', e);
+                }
             }
             // If session is null, we don't automatically set guest to false/true 
             // because signOut logic handles that explicitly.
@@ -368,6 +376,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isGuest,
                 isAuthenticated: !!user && !isGuest,
                 loading,
+                profileLoading,
                 signInWithEmail,
                 signUpWithEmail,
                 signOut,
