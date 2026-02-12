@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Alert, Platform, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -129,11 +129,23 @@ export function OnboardingScreen({
 
                 {/* Privacy & Support Links */}
                 <View style={styles.linksContainer}>
-                    <TouchableOpacity onPress={() => router.push('/privacy')} activeOpacity={0.7}>
+                    <TouchableOpacity onPress={() => {
+                        if (Platform.OS === 'web') {
+                            Linking.openURL('/privacy');
+                        } else {
+                            router.push('/privacy');
+                        }
+                    }} activeOpacity={0.7}>
                         <ThemedText baseSize={13} style={styles.linkText}>Privacy Policy</ThemedText>
                     </TouchableOpacity>
                     <ThemedText baseSize={13} style={styles.linkSeparator}>·</ThemedText>
-                    <TouchableOpacity onPress={() => router.push('/support')} activeOpacity={0.7}>
+                    <TouchableOpacity onPress={() => {
+                        if (Platform.OS === 'web') {
+                            Linking.openURL('/support');
+                        } else {
+                            router.push('/support');
+                        }
+                    }} activeOpacity={0.7}>
                         <ThemedText baseSize={13} style={styles.linkText}>Support</ThemedText>
                     </TouchableOpacity>
                 </View>

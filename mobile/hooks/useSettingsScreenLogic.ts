@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, ViewStyle } from 'react-native';
+import { Alert, ViewStyle, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../lib/auth';
 import { useProfile } from '../hooks/useProfile';
@@ -28,6 +28,31 @@ export function useSettingsScreenLogic() {
     const goProBgColor = useThemeColor({ light: '#fffbeb', dark: '#451a03' }, 'background');
 
     const handleSignOut = async () => {
+        // Alert.alert is a no-op on web — use window.confirm instead
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Are you sure you want to sign out?');
+            if (!confirmed) return;
+
+            setSigningOut(true);
+            try {
+                const timeoutPromise = new Promise<never>((_, reject) => {
+                    setTimeout(() => reject(new Error('timeout')), 6000);
+                });
+                await Promise.race([signOut(), timeoutPromise]);
+                router.replace('/(auth)/onboarding');
+            } catch (error: any) {
+                console.error('[Settings] Sign out error:', error);
+                if (error?.message === 'timeout') {
+                    window.alert('Sign out timed out. Please try again.');
+                } else {
+                    window.alert('Failed to sign out. Please try again.');
+                }
+            } finally {
+                setSigningOut(false);
+            }
+            return;
+        }
+
         Alert.alert(
             'Sign Out',
             'Are you sure you want to sign out?',
