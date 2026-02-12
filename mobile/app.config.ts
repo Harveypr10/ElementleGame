@@ -28,6 +28,7 @@ const plugins: any[] = [
             project: "elementle-mobile",
         },
     ],
+    "./plugins/withSentryAllowFailure",
     [
         "expo-location",
         {
