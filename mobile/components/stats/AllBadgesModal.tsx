@@ -17,6 +17,7 @@ interface AllBadgesModalProps {
     visible: boolean;
     onClose: () => void;
     gameType?: 'USER' | 'REGION';
+    region?: string;
     initialCategory?: 'elementle' | 'streak' | 'percentile';
     brandColor?: string;
     playButtonColor?: string;
@@ -31,7 +32,7 @@ const CATEGORY_CONFIG: Record<CategoryType, { title: string; description: string
     percentile: { title: 'Top %', description: 'Rank high on leaderboards' }
 };
 
-export function AllBadgesModal({ visible, onClose, gameType = 'REGION', initialCategory, brandColor = '#93c54e', playButtonColor = '#7DAAE8' }: AllBadgesModalProps) {
+export function AllBadgesModal({ visible, onClose, gameType = 'REGION', region = 'UK', initialCategory, brandColor = '#93c54e', playButtonColor = '#7DAAE8' }: AllBadgesModalProps) {
     const { user } = useAuth();
     const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
     const [allBadges, setAllBadges] = useState<any[]>([]);
@@ -94,10 +95,17 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', initialC
             if (badgesError) throw badgesError;
             setAllBadges(badgesData || []);
 
-            const { data: earnedData, error: earnedError } = await supabase
+            let earnedQuery = supabase
                 .from('user_badges')
                 .select('*, badge:badges(*)')
-                .eq('user_id', user!.id);
+                .eq('user_id', user!.id)
+                .eq('game_type', gameType);
+
+            if (gameType === 'REGION') {
+                earnedQuery = earnedQuery.eq('region', region);
+            }
+
+            const { data: earnedData, error: earnedError } = await earnedQuery;
             if (earnedError) throw earnedError;
             setUserBadges(earnedData || []);
         } catch (error) {

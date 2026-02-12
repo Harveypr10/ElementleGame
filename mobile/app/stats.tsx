@@ -198,11 +198,18 @@ export default function StatsScreen() {
                 setStats(newStats);
             }
 
-            // 2. Fetch Badges for Preview
-            const { data: userBadgesData } = await supabase
+            // 2. Fetch Badges for Preview (filtered by game mode + region)
+            let badgeQuery = supabase
                 .from('user_badges')
                 .select('*, badge:badges(*)')
-                .eq('user_id', user.id);
+                .eq('user_id', user.id)
+                .eq('game_type', mode);
+
+            if (mode === 'REGION') {
+                badgeQuery = badgeQuery.eq('region', fetchedRegion);
+            }
+
+            const { data: userBadgesData } = await badgeQuery;
 
             let highest = { elementle: null, streak: null, percentile: null } as Record<string, any>;
             if (userBadgesData) {
@@ -636,7 +643,8 @@ export default function StatsScreen() {
                             <AllBadgesModal
                                 visible={showBadgesModal}
                                 onClose={() => setShowBadgesModal(false)}
-                                gameType="REGION"
+                                gameType={mode}
+                                region={userRegion}
                                 initialCategory={selectedCategory}
                                 brandColor={theme.headerBg}
                                 playButtonColor={mode === 'REGION' ? '#7DAAE8' : '#66becb'}
