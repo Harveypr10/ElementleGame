@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { formatCanonicalDateWithOrdinal } from '../lib/dateFormat';
 import { ThemedView } from './ThemedView';
 import { ThemedText } from './ThemedText';
@@ -25,6 +26,7 @@ export function OnboardingScreen({
 }: OnboardingScreenProps) {
     const colorScheme = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
+    const router = useRouter();
 
     // Format date as "15th January 2026"
     const displayDate = useMemo(
@@ -124,6 +126,17 @@ export function OnboardingScreen({
                 >
                     Puzzle date: {displayDate}
                 </ThemedText>
+
+                {/* Privacy & Support Links */}
+                <View style={styles.linksContainer}>
+                    <TouchableOpacity onPress={() => router.push('/privacy')} activeOpacity={0.7}>
+                        <ThemedText baseSize={13} style={styles.linkText}>Privacy Policy</ThemedText>
+                    </TouchableOpacity>
+                    <ThemedText baseSize={13} style={styles.linkSeparator}>·</ThemedText>
+                    <TouchableOpacity onPress={() => router.push('/support')} activeOpacity={0.7}>
+                        <ThemedText baseSize={13} style={styles.linkText}>Support</ThemedText>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* DEV: Clear AsyncStorage overlay button - commented out, kept for future use
@@ -216,6 +229,21 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito_400Regular',
         paddingTop: 16,
         textAlign: 'center',
+    },
+    linksContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingTop: 8,
+    },
+    linkText: {
+        fontFamily: 'Nunito_400Regular',
+        opacity: 0.45,
+        textDecorationLine: 'underline',
+    },
+    linkSeparator: {
+        fontFamily: 'Nunito_400Regular',
+        opacity: 0.3,
     },
     devClearButton: {
         position: 'absolute',

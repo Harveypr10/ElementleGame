@@ -15,6 +15,7 @@ import { useInterstitialAd } from '../../hooks/useInterstitialAd';
 import { useSubscription } from '../../hooks/useSubscription';
 import { IntroScreen } from './IntroScreen';
 import { useOptions } from '../../lib/options';
+import { useReviewPrompt } from '../../hooks/useReviewPrompt';
 
 import { useUserStats } from '../../hooks/useUserStats';
 import { useBadgeSystem, Badge } from '../../hooks/useBadgeSystem';
@@ -63,6 +64,8 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
 
     const { showAd, isClosed: adClosed } = useInterstitialAd();
     const { isPro } = useSubscription();
+    const { shouldShowReview, triggerReview } = useReviewPrompt();
+    const reviewTriggeredRef = React.useRef(false);
     const surfaceColor = useThemeColor({}, 'surface');
     const queryClient = useQueryClient();
 
@@ -301,7 +304,14 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     }, 5000);
                 } else {
                     // Standard user or guest - mark ready for post-ad navigation
-                    console.log('[ActiveGame] Marking ready for post-ad navigation');
+                    // [RATE MY APP] If review milestone reached, trigger review instead of ad
+                    if (shouldShowReview && !isGuest) {
+                        console.log('[ActiveGame] Review milestone reached — triggering review, skipping ad');
+                        reviewTriggeredRef.current = true;
+                        triggerReview();
+                    } else {
+                        console.log('[ActiveGame] Marking ready for post-ad navigation');
+                    }
                     setReadyForCelebration(true);
                 }
             };
@@ -395,6 +405,12 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
         }
 
         // Standard users: wait 5 seconds for ad to fully appear on screen
+        // [RATE MY APP] If review was triggered instead of ad, enable immediately
+        if (reviewTriggeredRef.current) {
+            console.log('[ActiveGame] Review triggered — enabling Continue immediately (no ad)');
+            setButtonEnabled(true);
+            return;
+        }
         console.log('[ActiveGame] Standard user - Waiting 5s before enabling Continue button');
         const timer = setTimeout(() => {
             console.log('[ActiveGame] Enabling Continue button after 5s wait');

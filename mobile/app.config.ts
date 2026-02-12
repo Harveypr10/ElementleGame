@@ -21,6 +21,7 @@ const plugins: any[] = [
     "expo-font",
     "@react-native-google-signin/google-signin",
     "expo-apple-authentication",
+    "@sentry/react-native",
     [
         "expo-location",
         {

@@ -1,6 +1,14 @@
 import React, { Suspense } from 'react';
 import { View, ActivityIndicator, StyleSheet, Linking, Platform, AppState, AppStateStatus } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as Sentry from '@sentry/react-native';
+
+// Initialize Sentry at module level (before any component renders)
+Sentry.init({
+    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '__SENTRY_DSN_PLACEHOLDER__',
+    debug: __DEV__,
+    enabled: !__DEV__,
+});
 import { styled } from 'nativewind';
 import { ThemedView } from '../components/ThemedView';
 import { WebContainer } from '../components/WebContainer';
@@ -145,6 +153,84 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         hasCompletedAgeVerification().then(setHasAgeVerification);
     }, [segments]);
 
+    // [WEB] Magic Link & Recovery token handler
+    // When user clicks a Supabase magic link / recovery link, they land on elementle.tech
+    // in Safari. This detects the auth tokens and either:
+    // 1. Redirects to the native app via custom scheme (if installed)
+    // 2. Falls back to verifying the token on web (signs them in on web)
+    useEffect(() => {
+        if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+        const search = window.location.search;
+        const hash = window.location.hash;
+        const searchParams = new URLSearchParams(search);
+        const hashParams = hash ? new URLSearchParams(hash.substring(1)) : new URLSearchParams();
+
+        const tokenHash = searchParams.get('token_hash');
+        const type = searchParams.get('type') || hashParams.get('type');
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        // --- Magic Link (type=magiclink or type=email) ---
+        if (tokenHash && (type === 'magiclink' || type === 'email')) {
+            console.log('[Web] Magic link detected — attempting app redirect');
+            // Try to open the native app first
+            const appUrl = `elementle://?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(type)}`;
+            window.location.href = appUrl;
+
+            // If still on this page after 2s, verify on web instead
+            setTimeout(async () => {
+                console.log('[Web] App redirect may have failed — verifying on web');
+                try {
+                    const { error } = await supabase.auth.verifyOtp({
+                        token_hash: tokenHash,
+                        type: type === 'email' ? 'email' : 'magiclink',
+                    });
+                    if (error) {
+                        console.error('[Web] Magic link verification error:', error);
+                    } else {
+                        console.log('[Web] Magic link verified — user signed in on web');
+                        // Clean URL
+                        window.history.replaceState({}, '', '/');
+                    }
+                } catch (e) {
+                    console.error('[Web] Error verifying magic link:', e);
+                }
+            }, 2000);
+            return;
+        }
+
+        // --- Recovery / Password Reset ---
+        if (accessToken && refreshToken && type === 'recovery') {
+            console.log('[Web] Recovery link detected — attempting app redirect');
+            const appUrl = `elementle://reset-password#access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&type=recovery`;
+            window.location.href = appUrl;
+
+            // If still on this page after 2s, process on web
+            setTimeout(async () => {
+                console.log('[Web] App redirect may have failed — setting session on web');
+                try {
+                    const { error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+                    if (error) {
+                        console.error('[Web] Recovery session error:', error);
+                    } else {
+                        console.log('[Web] Recovery session set — redirecting to set-new-password');
+                        router.replace({
+                            pathname: '/(auth)/set-new-password',
+                            params: { mode: 'reset' },
+                        });
+                    }
+                } catch (e) {
+                    console.error('[Web] Error processing recovery link:', e);
+                }
+            }, 2000);
+            return;
+        }
+    }, []);
+
     // Check puzzle readiness during splash period (no extra delay, runs in parallel)
     useEffect(() => {
         if (!user?.id) return;
@@ -199,37 +285,85 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         }
     }, [isConnected, user?.id]);
 
-    // 2b. Deep Link Handler for Password Reset
+    // 2b. Deep Link Handler for Password Reset & Magic Links
     useEffect(() => {
         const handleDeepLink = async (event: { url: string }) => {
             const { url } = event;
             console.log('[NavGuard] Deep link received:', url);
 
-            // Handle password reset links (both /reset-password and root magic links)
-            const isResetLink = url.includes('reset-password');
-            const isMagicLink = url.includes('token_hash') && url.includes('type=recovery');
+            try {
+                // Parse the URL — Supabase puts tokens in the fragment (#) or query (?)
+                const urlObj = new URL(url);
+                const searchParams = new URLSearchParams(urlObj.search);
+                const hashParams = urlObj.hash ? new URLSearchParams(urlObj.hash.substring(1)) : new URLSearchParams();
 
-            if (isResetLink || isMagicLink) {
-                console.log('[NavGuard] Password reset / magic link detected:', { isResetLink, isMagicLink });
+                // --- Password Reset / Recovery ---
+                const isResetPath = url.includes('reset-password');
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
+                const hashType = hashParams.get('type');
+                const isRecovery = hashType === 'recovery' || (isResetPath && accessToken);
 
-                // Give Supabase time to process the token from the URL
-                setTimeout(() => {
-                    // [FIX] Use replace instead of push to avoid flash of "unmatched" route
+                if (isRecovery && accessToken && refreshToken) {
+                    console.log('[NavGuard] Recovery link — setting session from tokens');
+                    const { error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+                    if (error) {
+                        console.error('[NavGuard] Session set error:', error);
+                    }
                     router.replace({
                         pathname: '/(auth)/set-new-password',
-                        params: { mode: 'reset' }
+                        params: { mode: 'reset' },
                     });
-                }, 500);
+                    return;
+                }
+
+                // Path-only reset link (no tokens yet — user will get redirected)
+                if (isResetPath) {
+                    router.replace({
+                        pathname: '/(auth)/set-new-password',
+                        params: { mode: 'reset' },
+                    });
+                    return;
+                }
+
+                // --- Magic Link (email login) ---
+                const tokenHash = searchParams.get('token_hash');
+                const type = searchParams.get('type');
+                const isMagicLink = tokenHash && (type === 'magiclink' || type === 'email');
+
+                if (isMagicLink) {
+                    console.log('[NavGuard] Magic link — verifying OTP');
+                    const { error } = await supabase.auth.verifyOtp({
+                        token_hash: tokenHash,
+                        type: type === 'email' ? 'email' : 'magiclink',
+                    });
+                    if (error) {
+                        console.error('[NavGuard] Magic link verification error:', error);
+                    } else {
+                        console.log('[NavGuard] Magic link verified — user signed in');
+                    }
+                    // Auth state change listener will handle navigation
+                    return;
+                }
+            } catch (e) {
+                console.error('[NavGuard] Deep link processing error:', e);
             }
         };
 
         // Listen for deep links while app is open
         const subscription = Linking.addEventListener('url', handleDeepLink);
 
-        // Check if app was opened with a deep link
+        // Check if app was opened with a deep link (cold start)
         Linking.getInitialURL().then((url) => {
-            if (url && (url.includes('reset-password') || (url.includes('token_hash') && url.includes('type=recovery')))) {
-                console.log('[NavGuard] App opened with password reset / magic link:', url);
+            if (url && (
+                url.includes('reset-password') ||
+                url.includes('token_hash') ||
+                url.includes('access_token')
+            )) {
+                console.log('[NavGuard] App opened with auth deep link:', url);
                 handleDeepLink({ url });
             }
         });
@@ -267,7 +401,8 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             segments.includes('subscription-flow') ||
             segments.includes('onboarding') ||
             segments.includes('set-new-password') ||
-            segments.includes('password-reset');
+            segments.includes('password-reset') ||
+            segments.includes('reset-password');
 
         const inGameFlow = segments[0] === 'game' || segments[0] === 'game-result';
         const inRootIndex = segments.length === 0 || segments[0] === 'index';
@@ -388,7 +523,7 @@ function UserScopedProviders() {
     );
 }
 
-export default function Layout() {
+function Layout() {
     const [adsInitialized, setAdsInitialized] = useState(false);
     let [fontsLoaded] = useFonts({
         Nunito_400Regular,
@@ -483,4 +618,4 @@ export default function Layout() {
     );
 }
 
-
+export default Sentry.wrap(Layout);

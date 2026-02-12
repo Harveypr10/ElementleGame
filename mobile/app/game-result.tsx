@@ -93,7 +93,9 @@ export default function GameResultScreen() {
     };
     const formattedDate = `${getOrdinal(day)} ${month} ${year}`;
 
-    const shareText = `I ${isWin ? 'solved' : 'tried'} today's Elementle puzzle!\n${eventTitle}\n${formattedDate}\n${isWin ? `Guessed in ${guessesCount}/${maxGuesses}` : `Used all ${maxGuesses} guesses`}`;
+    const shareText = isWin
+        ? `I solved today's Elementle in ${guessesCount} guesses! Can you beat me? https://elementle.tech/play/${answerDateCanonical}?mode=${gameMode}`
+        : `I tried today's Elementle puzzle but couldn't crack it! Can you? https://elementle.tech/play/${answerDateCanonical}?mode=${gameMode}`;
 
     const surfaceColor = useThemeColor({}, 'surface');
     const borderColor = useThemeColor({}, 'border');

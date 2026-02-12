@@ -115,30 +115,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.remove();
     }, []);
 
-    // Helper: verify that user profile data is loaded (or handle new user gracefully)
-    const ensureProfileReady = async (userId: string): Promise<boolean> => {
+    // [PROFILE GATE] Verify profile data is loaded with retry + fallback creation.
+    // Social login (Apple/Google) can fire SIGNED_IN before the DB trigger
+    // creates the user_profiles row. This polls up to 3 times with 1s delays,
+    // then creates a minimal row as a fallback if needed.
+    const ensureProfileReady = async (userId: string, userMeta?: Record<string, any>): Promise<boolean> => {
+        const MAX_RETRIES = 3;
+        const RETRY_DELAY_MS = 1000;
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                const { data, error } = await supabase
+                    .from('user_profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .maybeSingle();
+
+                if (error) {
+                    console.warn(`[Auth] Profile check attempt ${attempt}/${MAX_RETRIES} failed:`, error.message);
+                    if (attempt < MAX_RETRIES) {
+                        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+                        continue;
+                    }
+                    return true; // Don't block — proceed and let NavigationGuard handle
+                }
+
+                if (data) {
+                    console.log(`[Auth] Profile confirmed for user on attempt ${attempt}:`, userId);
+                    // Prime React Query cache with the profile data
+                    queryClient.setQueryData(['user_profile', userId], data);
+                    return true;
+                }
+
+                // No data yet — retry if attempts remain
+                if (attempt < MAX_RETRIES) {
+                    console.log(`[Auth] No profile yet (attempt ${attempt}/${MAX_RETRIES}) — retrying in ${RETRY_DELAY_MS}ms...`);
+                    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+                }
+            } catch (e) {
+                console.error(`[Auth] Profile readiness check error (attempt ${attempt}):`, e);
+                if (attempt < MAX_RETRIES) {
+                    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+                }
+            }
+        }
+
+        // After all retries, profile still doesn't exist — create a minimal one
+        console.log('[Auth] Profile not found after retries — creating minimal profile');
         try {
-            const { data, error } = await supabase
+            const fullName = userMeta?.full_name || userMeta?.name || 'Player';
+            const email = userMeta?.email || 'unknown@elementle.tech';
+            const nameParts = fullName.split(' ');
+            const { data: newProfile, error: insertError } = await supabase
                 .from('user_profiles')
-                .select('id')
-                .eq('id', userId)
-                .maybeSingle();
+                .upsert({
+                    id: userId,
+                    email,
+                    first_name: nameParts[0] || 'Player',
+                    last_name: nameParts.slice(1).join(' ') || null,
+                } as any)
+                .select('*')
+                .single();
 
-            if (error) {
-                console.warn('[Auth] Profile check failed:', error.message);
-                return true; // Don't block — proceed and let NavigationGuard handle routing
+            if (insertError) {
+                console.error('[Auth] Fallback profile creation failed:', insertError);
+                return true; // Don't hang
             }
 
-            if (!data) {
-                console.log('[Auth] No profile found (new user) — proceeding to onboarding');
-                return true; // New user: no profile yet, let onboarding create it
+            console.log('[Auth] Minimal profile created successfully for:', userId);
+            if (newProfile) {
+                queryClient.setQueryData(['user_profile', userId], newProfile);
             }
-
-            console.log('[Auth] Profile confirmed for user:', userId);
             return true;
         } catch (e) {
-            console.error('[Auth] Profile readiness check error:', e);
-            return true; // Never hang — always proceed on error
+            console.error('[Auth] Fallback profile creation error:', e);
+            return true; // Never hang
         }
     };
 
@@ -154,7 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     setIsGuest(false);
 
                     // [FIX] Wait for profile before marking as loaded
-                    await ensureProfileReady(session.user.id);
+                    await ensureProfileReady(session.user.id, session.user.user_metadata);
                 } else {
                     // Check if previously in guest mode
                     const storedGuest = await AsyncStorage.getItem('is_guest');
@@ -194,7 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         await syncOAuthProfile(session.user);
 
                         // [FIX] Wait for profile data before declaring auth ready
-                        await ensureProfileReady(session.user.id);
+                        await ensureProfileReady(session.user.id, session.user.user_metadata);
                     } catch (e) {
                         console.error('[Auth] Error during sign-in setup:', e);
                     } finally {
