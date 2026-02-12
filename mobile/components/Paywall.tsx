@@ -193,20 +193,32 @@ export default function Paywall({ onPurchaseSuccess, onPurchaseCancel, onLoginRe
         }
     };
 
-    const getPackageLabel = (identifier: string) => {
-        const lower = identifier.toLowerCase();
-        if (lower.includes('annual') || lower.includes('year')) return 'Annual';
-        if (lower.includes('quarter') || lower.includes('3month')) return 'Quarterly';
-        if (lower.includes('month') && !lower.includes('3month')) return 'Monthly';
-        return identifier;
+    // Derive labels dynamically from RevenueCat's packageType enum
+    // This prevents mislabelling (e.g. "Quarterly" shown as "Monthly")
+    const getPackageLabel = (pkg: any): string => {
+        switch (pkg.packageType) {
+            case 'ANNUAL': return 'Annual';
+            case 'SIX_MONTH': return '6 Month';
+            case 'THREE_MONTH': return 'Quarterly';
+            case 'TWO_MONTH': return '2 Month';
+            case 'MONTHLY': return 'Monthly';
+            case 'WEEKLY': return 'Weekly';
+            case 'LIFETIME': return 'Lifetime';
+            default: return pkg.identifier; // custom packages fallback to identifier
+        }
     };
 
-    const getPackageDuration = (identifier: string) => {
-        const lower = identifier.toLowerCase();
-        if (lower.includes('annual') || lower.includes('year')) return '/ year';
-        if (lower.includes('quarter') || lower.includes('3month')) return '/ 3 months';
-        if (lower.includes('month') && !lower.includes('3month')) return '/ month';
-        return '';
+    const getPackageDuration = (pkg: any): string => {
+        switch (pkg.packageType) {
+            case 'ANNUAL': return '/ year';
+            case 'SIX_MONTH': return '/ 6 months';
+            case 'THREE_MONTH': return '/ 3 months';
+            case 'TWO_MONTH': return '/ 2 months';
+            case 'MONTHLY': return '/ month';
+            case 'WEEKLY': return '/ week';
+            case 'LIFETIME': return '';
+            default: return '';
+        }
     };
 
     if (loading) {
@@ -268,8 +280,8 @@ export default function Paywall({ onPurchaseSuccess, onPurchaseCancel, onLoginRe
                 <StyledView className="mb-6">
                     {packages.map((pkg: any, index: number) => {
                         const isSelected = selectedPackage?.identifier === pkg.identifier;
-                        const label = getPackageLabel(pkg.identifier);
-                        const duration = getPackageDuration(pkg.identifier);
+                        const label = getPackageLabel(pkg);
+                        const duration = getPackageDuration(pkg);
 
                         return (
                             <StyledTouchableOpacity

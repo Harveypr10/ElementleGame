@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { View, ActivityIndicator, StyleSheet, Linking, Platform } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Linking, Platform, AppState, AppStateStatus } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { styled } from 'nativewind';
 import { ThemedView } from '../components/ThemedView';
@@ -10,7 +10,7 @@ import * as ExpoSplashScreen from 'expo-splash-screen';
 import '../global.css';
 
 const StyledView = styled(View);
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../lib/auth';
@@ -78,6 +78,9 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // 1c. Puzzle Readiness State (checked concurrently during splash)
     const [userPuzzleReady, setUserPuzzleReady] = useState(false);
 
+    // Track when app was last active (for 1h background refresh)
+    const lastActiveRef = useRef(Date.now());
+
     useEffect(() => {
         // [WEB FIX] 2 second splash on web (user preference), 3s on mobile
         const delay = Platform.OS === 'web' ? 2000 : 3000;
@@ -85,6 +88,48 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             setSplashMinTimeMet(true);
         }, delay);
         return () => clearTimeout(timer);
+    }, []);
+
+    // [FIX] Watchdog: if splash is still showing after 8s, force past it
+    useEffect(() => {
+        if (Platform.OS === 'web') return;
+        const watchdog = setTimeout(() => {
+            if (loading) {
+                console.warn('[NavGuard] Watchdog: splash stuck for 8s — forcing past loading state');
+                // Navigate to onboarding as a safe fallback
+                router.replace('/(auth)/onboarding');
+            }
+        }, 8000);
+        return () => clearTimeout(watchdog);
+    }, [loading]);
+
+    // [FIX] AppState listener: refresh session if backgrounded >1 hour
+    useEffect(() => {
+        if (Platform.OS === 'web') return;
+        const subscription = AppState.addEventListener('change', async (nextState: AppStateStatus) => {
+            if (nextState === 'active') {
+                const elapsed = Date.now() - lastActiveRef.current;
+                const ONE_HOUR = 60 * 60 * 1000;
+                if (elapsed > ONE_HOUR) {
+                    console.log(`[NavGuard] App resumed after ${Math.round(elapsed / 60000)}min — refreshing session`);
+                    try {
+                        const { error } = await supabase.auth.refreshSession();
+                        if (error) {
+                            console.warn('[NavGuard] Session refresh failed:', error.message);
+                        } else {
+                            console.log('[NavGuard] Session refreshed after long background');
+                        }
+                        // Invalidate all cached queries to refetch fresh data
+                        queryClient.invalidateQueries();
+                    } catch (e) {
+                        console.error('[NavGuard] Error refreshing session on resume:', e);
+                    }
+                }
+            } else if (nextState === 'background' || nextState === 'inactive') {
+                lastActiveRef.current = Date.now();
+            }
+        });
+        return () => subscription.remove();
     }, []);
 
     // Check age verification on mount AND when segments change
@@ -268,21 +313,21 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 
 /**
  * [FIX] UserScopedProviders
- * Wraps all user-data-dependent providers with a key tied to the user's ID.
- * When the user changes (sign out → sign in), React unmounts and remounts
- * the entire tree, clearing stale hooks/state from the previous user.
+ * Wraps all user-data-dependent providers.
+ * Uses queryClient.clear() on user change to prevent stale data
+ * WITHOUT remounting the entire tree (which caused splash re-flash).
  */
 function UserScopedProviders() {
     const { user } = useAuth();
 
-    // Clear React Query cache when user changes
+    // Clear React Query cache when user changes (prevents stale data between accounts)
     useEffect(() => {
         console.log('[Layout] User changed, clearing query cache:', user?.id ?? 'signed-out');
         queryClient.clear();
     }, [user?.id]);
 
     return (
-        <React.Fragment key={user?.id ?? 'anon'}>
+        <>
             <NetworkProvider>
                 <ConversionPromptProvider>
                     <GuessCacheProvider>
@@ -330,7 +375,7 @@ function UserScopedProviders() {
                     </GuessCacheProvider>
                 </ConversionPromptProvider>
             </NetworkProvider>
-        </React.Fragment>
+        </>
     );
 }
 

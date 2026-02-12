@@ -31,8 +31,9 @@ const TEST_AD_UNITS: AdConfig = {
     interstitial: TestIds.INTERSTITIAL,
 };
 
-// Export the appropriate config based on __DEV__ flag
-export const AD_UNITS = __DEV__ ? TEST_AD_UNITS : PRODUCTION_AD_UNITS;
+// [FIX] Force test ads for TestFlight — __DEV__ is false in TF builds
+// TODO: Swap back to `__DEV__ ? TEST_AD_UNITS : PRODUCTION_AD_UNITS` before App Store submission
+export const AD_UNITS = TEST_AD_UNITS;
 
 /**
  * How to get production ad unit IDs:

@@ -112,6 +112,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.remove();
     }, []);
 
+    // Helper: verify that user profile data is loaded (or handle new user gracefully)
+    const ensureProfileReady = async (userId: string): Promise<boolean> => {
+        try {
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .select('id')
+                .eq('id', userId)
+                .maybeSingle();
+
+            if (error) {
+                console.warn('[Auth] Profile check failed:', error.message);
+                return true; // Don't block — proceed and let NavigationGuard handle routing
+            }
+
+            if (!data) {
+                console.log('[Auth] No profile found (new user) — proceeding to onboarding');
+                return true; // New user: no profile yet, let onboarding create it
+            }
+
+            console.log('[Auth] Profile confirmed for user:', userId);
+            return true;
+        } catch (e) {
+            console.error('[Auth] Profile readiness check error:', e);
+            return true; // Never hang — always proceed on error
+        }
+    };
+
     useEffect(() => {
         const initAuth = async () => {
             try {
@@ -121,7 +148,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (session) {
                     setSession(session);
                     setUser(session.user);
-                    setIsGuest(false); // Valid session implies not guest
+                    setIsGuest(false);
+
+                    // [FIX] Wait for profile before marking as loaded
+                    await ensureProfileReady(session.user.id);
                 } else {
                     // Check if previously in guest mode
                     const storedGuest = await AsyncStorage.getItem('is_guest');
@@ -155,6 +185,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                     // Sync OAuth provider linkage to database
                     await syncOAuthProfile(session.user);
+
+                    // [FIX] Wait for profile data before declaring auth ready
+                    await ensureProfileReady(session.user.id);
                 }
             } else if (event === 'SIGNED_OUT') {
                 // Log out from RevenueCat when signing out
