@@ -80,6 +80,10 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // 1. Minimum Splash Time State
     const [isSplashMinTimeMet, setSplashMinTimeMet] = useState(false);
 
+    // Latch: once splash is dismissed, it NEVER shows again in this session.
+    // Prevents re-flash when authPhase temporarily leaves 'ready' during sign-in pipeline.
+    const splashDismissedRef = useRef(false);
+
     // 1b. Age Verification State
     const [hasAgeVerification, setHasAgeVerification] = useState<boolean | null>(null);
 
@@ -202,9 +206,21 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // Logic to determine if splash should show
     // authPhase !== 'ready' replaces the old loading + profileLoading checks
     const authNotReady = authPhase !== 'ready';
-    const showSplash = Platform.OS === 'web'
-        ? (!isSplashMinTimeMet || hasAgeVerification === null)
-        : (authNotReady || !isSplashMinTimeMet || hasAgeVerification === null);
+
+    // HARDENED LATCH: Once dismissed, splash NEVER re-appears — no matter what authPhase does.
+    // This prevents all sign-in flows from briefly re-showing splash.
+    if (splashDismissedRef.current) {
+        // Already dismissed — skip all evaluation
+    } else {
+        const shouldShowSplash = Platform.OS === 'web'
+            ? (!isSplashMinTimeMet || hasAgeVerification === null)
+            : (authNotReady || !isSplashMinTimeMet || hasAgeVerification === null);
+
+        if (!shouldShowSplash) {
+            splashDismissedRef.current = true;
+        }
+    }
+    const showSplash = !splashDismissedRef.current;
 
     // 3. Navigation Side Effects
     useEffect(() => {

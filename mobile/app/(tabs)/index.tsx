@@ -765,9 +765,12 @@ export default function HomeScreen() {
     const surfaceColor = useThemeColor({}, 'surface');
     const iconColor = useThemeColor({}, 'icon');
 
+    // Dynamic ad banner height (measured via onLayout in AdBanner)
+    const [adBannerHeight, setAdBannerHeight] = useState(50);
+
     return (
         <AdBannerContext.Provider value={true}>
-            <ThemedView className="flex-1" style={{ paddingBottom: isPro ? 0 : 50 }}>
+            <ThemedView className="flex-1" style={{ paddingBottom: isPro ? 0 : adBannerHeight }}>
                 <SafeAreaView edges={['top']} className="z-50" style={{ backgroundColor: backgroundColor }}>
                     {/* Header - Fixed & Safe Area Adjusted */}
                     <StyledView
@@ -995,7 +998,7 @@ export default function HomeScreen() {
 
 
                 {/* Ad Banner - shows at bottom for non-Pro users */}
-                <AdBanner />
+                <AdBanner onHeightChange={setAdBannerHeight} />
             </ThemedView>
             {/* Holiday Active Modal (Home Screen Intercept) */}
             <HolidayActiveModal

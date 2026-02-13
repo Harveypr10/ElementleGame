@@ -36,6 +36,7 @@ type AuthContextType = {
     signOut: () => Promise<void>;
     hasCompletedFirstLogin: () => boolean;
     markFirstLoginCompleted: () => Promise<void>;
+    markSigningIn: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -49,6 +50,7 @@ const AuthContext = createContext<AuthContextType>({
     signOut: async () => { },
     hasCompletedFirstLogin: () => false,
     markFirstLoginCompleted: async () => { },
+    markSigningIn: () => { },
 });
 
 // Helper function to sync OAuth provider linkage to database
@@ -106,6 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Track whether initAuth has completed to prevent onAuthStateChange
     // from racing ahead during the initial setup
     const initCompleteRef = useRef(false);
+
+    // Track deliberate sign-in to suppress authPhase transitions in onAuthStateChange.
+    // When true, the pipeline runs silently without setting intermediate phases
+    // (fetching_profile, merging_data) that would cause the splash to re-appear.
+    const signingInRef = useRef(false);
 
     // ============================================================
     // AppState lifecycle: refresh Supabase connection on foreground resume
@@ -395,9 +402,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     return;
                 }
 
+                // If this is a deliberate sign-in (user clicked login),
+                // run the pipeline SILENTLY without setting intermediate authPhase values.
+                // This prevents the splash screen from re-appearing.
+                const isDeliberateSignIn = signingInRef.current;
+                if (isDeliberateSignIn) {
+                    console.log('[Auth] Deliberate sign-in detected — running pipeline silently (no phase transitions)');
+                    signingInRef.current = false;
+                }
+
                 // Run full pipeline (profile + migration + RevenueCat)
                 try {
-                    await runPostSignInPipeline(newSession.user);
+                    if (isDeliberateSignIn) {
+                        // Silent pipeline: do the same work but don't change authPhase
+                        try { await logInRevenueCat(newSession.user.id); } catch (e) { console.error('[Auth] RevenueCat login error:', e); }
+                        await syncOAuthProfile(newSession.user);
+                        await ensureProfileReady(newSession.user.id, newSession.user.user_metadata);
+                        await runGuestMigration(newSession.user.id);
+                    } else {
+                        await runPostSignInPipeline(newSession.user);
+                    }
                 } catch (e) {
                     console.error('[Auth] Post-sign-in pipeline error:', e);
                 } finally {
@@ -542,10 +566,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // so we no longer call migrateGuestDataToUser here.
     // ============================================================
     const signInWithEmail = async (email: string, password: string) => {
+        // Mark as deliberate sign-in to suppress splash re-flash
+        signingInRef.current = true;
+
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
+
+        if (error) {
+            signingInRef.current = false; // Reset on failure
+        }
 
         // onAuthStateChange SIGNED_IN will trigger the full pipeline
         // (ensureProfileReady + runGuestMigration + RevenueCat)
@@ -660,6 +691,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // Expose markSigningIn so login.tsx can flag social auth flows
+    const markSigningIn = () => {
+        signingInRef.current = true;
+    };
+
     return (
         <AuthContext.Provider
             value={{
@@ -672,7 +708,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 signUpWithEmail,
                 signOut,
                 hasCompletedFirstLogin,
-                markFirstLoginCompleted
+                markFirstLoginCompleted,
+                markSigningIn
             }}
         >
             {children}

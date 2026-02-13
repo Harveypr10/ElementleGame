@@ -417,16 +417,16 @@ export default function CategorySelectionScreen() {
                 )}
 
                 <StyledView style={{ width: '100%', alignItems: 'center', paddingBottom: 16 }}>
-                    <StyledView style={{ width: isLargeScreen ? 696 : '100%', maxWidth: '100%' }}>
+                    <StyledView style={{ width: isLargeScreen ? 696 : '85%', maxWidth: '100%', alignSelf: 'center' }}>
                         <StyledTouchableOpacity
                             onPress={handleContinue}
                             disabled={!canGenerate || saving || generating}
                             style={{
-                                borderRadius: 9999,
+                                borderRadius: 24,
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 width: '100%',
-                                backgroundColor: canGenerate && !saving && !generating ? '#3b82f6' : '#48EDF3',
+                                backgroundColor: canGenerate && !saving && !generating ? '#f97316' : '#FDBA74',
                                 opacity: 1,
                                 paddingVertical: 24,
                                 shadowColor: '#000',

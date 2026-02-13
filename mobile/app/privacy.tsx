@@ -134,25 +134,27 @@ export default function PrivacyScreen() {
                         ))}
                     </StyledView>
 
-                    {/* Consent Checkbox (Subtle at bottom) */}
-                    <StyledTouchableOpacity
-                        onPress={handleToggleConsent}
-                        disabled={toggling || isUpdating}
-                        className="flex-row items-start px-2 mb-8 opacity-80 active:opacity-100"
-                    >
-                        <StyledView className="mr-3 mt-1">
-                            {adsConsent ? (
-                                <CheckSquare size={24} color={tintColor} />
-                            ) : (
-                                <Square size={24} color={secondaryTextColor} />
-                            )}
-                        </StyledView>
-                        <StyledView className="flex-1">
-                            <ThemedText size="sm" style={{ color: secondaryTextColor }} className="leading-5">
-                                I consent to my data being used to tailor ads. <ThemedText className="font-n-bold" size="sm">If you do not consent, your ads will not be tailored.</ThemedText>
-                            </ThemedText>
-                        </StyledView>
-                    </StyledTouchableOpacity>
+                    {/* Consent Checkbox (only show when logged in) */}
+                    {profile && (
+                        <StyledTouchableOpacity
+                            onPress={handleToggleConsent}
+                            disabled={toggling || isUpdating}
+                            className="flex-row items-start px-2 mb-8 opacity-80 active:opacity-100"
+                        >
+                            <StyledView className="mr-3 mt-1">
+                                {adsConsent ? (
+                                    <CheckSquare size={24} color={tintColor} />
+                                ) : (
+                                    <Square size={24} color={secondaryTextColor} />
+                                )}
+                            </StyledView>
+                            <StyledView className="flex-1">
+                                <ThemedText size="sm" style={{ color: secondaryTextColor }} className="leading-5">
+                                    I consent to my data being used to tailor ads. <ThemedText className="font-n-bold" size="sm">If you do not consent, your ads will not be tailored.</ThemedText>
+                                </ThemedText>
+                            </StyledView>
+                        </StyledTouchableOpacity>
+                    )}
 
                 </StyledView>
 

@@ -14,7 +14,8 @@ import {
     Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, Mail } from 'lucide-react-native';
+import { GoogleLogo } from '../../components/icons/GoogleLogo';
 import { PasswordInput } from '../../components/ui/PasswordInput';
 import { YearMonthPicker, useYearMonthPicker } from '../../components/ui/YearMonthPicker';
 import { validatePassword } from '../../lib/passwordValidation';
@@ -62,7 +63,7 @@ export default function LoginPage() {
 
     const colorScheme = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
-    const { signInWithEmail, signUpWithEmail } = useAuth();
+    const { signInWithEmail, signUpWithEmail, markSigningIn } = useAuth();
 
     const [step, setStep] = useState<LoginStep>(initialStep || 'email');
     const [email, setEmail] = useState('');
@@ -343,6 +344,7 @@ export default function LoginPage() {
             if (linkCheck.found) {
                 // Account exists - use the Edge Function to sign in as the linked user
                 console.log('[Login] Found linked Google account, signing in via Edge Function...');
+                markSigningIn();
                 const signInResult = await signInWithLinkedIdentity('google', userInfo.data.idToken);
 
                 if (!signInResult.success) {
@@ -376,6 +378,7 @@ export default function LoginPage() {
                             onPress: async () => {
                                 setLoading(true);
                                 try {
+                                    markSigningIn();
                                     const result = await signInWithGoogle();
 
                                     if (!result.success) {
@@ -455,6 +458,7 @@ export default function LoginPage() {
             if (linkCheck.found) {
                 // Account exists - use the Edge Function to sign in as the linked user
                 console.log('[Login] Found linked Apple account, signing in via Edge Function...');
+                markSigningIn();
                 const signInResult = await signInWithLinkedIdentity('apple', credential.identityToken);
 
                 if (!signInResult.success) {
@@ -484,6 +488,7 @@ export default function LoginPage() {
                             onPress: async () => {
                                 setLoading(true);
                                 try {
+                                    markSigningIn();
                                     const result = await signInWithApple();
 
                                     if (!result.success) {
@@ -607,46 +612,30 @@ export default function LoginPage() {
                             </View>
 
                             <TouchableOpacity
-                                style={[styles.oauthButton, styles.googleButton]}
+                                style={[styles.socialButton, styles.googleButton]}
                                 onPress={handleGoogleSignIn}
                                 onPressIn={() => Keyboard.dismiss()}
                                 disabled={loading}
                             >
-                                <View style={styles.oauthButtonContent}>
-                                    <View style={styles.googleIcon}>
-                                        <Text style={styles.googleIconText}>G</Text>
-                                    </View>
-                                    <Text style={styles.oauthButtonText}>Continue with Google</Text>
+                                <View style={styles.socialButtonContent}>
+                                    <GoogleLogo size={20} />
+                                    <Text style={styles.socialButtonText}>Continue with Google</Text>
                                 </View>
                             </TouchableOpacity>
 
-                            {/* Native Apple Sign-In Button (iOS only) */}
-                            {Platform.OS === 'ios' && appleAvailable ? (
-                                <AppleAuthentication.AppleAuthenticationButton
-                                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                                    buttonStyle={isDarkMode
-                                        ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                                        : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                                    }
-                                    cornerRadius={8}
-                                    style={styles.appleNativeButton}
-                                    onPress={handleAppleSignIn}
-                                />
-                            ) : (
-                                <TouchableOpacity
-                                    style={[styles.oauthButton, styles.appleButton, !appleAvailable && styles.disabledButton]}
-                                    onPress={handleAppleSignIn}
-                                    onPressIn={() => Keyboard.dismiss()}
-                                    disabled={!appleAvailable || loading}
-                                >
-                                    <View style={styles.oauthButtonContent}>
-                                        <Text style={styles.appleIcon}></Text>
-                                        <Text style={[styles.oauthButtonText, !appleAvailable && { color: '#999' }]}>
-                                            {appleAvailable ? 'Continue with Apple' : 'Apple (iOS only)'}
-                                        </Text>
-                                    </View>
-                                </TouchableOpacity>
-                            )}
+                            <TouchableOpacity
+                                style={[styles.socialButton, styles.appleButton, !appleAvailable && styles.disabledButton]}
+                                onPress={handleAppleSignIn}
+                                onPressIn={() => Keyboard.dismiss()}
+                                disabled={!appleAvailable || loading}
+                            >
+                                <View style={styles.socialButtonContent}>
+                                    <Text style={styles.appleIcon}></Text>
+                                    <Text style={[styles.socialButtonText, { color: '#fff' }, !appleAvailable && { color: '#999' }]}>
+                                        {appleAvailable ? 'Continue with Apple' : 'Apple (iOS only)'}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
 
                             {/* Helper text when user cancels social auth */}
                             {socialAuthHelperText && (
@@ -657,8 +646,8 @@ export default function LoginPage() {
 
                             <Text style={[styles.termsText, { color: textColor }]}>
                                 By continuing, you agree to our{' '}
-                                <Text style={styles.link}>Terms</Text> and{' '}
-                                <Text style={styles.link}>Privacy Policy</Text>
+                                <Text style={styles.link} onPress={() => router.push('/terms')}>Terms</Text> and{' '}
+                                <Text style={styles.link} onPress={() => router.push('/privacy')}>Privacy Policy</Text>
                             </Text>
                         </View>
                     )}
@@ -734,20 +723,23 @@ export default function LoginPage() {
                             {/* Magic Link Option - only if enabled for this user */}
                             {userAuthInfo?.magicLinkEnabled && (
                                 <TouchableOpacity
-                                    style={[styles.outlineButton, (sendingMagicLink || magicLinkCountdown > 0) && styles.disabledButton]}
+                                    style={[styles.socialButton, styles.magicLinkButton, (sendingMagicLink || magicLinkCountdown > 0) && styles.disabledButton]}
                                     onPress={handleSendMagicLink}
                                     disabled={sendingMagicLink || magicLinkCountdown > 0}
                                 >
                                     {sendingMagicLink ? (
                                         <ActivityIndicator color="#7DAAE8" />
                                     ) : (
-                                        <Text style={[styles.outlineButtonText, { color: textColor }]}>
-                                            {magicLinkCountdown > 0
-                                                ? `Resend in ${magicLinkCountdown}s`
-                                                : magicLinkSent
-                                                    ? 'Resend sign in link'
-                                                    : 'Email me a one-time sign in link'}
-                                        </Text>
+                                        <View style={styles.socialButtonContent}>
+                                            <Mail size={20} color="#555" />
+                                            <Text style={[styles.socialButtonText, { color: '#333' }]}>
+                                                {magicLinkCountdown > 0
+                                                    ? `Resend in ${magicLinkCountdown}s`
+                                                    : magicLinkSent
+                                                        ? 'Resend sign in link'
+                                                        : 'Email me a one-time sign in link'}
+                                            </Text>
+                                        </View>
                                     )}
                                 </TouchableOpacity>
                             )}
@@ -755,20 +747,26 @@ export default function LoginPage() {
                             {/* Google OAuth Option - only if linked */}
                             {userAuthInfo?.googleLinked && (
                                 <TouchableOpacity
-                                    style={styles.outlineButton}
+                                    style={[styles.socialButton, styles.googleButton]}
                                     onPress={handleGoogleSignIn}
                                 >
-                                    <Text style={[styles.outlineButtonText, { color: textColor }]}>G  Continue with Google</Text>
+                                    <View style={styles.socialButtonContent}>
+                                        <GoogleLogo size={20} />
+                                        <Text style={styles.socialButtonText}>Continue with Google</Text>
+                                    </View>
                                 </TouchableOpacity>
                             )}
 
                             {/* Apple OAuth Option - only if linked */}
                             {userAuthInfo?.appleLinked && (
                                 <TouchableOpacity
-                                    style={styles.outlineButton}
+                                    style={[styles.socialButton, styles.appleButton]}
                                     onPress={handleAppleSignIn}
                                 >
-                                    <Text style={[styles.outlineButtonText, { color: textColor }]}>  Continue with Apple</Text>
+                                    <View style={styles.socialButtonContent}>
+                                        <Text style={styles.appleIcon}></Text>
+                                        <Text style={[styles.socialButtonText, { color: '#fff' }]}>Continue with Apple</Text>
+                                    </View>
                                 </TouchableOpacity>
                             )}
 
@@ -1073,6 +1071,29 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito',
         fontWeight: '600',
     },
+    // Unified social auth button styles
+    socialButton: {
+        paddingVertical: 14,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    socialButtonContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    socialButtonText: {
+        fontSize: 16,
+        fontFamily: 'Nunito-SemiBold',
+        fontWeight: '600',
+        marginLeft: 12,
+    },
+    magicLinkButton: {
+        backgroundColor: '#f0f0f0',
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+    },
     successMessage: {
         backgroundColor: 'rgba(34, 197, 94, 0.1)',
         padding: 12,
@@ -1141,7 +1162,7 @@ const styles = StyleSheet.create({
     // OAuth button styles
     googleButton: {
         backgroundColor: '#fff',
-        borderWidth: 2,
+        borderWidth: 1,
         borderColor: '#d1d5db',
     },
     appleButton: {
@@ -1169,11 +1190,10 @@ const styles = StyleSheet.create({
     appleIcon: {
         fontSize: 20,
         color: '#fff',
-        marginRight: 12,
     },
     appleNativeButton: {
         height: 52,
-        marginTop: 12,
+        marginTop: 8,
     },
     socialAuthHelperText: {
         color: '#dc2626',

@@ -302,10 +302,8 @@ export default function AccountInfoPage() {
                                     value={isMagicLinkLocked ? true : (hasPassword ? magicLinkEnabled : false)}
                                     onValueChange={handleToggleMagicLink}
                                     disabled={isMagicLinkLocked || togglingMagicLink || !hasPassword}
-                                    trackColor={{ false: borderColor, true: '#3b82f6' }}
+                                    trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
                                     thumbColor={'#ffffff'}
-                                    ios_backgroundColor={borderColor}
-                                    style={{ opacity: (isMagicLinkLocked || !hasPassword) ? 0.5 : 1 }}
                                 />
                             </StyledView>
                         </StyledView>
@@ -321,181 +319,177 @@ export default function AccountInfoPage() {
 
                             {/* Google */}
                             <StyledView
-                                className="flex-row items-center justify-between py-3 border-b"
+                                className="py-2 border-b"
                                 style={{ borderColor: borderColor }}
                             >
-                                <StyledView className="flex-row items-center flex-1">
-                                    <StyledView className="flex-1">
-                                        <ThemedText className="text-sm font-n-semibold">
-                                            Google
-                                        </ThemedText>
-                                        <ThemedText className="text-sm mt-1 opacity-60">
-                                            {isGoogleConnected ? 'Connected' : 'Not connected'}
-                                        </ThemedText>
+                                <StyledView className="flex-row items-center justify-between">
+                                    <StyledView className="flex-row items-center flex-1">
+                                        <StyledView className="flex-1">
+                                            <ThemedText className="text-sm font-n-semibold">
+                                                Google
+                                            </ThemedText>
+                                            <ThemedText className="text-sm mt-1 opacity-60">
+                                                {isGoogleConnected ? 'Connected' : 'Not connected'}
+                                            </ThemedText>
+                                        </StyledView>
+                                        {(isGoogleConnected || isGoogleDisabled) && (
+                                            <StyledTouchableOpacity
+                                                onPress={() => setGoogleInfoModalVisible(true)}
+                                                className="p-2"
+                                            >
+                                                <Info size={18} color="#7DAAE8" />
+                                            </StyledTouchableOpacity>
+                                        )}
                                     </StyledView>
-                                    {(isGoogleConnected || isGoogleDisabled) && (
-                                        <StyledTouchableOpacity
-                                            onPress={() => setGoogleInfoModalVisible(true)}
-                                            className="p-2"
-                                        >
-                                            <Info size={18} color="#7DAAE8" />
-                                        </StyledTouchableOpacity>
-                                    )}
-                                </StyledView>
-                                {linkingGoogle || disablingGoogle || enablingGoogle || unlinkingGoogle ? (
-                                    <ActivityIndicator size="small" color="#7DAAE8" />
-                                ) : isGoogleConnected || isGoogleDisabled ? (
-                                    <StyledView className="items-end">
+                                    {linkingGoogle || disablingGoogle || enablingGoogle || unlinkingGoogle ? (
+                                        <ActivityIndicator size="small" color="#7DAAE8" />
+                                    ) : isGoogleConnected || isGoogleDisabled ? (
                                         <StyledText className="text-green-600 text-sm font-n-medium">
                                             ✓ Linked
                                         </StyledText>
-                                        <StyledView className="flex-row gap-2 mt-2">
-                                            {/* Only show Unlink/Disable if user has another login method */}
-                                            {canUnlinkGoogle ? (
-                                                <>
-                                                    <StyledTouchableOpacity
-                                                        onPress={handleUnlinkGoogle}
-                                                        className="bg-red-100 px-3 py-1.5 rounded-lg"
-                                                    >
-                                                        <StyledText className="text-red-600 text-xs font-n-medium">
-                                                            Unlink
-                                                        </StyledText>
-                                                    </StyledTouchableOpacity>
-                                                </>
+                                    ) : (
+                                        <StyledTouchableOpacity
+                                            onPress={handleEnableGoogle}
+                                            className="bg-blue-100 px-4 py-2 rounded-lg"
+                                        >
+                                            <StyledText className="text-blue-600 text-sm font-n-medium">
+                                                Link →
+                                            </StyledText>
+                                        </StyledTouchableOpacity>
+                                    )}
+                                </StyledView>
+                                {/* Buttons row — separate from label row for clean alignment */}
+                                {!(linkingGoogle || disablingGoogle || enablingGoogle || unlinkingGoogle) && (isGoogleConnected || isGoogleDisabled) && (
+                                    <StyledView className="flex-row gap-2 mt-1 justify-end">
+                                        {canUnlinkGoogle ? (
+                                            <StyledTouchableOpacity
+                                                onPress={handleUnlinkGoogle}
+                                                className="bg-red-100 px-3 h-7 items-center justify-center rounded-lg"
+                                            >
+                                                <StyledText className="text-red-600 text-xs font-n-medium">
+                                                    Unlink
+                                                </StyledText>
+                                            </StyledTouchableOpacity>
+                                        ) : (
+                                            <ThemedText className="text-xs opacity-50 mt-1">
+                                                {unlinkBlockedText}
+                                            </ThemedText>
+                                        )}
+                                        {canUnlinkGoogle && (
+                                            isGoogleConnected ? (
+                                                <StyledTouchableOpacity
+                                                    onPress={handleDisableGoogle}
+                                                    className="bg-orange-100 px-3 h-7 items-center justify-center rounded-lg"
+                                                >
+                                                    <StyledText className="text-orange-600 text-xs font-n-medium">
+                                                        Disable
+                                                    </StyledText>
+                                                </StyledTouchableOpacity>
                                             ) : (
-                                                <StyledView className="mt-1">
-                                                    <ThemedText className="text-xs opacity-50">
-                                                        {unlinkBlockedText}
-                                                    </ThemedText>
-                                                </StyledView>
-                                            )}
-                                            {canUnlinkGoogle && (
-                                                isGoogleConnected ? (
-                                                    <StyledTouchableOpacity
-                                                        onPress={handleDisableGoogle}
-                                                        className="bg-orange-100 px-3 py-1.5 rounded-lg"
-                                                    >
-                                                        <StyledText className="text-orange-600 text-xs font-n-medium">
-                                                            Disable
-                                                        </StyledText>
-                                                    </StyledTouchableOpacity>
-                                                ) : (
-                                                    <StyledTouchableOpacity
-                                                        onPress={handleEnableGoogle}
-                                                        className="bg-blue-100 px-3 py-1.5 rounded-lg"
-                                                    >
-                                                        <StyledText className="text-blue-600 text-xs font-n-medium">
-                                                            Enable
-                                                        </StyledText>
-                                                    </StyledTouchableOpacity>
-                                                )
-                                            )}
-                                        </StyledView>
+                                                <StyledTouchableOpacity
+                                                    onPress={handleEnableGoogle}
+                                                    className="bg-blue-100 px-3 h-7 items-center justify-center rounded-lg"
+                                                >
+                                                    <StyledText className="text-blue-600 text-xs font-n-medium">
+                                                        Enable
+                                                    </StyledText>
+                                                </StyledTouchableOpacity>
+                                            )
+                                        )}
                                     </StyledView>
-                                ) : (
-                                    <StyledTouchableOpacity
-                                        onPress={handleEnableGoogle}
-                                        className="bg-blue-100 px-4 py-2 rounded-lg"
-                                    >
-                                        <StyledText className="text-blue-600 text-sm font-n-medium">
-                                            Link →
-                                        </StyledText>
-                                    </StyledTouchableOpacity>
                                 )}
                             </StyledView>
 
                             {/* Apple */}
                             <StyledView
-                                className="flex-row items-center justify-between py-3"
+                                className="py-2"
                                 style={{ opacity: appleAvailable ? 1 : 0.5 }}
                             >
-                                <StyledView className="flex-row items-center flex-1">
-                                    <StyledView className="flex-1">
-                                        <ThemedText className="text-sm font-n-semibold">
-                                            Apple
-                                        </ThemedText>
-                                        <ThemedText className="text-sm mt-1 opacity-60">
-                                            {!appleAvailable
-                                                ? 'iOS only'
-                                                : isAppleConnected
-                                                    ? 'Connected'
-                                                    : 'Not connected'}
-                                        </ThemedText>
+                                <StyledView className="flex-row items-center justify-between">
+                                    <StyledView className="flex-row items-center flex-1">
+                                        <StyledView className="flex-1">
+                                            <ThemedText className="text-sm font-n-semibold">
+                                                Apple
+                                            </ThemedText>
+                                            <ThemedText className="text-sm mt-1 opacity-60">
+                                                {!appleAvailable
+                                                    ? 'iOS only'
+                                                    : isAppleConnected
+                                                        ? 'Connected'
+                                                        : 'Not connected'}
+                                            </ThemedText>
+                                        </StyledView>
+                                        {(isAppleConnected || isAppleDisabled) && appleAvailable && (
+                                            <StyledTouchableOpacity
+                                                onPress={() => setAppleInfoModalVisible(true)}
+                                                className="p-2"
+                                            >
+                                                <Info size={18} color="#7DAAE8" />
+                                            </StyledTouchableOpacity>
+                                        )}
                                     </StyledView>
-                                    {(isAppleConnected || isAppleDisabled) && appleAvailable && (
-                                        <StyledTouchableOpacity
-                                            onPress={() => setAppleInfoModalVisible(true)}
-                                            className="p-2"
-                                        >
-                                            <Info size={18} color="#7DAAE8" />
-                                        </StyledTouchableOpacity>
-                                    )}
-                                </StyledView>
-                                {linkingApple || disablingApple || enablingApple || unlinkingApple ? (
-                                    <ActivityIndicator size="small" color="#7DAAE8" />
-                                ) : isAppleConnected || isAppleDisabled ? (
-                                    <StyledView className="items-end">
+                                    {linkingApple || disablingApple || enablingApple || unlinkingApple ? (
+                                        <ActivityIndicator size="small" color="#7DAAE8" />
+                                    ) : isAppleConnected || isAppleDisabled ? (
                                         <StyledText className="text-green-600 text-sm font-n-medium">
                                             ✓ Linked
                                         </StyledText>
-                                        <StyledView className="flex-row gap-2 mt-2">
-                                            {/* Only show Unlink/Disable if user has another login method */}
-                                            {canUnlinkApple ? (
-                                                <>
-                                                    <StyledTouchableOpacity
-                                                        onPress={handleUnlinkApple}
-                                                        className="bg-red-100 px-3 py-1.5 rounded-lg"
-                                                    >
-                                                        <StyledText className="text-red-600 text-xs font-n-medium">
-                                                            Unlink
-                                                        </StyledText>
-                                                    </StyledTouchableOpacity>
-                                                </>
-                                            ) : (
-                                                <StyledView className="mt-1">
-                                                    <ThemedText className="text-xs opacity-50">
-                                                        {unlinkBlockedText}
-                                                    </ThemedText>
-                                                </StyledView>
-                                            )}
-                                            {canUnlinkApple && (
-                                                isAppleConnected ? (
-                                                    <StyledTouchableOpacity
-                                                        onPress={handleDisableApple}
-                                                        className="bg-orange-100 px-3 py-1.5 rounded-lg"
-                                                    >
-                                                        <StyledText className="text-orange-600 text-xs font-n-medium">
-                                                            Disable
-                                                        </StyledText>
-                                                    </StyledTouchableOpacity>
-                                                ) : (
-                                                    <StyledTouchableOpacity
-                                                        onPress={handleEnableApple}
-                                                        className="bg-blue-100 px-3 py-1.5 rounded-lg"
-                                                        disabled={!appleAvailable}
-                                                    >
-                                                        <StyledText className="text-blue-600 text-xs font-n-medium">
-                                                            Enable
-                                                        </StyledText>
-                                                    </StyledTouchableOpacity>
-                                                )
-                                            )}
-                                        </StyledView>
-                                    </StyledView>
-                                ) : (
-                                    <StyledTouchableOpacity
-                                        onPress={handleLinkApple}
-                                        disabled={!appleAvailable}
-                                        className="bg-blue-100 px-4 py-2 rounded-lg"
-                                        style={{ opacity: appleAvailable ? 1 : 0.5 }}
-                                    >
-                                        <StyledText
-                                            className="text-sm font-n-medium"
-                                            style={{ color: appleAvailable ? '#2563eb' : '#999' }}
+                                    ) : (
+                                        <StyledTouchableOpacity
+                                            onPress={handleLinkApple}
+                                            disabled={!appleAvailable}
+                                            className="bg-blue-100 px-4 py-2 rounded-lg"
+                                            style={{ opacity: appleAvailable ? 1 : 0.5 }}
                                         >
-                                            {appleAvailable ? 'Link →' : 'iOS Only'}
-                                        </StyledText>
-                                    </StyledTouchableOpacity>
+                                            <StyledText
+                                                className="text-sm font-n-medium"
+                                                style={{ color: appleAvailable ? '#2563eb' : '#999' }}
+                                            >
+                                                {appleAvailable ? 'Link →' : 'iOS Only'}
+                                            </StyledText>
+                                        </StyledTouchableOpacity>
+                                    )}
+                                </StyledView>
+                                {/* Buttons row — separate from label row for clean alignment */}
+                                {!(linkingApple || disablingApple || enablingApple || unlinkingApple) && (isAppleConnected || isAppleDisabled) && (
+                                    <StyledView className="flex-row gap-2 mt-1 justify-end">
+                                        {canUnlinkApple ? (
+                                            <StyledTouchableOpacity
+                                                onPress={handleUnlinkApple}
+                                                className="bg-red-100 px-3 h-7 items-center justify-center rounded-lg"
+                                            >
+                                                <StyledText className="text-red-600 text-xs font-n-medium">
+                                                    Unlink
+                                                </StyledText>
+                                            </StyledTouchableOpacity>
+                                        ) : (
+                                            <ThemedText className="text-xs opacity-50 mt-1">
+                                                {unlinkBlockedText}
+                                            </ThemedText>
+                                        )}
+                                        {canUnlinkApple && (
+                                            isAppleConnected ? (
+                                                <StyledTouchableOpacity
+                                                    onPress={handleDisableApple}
+                                                    className="bg-orange-100 px-3 h-7 items-center justify-center rounded-lg"
+                                                >
+                                                    <StyledText className="text-orange-600 text-xs font-n-medium">
+                                                        Disable
+                                                    </StyledText>
+                                                </StyledTouchableOpacity>
+                                            ) : (
+                                                <StyledTouchableOpacity
+                                                    onPress={handleEnableApple}
+                                                    className="bg-blue-100 px-3 h-7 items-center justify-center rounded-lg"
+                                                    disabled={!appleAvailable}
+                                                >
+                                                    <StyledText className="text-blue-600 text-xs font-n-medium">
+                                                        Enable
+                                                    </StyledText>
+                                                </StyledTouchableOpacity>
+                                            )
+                                        )}
+                                    </StyledView>
                                 )}
                             </StyledView>
                         </StyledView>
