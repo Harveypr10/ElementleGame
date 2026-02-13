@@ -24,10 +24,14 @@ module.exports = function withSentryAllowFailure(config) {
             }
 
             const sentryLine = "export SENTRY_ALLOW_FAILURE=true";
+            const disableLine = "export SENTRY_DISABLE_AUTO_UPLOAD=true";
             if (!contents.includes(sentryLine)) {
                 contents += `\n# Allow sentry-cli to fail gracefully when auth token is missing\n${sentryLine}\n`;
-                fs.writeFileSync(envFile, contents, "utf-8");
             }
+            if (!contents.includes(disableLine)) {
+                contents += `# Disable automatic debug symbol uploading during builds\n${disableLine}\n`;
+            }
+            fs.writeFileSync(envFile, contents, "utf-8");
 
             return config;
         },
