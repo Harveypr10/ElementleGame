@@ -5,7 +5,11 @@ import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { migrateGuestDataToUser } from './guestMigration';
 import { logInRevenueCat, logOutRevenueCat } from './RevenueCat';
-import { queryClient } from '../app/_layout';
+
+// Lazy accessor to break circular dependency:
+// auth.tsx -> guestMigration.ts -> _layout.tsx -> auth.tsx
+// Using deferred require() ensures _layout's queryClient is initialized by call time.
+const getQueryClient = () => require('../app/_layout').queryClient;
 
 // ============================================================
 // Auth Orchestrator — State Machine
@@ -130,8 +134,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         console.warn('[Auth] Session stale on resume, attempting refresh...', error.message);
                         const { error: refreshError } = await supabase.auth.refreshSession();
                         if (refreshError) {
-                            console.error('[Auth] Session refresh permanently failed — signing out:', refreshError.message);
-                            await signOutAndClearCaches();
+                            // Don't force sign-out — Supabase auto-refresh will handle recovery.
+                            // Forcing sign-out here races with OAuth handoff (Google/Apple)
+                            // and kills the session before the sign-in callback completes.
+                            console.warn('[Auth] Session refresh failed on resume (non-fatal):', refreshError.message);
                         } else {
                             console.log('[Auth] Session refreshed successfully after resume');
                         }
@@ -177,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (data) {
                     console.log(`[Auth] Profile confirmed for user on attempt ${attempt}:`, userId);
-                    queryClient.setQueryData(['user_profile', userId], data);
+                    getQueryClient().setQueryData(['user_profile', userId], data);
                     return true;
                 }
 
@@ -217,7 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             console.log('[Auth] Minimal profile created successfully for:', userId);
             if (newProfile) {
-                queryClient.setQueryData(['user_profile', userId], newProfile);
+                getQueryClient().setQueryData(['user_profile', userId], newProfile);
             }
             return true;
         } catch (e) {
@@ -385,7 +391,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // ============================================================
         // onAuthStateChange listener
         // ============================================================
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+            // ⚠️ CRITICAL: This callback MUST NOT await any supabase.from() calls!
+            // Supabase's setSession() holds an internal auth lock while awaiting
+            // _notifyAllSubscribers → this callback. If we do supabase.from() here,
+            // it calls getSession() which needs the same lock → DEADLOCK.
+            // All heavy async work is deferred via setTimeout to run after the
+            // lock is released.
             console.log('[Auth] State change:', event, newSession?.user?.id);
 
             setSession(newSession);
@@ -393,7 +405,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (newSession && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
                 setIsGuest(false);
-                await AsyncStorage.removeItem('is_guest');
+                AsyncStorage.removeItem('is_guest'); // fire-and-forget, no await needed
 
                 // Wait for initAuth to complete before running the pipeline
                 // to avoid running it twice on startup
@@ -411,35 +423,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     signingInRef.current = false;
                 }
 
-                // Run full pipeline (profile + migration + RevenueCat)
-                try {
-                    if (isDeliberateSignIn) {
-                        // Silent pipeline: do the same work but don't change authPhase
-                        try { await logInRevenueCat(newSession.user.id); } catch (e) { console.error('[Auth] RevenueCat login error:', e); }
-                        await syncOAuthProfile(newSession.user);
-                        await ensureProfileReady(newSession.user.id, newSession.user.user_metadata);
-                        await runGuestMigration(newSession.user.id);
-                    } else {
-                        await runPostSignInPipeline(newSession.user);
+                // Defer pipeline to next tick so the auth lock is released first.
+                // This prevents the deadlock described above.
+                setTimeout(async () => {
+                    try {
+                        if (isDeliberateSignIn) {
+                            // Silent pipeline: do the same work but don't change authPhase
+                            try { await logInRevenueCat(newSession.user.id); } catch (e) { console.error('[Auth] RevenueCat login error:', e); }
+                            await syncOAuthProfile(newSession.user);
+                            await ensureProfileReady(newSession.user.id, newSession.user.user_metadata);
+                            await runGuestMigration(newSession.user.id);
+                        } else {
+                            await runPostSignInPipeline(newSession.user);
+                        }
+                    } catch (e) {
+                        console.error('[Auth] Post-sign-in pipeline error:', e);
+                    } finally {
+                        // Force all mounted queries to refetch with the new user's session
+                        getQueryClient().invalidateQueries();
+                        setAuthPhase('ready');
                     }
-                } catch (e) {
-                    console.error('[Auth] Post-sign-in pipeline error:', e);
-                } finally {
-                    setAuthPhase('ready');
-                }
+                }, 0);
                 return;
             }
 
             if (event === 'SIGNED_OUT') {
-                console.log('[Auth] Logging out from RevenueCat...');
-                try {
-                    await logOutRevenueCat();
-                } catch (e) {
-                    console.warn('[Auth] RevenueCat logout failed (likely network):', e);
-                }
+                // Defer logout work to avoid lock contention
+                setTimeout(async () => {
+                    console.log('[Auth] Logging out from RevenueCat...');
+                    try {
+                        await logOutRevenueCat();
+                    } catch (e) {
+                        console.warn('[Auth] RevenueCat logout failed (likely network):', e);
+                    }
+                    setAuthPhase('ready');
+                }, 0);
+                return;
             }
 
-            // For other events (SIGNED_OUT, USER_UPDATED, PASSWORD_RECOVERY, etc.)
+            // For other events (USER_UPDATED, PASSWORD_RECOVERY, etc.)
             if (initCompleteRef.current) {
                 setAuthPhase('ready');
             }
@@ -628,10 +650,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // ============================================================
     // Sign out
     // ============================================================
-    const signOutAndClearCaches = async () => {
-        console.log('[Auth] Clearing all caches and local state...');
+
+    // Clears cached data only — does NOT touch auth state (session/user/isGuest).
+    // Auth state transitions are driven by onAuthStateChange events.
+    const clearUserCaches = async () => {
+        console.log('[Auth] Clearing user caches...');
         try {
-            queryClient.removeQueries();
+            // Query cache is invalidated by onAuthStateChange SIGNED_IN handler
+            // (not here — clearing here breaks observers and prevents refetch)
 
             const keysToRemove = [
                 'cached_first_name',
@@ -653,21 +679,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (e) {
             console.error('[Auth] Error clearing caches:', e);
         }
-
-        setSession(null);
-        setUser(null);
-        setIsGuest(false);
     };
 
     const signOut = async () => {
         console.log('[Auth] Signing out...');
-        await signOutAndClearCaches();
-
+        // Sign out FIRST — onAuthStateChange SIGNED_OUT handles state reset naturally
         try {
             await supabase.auth.signOut();
         } catch (error) {
             console.log('[Auth] Supabase signOut completed with note:', error);
         }
+        // Clear caches AFTER sign-out so observers aren't destroyed mid-transition
+        await clearUserCaches();
     };
 
 

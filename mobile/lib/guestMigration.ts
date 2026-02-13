@@ -7,7 +7,9 @@
 
 import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { queryClient } from '../app/_layout';
+// Lazy accessor to break circular dependency:
+// guestMigration.ts -> _layout.tsx -> auth.tsx -> guestMigration.ts
+const getQueryClient = () => require('../app/_layout').queryClient;
 
 interface GuestGameData {
     puzzleId: number;
@@ -202,10 +204,10 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
         if (migratedCount > 0) {
             console.log('[GuestMigration] Invalidating queries to refresh UI...');
             // Use partial keys - React Query matches all queries that start with these
-            queryClient.invalidateQueries({ queryKey: ['userStats'] });
-            queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
-            queryClient.invalidateQueries({ queryKey: ['pendingBadges'] });
-            queryClient.invalidateQueries({ queryKey: ['game-attempts'] });
+            getQueryClient().invalidateQueries({ queryKey: ['userStats'] });
+            getQueryClient().invalidateQueries({ queryKey: ['streak-saver-status'] });
+            getQueryClient().invalidateQueries({ queryKey: ['pendingBadges'] });
+            getQueryClient().invalidateQueries({ queryKey: ['game-attempts'] });
         }
 
         return { success: true, migratedGames: migratedCount };

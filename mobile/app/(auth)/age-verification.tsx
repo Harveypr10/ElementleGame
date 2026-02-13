@@ -182,6 +182,7 @@ export default function AgeVerificationScreen() {
         puzzleDate?: string;
         firstName?: string;
         lastName?: string;
+        subscribeFirst?: string;
     }>();
     const { showAd, isLoaded, isClosed } = useInterstitialAd();
 
@@ -286,6 +287,7 @@ export default function AgeVerificationScreen() {
                 params: {
                     firstName: params.firstName || '',
                     lastName: params.lastName || '',
+                    ...(params.subscribeFirst === '1' ? { subscribeFirst: '1' } : {}),
                 },
             });
         } else {

@@ -27,7 +27,7 @@ interface Region {
 
 export default function PersonalisePage() {
     const router = useRouter();
-    const params = useLocalSearchParams<{ firstName?: string; lastName?: string }>();
+    const params = useLocalSearchParams<{ firstName?: string; lastName?: string; subscribeFirst?: string }>();
     const { colorScheme } = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
 
@@ -259,15 +259,24 @@ export default function PersonalisePage() {
                 console.log('Settings creation error (may already exist):', settingsError);
             }
 
-            // Navigate to GeneratingQuestionsScreen with params
-            router.push({
-                pathname: '/(auth)/generating-questions',
-                params: {
-                    userId,
-                    region,
-                    postcode: postcode.trim() || '',
-                },
-            });
+            // Navigate based on flow
+            if (params.subscribeFirst === '1') {
+                // Subscription flow: personalise → subscribe → category-selection → generating-questions
+                router.replace({
+                    pathname: '/(auth)/subscription-flow',
+                    params: { newSignup: '1' },
+                });
+            } else {
+                // Normal flow: personalise → generating-questions
+                router.push({
+                    pathname: '/(auth)/generating-questions',
+                    params: {
+                        userId,
+                        region,
+                        postcode: postcode.trim() || '',
+                    },
+                });
+            }
         } catch (error) {
             console.error('Error saving profile:', error);
             Alert.alert('Error', 'Failed to save your profile. Please try again.');

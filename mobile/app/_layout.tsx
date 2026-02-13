@@ -90,6 +90,22 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // 1c. Puzzle Readiness State (checked concurrently during splash)
     const [userPuzzleReady, setUserPuzzleReady] = useState(false);
 
+    // Reset splash when session is lost (sign-out) so re-auth gets a fresh splash
+    const prevSessionRef = useRef(session);
+    useEffect(() => {
+        if (prevSessionRef.current && !session) {
+            console.log('[NavGuard] Session lost (sign-out) — resetting splash for fresh reload');
+            splashDismissedRef.current = false;
+            setSplashMinTimeMet(false);
+            // Restart the minimum splash timer
+            const delay = Platform.OS === 'web' ? 2000 : 3000;
+            const timer = setTimeout(() => setSplashMinTimeMet(true), delay);
+            prevSessionRef.current = session;
+            return () => clearTimeout(timer);
+        }
+        prevSessionRef.current = session;
+    }, [session]);
+
     // Track when app was last active (for 1h background refresh)
     const lastActiveRef = useRef(Date.now());
 
@@ -304,10 +320,13 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 function UserScopedProviders() {
     const { user } = useAuth();
 
-    // Clear React Query cache when user changes (prevents stale data between accounts)
+    // NOTE: No query cache clearing needed here.
+    // All query hooks already include user?.id in their keys (e.g. ['userStats', user?.id, mode]),
+    // so data is automatically isolated between users. Clearing/removing queries here was causing
+    // the "ghost login" bug by destroying freshly-registered query observers (useEffect fires
+    // AFTER render, killing queries that components just started).
     useEffect(() => {
-        console.log('[Layout] User changed, clearing query cache:', user?.id ?? 'signed-out');
-        queryClient.clear();
+        console.log('[Layout] User context updated:', user?.id ?? 'signed-out');
     }, [user?.id]);
 
     return (
@@ -339,13 +358,7 @@ function UserScopedProviders() {
                                                     }}
                                                 />
                                                 <Stack.Screen name="index" options={{ headerShown: false }} />
-                                                <Stack.Screen
-                                                    name="settings"
-                                                    options={{
-                                                        headerShown: false,
-                                                        presentation: 'card'
-                                                    }}
-                                                />
+
                                             </Stack>
                                         </NavigationGuard>
                                     </ThemedView>

@@ -60,6 +60,7 @@ export default function LoginPage() {
     const params = useLocalSearchParams();
     const nextRoute = params.next as string;
     const initialStep = params.step as LoginStep;
+    const subscribeFirst = params.subscribeFirst === '1';
 
     const colorScheme = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
@@ -216,7 +217,11 @@ export default function LoginPage() {
                 }
             }
 
-            router.replace('/');
+            if (subscribeFirst) {
+                router.replace('/(auth)/subscription-flow');
+            } else {
+                router.replace('/');
+            }
         } catch (error: any) {
             console.error('Login error:', error);
             Alert.alert('Error', error.message || 'Failed to log in');
@@ -271,6 +276,11 @@ export default function LoginPage() {
             console.log('Account created successfully');
             if (nextRoute) {
                 router.replace(nextRoute);
+            } else if (subscribeFirst) {
+                router.push({
+                    pathname: '/(auth)/personalise',
+                    params: { subscribeFirst: '1' },
+                });
             } else {
                 router.push('/(auth)/personalise');
             }
@@ -357,7 +367,11 @@ export default function LoginPage() {
                 }
 
                 console.log('[Login] Successfully signed in as linked user:', signInResult.userId);
-                router.replace('/');
+                if (subscribeFirst) {
+                    router.replace('/(auth)/subscription-flow');
+                } else {
+                    router.replace('/');
+                }
             } else {
                 // No linked account - show confirmation dialog
                 Alert.alert(
@@ -396,9 +410,12 @@ export default function LoginPage() {
                                             params: {
                                                 returnTo: 'personalise',
                                                 firstName: userName.firstName,
-                                                lastName: userName.lastName
+                                                lastName: userName.lastName,
+                                                ...(subscribeFirst ? { subscribeFirst: '1' } : {}),
                                             }
                                         });
+                                    } else if (subscribeFirst) {
+                                        router.replace('/(auth)/subscription-flow');
                                     } else {
                                         router.replace('/');
                                     }
@@ -467,7 +484,11 @@ export default function LoginPage() {
                 }
 
                 console.log('[Login] Successfully signed in as linked user:', signInResult.userId);
-                router.replace('/');
+                if (subscribeFirst) {
+                    router.replace('/(auth)/subscription-flow');
+                } else {
+                    router.replace('/');
+                }
             } else {
                 // No linked account - show confirmation dialog
                 Alert.alert(
@@ -506,9 +527,12 @@ export default function LoginPage() {
                                             params: {
                                                 returnTo: 'personalise',
                                                 firstName: userName.firstName,
-                                                lastName: userName.lastName
+                                                lastName: userName.lastName,
+                                                ...(subscribeFirst ? { subscribeFirst: '1' } : {}),
                                             }
                                         });
+                                    } else if (subscribeFirst) {
+                                        router.replace('/(auth)/subscription-flow');
                                     } else {
                                         router.replace('/');
                                     }
