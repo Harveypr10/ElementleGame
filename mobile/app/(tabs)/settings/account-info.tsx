@@ -77,6 +77,13 @@ export default function AccountInfoPage() {
         deleteModalVisible, setDeleteModalVisible,
         deletingAccount,
 
+        // Security Guards
+        canUnlinkGoogle,
+        canUnlinkApple,
+        isMagicLinkLocked,
+        unlinkBlockedText,
+        magicLinkLockedText,
+
         backgroundColor,
         surfaceColor,
         borderColor,
@@ -284,19 +291,21 @@ export default function AccountInfoPage() {
                                         Enable Magic Link
                                     </ThemedText>
                                     <ThemedText className="text-sm mt-1 opacity-60">
-                                        {hasPassword
-                                            ? 'Sign in with email links'
-                                            : 'Set a password to enable Magic Link'}
+                                        {isMagicLinkLocked
+                                            ? magicLinkLockedText
+                                            : hasPassword
+                                                ? 'Sign in with email links'
+                                                : 'Set a password to enable Magic Link'}
                                     </ThemedText>
                                 </StyledView>
                                 <Switch
-                                    value={hasPassword ? magicLinkEnabled : false}
+                                    value={isMagicLinkLocked ? true : (hasPassword ? magicLinkEnabled : false)}
                                     onValueChange={handleToggleMagicLink}
-                                    disabled={togglingMagicLink || !hasPassword}
+                                    disabled={isMagicLinkLocked || togglingMagicLink || !hasPassword}
                                     trackColor={{ false: borderColor, true: '#3b82f6' }}
                                     thumbColor={'#ffffff'}
                                     ios_backgroundColor={borderColor}
-                                    style={{ opacity: hasPassword ? 1 : 0.5 }}
+                                    style={{ opacity: (isMagicLinkLocked || !hasPassword) ? 0.5 : 1 }}
                                 />
                             </StyledView>
                         </StyledView>
@@ -341,35 +350,45 @@ export default function AccountInfoPage() {
                                             ✓ Linked
                                         </StyledText>
                                         <StyledView className="flex-row gap-2 mt-2">
-                                            {/* Only show Unlink if user has another login method */}
-                                            {(hasPassword || isAppleConnected || isAppleDisabled) && (
-                                                <StyledTouchableOpacity
-                                                    onPress={handleUnlinkGoogle}
-                                                    className="bg-red-100 px-3 py-1.5 rounded-lg"
-                                                >
-                                                    <StyledText className="text-red-600 text-xs font-n-medium">
-                                                        Unlink
-                                                    </StyledText>
-                                                </StyledTouchableOpacity>
-                                            )}
-                                            {isGoogleConnected ? (
-                                                <StyledTouchableOpacity
-                                                    onPress={handleDisableGoogle}
-                                                    className="bg-orange-100 px-3 py-1.5 rounded-lg"
-                                                >
-                                                    <StyledText className="text-orange-600 text-xs font-n-medium">
-                                                        Disable
-                                                    </StyledText>
-                                                </StyledTouchableOpacity>
+                                            {/* Only show Unlink/Disable if user has another login method */}
+                                            {canUnlinkGoogle ? (
+                                                <>
+                                                    <StyledTouchableOpacity
+                                                        onPress={handleUnlinkGoogle}
+                                                        className="bg-red-100 px-3 py-1.5 rounded-lg"
+                                                    >
+                                                        <StyledText className="text-red-600 text-xs font-n-medium">
+                                                            Unlink
+                                                        </StyledText>
+                                                    </StyledTouchableOpacity>
+                                                </>
                                             ) : (
-                                                <StyledTouchableOpacity
-                                                    onPress={handleEnableGoogle}
-                                                    className="bg-blue-100 px-3 py-1.5 rounded-lg"
-                                                >
-                                                    <StyledText className="text-blue-600 text-xs font-n-medium">
-                                                        Enable
-                                                    </StyledText>
-                                                </StyledTouchableOpacity>
+                                                <StyledView className="mt-1">
+                                                    <ThemedText className="text-xs opacity-50">
+                                                        {unlinkBlockedText}
+                                                    </ThemedText>
+                                                </StyledView>
+                                            )}
+                                            {canUnlinkGoogle && (
+                                                isGoogleConnected ? (
+                                                    <StyledTouchableOpacity
+                                                        onPress={handleDisableGoogle}
+                                                        className="bg-orange-100 px-3 py-1.5 rounded-lg"
+                                                    >
+                                                        <StyledText className="text-orange-600 text-xs font-n-medium">
+                                                            Disable
+                                                        </StyledText>
+                                                    </StyledTouchableOpacity>
+                                                ) : (
+                                                    <StyledTouchableOpacity
+                                                        onPress={handleEnableGoogle}
+                                                        className="bg-blue-100 px-3 py-1.5 rounded-lg"
+                                                    >
+                                                        <StyledText className="text-blue-600 text-xs font-n-medium">
+                                                            Enable
+                                                        </StyledText>
+                                                    </StyledTouchableOpacity>
+                                                )
                                             )}
                                         </StyledView>
                                     </StyledView>
@@ -420,36 +439,46 @@ export default function AccountInfoPage() {
                                             ✓ Linked
                                         </StyledText>
                                         <StyledView className="flex-row gap-2 mt-2">
-                                            {/* Only show Unlink if user has another login method */}
-                                            {(hasPassword || isGoogleConnected || isGoogleDisabled) && (
-                                                <StyledTouchableOpacity
-                                                    onPress={handleUnlinkApple}
-                                                    className="bg-red-100 px-3 py-1.5 rounded-lg"
-                                                >
-                                                    <StyledText className="text-red-600 text-xs font-n-medium">
-                                                        Unlink
-                                                    </StyledText>
-                                                </StyledTouchableOpacity>
-                                            )}
-                                            {isAppleConnected ? (
-                                                <StyledTouchableOpacity
-                                                    onPress={handleDisableApple}
-                                                    className="bg-orange-100 px-3 py-1.5 rounded-lg"
-                                                >
-                                                    <StyledText className="text-orange-600 text-xs font-n-medium">
-                                                        Disable
-                                                    </StyledText>
-                                                </StyledTouchableOpacity>
+                                            {/* Only show Unlink/Disable if user has another login method */}
+                                            {canUnlinkApple ? (
+                                                <>
+                                                    <StyledTouchableOpacity
+                                                        onPress={handleUnlinkApple}
+                                                        className="bg-red-100 px-3 py-1.5 rounded-lg"
+                                                    >
+                                                        <StyledText className="text-red-600 text-xs font-n-medium">
+                                                            Unlink
+                                                        </StyledText>
+                                                    </StyledTouchableOpacity>
+                                                </>
                                             ) : (
-                                                <StyledTouchableOpacity
-                                                    onPress={handleEnableApple}
-                                                    className="bg-blue-100 px-3 py-1.5 rounded-lg"
-                                                    disabled={!appleAvailable}
-                                                >
-                                                    <StyledText className="text-blue-600 text-xs font-n-medium">
-                                                        Enable
-                                                    </StyledText>
-                                                </StyledTouchableOpacity>
+                                                <StyledView className="mt-1">
+                                                    <ThemedText className="text-xs opacity-50">
+                                                        {unlinkBlockedText}
+                                                    </ThemedText>
+                                                </StyledView>
+                                            )}
+                                            {canUnlinkApple && (
+                                                isAppleConnected ? (
+                                                    <StyledTouchableOpacity
+                                                        onPress={handleDisableApple}
+                                                        className="bg-orange-100 px-3 py-1.5 rounded-lg"
+                                                    >
+                                                        <StyledText className="text-orange-600 text-xs font-n-medium">
+                                                            Disable
+                                                        </StyledText>
+                                                    </StyledTouchableOpacity>
+                                                ) : (
+                                                    <StyledTouchableOpacity
+                                                        onPress={handleEnableApple}
+                                                        className="bg-blue-100 px-3 py-1.5 rounded-lg"
+                                                        disabled={!appleAvailable}
+                                                    >
+                                                        <StyledText className="text-blue-600 text-xs font-n-medium">
+                                                            Enable
+                                                        </StyledText>
+                                                    </StyledTouchableOpacity>
+                                                )
                                             )}
                                         </StyledView>
                                     </StyledView>

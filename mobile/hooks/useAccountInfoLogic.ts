@@ -80,6 +80,20 @@ export const useAccountInfoLogic = () => {
     const [isGoogleDisabled, setIsGoogleDisabled] = useState(false);
     const [isAppleDisabled, setIsAppleDisabled] = useState(false);
 
+    // ============================================================
+    // Security Guards — "Last Man Standing" + Magic Link Lock
+    // ============================================================
+    // Can this social provider be unlinked/disabled? Only if user has another login method.
+    const canUnlinkGoogle = hasPassword || isAppleConnected || isAppleDisabled;
+    const canUnlinkApple = hasPassword || isGoogleConnected || isGoogleDisabled;
+
+    // Magic link must stay enabled if it's the user's only non-password login method
+    // (i.e. no social providers are linked at all)
+    const isMagicLinkLocked = !isGoogleConnected && !isGoogleDisabled && !isAppleConnected && !isAppleDisabled;
+
+    const unlinkBlockedText = 'You must set a password or connect another account before removing this login method.';
+    const magicLinkLockedText = 'Connect a Google or Apple account before disabling magic link login.';
+
     // Theme colors
     const backgroundColor = useThemeColor({}, 'background');
     const surfaceColor = useThemeColor({}, 'surface');
@@ -634,6 +648,13 @@ export const useAccountInfoLogic = () => {
         handleEnableApple,
         handleUnlinkApple,
         handleDeleteAccount,
+
+        // Security Guards
+        canUnlinkGoogle,
+        canUnlinkApple,
+        isMagicLinkLocked,
+        unlinkBlockedText,
+        magicLinkLockedText,
 
         // Colors
         backgroundColor,

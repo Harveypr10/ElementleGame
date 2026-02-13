@@ -1,32 +1,31 @@
 /**
  * Set New Password Screen
  * 
- * Handles 3 modes:
+ * Handles 2 modes:
  * - 'create': Social auth user setting first password
- * - 'change': Existing password user changing password
- * - 'reset': Coming from forgot password deep link
+ * - 'change': Existing user changing password (no current password required — user is already authenticated)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     View,
     Text,
     TextInput,
     TouchableOpacity,
+    ScrollView,
+    SafeAreaView,
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
     Alert,
-    ScrollView
 } from 'react-native';
 import { styled } from 'nativewind';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ChevronLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Eye, EyeOff, Check, X } from 'lucide-react-native';
-import hapticsManager from '../../lib/hapticsManager';
-import { validatePassword, getPasswordRequirementsText } from '../../lib/passwordValidation';
+import { validatePassword } from '../../lib/passwordValidation';
+import { hapticsManager } from '../../lib/hapticsManager';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -34,17 +33,16 @@ const StyledTextInput = styled(TextInput);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
 
-type PasswordMode = 'create' | 'change' | 'reset';
+type PasswordMode = 'create' | 'change';
 
 export default function SetNewPasswordScreen() {
     const router = useRouter();
-    const { user, session, clearPendingRecovery } = useAuth();
+    const { user, session } = useAuth();
     const params = useLocalSearchParams<{ mode?: string }>();
 
     // Determine mode from params, default to 'create'
-    const mode: PasswordMode = (params.mode as PasswordMode) || 'create';
+    const mode: PasswordMode = (params.mode === 'change') ? 'change' : 'create';
 
-    const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -52,36 +50,16 @@ export default function SetNewPasswordScreen() {
     const [success, setSuccess] = useState(false);
 
     // Password visibility toggles
-    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-    // Session validity for reset mode
-    const [sessionValid, setSessionValid] = useState<boolean | null>(null);
-
-    // For reset mode, we trust the Auth Orchestrator — it only routes here
-    // when pendingRecovery=true, meaning the session is already set.
-    // For create/change modes, session should already be valid.
-    useEffect(() => {
-        if (mode === 'reset') {
-            // Session is guaranteed by Auth Orchestrator's pendingRecovery flag
-            const isValid = !!session;
-            setSessionValid(isValid);
-            if (!isValid) {
-                setError('Password reset link has expired. Please request a new one.');
-            }
-        } else {
-            setSessionValid(!!session);
-        }
-    }, [mode, session]);
+    // Refs for keyboard navigation
+    const newPasswordRef = useRef<TextInput>(null);
+    const confirmPasswordRef = useRef<TextInput>(null);
 
     // Get screen title based on mode
     const getTitle = () => {
-        switch (mode) {
-            case 'create': return 'Create Password';
-            case 'change': return 'Change Password';
-            case 'reset': return 'Set New Password';
-        }
+        return mode === 'create' ? 'Create Password' : 'Change Password';
     };
 
     // Validate password in real-time
@@ -107,38 +85,10 @@ export default function SetNewPasswordScreen() {
             return;
         }
 
-        // For change mode, verify current password first
-        if (mode === 'change') {
-            if (!currentPassword) {
-                setError('Please enter your current password');
-                hapticsManager.error();
-                return;
-            }
-
-            // Verify current password by attempting sign-in
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-                email: user?.email || '',
-                password: currentPassword,
-            });
-
-            if (signInError) {
-                setError('Current password is incorrect');
-                hapticsManager.error();
-                return;
-            }
-        }
-
-        // For reset mode, verify session is valid
-        if (mode === 'reset' && !sessionValid) {
-            setError('Password reset link has expired. Please request a new one.');
-            hapticsManager.error();
-            return;
-        }
-
         setLoading(true);
 
         try {
-            // Update password using Supabase
+            // Update password using Supabase (works for authenticated users without old password)
             const { error: updateError } = await supabase.auth.updateUser({
                 password: newPassword,
             });
@@ -158,17 +108,9 @@ export default function SetNewPasswordScreen() {
             setSuccess(true);
             hapticsManager.success();
 
-            // Show success and navigate
+            // Navigate back after showing success
             setTimeout(() => {
-                if (mode === 'reset') {
-                    // Clear pendingRecovery so NavigationGuard stops overriding navigation
-                    clearPendingRecovery();
-                    // Go straight to Home — user is already authenticated
-                    router.replace('/(tabs)');
-                } else {
-                    // After create/change, go back to account info
-                    router.back();
-                }
+                router.back();
             }, 2000);
 
         } catch (err: any) {
@@ -180,58 +122,6 @@ export default function SetNewPasswordScreen() {
         }
     };
 
-    // Helper to mask email (e.g., "p...y@gmail.com")
-    const maskEmail = (email: string) => {
-        if (!email) return '';
-        const [local, domain] = email.split('@');
-        if (local.length <= 2) return email;
-        return `${local[0]}...${local[local.length - 1]}@${domain}`;
-    };
-
-    const handleForgotPassword = () => {
-        const email = user?.email;
-        if (!email) {
-            Alert.alert('Error', 'No email address associated with this account.');
-            return;
-        }
-
-        Alert.alert(
-            'Reset Password',
-            `A password reset link will be sent to ${email}. Continue?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Continue',
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                                redirectTo: 'https://elementle.tech/reset-password',
-                            });
-                            if (error) throw error;
-                            hapticsManager.success();
-                            Alert.alert('Email Sent', 'Check your inbox for the password reset link.');
-                        } catch (err: any) {
-                            hapticsManager.error();
-                            Alert.alert('Error', err.message || 'Failed to send reset email.');
-                        }
-                    },
-                },
-            ]
-        );
-    };
-
-    // Show loading while checking session for reset mode (with 5s timeout)
-    if (mode === 'reset' && sessionValid === null) {
-        return (
-            <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 justify-center items-center">
-                <ActivityIndicator size="large" color="#3b82f6" />
-                <StyledText className="text-slate-600 dark:text-slate-400 mt-4">
-                    Verifying reset link...
-                </StyledText>
-            </SafeAreaView>
-        );
-    }
-
     return (
         <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
             <KeyboardAvoidingView
@@ -239,15 +129,15 @@ export default function SetNewPasswordScreen() {
                 className="flex-1"
             >
                 <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 24 }} keyboardShouldPersistTaps="handled">
-                    {/* Header */}
-                    <StyledView className="flex-row items-center py-4">
+                    {/* Header — centered title with absolute-positioned back button */}
+                    <StyledView className="py-4" style={{ position: 'relative', alignItems: 'center', justifyContent: 'center', minHeight: 48 }}>
                         <StyledTouchableOpacity
                             testID="password-back"
                             onPress={() => {
                                 hapticsManager.light();
                                 router.back();
                             }}
-                            className="mr-4"
+                            style={{ position: 'absolute', left: 0, top: 16 }}
                         >
                             <ChevronLeft size={28} color="#1e293b" />
                         </StyledTouchableOpacity>
@@ -265,9 +155,7 @@ export default function SetNewPasswordScreen() {
                                 Password Updated!
                             </StyledText>
                             <StyledText className="text-slate-600 dark:text-slate-400 text-center">
-                                {mode === 'reset'
-                                    ? 'Your password has been updated. Taking you home...'
-                                    : 'Your password has been updated successfully.'}
+                                Your password has been updated successfully.
                             </StyledText>
                         </StyledView>
                     ) : (
@@ -275,51 +163,8 @@ export default function SetNewPasswordScreen() {
                             {/* Description */}
                             <StyledText className="text-slate-600 dark:text-slate-400 mb-6">
                                 {mode === 'create' && 'Create a password to enable email login alongside your social account.'}
-                                {mode === 'change' && 'Enter your current password and choose a new one.'}
-                                {mode === 'reset' && 'Choose a new password for your account.'}
+                                {mode === 'change' && 'Choose a new password for your account.'}
                             </StyledText>
-
-                            {/* Current Password - only for change mode */}
-                            {mode === 'change' && (
-                                <StyledView className="mb-4">
-                                    <StyledText className="text-slate-700 dark:text-slate-300 font-n-medium mb-2">
-                                        Current Password
-                                    </StyledText>
-                                    <StyledView style={{ position: 'relative' }}>
-                                        <StyledTextInput
-                                            testID="current-password-input"
-                                            className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
-                                            style={{ paddingLeft: 16, paddingVertical: 16, paddingRight: 48 }}
-                                            placeholder="Enter current password"
-                                            placeholderTextColor="#94a3b8"
-                                            value={currentPassword}
-                                            onChangeText={setCurrentPassword}
-                                            secureTextEntry={!showCurrentPassword}
-                                            autoCapitalize="none"
-                                            autoCorrect={false}
-                                            editable={!loading}
-                                        />
-                                        <StyledTouchableOpacity
-                                            onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-                                            style={{ position: 'absolute', right: 16, top: 16 }}
-                                        >
-                                            {showCurrentPassword ? (
-                                                <EyeOff size={20} color="#94a3b8" />
-                                            ) : (
-                                                <Eye size={20} color="#94a3b8" />
-                                            )}
-                                        </StyledTouchableOpacity>
-                                    </StyledView>
-                                    <StyledTouchableOpacity
-                                        onPress={handleForgotPassword}
-                                        className="mt-2"
-                                    >
-                                        <StyledText className="text-blue-500 text-sm">
-                                            Forgot your password?
-                                        </StyledText>
-                                    </StyledTouchableOpacity>
-                                </StyledView>
-                            )}
 
                             {/* New Password */}
                             <StyledView className="mb-4">
@@ -328,6 +173,7 @@ export default function SetNewPasswordScreen() {
                                 </StyledText>
                                 <StyledView style={{ position: 'relative' }}>
                                     <StyledTextInput
+                                        ref={newPasswordRef}
                                         testID="new-password-input"
                                         className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
                                         style={{ paddingLeft: 16, paddingVertical: 16, paddingRight: 48 }}
@@ -338,6 +184,10 @@ export default function SetNewPasswordScreen() {
                                         secureTextEntry={!showNewPassword}
                                         autoCapitalize="none"
                                         autoCorrect={false}
+                                        textContentType="newPassword"
+                                        returnKeyType="next"
+                                        onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                                        blurOnSubmit={false}
                                         editable={!loading}
                                     />
                                     <StyledTouchableOpacity
@@ -385,6 +235,7 @@ export default function SetNewPasswordScreen() {
                                 </StyledText>
                                 <StyledView style={{ position: 'relative' }}>
                                     <StyledTextInput
+                                        ref={confirmPasswordRef}
                                         testID="confirm-password-input"
                                         className={`bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12 ${confirmPassword.length > 0 && !passwordsMatch
                                             ? 'border-2 border-red-500'
@@ -400,6 +251,9 @@ export default function SetNewPasswordScreen() {
                                         secureTextEntry={!showConfirmPassword}
                                         autoCapitalize="none"
                                         autoCorrect={false}
+                                        textContentType="newPassword"
+                                        returnKeyType="done"
+                                        onSubmitEditing={handleSubmit}
                                         editable={!loading}
                                     />
                                     <StyledTouchableOpacity

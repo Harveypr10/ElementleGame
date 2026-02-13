@@ -31,11 +31,9 @@ type AuthContextType = {
     isGuest: boolean;
     isAuthenticated: boolean;
     authPhase: AuthPhase;
-    pendingRecovery: boolean;
     signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
     signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
-    clearPendingRecovery: () => void;
     hasCompletedFirstLogin: () => boolean;
     markFirstLoginCompleted: () => Promise<void>;
 };
@@ -46,11 +44,9 @@ const AuthContext = createContext<AuthContextType>({
     isGuest: false,
     isAuthenticated: false,
     authPhase: 'initializing',
-    pendingRecovery: false,
     signInWithEmail: async () => ({ error: null }),
     signUpWithEmail: async () => ({ error: null }),
     signOut: async () => { },
-    clearPendingRecovery: () => { },
     hasCompletedFirstLogin: () => false,
     markFirstLoginCompleted: async () => { },
 });
@@ -102,8 +98,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isGuest, setIsGuest] = useState(false);
     const [authPhase, setAuthPhase] = useState<AuthPhase>('initializing');
-    const [pendingRecovery, setPendingRecovery] = useState(false);
     const appStateRef = useRef(AppState.currentState);
+
+    // Track safety timeout attempts for social auth hang recovery
+    const safetyAttemptRef = useRef(0);
 
     // Track whether initAuth has completed to prevent onAuthStateChange
     // from racing ahead during the initial setup
@@ -266,12 +264,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Only runs on native. Web uses detectSessionInUrl: true.
     // Returns true if a deep link was detected and needs processing.
     // ============================================================
-    const checkNativeDeepLink = async (): Promise<{ handled: boolean; isRecovery: boolean }> => {
-        if (Platform.OS === 'web') return { handled: false, isRecovery: false };
+    const checkNativeDeepLink = async (): Promise<{ handled: boolean }> => {
+        if (Platform.OS === 'web') return { handled: false };
 
         try {
             const url = await Linking.getInitialURL();
-            if (!url) return { handled: false, isRecovery: false };
+            if (!url) return { handled: false };
 
             console.log('[Auth] Native deep link detected:', url);
             const urlObj = new URL(url);
@@ -279,32 +277,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const hashParams = urlObj.hash
                 ? new URLSearchParams(urlObj.hash.substring(1))
                 : new URLSearchParams();
-
-            // --- Recovery / Password Reset ---
-            const isResetPath = url.includes('reset-password');
-            const accessToken = hashParams.get('access_token');
-            const refreshToken = hashParams.get('refresh_token');
-            const hashType = hashParams.get('type');
-            const isRecovery = hashType === 'recovery' || (isResetPath && !!accessToken);
-
-            if (isRecovery && accessToken && refreshToken) {
-                console.log('[Auth] Recovery link — setting session from tokens');
-                setAuthPhase('processing_link');
-                const { error } = await supabase.auth.setSession({
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                });
-                if (error) {
-                    console.error('[Auth] Recovery session set error:', error);
-                    return { handled: true, isRecovery: false }; // Failed — treat as no recovery
-                }
-                return { handled: true, isRecovery: true };
-            }
-
-            // Path-only reset link (no tokens — user will need to re-request)
-            if (isResetPath) {
-                return { handled: true, isRecovery: true };
-            }
 
             // --- Magic Link ---
             const tokenHash = searchParams.get('token_hash');
@@ -322,24 +294,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     console.error('[Auth] Magic link verification error:', error);
                 }
                 // Session will be set by onAuthStateChange
-                return { handled: true, isRecovery: false };
+                return { handled: true };
+            }
+
+            // --- Hash-based auth tokens (e.g. from OAuth redirect) ---
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+            if (accessToken && refreshToken) {
+                console.log('[Auth] Auth tokens in deep link — setting session');
+                setAuthPhase('processing_link');
+                const { error } = await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                });
+                if (error) {
+                    console.error('[Auth] Session set error from deep link:', error);
+                }
+                return { handled: true };
             }
         } catch (e) {
             console.error('[Auth] Deep link processing error:', e);
         }
 
-        return { handled: false, isRecovery: false };
+        return { handled: false };
     };
 
     // ============================================================
     // MAIN INITIALIZATION — runs once on mount
     // ============================================================
     useEffect(() => {
-        const INIT_TIMEOUT_MS = Platform.OS === 'web' ? 4000 : 6000;
-
         const initAuth = async () => {
             try {
-                // Step 1: Get existing session (with timeout)
+                // Step 1: Check for deep link tokens FIRST (native only)
+                // This must happen BEFORE getSession to prevent stale-session
+                // premature routing — the deep link may set a NEW session.
+                const { handled: linkHandled } = await checkNativeDeepLink();
+
+                if (linkHandled) {
+                    // Deep link was processed — onAuthStateChange will handle the rest
+                    initCompleteRef.current = true;
+                    // Don't set phase to 'ready' yet — let onAuthStateChange do it
+                    return;
+                }
+
+                // Step 2: No deep link — get existing session
                 let existingSession: Session | null = null;
                 try {
                     const { data: { session: s } } = await withTimeout(
@@ -352,28 +350,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     console.warn('[Auth] getSession timed out or failed:', e);
                 }
 
-                // Step 2: Check for deep link tokens (native only)
-                const { handled: linkHandled, isRecovery } = await checkNativeDeepLink();
-
-                if (isRecovery) {
-                    console.log('[Auth] Recovery link detected — setting pendingRecovery');
-                    setPendingRecovery(true);
-                    // Session was set by checkNativeDeepLink → onAuthStateChange will fire
-                    // but we set pendingRecovery BEFORE it can route to (tabs)
-                    // We still need to mark init complete so onAuthStateChange can proceed
-                    initCompleteRef.current = true;
-                    setAuthPhase('ready');
-                    return;
-                }
-
-                if (linkHandled) {
-                    // Magic link was processed — onAuthStateChange will handle the rest
-                    initCompleteRef.current = true;
-                    // Don't set phase to 'ready' yet — let onAuthStateChange do it
-                    return;
-                }
-
-                // Step 3: No deep link — evaluate existing session
+                // Step 3: Evaluate existing session
                 if (existingSession) {
                     setSession(existingSession);
                     setUser(existingSession.user);
@@ -396,15 +373,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         };
 
-        // Hard timeout: if initAuth hasn't completed, force to ready
-        const hardTimeout = setTimeout(() => {
-            if (authPhase !== 'ready') {
-                console.warn(`[Auth] HARD TIMEOUT: init stuck for ${INIT_TIMEOUT_MS}ms — forcing ready`);
-                initCompleteRef.current = true;
-                setAuthPhase('ready');
-            }
-        }, INIT_TIMEOUT_MS);
-
         initAuth();
 
         // ============================================================
@@ -413,30 +381,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
             console.log('[Auth] State change:', event, newSession?.user?.id);
 
-            // PASSWORD_RECOVERY event (fires on web with detectSessionInUrl: true)
-            if (event === 'PASSWORD_RECOVERY') {
-                console.log('[Auth] PASSWORD_RECOVERY event — setting pendingRecovery');
-                setSession(newSession);
-                setUser(newSession?.user ?? null);
-                setPendingRecovery(true);
-                setAuthPhase('ready');
-                return;
-            }
-
             setSession(newSession);
             setUser(newSession?.user ?? null);
 
             if (newSession && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
                 setIsGuest(false);
                 await AsyncStorage.removeItem('is_guest');
-
-                // If pendingRecovery is set, skip the full pipeline —
-                // user is headed to set-new-password screen
-                if (pendingRecovery) {
-                    console.log('[Auth] Skipping post-sign-in pipeline (pendingRecovery=true)');
-                    setAuthPhase('ready');
-                    return;
-                }
 
                 // Wait for initAuth to complete before running the pipeline
                 // to avoid running it twice on startup
@@ -465,17 +415,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 }
             }
 
-            // For other events (SIGNED_OUT, USER_UPDATED, etc.)
+            // For other events (SIGNED_OUT, USER_UPDATED, PASSWORD_RECOVERY, etc.)
             if (initCompleteRef.current) {
                 setAuthPhase('ready');
             }
         });
 
         return () => {
-            clearTimeout(hardTimeout);
             subscription.unsubscribe();
         };
     }, []);
+
+    // ============================================================
+    // SAFETY TIMEOUT — prevents social auth hangs
+    // If authPhase hasn't reached 'ready' within 5s, attempt recovery.
+    // First attempt: try refreshing the session. If still stuck after
+    // another 5s, force authPhase to 'ready' unconditionally.
+    // ============================================================
+    useEffect(() => {
+        if (authPhase === 'ready') {
+            safetyAttemptRef.current = 0; // Reset on success
+            return;
+        }
+
+        const timeout = setTimeout(async () => {
+
+            safetyAttemptRef.current += 1;
+            const attempt = safetyAttemptRef.current;
+
+            if (attempt === 1) {
+                console.warn('[Auth] SAFETY TIMEOUT (attempt 1): authPhase stuck — trying session refresh');
+                try {
+                    const { data: { session: s } } = await supabase.auth.getSession();
+                    if (s) {
+                        setSession(s);
+                        setUser(s.user);
+                        setIsGuest(false);
+                        initCompleteRef.current = true;
+                        await runPostSignInPipeline(s.user);
+                        setAuthPhase('ready');
+                    } else {
+                        // No session at all — just force ready
+                        initCompleteRef.current = true;
+                        setAuthPhase('ready');
+                    }
+                } catch (e) {
+                    console.error('[Auth] Safety timeout session refresh failed:', e);
+                    initCompleteRef.current = true;
+                    setAuthPhase('ready');
+                }
+            } else {
+                console.warn(`[Auth] SAFETY TIMEOUT (attempt ${attempt}): forcing authPhase to ready`);
+                initCompleteRef.current = true;
+                setAuthPhase('ready');
+            }
+        }, 5000);
+
+        return () => clearTimeout(timeout);
+    }, [authPhase]);
 
     // ============================================================
     // WARM-START DEEP LINK HANDLER (native only)
@@ -495,36 +492,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     ? new URLSearchParams(urlObj.hash.substring(1))
                     : new URLSearchParams();
 
-                // --- Recovery ---
-                const isResetPath = url.includes('reset-password');
-                const accessToken = hashParams.get('access_token');
-                const refreshToken = hashParams.get('refresh_token');
-                const hashType = hashParams.get('type');
-                const isRecovery = hashType === 'recovery' || (isResetPath && !!accessToken);
-
-                if (isRecovery && accessToken && refreshToken) {
-                    console.log('[Auth] Warm-start recovery link — setting session');
-                    setPendingRecovery(true);
-                    setAuthPhase('processing_link');
-                    const { error } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken,
-                    });
-                    if (error) {
-                        console.error('[Auth] Recovery session error:', error);
-                        setPendingRecovery(false);
-                    }
-                    setAuthPhase('ready');
-                    return;
-                }
-
-                // Path-only reset link
-                if (isResetPath) {
-                    setPendingRecovery(true);
-                    setAuthPhase('ready');
-                    return;
-                }
-
                 // --- Magic Link ---
                 const tokenHash = searchParams.get('token_hash');
                 const type = searchParams.get('type');
@@ -541,6 +508,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         console.error('[Auth] Magic link verification error:', error);
                     }
                     // onAuthStateChange will set phase to ready
+                    return;
+                }
+
+                // --- Hash-based auth tokens (e.g. from OAuth redirect) ---
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
+                if (accessToken && refreshToken) {
+                    console.log('[Auth] Warm-start auth tokens — setting session');
+                    setAuthPhase('processing_link');
+                    const { error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+                    if (error) {
+                        console.error('[Auth] Session set error:', error);
+                    }
+                    setAuthPhase('ready');
                     return;
                 }
             } catch (e) {
@@ -642,7 +626,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(null);
         setUser(null);
         setIsGuest(false);
-        setPendingRecovery(false);
     };
 
     const signOut = async () => {
@@ -656,13 +639,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // ============================================================
-    // Recovery helpers
-    // ============================================================
-    const clearPendingRecovery = () => {
-        console.log('[Auth] Clearing pendingRecovery flag');
-        setPendingRecovery(false);
-    };
+
 
     const hasCompletedFirstLogin = () => {
         if (isGuest) return true;
@@ -691,11 +668,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isGuest,
                 isAuthenticated: !!user && !isGuest,
                 authPhase,
-                pendingRecovery,
                 signInWithEmail,
                 signUpWithEmail,
                 signOut,
-                clearPendingRecovery,
                 hasCompletedFirstLogin,
                 markFirstLoginCompleted
             }}

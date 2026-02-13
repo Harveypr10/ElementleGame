@@ -73,7 +73,7 @@ export const queryClient = new QueryClient({
   Handles redirection based on auth state and "First Login Setup"
 */
 function NavigationGuard({ children }: { children: React.ReactNode }) {
-    const { session, authPhase, pendingRecovery, hasCompletedFirstLogin, isGuest, user } = useAuth();
+    const { session, authPhase, hasCompletedFirstLogin, isGuest, user } = useAuth();
     const segments = useSegments();
     const router = useRouter();
 
@@ -231,18 +231,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         const inPublicPages = segments.includes('privacy') || segments.includes('support') || segments.includes('terms');
         const inSetNewPassword = segments.includes('set-new-password');
 
-        console.log('[NavGuard] Session:', !!session, 'Guest:', isGuest, 'Phase:', authPhase, 'Recovery:', pendingRecovery, 'Segments:', segments);
-
-        // PRIORITY 1: Password recovery redirect
-        // When pendingRecovery is true, override ALL other routing
-        if (pendingRecovery && !inSetNewPassword) {
-            console.log('[NavGuard] pendingRecovery=true — redirecting to set-new-password');
-            router.replace({
-                pathname: '/(auth)/set-new-password',
-                params: { mode: 'reset' },
-            });
-            return;
-        }
+        console.log('[NavGuard] Session:', !!session, 'Guest:', isGuest, 'Phase:', authPhase, 'Segments:', segments);
 
         // NOTE: Age verification is NOT a global gate anymore
         // It's checked when: (1) guest clicks Play, (2) new account creation
@@ -259,7 +248,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 console.log('[NavGuard] Unauthorized access -> Redirecting to onboarding');
                 router.replace('/(auth)/onboarding');
             }
-        } else if (session && !pendingRecovery) {
+        } else if (session) {
             const completedFirstLogin = hasCompletedFirstLogin();
 
             if (!completedFirstLogin && !inAuthGroup) {
@@ -270,7 +259,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 router.replace('/(tabs)');
             }
         }
-    }, [session, isGuest, showSplash, authPhase, pendingRecovery, segments, hasCompletedFirstLogin, hasAgeVerification]);
+    }, [session, isGuest, showSplash, authPhase, segments, hasCompletedFirstLogin, hasAgeVerification]);
 
     // 4. Wrap children in Readiness Context so screens know when to trigger modals
     return (

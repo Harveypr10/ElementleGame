@@ -689,30 +689,25 @@ export default function LoginPage() {
                             <TouchableOpacity
                                 style={styles.forgotPasswordButton}
                                 onPress={() => {
-                                    // Mask email (e.g., "p...y@gmail.com")
-                                    const maskEmail = (emailAddr: string) => {
-                                        if (!emailAddr) return '';
-                                        const [local, domain] = emailAddr.split('@');
-                                        if (local.length <= 2) return emailAddr;
-                                        return `${local[0]}...${local[local.length - 1]}@${domain}`;
-                                    };
-
                                     Alert.alert(
-                                        'Reset Password',
-                                        `A password reset link will be sent to ${email}. Continue?`,
+                                        'Trouble signing in?',
+                                        'We will send a secure login link to your email. Click it to sign in instantly. You can then set a new password in the Account section of the Settings menu.',
                                         [
                                             { text: 'Cancel', style: 'cancel' },
                                             {
                                                 text: 'Continue',
                                                 onPress: async () => {
                                                     try {
-                                                        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                                                            redirectTo: 'https://elementle.tech/reset-password',
+                                                        const { error } = await supabase.auth.signInWithOtp({
+                                                            email,
+                                                            options: {
+                                                                emailRedirectTo: 'elementle://auth/callback',
+                                                            },
                                                         });
                                                         if (error) throw error;
-                                                        Alert.alert('Email Sent', 'Check your inbox for the password reset link.');
+                                                        Alert.alert('Email Sent', 'Check your inbox for a secure login link. It expires in 5 minutes.');
                                                     } catch (err: any) {
-                                                        Alert.alert('Error', err.message || 'Failed to send reset email.');
+                                                        Alert.alert('Error', err.message || 'Failed to send login link.');
                                                     }
                                                 },
                                             },
@@ -720,7 +715,7 @@ export default function LoginPage() {
                                     );
                                 }}
                             >
-                                <Text style={styles.secondaryButtonText}>Forgot your password?</Text>
+                                <Text style={styles.secondaryButtonText}>Trouble signing in?</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
