@@ -1,3 +1,12 @@
 {
-  "expo": {}
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "05e12f31-0de3-4383-ae18-2feedc58973d"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.harveypr10.restexpress"
+    }
+  }
 }

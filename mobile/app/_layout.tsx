@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { View, ActivityIndicator, StyleSheet, Linking, Platform, AppState, AppStateStatus } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform, AppState, AppStateStatus } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
 
@@ -73,7 +73,7 @@ export const queryClient = new QueryClient({
   Handles redirection based on auth state and "First Login Setup"
 */
 function NavigationGuard({ children }: { children: React.ReactNode }) {
-    const { session, loading, profileLoading, hasCompletedFirstLogin, isGuest, user } = useAuth();
+    const { session, authPhase, pendingRecovery, hasCompletedFirstLogin, isGuest, user } = useAuth();
     const segments = useSegments();
     const router = useRouter();
 
@@ -98,20 +98,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         return () => clearTimeout(timer);
     }, []);
 
-    // [FIX] HARD Watchdog: Runs independently — if we're still on splash after 8s,
-    // something went wrong (network hang, auth timeout, etc.). Force navigate.
-    const splashRef = useRef(true); // Tracks showSplash in a ref for timeout closure
-    // NOTE: sync effect is placed after showSplash definition below
-    useEffect(() => {
-        if (Platform.OS === 'web') return;
-        const watchdog = setTimeout(() => {
-            if (splashRef.current) {
-                console.warn('[NavGuard] HARD WATCHDOG: Splash stuck for 8s — forcing to onboarding');
-                router.replace('/(auth)/onboarding');
-            }
-        }, 8000);
-        return () => clearTimeout(watchdog);
-    }, []); // Empty deps = runs ONCE on mount, independent of any state
+    // Hard watchdog is now in auth.tsx (setAuthPhase('ready') on timeout)
 
     // [FIX] AppState listener: refresh session if backgrounded >1 hour
     useEffect(() => {
@@ -153,83 +140,9 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         hasCompletedAgeVerification().then(setHasAgeVerification);
     }, [segments]);
 
-    // [WEB] Magic Link & Recovery token handler
-    // When user clicks a Supabase magic link / recovery link, they land on elementle.tech
-    // in Safari. This detects the auth tokens and either:
-    // 1. Redirects to the native app via custom scheme (if installed)
-    // 2. Falls back to verifying the token on web (signs them in on web)
-    useEffect(() => {
-        if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-
-        const search = window.location.search;
-        const hash = window.location.hash;
-        const searchParams = new URLSearchParams(search);
-        const hashParams = hash ? new URLSearchParams(hash.substring(1)) : new URLSearchParams();
-
-        const tokenHash = searchParams.get('token_hash');
-        const type = searchParams.get('type') || hashParams.get('type');
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-
-        // --- Magic Link (type=magiclink or type=email) ---
-        if (tokenHash && (type === 'magiclink' || type === 'email')) {
-            console.log('[Web] Magic link detected — attempting app redirect');
-            // Try to open the native app first
-            const appUrl = `elementle://?token_hash=${encodeURIComponent(tokenHash)}&type=${encodeURIComponent(type)}`;
-            window.location.href = appUrl;
-
-            // If still on this page after 2s, verify on web instead
-            setTimeout(async () => {
-                console.log('[Web] App redirect may have failed — verifying on web');
-                try {
-                    const { error } = await supabase.auth.verifyOtp({
-                        token_hash: tokenHash,
-                        type: type === 'email' ? 'email' : 'magiclink',
-                    });
-                    if (error) {
-                        console.error('[Web] Magic link verification error:', error);
-                    } else {
-                        console.log('[Web] Magic link verified — user signed in on web');
-                        // Clean URL
-                        window.history.replaceState({}, '', '/');
-                    }
-                } catch (e) {
-                    console.error('[Web] Error verifying magic link:', e);
-                }
-            }, 2000);
-            return;
-        }
-
-        // --- Recovery / Password Reset ---
-        if (accessToken && refreshToken && type === 'recovery') {
-            console.log('[Web] Recovery link detected — attempting app redirect');
-            const appUrl = `elementle://reset-password#access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&type=recovery`;
-            window.location.href = appUrl;
-
-            // If still on this page after 2s, process on web
-            setTimeout(async () => {
-                console.log('[Web] App redirect may have failed — setting session on web');
-                try {
-                    const { error } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken,
-                    });
-                    if (error) {
-                        console.error('[Web] Recovery session error:', error);
-                    } else {
-                        console.log('[Web] Recovery session set — redirecting to set-new-password');
-                        router.replace({
-                            pathname: '/(auth)/set-new-password',
-                            params: { mode: 'reset' },
-                        });
-                    }
-                } catch (e) {
-                    console.error('[Web] Error processing recovery link:', e);
-                }
-            }, 2000);
-            return;
-        }
-    }, []);
+    // Deep link handling is now centralized in auth.tsx (AuthProvider)
+    // Web: detectSessionInUrl: true auto-processes tokens
+    // Native: checkNativeDeepLink + warm-start Linking listener in auth.tsx
 
     // Check puzzle readiness during splash period (no extra delay, runs in parallel)
     useEffect(() => {
@@ -285,109 +198,18 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         }
     }, [isConnected, user?.id]);
 
-    // 2b. Deep Link Handler for Password Reset & Magic Links
-    useEffect(() => {
-        const handleDeepLink = async (event: { url: string }) => {
-            const { url } = event;
-            console.log('[NavGuard] Deep link received:', url);
 
-            try {
-                // Parse the URL — Supabase puts tokens in the fragment (#) or query (?)
-                const urlObj = new URL(url);
-                const searchParams = new URLSearchParams(urlObj.search);
-                const hashParams = urlObj.hash ? new URLSearchParams(urlObj.hash.substring(1)) : new URLSearchParams();
-
-                // --- Password Reset / Recovery ---
-                const isResetPath = url.includes('reset-password');
-                const accessToken = hashParams.get('access_token');
-                const refreshToken = hashParams.get('refresh_token');
-                const hashType = hashParams.get('type');
-                const isRecovery = hashType === 'recovery' || (isResetPath && accessToken);
-
-                if (isRecovery && accessToken && refreshToken) {
-                    console.log('[NavGuard] Recovery link — setting session from tokens');
-                    const { error } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken,
-                    });
-                    if (error) {
-                        console.error('[NavGuard] Session set error:', error);
-                    }
-                    router.replace({
-                        pathname: '/(auth)/set-new-password',
-                        params: { mode: 'reset' },
-                    });
-                    return;
-                }
-
-                // Path-only reset link (no tokens yet — user will get redirected)
-                if (isResetPath) {
-                    router.replace({
-                        pathname: '/(auth)/set-new-password',
-                        params: { mode: 'reset' },
-                    });
-                    return;
-                }
-
-                // --- Magic Link (email login) ---
-                const tokenHash = searchParams.get('token_hash');
-                const type = searchParams.get('type');
-                const isMagicLink = tokenHash && (type === 'magiclink' || type === 'email');
-
-                if (isMagicLink) {
-                    console.log('[NavGuard] Magic link — verifying OTP');
-                    const { error } = await supabase.auth.verifyOtp({
-                        token_hash: tokenHash,
-                        type: type === 'email' ? 'email' : 'magiclink',
-                    });
-                    if (error) {
-                        console.error('[NavGuard] Magic link verification error:', error);
-                    } else {
-                        console.log('[NavGuard] Magic link verified — user signed in');
-                    }
-                    // Auth state change listener will handle navigation
-                    return;
-                }
-            } catch (e) {
-                console.error('[NavGuard] Deep link processing error:', e);
-            }
-        };
-
-        // Listen for deep links while app is open
-        const subscription = Linking.addEventListener('url', handleDeepLink);
-
-        // Check if app was opened with a deep link (cold start)
-        Linking.getInitialURL().then((url) => {
-            if (url && (
-                url.includes('reset-password') ||
-                url.includes('token_hash') ||
-                url.includes('access_token')
-            )) {
-                console.log('[NavGuard] App opened with auth deep link:', url);
-                handleDeepLink({ url });
-            }
-        });
-
-        return () => {
-            subscription.remove();
-        };
-    }, [router]);
-
-    // 2. Logic to determine if splash should show
-    // [WEB FIX] On web, don't wait for auth loading (can hang indefinitely)
+    // Logic to determine if splash should show
+    // authPhase !== 'ready' replaces the old loading + profileLoading checks
+    const authNotReady = authPhase !== 'ready';
     const showSplash = Platform.OS === 'web'
         ? (!isSplashMinTimeMet || hasAgeVerification === null)
-        : (loading || !isSplashMinTimeMet || hasAgeVerification === null);
-
-    // Sync splashRef for the watchdog timeout closure
-    useEffect(() => {
-        splashRef.current = showSplash;
-    }, [showSplash]);
+        : (authNotReady || !isSplashMinTimeMet || hasAgeVerification === null);
 
     // 3. Navigation Side Effects
     useEffect(() => {
-        if (showSplash) return; // Wait until ready
-        if (profileLoading) return; // [FIX] Wait for profile data after sign-in (no splash, login screen stays)
+        if (showSplash) return; // Wait until splash is done
+        if (authPhase !== 'ready') return; // Wait for auth pipeline to complete
 
         const inAuthGroup = segments.includes('(auth)') || segments.includes('login');
         const inTabsGroup = segments[0] === '(tabs)';
@@ -407,8 +229,20 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         const inGameFlow = segments[0] === 'game' || segments[0] === 'game-result';
         const inRootIndex = segments.length === 0 || segments[0] === 'index';
         const inPublicPages = segments.includes('privacy') || segments.includes('support') || segments.includes('terms');
+        const inSetNewPassword = segments.includes('set-new-password');
 
-        console.log('[NavGuard] Session:', !!session, 'Guest:', isGuest, 'Segments:', segments);
+        console.log('[NavGuard] Session:', !!session, 'Guest:', isGuest, 'Phase:', authPhase, 'Recovery:', pendingRecovery, 'Segments:', segments);
+
+        // PRIORITY 1: Password recovery redirect
+        // When pendingRecovery is true, override ALL other routing
+        if (pendingRecovery && !inSetNewPassword) {
+            console.log('[NavGuard] pendingRecovery=true — redirecting to set-new-password');
+            router.replace({
+                pathname: '/(auth)/set-new-password',
+                params: { mode: 'reset' },
+            });
+            return;
+        }
 
         // NOTE: Age verification is NOT a global gate anymore
         // It's checked when: (1) guest clicks Play, (2) new account creation
@@ -425,7 +259,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 console.log('[NavGuard] Unauthorized access -> Redirecting to onboarding');
                 router.replace('/(auth)/onboarding');
             }
-        } else if (session) {
+        } else if (session && !pendingRecovery) {
             const completedFirstLogin = hasCompletedFirstLogin();
 
             if (!completedFirstLogin && !inAuthGroup) {
@@ -436,7 +270,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 router.replace('/(tabs)');
             }
         }
-    }, [session, isGuest, showSplash, profileLoading, segments, hasCompletedFirstLogin, hasAgeVerification]);
+    }, [session, isGuest, showSplash, authPhase, pendingRecovery, segments, hasCompletedFirstLogin, hasAgeVerification]);
 
     // 4. Wrap children in Readiness Context so screens know when to trigger modals
     return (

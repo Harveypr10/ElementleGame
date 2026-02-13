@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import type { Database } from './supabase-types';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
@@ -11,7 +12,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
         storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false, // React Native handles deep links differently
+        // Web: let Supabase auto-process URL tokens (#access_token, ?token_hash)
+        // Native: handle deep links manually via Linking API
+        detectSessionInUrl: Platform.OS === 'web',
     },
 });
 

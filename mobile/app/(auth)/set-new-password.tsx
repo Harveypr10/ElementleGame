@@ -38,7 +38,7 @@ type PasswordMode = 'create' | 'change' | 'reset';
 
 export default function SetNewPasswordScreen() {
     const router = useRouter();
-    const { user, session } = useAuth();
+    const { user, session, clearPendingRecovery } = useAuth();
     const params = useLocalSearchParams<{ mode?: string }>();
 
     // Determine mode from params, default to 'create'
@@ -59,27 +59,18 @@ export default function SetNewPasswordScreen() {
     // Session validity for reset mode
     const [sessionValid, setSessionValid] = useState<boolean | null>(null);
 
-    // For reset mode, verify the session was recovered from the deep link
+    // For reset mode, we trust the Auth Orchestrator — it only routes here
+    // when pendingRecovery=true, meaning the session is already set.
+    // For create/change modes, session should already be valid.
     useEffect(() => {
         if (mode === 'reset') {
-            // Check if we have a valid session with recovery type
-            const checkSession = async () => {
-                const { data: { session: currentSession } } = await supabase.auth.getSession();
-
-                if (currentSession) {
-                    // Session exists - user was authenticated via the reset link
-                    console.log('[SetNewPassword] Session recovered for password reset');
-                    setSessionValid(true);
-                } else {
-                    console.log('[SetNewPassword] No session - cannot reset password');
-                    setSessionValid(false);
-                    setError('Password reset link has expired. Please request a new one.');
-                }
-            };
-
-            checkSession();
+            // Session is guaranteed by Auth Orchestrator's pendingRecovery flag
+            const isValid = !!session;
+            setSessionValid(isValid);
+            if (!isValid) {
+                setError('Password reset link has expired. Please request a new one.');
+            }
         } else {
-            // For create/change modes, session should already be valid
             setSessionValid(!!session);
         }
     }, [mode, session]);
@@ -167,11 +158,13 @@ export default function SetNewPasswordScreen() {
             setSuccess(true);
             hapticsManager.success();
 
-            // Show success and navigate back after delay
+            // Show success and navigate
             setTimeout(() => {
                 if (mode === 'reset') {
-                    // After reset, go to login
-                    router.replace('/(auth)/login');
+                    // Clear pendingRecovery so NavigationGuard stops overriding navigation
+                    clearPendingRecovery();
+                    // Go straight to Home — user is already authenticated
+                    router.replace('/(tabs)');
                 } else {
                     // After create/change, go back to account info
                     router.back();
@@ -227,7 +220,7 @@ export default function SetNewPasswordScreen() {
         );
     };
 
-    // Show loading while checking session for reset mode
+    // Show loading while checking session for reset mode (with 5s timeout)
     if (mode === 'reset' && sessionValid === null) {
         return (
             <SafeAreaView className="flex-1 bg-white dark:bg-slate-900 justify-center items-center">
@@ -273,7 +266,7 @@ export default function SetNewPasswordScreen() {
                             </StyledText>
                             <StyledText className="text-slate-600 dark:text-slate-400 text-center">
                                 {mode === 'reset'
-                                    ? 'Redirecting to login...'
+                                    ? 'Your password has been updated. Taking you home...'
                                     : 'Your password has been updated successfully.'}
                             </StyledText>
                         </StyledView>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Linking, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,16 +7,35 @@ import { migrateGuestDataToUser } from './guestMigration';
 import { logInRevenueCat, logOutRevenueCat } from './RevenueCat';
 import { queryClient } from '../app/_layout';
 
+// ============================================================
+// Auth Orchestrator — State Machine
+// ============================================================
+// Phases:
+//   initializing    → getSession + checkDeepLink running
+//   processing_link → Deep link token being verified
+//   fetching_profile→ Profile being loaded/created
+//   merging_data    → Guest data being migrated
+//   ready           → All done, safe to navigate
+// ============================================================
+
+export type AuthPhase =
+    | 'initializing'
+    | 'processing_link'
+    | 'fetching_profile'
+    | 'merging_data'
+    | 'ready';
+
 type AuthContextType = {
     session: Session | null;
     user: User | null;
     isGuest: boolean;
     isAuthenticated: boolean;
-    loading: boolean;
-    profileLoading: boolean; // True while profile data is being fetched after sign-in
+    authPhase: AuthPhase;
+    pendingRecovery: boolean;
     signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
     signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
+    clearPendingRecovery: () => void;
     hasCompletedFirstLogin: () => boolean;
     markFirstLoginCompleted: () => Promise<void>;
 };
@@ -26,11 +45,12 @@ const AuthContext = createContext<AuthContextType>({
     user: null,
     isGuest: false,
     isAuthenticated: false,
-    loading: true,
-    profileLoading: false,
+    authPhase: 'initializing',
+    pendingRecovery: false,
     signInWithEmail: async () => ({ error: null }),
     signUpWithEmail: async () => ({ error: null }),
     signOut: async () => { },
+    clearPendingRecovery: () => { },
     hasCompletedFirstLogin: () => false,
     markFirstLoginCompleted: async () => { },
 });
@@ -67,18 +87,30 @@ async function syncOAuthProfile(user: User) {
     }
 }
 
+// Helper: wrap a promise with a timeout
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error(`[Auth] ${label} timed out after ${ms}ms`)), ms)
+        ),
+    ]);
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [isGuest, setIsGuest] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [profileLoading, setProfileLoading] = useState(false);
+    const [authPhase, setAuthPhase] = useState<AuthPhase>('initializing');
+    const [pendingRecovery, setPendingRecovery] = useState(false);
     const appStateRef = useRef(AppState.currentState);
+
+    // Track whether initAuth has completed to prevent onAuthStateChange
+    // from racing ahead during the initial setup
+    const initCompleteRef = useRef(false);
 
     // ============================================================
     // AppState lifecycle: refresh Supabase connection on foreground resume
-    // Fixes iOS production issue where backgrounding the app for 30+ min
-    // causes the Supabase socket/session to go stale, hanging all requests.
     // ============================================================
     useEffect(() => {
         const subscription = AppState.addEventListener('change', async (nextAppState: AppStateStatus) => {
@@ -94,7 +126,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         const { error: refreshError } = await supabase.auth.refreshSession();
                         if (refreshError) {
                             console.error('[Auth] Session refresh permanently failed — signing out:', refreshError.message);
-                            // Permanent failure: force full sign-out to redirect user to login
                             await signOutAndClearCaches();
                         } else {
                             console.log('[Auth] Session refreshed successfully after resume');
@@ -115,10 +146,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => subscription.remove();
     }, []);
 
+    // ============================================================
     // [PROFILE GATE] Verify profile data is loaded with retry + fallback creation.
-    // Social login (Apple/Google) can fire SIGNED_IN before the DB trigger
-    // creates the user_profiles row. This polls up to 3 times with 1s delays,
-    // then creates a minimal row as a fallback if needed.
+    // ============================================================
     const ensureProfileReady = async (userId: string, userMeta?: Record<string, any>): Promise<boolean> => {
         const MAX_RETRIES = 3;
         const RETRY_DELAY_MS = 1000;
@@ -142,12 +172,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (data) {
                     console.log(`[Auth] Profile confirmed for user on attempt ${attempt}:`, userId);
-                    // Prime React Query cache with the profile data
                     queryClient.setQueryData(['user_profile', userId], data);
                     return true;
                 }
 
-                // No data yet — retry if attempts remain
                 if (attempt < MAX_RETRIES) {
                     console.log(`[Auth] No profile yet (attempt ${attempt}/${MAX_RETRIES}) — retrying in ${RETRY_DELAY_MS}ms...`);
                     await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
@@ -193,104 +221,350 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // ============================================================
+    // [GUEST MIGRATION] Run guest data migration for any sign-in method
+    // ============================================================
+    const runGuestMigration = async (userId: string): Promise<void> => {
+        try {
+            console.log('[Auth] Checking for guest data to migrate:', userId);
+            const migrationResult = await migrateGuestDataToUser(userId);
+            if (migrationResult.success && migrationResult.migratedGames > 0) {
+                console.log(`[Auth] Guest migration successful: ${migrationResult.migratedGames} games migrated`);
+            }
+        } catch (e) {
+            // Never block auth on migration failure
+            console.error('[Auth] Guest migration error (non-blocking):', e);
+        }
+    };
+
+    // ============================================================
+    // Full post-sign-in pipeline: profile → migration → RevenueCat
+    // Called from both initAuth and onAuthStateChange
+    // ============================================================
+    const runPostSignInPipeline = async (
+        sessionUser: User,
+        options?: { skipRevenueCat?: boolean }
+    ): Promise<void> => {
+        // Phase: fetching_profile
+        setAuthPhase('fetching_profile');
+        try {
+            await logInRevenueCat(sessionUser.id);
+        } catch (e) {
+            console.error('[Auth] RevenueCat login error (non-blocking):', e);
+        }
+
+        await syncOAuthProfile(sessionUser);
+        await ensureProfileReady(sessionUser.id, sessionUser.user_metadata);
+
+        // Phase: merging_data
+        setAuthPhase('merging_data');
+        await runGuestMigration(sessionUser.id);
+    };
+
+    // ============================================================
+    // NATIVE DEEP LINK HANDLER
+    // Only runs on native. Web uses detectSessionInUrl: true.
+    // Returns true if a deep link was detected and needs processing.
+    // ============================================================
+    const checkNativeDeepLink = async (): Promise<{ handled: boolean; isRecovery: boolean }> => {
+        if (Platform.OS === 'web') return { handled: false, isRecovery: false };
+
+        try {
+            const url = await Linking.getInitialURL();
+            if (!url) return { handled: false, isRecovery: false };
+
+            console.log('[Auth] Native deep link detected:', url);
+            const urlObj = new URL(url);
+            const searchParams = new URLSearchParams(urlObj.search);
+            const hashParams = urlObj.hash
+                ? new URLSearchParams(urlObj.hash.substring(1))
+                : new URLSearchParams();
+
+            // --- Recovery / Password Reset ---
+            const isResetPath = url.includes('reset-password');
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+            const hashType = hashParams.get('type');
+            const isRecovery = hashType === 'recovery' || (isResetPath && !!accessToken);
+
+            if (isRecovery && accessToken && refreshToken) {
+                console.log('[Auth] Recovery link — setting session from tokens');
+                setAuthPhase('processing_link');
+                const { error } = await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                });
+                if (error) {
+                    console.error('[Auth] Recovery session set error:', error);
+                    return { handled: true, isRecovery: false }; // Failed — treat as no recovery
+                }
+                return { handled: true, isRecovery: true };
+            }
+
+            // Path-only reset link (no tokens — user will need to re-request)
+            if (isResetPath) {
+                return { handled: true, isRecovery: true };
+            }
+
+            // --- Magic Link ---
+            const tokenHash = searchParams.get('token_hash');
+            const type = searchParams.get('type');
+            const isMagicLink = tokenHash && (type === 'magiclink' || type === 'email');
+
+            if (isMagicLink) {
+                console.log('[Auth] Magic link — verifying OTP');
+                setAuthPhase('processing_link');
+                const { error } = await supabase.auth.verifyOtp({
+                    token_hash: tokenHash,
+                    type: type === 'email' ? 'email' : 'magiclink',
+                });
+                if (error) {
+                    console.error('[Auth] Magic link verification error:', error);
+                }
+                // Session will be set by onAuthStateChange
+                return { handled: true, isRecovery: false };
+            }
+        } catch (e) {
+            console.error('[Auth] Deep link processing error:', e);
+        }
+
+        return { handled: false, isRecovery: false };
+    };
+
+    // ============================================================
+    // MAIN INITIALIZATION — runs once on mount
+    // ============================================================
     useEffect(() => {
+        const INIT_TIMEOUT_MS = Platform.OS === 'web' ? 4000 : 6000;
+
         const initAuth = async () => {
             try {
-                // Check active sessions
-                const { data: { session } } = await supabase.auth.getSession();
+                // Step 1: Get existing session (with timeout)
+                let existingSession: Session | null = null;
+                try {
+                    const { data: { session: s } } = await withTimeout(
+                        supabase.auth.getSession(),
+                        5000,
+                        'getSession'
+                    );
+                    existingSession = s;
+                } catch (e) {
+                    console.warn('[Auth] getSession timed out or failed:', e);
+                }
 
-                if (session) {
-                    setSession(session);
-                    setUser(session.user);
+                // Step 2: Check for deep link tokens (native only)
+                const { handled: linkHandled, isRecovery } = await checkNativeDeepLink();
+
+                if (isRecovery) {
+                    console.log('[Auth] Recovery link detected — setting pendingRecovery');
+                    setPendingRecovery(true);
+                    // Session was set by checkNativeDeepLink → onAuthStateChange will fire
+                    // but we set pendingRecovery BEFORE it can route to (tabs)
+                    // We still need to mark init complete so onAuthStateChange can proceed
+                    initCompleteRef.current = true;
+                    setAuthPhase('ready');
+                    return;
+                }
+
+                if (linkHandled) {
+                    // Magic link was processed — onAuthStateChange will handle the rest
+                    initCompleteRef.current = true;
+                    // Don't set phase to 'ready' yet — let onAuthStateChange do it
+                    return;
+                }
+
+                // Step 3: No deep link — evaluate existing session
+                if (existingSession) {
+                    setSession(existingSession);
+                    setUser(existingSession.user);
                     setIsGuest(false);
 
-                    // [FIX] Wait for profile before marking as loaded
-                    await ensureProfileReady(session.user.id, session.user.user_metadata);
+                    // Run full post-sign-in pipeline
+                    await runPostSignInPipeline(existingSession.user);
                 } else {
-                    // Check if previously in guest mode
+                    // No session — check if previously in guest mode
                     const storedGuest = await AsyncStorage.getItem('is_guest');
                     if (storedGuest === 'true') {
                         setIsGuest(true);
                     }
                 }
             } catch (e) {
-                console.error("Auth initialization error:", e);
+                console.error('[Auth] Initialization error:', e);
             } finally {
-                setLoading(false);
+                initCompleteRef.current = true;
+                setAuthPhase('ready');
             }
         };
 
+        // Hard timeout: if initAuth hasn't completed, force to ready
+        const hardTimeout = setTimeout(() => {
+            if (authPhase !== 'ready') {
+                console.warn(`[Auth] HARD TIMEOUT: init stuck for ${INIT_TIMEOUT_MS}ms — forcing ready`);
+                initCompleteRef.current = true;
+                setAuthPhase('ready');
+            }
+        }, INIT_TIMEOUT_MS);
+
         initAuth();
 
-        // Listen for changes on auth state
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log('[Auth] State change:', event, session?.user?.id);
-            setSession(session);
-            setUser(session?.user ?? null);
+        // ============================================================
+        // onAuthStateChange listener
+        // ============================================================
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+            console.log('[Auth] State change:', event, newSession?.user?.id);
 
-            if (session) {
+            // PASSWORD_RECOVERY event (fires on web with detectSessionInUrl: true)
+            if (event === 'PASSWORD_RECOVERY') {
+                console.log('[Auth] PASSWORD_RECOVERY event — setting pendingRecovery');
+                setSession(newSession);
+                setUser(newSession?.user ?? null);
+                setPendingRecovery(true);
+                setAuthPhase('ready');
+                return;
+            }
+
+            setSession(newSession);
+            setUser(newSession?.user ?? null);
+
+            if (newSession && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
                 setIsGuest(false);
                 await AsyncStorage.removeItem('is_guest');
 
-                // CRITICAL: Link RevenueCat identity with Supabase user ID
-                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                    // [FIX] Use profileLoading (not loading) to gate NavigationGuard
-                    // routing WITHOUT triggering the splash overlay
-                    setProfileLoading(true);
-                    try {
-                        console.log('[Auth] Linking RevenueCat identity...');
-                        await logInRevenueCat(session.user.id);
-
-                        // Sync OAuth provider linkage to database
-                        await syncOAuthProfile(session.user);
-
-                        // [FIX] Wait for profile data before declaring auth ready
-                        await ensureProfileReady(session.user.id, session.user.user_metadata);
-                    } catch (e) {
-                        console.error('[Auth] Error during sign-in setup:', e);
-                    } finally {
-                        setProfileLoading(false);
-                    }
-                    return; // profileLoading handled above
+                // If pendingRecovery is set, skip the full pipeline —
+                // user is headed to set-new-password screen
+                if (pendingRecovery) {
+                    console.log('[Auth] Skipping post-sign-in pipeline (pendingRecovery=true)');
+                    setAuthPhase('ready');
+                    return;
                 }
-            } else if (event === 'SIGNED_OUT') {
-                // Log out from RevenueCat when signing out
+
+                // Wait for initAuth to complete before running the pipeline
+                // to avoid running it twice on startup
+                if (!initCompleteRef.current) {
+                    console.log('[Auth] onAuthStateChange fired before initAuth complete — deferring');
+                    return;
+                }
+
+                // Run full pipeline (profile + migration + RevenueCat)
+                try {
+                    await runPostSignInPipeline(newSession.user);
+                } catch (e) {
+                    console.error('[Auth] Post-sign-in pipeline error:', e);
+                } finally {
+                    setAuthPhase('ready');
+                }
+                return;
+            }
+
+            if (event === 'SIGNED_OUT') {
                 console.log('[Auth] Logging out from RevenueCat...');
                 try {
                     await logOutRevenueCat();
                 } catch (e) {
-                    // [FIX] Gracefully handle network errors on sign-out
                     console.warn('[Auth] RevenueCat logout failed (likely network):', e);
                 }
             }
-            // If session is null, we don't automatically set guest to false/true 
-            // because signOut logic handles that explicitly.
-            setLoading(false);
+
+            // For other events (SIGNED_OUT, USER_UPDATED, etc.)
+            if (initCompleteRef.current) {
+                setAuthPhase('ready');
+            }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            clearTimeout(hardTimeout);
+            subscription.unsubscribe();
+        };
     }, []);
 
+    // ============================================================
+    // WARM-START DEEP LINK HANDLER (native only)
+    // Handles deep links received while the app is already running
+    // ============================================================
+    useEffect(() => {
+        if (Platform.OS === 'web') return; // Web handled by detectSessionInUrl
+
+        const handleDeepLink = async (event: { url: string }) => {
+            const { url } = event;
+            console.log('[Auth] Warm-start deep link:', url);
+
+            try {
+                const urlObj = new URL(url);
+                const searchParams = new URLSearchParams(urlObj.search);
+                const hashParams = urlObj.hash
+                    ? new URLSearchParams(urlObj.hash.substring(1))
+                    : new URLSearchParams();
+
+                // --- Recovery ---
+                const isResetPath = url.includes('reset-password');
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
+                const hashType = hashParams.get('type');
+                const isRecovery = hashType === 'recovery' || (isResetPath && !!accessToken);
+
+                if (isRecovery && accessToken && refreshToken) {
+                    console.log('[Auth] Warm-start recovery link — setting session');
+                    setPendingRecovery(true);
+                    setAuthPhase('processing_link');
+                    const { error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+                    if (error) {
+                        console.error('[Auth] Recovery session error:', error);
+                        setPendingRecovery(false);
+                    }
+                    setAuthPhase('ready');
+                    return;
+                }
+
+                // Path-only reset link
+                if (isResetPath) {
+                    setPendingRecovery(true);
+                    setAuthPhase('ready');
+                    return;
+                }
+
+                // --- Magic Link ---
+                const tokenHash = searchParams.get('token_hash');
+                const type = searchParams.get('type');
+                const isMagicLink = tokenHash && (type === 'magiclink' || type === 'email');
+
+                if (isMagicLink) {
+                    console.log('[Auth] Warm-start magic link — verifying OTP');
+                    setAuthPhase('processing_link');
+                    const { error } = await supabase.auth.verifyOtp({
+                        token_hash: tokenHash,
+                        type: type === 'email' ? 'email' : 'magiclink',
+                    });
+                    if (error) {
+                        console.error('[Auth] Magic link verification error:', error);
+                    }
+                    // onAuthStateChange will set phase to ready
+                    return;
+                }
+            } catch (e) {
+                console.error('[Auth] Warm-start deep link error:', e);
+            }
+        };
+
+        const subscription = Linking.addEventListener('url', handleDeepLink);
+        return () => subscription.remove();
+    }, []);
+
+    // ============================================================
+    // Sign-in methods
+    // Note: Guest migration is now handled in the pipeline (onAuthStateChange)
+    // so we no longer call migrateGuestDataToUser here.
+    // ============================================================
     const signInWithEmail = async (email: string, password: string) => {
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
 
-        if (!error && data.user) {
-            // Always check for guest data to migrate on login
-            // The migration function handles checking if there is data and avoiding duplicates
-            try {
-                console.log('[Auth] Checking for guest data to migrate (login):', data.user.id);
-                const migrationResult = await migrateGuestDataToUser(data.user.id);
-                if (migrationResult.success && migrationResult.migratedGames > 0) {
-                    console.log(`[Auth] Guest migration successful: ${migrationResult.migratedGames} games migrated`);
-                }
-            } catch (migrationError) {
-                console.error('[Auth] Error during guest migration (login):', migrationError);
-            }
-        }
-
+        // onAuthStateChange SIGNED_IN will trigger the full pipeline
+        // (ensureProfileReady + runGuestMigration + RevenueCat)
         return { error };
     };
 
@@ -326,18 +600,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     console.error('[Auth] Error updating password_created:', err);
                 }
 
-                // Migrate guest data if converting from guest mode
-                try {
-                    console.log('[Auth] Starting guest data migration for user:', data.user.id);
-                    const migrationResult = await migrateGuestDataToUser(data.user.id);
-                    if (migrationResult.success) {
-                        console.log(`[Auth] Guest migration successful: ${migrationResult.migratedGames} games migrated`);
-                    } else {
-                        console.error('[Auth] Guest migration failed:', migrationResult.error);
-                    }
-                } catch (migrationError) {
-                    console.error('[Auth] Error during guest migration:', migrationError);
-                }
+                // onAuthStateChange SIGNED_IN will trigger the full pipeline
+                // (ensureProfileReady + runGuestMigration + RevenueCat)
             }
 
             return { data, error: null };
@@ -346,16 +610,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-
-
-    // Internal helper: clear all caches and local state ("Nuke & Pave")
+    // ============================================================
+    // Sign out
+    // ============================================================
     const signOutAndClearCaches = async () => {
         console.log('[Auth] Clearing all caches and local state...');
         try {
-            // 1. Clear React Query caches to prevent stale data leaking between accounts
             queryClient.removeQueries();
 
-            // 2. Clear AsyncStorage caches (game status, puzzle data, profile)
             const keysToRemove = [
                 'cached_first_name',
                 'cached_game_status_region',
@@ -366,7 +628,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ];
             await AsyncStorage.multiRemove(keysToRemove);
 
-            // Also clear any puzzle data caches (keyed dynamically)
             const allKeys = await AsyncStorage.getAllKeys();
             const puzzleCacheKeys = allKeys.filter(k => k.startsWith('puzzle_data_'));
             if (puzzleCacheKeys.length > 0) {
@@ -378,35 +639,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('[Auth] Error clearing caches:', e);
         }
 
-        // 3. Reset auth state
         setSession(null);
         setUser(null);
         setIsGuest(false);
+        setPendingRecovery(false);
     };
 
     const signOut = async () => {
         console.log('[Auth] Signing out...');
-
-        // Clear all caches BEFORE signing out of Supabase
         await signOutAndClearCaches();
 
         try {
-            // Remove explicit RevenueCat logout here - the onAuthStateChange listener handles it
-            // This prevents a "double logout" error where the second call fails because user is already anonymous
             await supabase.auth.signOut();
         } catch (error) {
-            // Ignore iOS BrowserEngineKit errors usually caused by terminating empty auth sessions
             console.log('[Auth] Supabase signOut completed with note:', error);
         }
     };
 
+    // ============================================================
+    // Recovery helpers
+    // ============================================================
+    const clearPendingRecovery = () => {
+        console.log('[Auth] Clearing pendingRecovery flag');
+        setPendingRecovery(false);
+    };
+
     const hasCompletedFirstLogin = () => {
-        if (isGuest) return true; // Guests don't need first login setup
+        if (isGuest) return true;
         return !!user?.user_metadata?.first_login_completed;
     };
 
     const markFirstLoginCompleted = async () => {
-        if (isGuest) return; // No-op for guests
+        if (isGuest) return;
         if (!user) return;
         const { data, error } = await supabase.auth.updateUser({
             data: { first_login_completed: true }
@@ -426,11 +690,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 user,
                 isGuest,
                 isAuthenticated: !!user && !isGuest,
-                loading,
-                profileLoading,
+                authPhase,
+                pendingRecovery,
                 signInWithEmail,
                 signUpWithEmail,
                 signOut,
+                clearPendingRecovery,
                 hasCompletedFirstLogin,
                 markFirstLoginCompleted
             }}

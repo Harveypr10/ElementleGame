@@ -5,10 +5,10 @@ import { View, ActivityIndicator } from 'react-native';
 
 export default function Index() {
     const router = useRouter();
-    const { user, loading } = useAuth();
+    const { user, authPhase } = useAuth();
 
     useEffect(() => {
-        if (loading) return;
+        if (authPhase !== 'ready') return;
 
         if (user) {
             router.replace('/(tabs)');
@@ -16,7 +16,7 @@ export default function Index() {
             // Guests or unauthenticated users start at onboarding
             router.replace('/(auth)/onboarding');
         }
-    }, [user, loading]);
+    }, [user, authPhase]);
 
     return (
         <View style={{ flex: 1, backgroundColor: '#7DAAE8' }}>
