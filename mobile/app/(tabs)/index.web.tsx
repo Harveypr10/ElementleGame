@@ -330,6 +330,7 @@ export default function HomeScreenWeb() {
             <HolidayActiveModal
                 visible={showHolidayModal}
                 holidayEndDate={holidayEndDate || "Unknown Date"}
+                gameType={holidayModalMode}
                 onExitHoliday={handleExitHoliday}
                 onContinueHoliday={handleContinueHoliday}
             />

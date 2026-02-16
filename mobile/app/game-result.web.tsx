@@ -118,6 +118,7 @@ export default function GameResultScreenWeb() {
         eventDescription: (params.eventDescription as string) || '',
         gameMode: (params.gameMode as 'REGION' | 'USER') || 'REGION',
         puzzleId: (params.puzzleId as string) || '',
+        puzzleDate: (params.puzzleDate as string) || '',
         isGuest: params.isGuest === 'true',
         isStreakSaverGame: params.isStreakSaverGame === 'true',
         isToday: params.isToday === 'true',

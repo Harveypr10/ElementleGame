@@ -4,10 +4,14 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
 
 // Initialize Sentry at module level (before any component renders)
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (!SENTRY_DSN) {
+    console.warn('[Sentry] EXPO_PUBLIC_SENTRY_DSN is not set — Sentry is disabled');
+}
 Sentry.init({
-    dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '__SENTRY_DSN_PLACEHOLDER__',
+    dsn: SENTRY_DSN,
     debug: __DEV__,
-    enabled: !__DEV__,
+    enabled: !__DEV__ && !!SENTRY_DSN,
 });
 import { styled } from 'nativewind';
 import { ThemedView } from '../components/ThemedView';
@@ -24,7 +28,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../lib/auth';
 import { OptionsProvider } from '../lib/options';
 import { StreakSaverProvider } from '../contexts/StreakSaverContext';
-import { ToastProvider } from '../contexts/ToastContext';
+import { ToastProvider, useToast } from '../contexts/ToastContext';
 import { ConversionPromptProvider } from '../contexts/ConversionPromptContext';
 import { AppReadinessProvider } from '../contexts/AppReadinessContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -73,9 +77,10 @@ export const queryClient = new QueryClient({
   Handles redirection based on auth state and "First Login Setup"
 */
 function NavigationGuard({ children }: { children: React.ReactNode }) {
-    const { session, authPhase, hasCompletedFirstLogin, isGuest, user } = useAuth();
+    const { session, authPhase, hasCompletedFirstLogin, isGuest, user, pendingPuzzleDate, pendingPuzzleMode, consumePendingPuzzle, setDeferredPuzzle } = useAuth();
     const segments = useSegments();
     const router = useRouter();
+    const { toast } = useToast();
 
     // 1. Minimum Splash Time State
     const [isSplashMinTimeMet, setSplashMinTimeMet] = useState(false);
@@ -268,6 +273,42 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         // NOTE: Age verification is NOT a global gate anymore
         // It's checked when: (1) guest clicks Play, (2) new account creation
 
+        // ============================================================
+        // STEP 0: Consume any pending puzzle deep link IMMEDIATELY
+        // regardless of auth state or current route (including game routes
+        // that expo-router may have auto-resolved from the deep link URL).
+        // Store as deferred — home screen will navigate after proper checks.
+        // ============================================================
+        if (pendingPuzzleDate) {
+            const pending = consumePendingPuzzle();
+            if (pending) {
+                console.log(`[NavGuard] Consuming pending puzzle deep link (auth state: session=${!!session}, guest=${isGuest}, segments=${segments}): ${pending.mode}/${pending.date}`);
+                setDeferredPuzzle(pending);
+
+                if (session && hasCompletedFirstLogin()) {
+                    // Signed in: always route to home (even if expo-router put us on a game screen)
+                    router.replace('/(tabs)');
+                    return;
+                } else if (!session || isGuest) {
+                    // Not signed in: redirect to onboarding (puzzle stored for after sign-in)
+                    if (!inAuthGroup) {
+                        router.replace('/(auth)/onboarding');
+                    }
+                    // Show toast telling user to sign in
+                    setTimeout(() => {
+                        toast({
+                            title: 'Puzzle shared with you!',
+                            description: 'Click Login to either sign-up or sign-in. You will then be able to play the puzzle shared with you',
+                            variant: 'share',
+                            position: 'bottom',
+                            duration: 5000,
+                        });
+                    }, 500);
+                    return;
+                }
+            }
+        }
+
         // Guests should NOT access tabs/home
         if (isGuest && inTabsGroup) {
             console.log('[NavGuard] Guest tried to access tabs -> Redirecting to onboarding');
@@ -286,12 +327,14 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             if (!completedFirstLogin && !inAuthGroup) {
                 console.log('[NavGuard] User needs to complete profile setup');
                 router.replace('/(auth)/personalise');
-            } else if (inAuthGroup && completedFirstLogin && !inPersonaliseFlow && !inAgeVerification) {
-                console.log('[NavGuard] Redirecting authenticated user to app');
-                router.replace('/(tabs)');
+            } else if (completedFirstLogin) {
+                if (inAuthGroup && !inPersonaliseFlow && !inAgeVerification) {
+                    console.log('[NavGuard] Redirecting authenticated user to app');
+                    router.replace('/(tabs)');
+                }
             }
         }
-    }, [session, isGuest, showSplash, authPhase, segments, hasCompletedFirstLogin, hasAgeVerification]);
+    }, [session, isGuest, showSplash, authPhase, segments, hasCompletedFirstLogin, hasAgeVerification, pendingPuzzleDate]);
 
     // 4. Wrap children in Readiness Context so screens know when to trigger modals
     return (

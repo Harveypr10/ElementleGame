@@ -41,6 +41,18 @@ type AuthContextType = {
     hasCompletedFirstLogin: () => boolean;
     markFirstLoginCompleted: () => Promise<void>;
     markSigningIn: () => void;
+    /** Puzzle date from a deep link (e.g. elementle://puzzle/2026-02-16). */
+    pendingPuzzleDate: string | null;
+    /** Puzzle mode from a deep link query param (?mode=USER or ?mode=REGION). */
+    pendingPuzzleMode: string | null;
+    /** Consume the pending puzzle — returns { date, mode } and clears state. */
+    consumePendingPuzzle: () => { date: string; mode: string } | null;
+    /** Deferred puzzle — consumed from deep link but waiting for home screen to navigate after StreakSaver/Holiday flow. */
+    deferredPuzzle: { date: string; mode: string } | null;
+    /** Consume the deferred puzzle — returns { date, mode } and clears state. Called by home screen after popups finish. */
+    consumeDeferredPuzzle: () => { date: string; mode: string } | null;
+    /** Store a consumed deep link as deferred for the home screen. */
+    setDeferredPuzzle: (puzzle: { date: string; mode: string } | null) => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -55,6 +67,12 @@ const AuthContext = createContext<AuthContextType>({
     hasCompletedFirstLogin: () => false,
     markFirstLoginCompleted: async () => { },
     markSigningIn: () => { },
+    pendingPuzzleDate: null,
+    pendingPuzzleMode: null,
+    consumePendingPuzzle: () => null,
+    deferredPuzzle: null,
+    consumeDeferredPuzzle: () => null,
+    setDeferredPuzzle: () => { },
 });
 
 // Helper function to sync OAuth provider linkage to database
@@ -99,6 +117,46 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
     ]);
 }
 
+// ============================================================
+// Puzzle deep link helper
+// Extracts date AND mode from URLs like:
+//   elementle://puzzle/2026-02-16?mode=USER
+//   https://elementle.tech/play/2026-02-16?mode=REGION
+//   elementle://play/2026-02-16
+// Returns { date, mode } or null if not a puzzle link.
+// Mode defaults to 'REGION' if not specified in URL.
+// ============================================================
+function extractPuzzleInfoFromUrl(url: string): { date: string; mode: string } | null {
+    try {
+        // Handle both scheme-based and https URLs
+        // Normalise so we can parse the path consistently
+        const urlObj = new URL(url);
+        // pathname: /puzzle/2026-02-16  or  /play/2026-02-16
+        // For scheme URLs, host may be 'puzzle' and path '/2026-02-16'
+        // So also check host-based format: elementle://puzzle/DATE
+        const pathParts = urlObj.pathname.replace(/^\/+/, '').split('/');
+
+        // Extract mode from query params (default to REGION)
+        const searchParams = new URLSearchParams(urlObj.search);
+        const mode = searchParams.get('mode') === 'USER' ? 'USER' : 'REGION';
+
+        // Case 1: standard path  /puzzle/DATE  or  /play/DATE
+        if ((pathParts[0] === 'puzzle' || pathParts[0] === 'play') && pathParts[1]) {
+            return { date: pathParts[1], mode };
+        }
+
+        // Case 2: scheme URL where host IS the first segment
+        // e.g. elementle://puzzle/2026-02-16 → host='puzzle', pathname='/2026-02-16'
+        const host = urlObj.hostname;
+        if ((host === 'puzzle' || host === 'play') && pathParts[0]) {
+            return { date: pathParts[0], mode };
+        }
+    } catch {
+        // Malformed URL — ignore
+    }
+    return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
@@ -117,6 +175,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // When true, the pipeline runs silently without setting intermediate phases
     // (fetching_profile, merging_data) that would cause the splash to re-appear.
     const signingInRef = useRef(false);
+
+    // ============================================================
+    // Pending puzzle deep link date + mode
+    // Stored when a puzzle share URL is detected; consumed by NavigationGuard.
+    // ============================================================
+    const [pendingPuzzleDate, setPendingPuzzleDate] = useState<string | null>(null);
+    const pendingPuzzleDateRef = useRef<string | null>(null);
+    const [pendingPuzzleMode, setPendingPuzzleMode] = useState<string | null>(null);
+    const pendingPuzzleModeRef = useRef<string | null>(null);
+
+    // Deferred puzzle: consumed from deep link but waiting for home screen
+    // to navigate after StreakSaver/Holiday flow completes.
+    const [deferredPuzzle, setDeferredPuzzleState] = useState<{ date: string; mode: string } | null>(null);
+    const deferredPuzzleRef = useRef<{ date: string; mode: string } | null>(null);
+
+    const setDeferredPuzzle = (puzzle: { date: string; mode: string } | null) => {
+        deferredPuzzleRef.current = puzzle;
+        setDeferredPuzzleState(puzzle);
+    };
+
+    const consumeDeferredPuzzle = (): { date: string; mode: string } | null => {
+        const puzzle = deferredPuzzleRef.current;
+        deferredPuzzleRef.current = null;
+        setDeferredPuzzleState(null);
+        return puzzle;
+    };
+
+    const consumePendingPuzzle = (): { date: string; mode: string } | null => {
+        const date = pendingPuzzleDateRef.current;
+        const mode = pendingPuzzleModeRef.current ?? 'REGION';
+        pendingPuzzleDateRef.current = null;
+        pendingPuzzleModeRef.current = null;
+        setPendingPuzzleDate(null);
+        setPendingPuzzleMode(null);
+        if (!date) return null;
+        return { date, mode };
+    };
 
     // ============================================================
     // AppState lifecycle: refresh Supabase connection on foreground resume
@@ -327,6 +422,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (e) {
             console.error('[Auth] Deep link processing error:', e);
+        }
+
+        // --- Puzzle share link (elementle://puzzle/DATE or play/DATE) ---
+        // Don't "handle" it (auth must still init), just store the date.
+        // Reuse the URL already fetched above at Line 340.
+        try {
+            const initialUrl = await Linking.getInitialURL();
+            if (initialUrl) {
+                const puzzleInfo = extractPuzzleInfoFromUrl(initialUrl);
+                if (puzzleInfo) {
+                    console.log('[Auth] Cold-start puzzle deep link detected — storing date:', puzzleInfo.date, 'mode:', puzzleInfo.mode);
+                    setPendingPuzzleDate(puzzleInfo.date);
+                    pendingPuzzleDateRef.current = puzzleInfo.date;
+                    setPendingPuzzleMode(puzzleInfo.mode);
+                    pendingPuzzleModeRef.current = puzzleInfo.mode;
+                }
+            }
+        } catch (e) {
+            console.warn('[Auth] Error checking puzzle deep link:', e);
         }
 
         return { handled: false };
@@ -576,6 +690,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch (e) {
                 console.error('[Auth] Warm-start deep link error:', e);
             }
+
+            // --- Puzzle share link ---
+            const puzzleInfo = extractPuzzleInfoFromUrl(url);
+            if (puzzleInfo) {
+                console.log('[Auth] Warm-start puzzle deep link — storing date:', puzzleInfo.date, 'mode:', puzzleInfo.mode);
+                setPendingPuzzleDate(puzzleInfo.date);
+                pendingPuzzleDateRef.current = puzzleInfo.date;
+                setPendingPuzzleMode(puzzleInfo.mode);
+                pendingPuzzleModeRef.current = puzzleInfo.mode;
+                // NavigationGuard will pick this up and navigate
+            }
         };
 
         const subscription = Linking.addEventListener('url', handleDeepLink);
@@ -732,7 +857,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 signOut,
                 hasCompletedFirstLogin,
                 markFirstLoginCompleted,
-                markSigningIn
+                markSigningIn,
+                pendingPuzzleDate,
+                pendingPuzzleMode,
+                consumePendingPuzzle,
+                deferredPuzzle,
+                consumeDeferredPuzzle,
+                setDeferredPuzzle,
             }}
         >
             {children}

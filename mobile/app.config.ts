@@ -62,7 +62,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     scheme: "elementle",
     backgroundColor: "#7DAAE8",
     splash: {
+        image: "./assets/ui/Welcome-Hamster-Blue.png",
         backgroundColor: "#7DAAE8",
+        resizeMode: "contain",
     },
     ios: {
         buildNumber: "11",
@@ -108,6 +110,25 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             "android.permission.MODIFY_AUDIO_SETTINGS",
             "android.permission.ACCESS_COARSE_LOCATION",
             "android.permission.ACCESS_FINE_LOCATION",
+        ],
+        intentFilters: [
+            {
+                action: "VIEW",
+                autoVerify: true,
+                data: [
+                    {
+                        scheme: "https",
+                        host: "elementle.tech",
+                        pathPrefix: "/play/",
+                    },
+                    {
+                        scheme: "https",
+                        host: "www.elementle.tech",
+                        pathPrefix: "/play/",
+                    },
+                ],
+                category: ["BROWSABLE", "DEFAULT"],
+            },
         ],
     },
     web: {

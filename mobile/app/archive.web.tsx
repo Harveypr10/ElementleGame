@@ -292,6 +292,7 @@ export default function ArchiveScreenWeb() {
             <HolidayActiveModal
                 visible={showHolidayModal}
                 holidayEndDate={holidayEndDate || "Unknown Date"}
+                gameType={gameMode === 'REGION' ? 'REGION' : 'USER'}
                 onExitHoliday={handleExitHoliday}
                 onContinueHoliday={handleContinueHoliday}
             />

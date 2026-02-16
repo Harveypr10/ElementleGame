@@ -1,29 +1,18 @@
 /**
  * AdMob Configuration
  * 
- * Centralized configuration for all ad unit IDs
- * Test IDs are used in development, production IDs in release builds
+ * Centralized configuration for all ad unit IDs.
+ * Delegates to AdManager's age-based strategy after initialization.
+ * Falls back to test IDs before AdManager.initializeAds() completes.
  */
 
-import { Platform } from 'react-native';
 import { TestIds } from 'react-native-google-mobile-ads';
+import { getBannerAdUnitId, getInterstitialAdUnitId, isAdsInitialized, getActiveProvider } from './AdManager';
 
 interface AdConfig {
     banner: string;
     interstitial: string;
 }
-
-// Production ad unit IDs (replace these with your actual AdMob unit IDs)
-const PRODUCTION_AD_UNITS: AdConfig = {
-    banner: Platform.select({
-        ios: 'ca-app-pub-6974310366527526/5514109458', // TODO: Replace with production iOS banner ID
-        android: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY', // TODO: Replace with production Android banner ID
-    })!,
-    interstitial: Platform.select({
-        ios: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY', // TODO: Replace with production iOS interstitial ID
-        android: 'ca-app-pub-XXXXXXXXXXXXXXXX/YYYYYYYYYY', // TODO: Replace with production Android interstitial ID
-    })!,
-};
 
 // Test ad unit IDs (automatically provided by Google)
 const TEST_AD_UNITS: AdConfig = {
@@ -31,19 +20,24 @@ const TEST_AD_UNITS: AdConfig = {
     interstitial: TestIds.INTERSTITIAL,
 };
 
-// [FIX] Force test ads for TestFlight — __DEV__ is false in TF builds
-// TODO: Swap back to `__DEV__ ? TEST_AD_UNITS : PRODUCTION_AD_UNITS` before App Store submission
-export const AD_UNITS = TEST_AD_UNITS;
-
 /**
- * How to get production ad unit IDs:
- * 
- * 1. Go to https://apps.admob.com
- * 2. Create an app or select existing app
- * 3. Create ad units:
- *    - Banner ad (320x50)
- *    - Interstitial ad
- * 4. Copy the ad unit IDs and replace the placeholders above
- * 
- * Note: Test ads will automatically show in development mode (__DEV__ = true)
+ * Dynamic ad unit IDs:
+ * - Before AdManager initializes: returns test IDs (safe for startup/TestFlight)
+ * - After initializeAds(): returns production IDs based on age-based strategy
+ * - If provider is 'none' (under 16 / COPPA): returns test IDs (ads won't display anyway)
+ * - In __DEV__: AdManager sets provider to 'none', so test IDs are used
  */
+export const AD_UNITS: AdConfig = {
+    get banner() {
+        if (isAdsInitialized() && getActiveProvider() !== 'none') {
+            return getBannerAdUnitId();
+        }
+        return TEST_AD_UNITS.banner;
+    },
+    get interstitial() {
+        if (isAdsInitialized() && getActiveProvider() !== 'none') {
+            return getInterstitialAdUnitId();
+        }
+        return TEST_AD_UNITS.interstitial;
+    },
+};

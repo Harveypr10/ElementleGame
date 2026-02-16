@@ -17,6 +17,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://chhtmbrsxmdwwgrgsczd.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoaHRtYnJzeG1kd3dncmdzY3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2NDg3NzIsImV4cCI6MjA3NjIyNDc3Mn0.SNmu_tyX6TVoXL0PvIAWExEAp0wUO2y0hpMYSWwejRY",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://9ac4f5bfbb0e09b7f5d78abf8699c7be@o4510873669337088.ingest.us.sentry.io/4510873675497472",
         "SENTRY_ALLOW_FAILURE": "true",
         "SENTRY_ORG": "dobl-ltd",
         "SENTRY_PROJECT": "elementle-mobile"

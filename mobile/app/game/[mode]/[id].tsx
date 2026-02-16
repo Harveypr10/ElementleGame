@@ -186,7 +186,7 @@ export default function GameScreen() {
                 return;
             }
 
-            console.log(`[GameScreen] Fetching Puzzle from DB. Mode: ${modeStr}, Param: ${puzzleIdParam}, ID: ${resolvedId}`);
+            console.log(`[GameScreen] Fetching Puzzle from DB. Mode: ${modeStr}, Param: ${puzzleIdParam}, ResolvedID: ${resolvedId}, RegexTest: ${/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)}`);
 
             // Wrap network fetch in an 8-second timeout
             const FETCH_TIMEOUT_MS = 8000;
@@ -212,9 +212,16 @@ export default function GameScreen() {
                         }
                     }
 
-                    const { data: allocRes, error: allocError } = await regionQuery.maybeSingle();
-                    if (allocError) throw allocError;
-                    if (!allocRes) return null;
+                    const { data: allocRes, error: allocError, status, statusText, count } = await regionQuery.maybeSingle();
+                    console.log(`[GameScreen] Region query result — data: ${JSON.stringify(allocRes)?.substring(0, 200)}, error: ${JSON.stringify(allocError)}, status: ${status}, statusText: ${statusText}`);
+                    if (allocError) {
+                        console.error(`[GameScreen] Region allocation error:`, allocError);
+                        throw allocError;
+                    }
+                    if (!allocRes) {
+                        console.warn(`[GameScreen] No region allocation found. Query: region='UK', puzzle_date='${puzzleIdParam}'`);
+                        return null;
+                    }
 
                     allocationData = allocRes;
 

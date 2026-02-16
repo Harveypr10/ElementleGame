@@ -823,6 +823,7 @@ export default function ArchiveScreen() {
             <HolidayActiveModal
                 visible={showHolidayModal}
                 holidayEndDate={holidayEndDate || "Unknown Date"}
+                gameType={gameMode === 'REGION' ? 'REGION' : 'USER'}
                 onExitHoliday={async () => {
                     if (!user) return;
                     console.log(`[Archive] Exiting Holiday Mode`);

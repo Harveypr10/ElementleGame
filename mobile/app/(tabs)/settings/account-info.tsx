@@ -109,7 +109,7 @@ export default function AccountInfoPage() {
                     <StyledView className="flex-row items-center justify-center relative">
                         <StyledTouchableOpacity
                             onPress={() => router.replace('/(tabs)/settings')}
-                            style={{ position: 'absolute', left: 0 }}
+                            style={{ position: 'absolute', left: 0, padding: 8 }}
                         >
                             <ChevronLeft size={28} color={textColor} />
                         </StyledTouchableOpacity>

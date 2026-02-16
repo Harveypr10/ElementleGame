@@ -33,6 +33,7 @@ import { AdBanner } from '../../components/AdBanner';
 import { AdBannerContext } from '../../contexts/AdBannerContext';
 import { useProfile } from '../../hooks/useProfile';
 import { getTodaysPuzzleDate } from '../../lib/dateUtils';
+import { useToast } from '../../contexts/ToastContext';
 import { usePuzzleReadiness } from '../../hooks/usePuzzleReadiness';
 
 // Import hamster images - trying UI folder versions which appear to be transparent
@@ -272,7 +273,8 @@ export default function HomeScreen() {
 
     const router = useRouter();
     const params = useLocalSearchParams(); // Use params for initialMode
-    const { user } = useAuth();
+    const { user, deferredPuzzle, consumeDeferredPuzzle } = useAuth();
+    const { toast } = useToast();
     const { gameMode, setGameMode, streakSaverActive, holidaySaverActive } = useOptions();
     const { profile } = useProfile();
     const userRegion = profile?.region || 'UK';
@@ -384,6 +386,9 @@ export default function HomeScreen() {
 
     // Badge Display State
     const [badgeModalVisible, setBadgeModalVisible] = useState(false);
+    // [FIX] Track badge IDs we've already shown/dismissed this session
+    // to prevent double-popup when query refetch briefly returns stale data
+    const seenBadgeIdsRef = React.useRef<Set<number>>(new Set());
 
     // Streak Saver Popup State
     const [streakSaverVisible, setStreakSaverVisible] = useState(false);
@@ -405,7 +410,9 @@ export default function HomeScreen() {
     // Sync modal visibility with pending badges
     useEffect(() => {
         // [FIX] Only show badges when App is fully ready (Splash gone)
-        if (isAppReady && pendingBadges && pendingBadges.length > 0) {
+        // Filter out badges we've already seen/dismissed this session
+        const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
+        if (isAppReady && unseen.length > 0) {
             setBadgeModalVisible(true);
         } else {
             setBadgeModalVisible(false);
@@ -504,20 +511,87 @@ export default function HomeScreen() {
         }
     }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup, streakSaverVisible, popupMode, isInStreakSaverMode, holidayActive, streakSaverActive, holidaySaverActive]);
 
+    // ============================================================
+    // DEFERRED DEEP LINK NAVIGATION
+    // After StreakSaver/Holiday popup flow completes (or is not needed),
+    // navigate to the deep-linked puzzle if one is pending.
+    // ============================================================
+    const deferredNavigatedRef = useRef(false);
+
+    useEffect(() => {
+        // Don't navigate if no deferred puzzle
+        if (!deferredPuzzle) {
+            deferredNavigatedRef.current = false; // Reset for next deep link
+            return;
+        }
+
+        // Wait for user to be signed in
+        if (!user) return;
+
+        // Wait for app to be fully ready and data loaded
+        if (!isAppReady || loading || !isFocused) return;
+
+        // Wait for StreakSaver status to be loaded (so popup check can run with valid data)
+        if (isStreakSaverLoading) return;
+
+        // Wait for any StreakSaver/Holiday popup to be dismissed
+        if (streakSaverVisible) return;
+
+        // Prevent double navigation
+        if (deferredNavigatedRef.current) return;
+        deferredNavigatedRef.current = true;
+
+        // Consume SYNCHRONOUSLY to clear deferredPuzzle state immediately,
+        // preventing re-triggers when user navigates back from the game.
+        const puzzle = consumeDeferredPuzzle();
+        if (!puzzle) return;
+
+        console.log(`[Home] Processing deferred deep link: ${puzzle.mode}/${puzzle.date}, holidayActive=${holidayActive}`);
+
+        // Holiday Mode interception: if user is on holiday and this is today's puzzle,
+        // show the Holiday exit/continue modal before navigating.
+        const today = todaysPuzzleDate;
+        if (holidayActive && puzzle.date === today) {
+            console.log('[Home] Holiday Mode active + deferred puzzle is today — showing Holiday modal');
+            setHolidayModalMode(puzzle.mode === 'USER' ? 'USER' : 'REGION');
+            setShowHolidayModal(true);
+            // Modal callbacks will handle navigation (existing onExitHoliday / onContinueHoliday)
+            return;
+        }
+
+        // Normal navigation — delay slightly for any popup dismiss animations
+        toast({
+            title: 'Loading the puzzle that has been shared with you...',
+            variant: 'share',
+            position: 'bottom',
+            duration: 5000,
+        });
+        setTimeout(() => {
+            console.log(`[Home] Navigating to deferred deep link puzzle: /game/${puzzle.mode}/${puzzle.date}`);
+            router.push(`/game/${puzzle.mode}/${puzzle.date}`);
+        }, 300);
+    }, [deferredPuzzle, isAppReady, loading, isFocused, streakSaverVisible, isStreakSaverLoading, user, holidayActive]);
+
 
 
 
 
     const handleBadgeClose = async () => {
-        if (pendingBadges && pendingBadges.length > 0) {
-            const badgeToMark = pendingBadges[0];
+        // [FIX] Filter out already-seen badges before processing
+        const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
+        if (unseen.length > 0) {
+            const badgeToMark = unseen[0];
+            // [FIX] Add to local seen set BEFORE closing / marking in DB
+            // This prevents the useEffect from re-opening the modal when
+            // the query refetch briefly returns stale data
+            seenBadgeIdsRef.current.add(badgeToMark.id);
             // Optimistically close to prep for next or end
             setBadgeModalVisible(false);
 
             // Mark as seen, triggering query update
             // [FIX] Use the ROW ID (id) not the badge definition ID (badge_id)
             await markBadgeAsSeen(badgeToMark.id);
-            // The useEffect will make it visible again if there are more
+            // The useEffect will make it visible again if there are more unseen badges
         }
     };
 
@@ -766,7 +840,7 @@ export default function HomeScreen() {
     const iconColor = useThemeColor({}, 'icon');
 
     // Dynamic ad banner height (measured via onLayout in AdBanner)
-    const [adBannerHeight, setAdBannerHeight] = useState(50);
+    const [adBannerHeight, setAdBannerHeight] = useState(0);
 
     return (
         <AdBannerContext.Provider value={true}>
@@ -959,7 +1033,10 @@ export default function HomeScreen() {
                 {/* Badge Inbox Modal: Shows first pending badge if any */}
                 <BadgeUnlockModal
                     visible={badgeModalVisible}
-                    badge={pendingBadges && pendingBadges.length > 0 ? (pendingBadges[0].badge ?? null) : null}
+                    badge={(() => {
+                        const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
+                        return unseen.length > 0 ? (unseen[0].badge ?? null) : null;
+                    })()}
                     onClose={handleBadgeClose}
                     gameMode={gameMode}
                 />
@@ -1004,6 +1081,7 @@ export default function HomeScreen() {
             <HolidayActiveModal
                 visible={showHolidayModal}
                 holidayEndDate={holidayEndDate || "Unknown Date"}
+                gameType={holidayModalMode}
                 onExitHoliday={async () => {
                     if (!user) return;
                     console.log(`[Home] Exiting Holiday Mode for ${holidayModalMode}`);

@@ -171,17 +171,21 @@ export default function SetNewPasswordScreen() {
                                 <StyledText className="text-slate-700 dark:text-slate-300 font-n-medium mb-2">
                                     {mode === 'change' ? 'New Password' : 'Password'}
                                 </StyledText>
-                                <StyledView style={{ position: 'relative' }}>
+                                <View style={{ position: 'relative' }}>
+                                    {/* Secure input — always secureTextEntry=true */}
                                     <StyledTextInput
-                                        ref={newPasswordRef}
+                                        ref={!showNewPassword ? newPasswordRef : undefined}
                                         testID="new-password-input"
                                         className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
-                                        style={{ paddingLeft: 16, paddingVertical: 16, paddingRight: 48 }}
+                                        style={[
+                                            { paddingLeft: 16, paddingVertical: 16, paddingRight: 48 },
+                                            showNewPassword && { position: 'absolute', width: 0, height: 0, opacity: 0 },
+                                        ]}
                                         placeholder="Enter new password"
                                         placeholderTextColor="#94a3b8"
                                         value={newPassword}
                                         onChangeText={setNewPassword}
-                                        secureTextEntry={!showNewPassword}
+                                        secureTextEntry={true}
                                         autoCapitalize="none"
                                         autoCorrect={false}
                                         textContentType="newPassword"
@@ -189,6 +193,29 @@ export default function SetNewPasswordScreen() {
                                         onSubmitEditing={() => confirmPasswordRef.current?.focus()}
                                         blurOnSubmit={false}
                                         editable={!loading}
+                                        pointerEvents={showNewPassword ? 'none' : 'auto'}
+                                    />
+                                    {/* Plain text input — always secureTextEntry=false */}
+                                    <StyledTextInput
+                                        ref={showNewPassword ? newPasswordRef : undefined}
+                                        testID="new-password-input-visible"
+                                        className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
+                                        style={[
+                                            { paddingLeft: 16, paddingVertical: 16, paddingRight: 48 },
+                                            !showNewPassword && { position: 'absolute', width: 0, height: 0, opacity: 0 },
+                                        ]}
+                                        placeholder="Enter new password"
+                                        placeholderTextColor="#94a3b8"
+                                        value={newPassword}
+                                        onChangeText={setNewPassword}
+                                        secureTextEntry={false}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        returnKeyType="next"
+                                        onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                                        blurOnSubmit={false}
+                                        editable={!loading}
+                                        pointerEvents={showNewPassword ? 'auto' : 'none'}
                                     />
                                     <StyledTouchableOpacity
                                         onPress={() => setShowNewPassword(!showNewPassword)}
@@ -200,7 +227,7 @@ export default function SetNewPasswordScreen() {
                                             <Eye size={20} color="#94a3b8" />
                                         )}
                                     </StyledTouchableOpacity>
-                                </StyledView>
+                                </View>
                             </StyledView>
 
                             {/* Password Requirements */}
@@ -233,9 +260,10 @@ export default function SetNewPasswordScreen() {
                                 <StyledText className="text-slate-700 dark:text-slate-300 font-n-medium mb-2">
                                     Confirm Password
                                 </StyledText>
-                                <StyledView style={{ position: 'relative' }}>
+                                <View style={{ position: 'relative' }}>
+                                    {/* Secure confirm input */}
                                     <StyledTextInput
-                                        ref={confirmPasswordRef}
+                                        ref={!showConfirmPassword ? confirmPasswordRef : undefined}
                                         testID="confirm-password-input"
                                         className={`bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12 ${confirmPassword.length > 0 && !passwordsMatch
                                             ? 'border-2 border-red-500'
@@ -243,18 +271,48 @@ export default function SetNewPasswordScreen() {
                                                 ? 'border-2 border-green-500'
                                                 : ''
                                             }`}
-                                        style={{ paddingLeft: 16, paddingVertical: 16, paddingRight: 48 }}
+                                        style={[
+                                            { paddingLeft: 16, paddingVertical: 16, paddingRight: 48 },
+                                            showConfirmPassword && { position: 'absolute', width: 0, height: 0, opacity: 0 },
+                                        ]}
                                         placeholder="Confirm new password"
                                         placeholderTextColor="#94a3b8"
                                         value={confirmPassword}
                                         onChangeText={setConfirmPassword}
-                                        secureTextEntry={!showConfirmPassword}
+                                        secureTextEntry={true}
                                         autoCapitalize="none"
                                         autoCorrect={false}
                                         textContentType="newPassword"
                                         returnKeyType="done"
                                         onSubmitEditing={handleSubmit}
                                         editable={!loading}
+                                        pointerEvents={showConfirmPassword ? 'none' : 'auto'}
+                                    />
+                                    {/* Plain text confirm input */}
+                                    <StyledTextInput
+                                        ref={showConfirmPassword ? confirmPasswordRef : undefined}
+                                        testID="confirm-password-input-visible"
+                                        className={`bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12 ${confirmPassword.length > 0 && !passwordsMatch
+                                            ? 'border-2 border-red-500'
+                                            : confirmPassword.length > 0 && passwordsMatch
+                                                ? 'border-2 border-green-500'
+                                                : ''
+                                            }`}
+                                        style={[
+                                            { paddingLeft: 16, paddingVertical: 16, paddingRight: 48 },
+                                            !showConfirmPassword && { position: 'absolute', width: 0, height: 0, opacity: 0 },
+                                        ]}
+                                        placeholder="Confirm new password"
+                                        placeholderTextColor="#94a3b8"
+                                        value={confirmPassword}
+                                        onChangeText={setConfirmPassword}
+                                        secureTextEntry={false}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        returnKeyType="done"
+                                        onSubmitEditing={handleSubmit}
+                                        editable={!loading}
+                                        pointerEvents={showConfirmPassword ? 'auto' : 'none'}
                                     />
                                     <StyledTouchableOpacity
                                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -266,7 +324,7 @@ export default function SetNewPasswordScreen() {
                                             <Eye size={20} color="#94a3b8" />
                                         )}
                                     </StyledTouchableOpacity>
-                                </StyledView>
+                                </View>
                                 {confirmPassword.length > 0 && !passwordsMatch && (
                                     <StyledText className="text-red-500 text-sm mt-1">
                                         Passwords do not match
@@ -305,7 +363,7 @@ export default function SetNewPasswordScreen() {
                     )}
                 </StyledScrollView>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 

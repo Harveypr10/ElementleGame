@@ -12,6 +12,7 @@ interface ShareGameResultOptions {
     result: 'won' | 'lost';
     mode: 'REGION' | 'USER';
     eventTitle?: string;
+    puzzleDate?: string; // Calendar date for deep link URL (not the historical answer)
 }
 
 /**
@@ -46,27 +47,40 @@ export async function shareGameResult(options: ShareGameResultOptions): Promise<
     error?: string;
 }> {
     try {
-        const { date, guesses, result, mode, eventTitle } = options;
+        const { date, guesses, result, mode, eventTitle, puzzleDate } = options;
         const won = result === 'won';
-        const emojiGrid = generateEmojiGrid(guesses, won);
+        const todayDate = new Date().toISOString().split('T')[0];
 
-        const modeText = mode === 'REGION' ? '🌍 Region Mode' : '👤 User Mode';
-        const resultText = won
-            ? `Solved in ${guesses} ${guesses === 1 ? 'guess' : 'guesses'}!`
-            : 'Better luck next time!';
+        let message: string;
+        let shareUrl: string;
 
-        let message = `Elementle ${date}\n${modeText}\n\n${emojiGrid}\n\n${resultText}`;
+        if (mode === 'USER') {
+            // USER mode: personalized puzzles — don't reveal specifics, link to today
+            shareUrl = `https://elementle.tech/play/${todayDate}?mode=USER`;
+            message = `I've discovered when ${eventTitle || 'a historical event'} happened. Why don't you see what your personalised puzzle is for today!\n\n${shareUrl}`;
+        } else {
+            // REGION mode: shared puzzle — include emoji grid and result
+            const emojiGrid = generateEmojiGrid(guesses, won);
+            const modeText = '🌍 Region Mode';
+            const resultText = won
+                ? `Solved in ${guesses} ${guesses === 1 ? 'guess' : 'guesses'}!`
+                : 'Better luck next time!';
 
-        if (eventTitle) {
-            message += `\n\n📅 ${eventTitle}`;
+            shareUrl = puzzleDate
+                ? `https://elementle.tech/play/${puzzleDate}?mode=REGION`
+                : 'https://elementle.tech';
+
+            message = `Elementle ${date}\n${modeText}\n\n${emojiGrid}\n\n${resultText}`;
+            if (eventTitle) {
+                message += `\n\n📅 ${eventTitle}`;
+            }
+            message += `\n\n${shareUrl}`;
         }
-
-        message += '\n\nPlay at elementle.com';
 
         const result_share = await Share.share(
             {
                 message,
-                ...(Platform.OS === 'ios' && { url: 'https://elementle.com' }),
+                ...(Platform.OS === 'ios' && { url: shareUrl }),
             },
             {
                 subject: `Elementle ${date}`,
@@ -98,22 +112,34 @@ export async function copyShareText(options: ShareGameResultOptions): Promise<{
     text?: string;
 }> {
     try {
-        const { date, guesses, result, mode, eventTitle } = options;
+        const { date, guesses, result, mode, eventTitle, puzzleDate } = options;
         const won = result === 'won';
-        const emojiGrid = generateEmojiGrid(guesses, won);
+        const todayDate = new Date().toISOString().split('T')[0];
 
-        const modeText = mode === 'REGION' ? '🌍 Region Mode' : '👤 User Mode';
-        const resultText = won
-            ? `Solved in ${guesses} ${guesses === 1 ? 'guess' : 'guesses'}!`
-            : 'Better luck next time!';
+        let text: string;
 
-        let text = `Elementle ${date}\n${modeText}\n\n${emojiGrid}\n\n${resultText}`;
+        if (mode === 'USER') {
+            // USER mode: personalized puzzles — don't reveal specifics, link to today
+            const shareUrl = `https://elementle.tech/play/${todayDate}?mode=USER`;
+            text = `I've discovered when ${eventTitle || 'a historical event'} happened. Why don't you see what your personalised puzzle is for today!\n\n${shareUrl}`;
+        } else {
+            // REGION mode: shared puzzle — include emoji grid and result
+            const emojiGrid = generateEmojiGrid(guesses, won);
+            const modeText = '🌍 Region Mode';
+            const resultText = won
+                ? `Solved in ${guesses} ${guesses === 1 ? 'guess' : 'guesses'}!`
+                : 'Better luck next time!';
 
-        if (eventTitle) {
-            text += `\n\n📅 ${eventTitle}`;
+            text = `Elementle ${date}\n${modeText}\n\n${emojiGrid}\n\n${resultText}`;
+            if (eventTitle) {
+                text += `\n\n📅 ${eventTitle}`;
+            }
+            if (puzzleDate) {
+                text += `\n\nhttps://elementle.tech/play/${puzzleDate}?mode=REGION`;
+            } else {
+                text += '\n\nPlay at elementle.tech';
+            }
         }
-
-        text += '\n\nPlay at elementle.com';
 
         // Copy to clipboard handled by caller
         return { success: true, text };

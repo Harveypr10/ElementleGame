@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { View, LayoutChangeEvent } from 'react-native';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { styled } from 'nativewind';
@@ -15,14 +15,8 @@ interface AdBannerProps {
 export function AdBanner({ onHeightChange }: AdBannerProps) {
     const { isPro } = useSubscription();
     const activeProvider = getActiveProvider();
-    const [isVisible, setIsVisible] = useState(true);
-
-    const handleLayout = useCallback((event: LayoutChangeEvent) => {
-        const { height } = event.nativeEvent.layout;
-        if (height > 0 && onHeightChange) {
-            onHeightChange(height);
-        }
-    }, [onHeightChange]);
+    const [adLoaded, setAdLoaded] = useState(false);
+    const [adFailed, setAdFailed] = useState(false);
 
     // Don't show ads to Pro users
     if (isPro) {
@@ -36,15 +30,31 @@ export function AdBanner({ onHeightChange }: AdBannerProps) {
     }
 
     // Collapse the container if the ad failed to load
-    if (!isVisible) {
+    if (adFailed) {
         return null;
     }
 
     return (
         <StyledView
-            className="absolute bottom-0 left-0 right-0 items-center"
-            style={{ overflow: 'hidden' }}
-            onLayout={handleLayout}
+            className="items-center"
+            style={{
+                overflow: 'hidden',
+                // Only take up space once the ad has loaded.
+                // Before load, the banner is rendered but inside a 0-height
+                // container so it can request/measure itself without
+                // creating a visible blank gap.
+                height: adLoaded ? undefined : 0,
+            }}
+            onLayout={(event: LayoutChangeEvent) => {
+                // Only report height once ad has loaded, preventing
+                // the parent from reserving padding for an empty slot.
+                if (adLoaded) {
+                    const { height } = event.nativeEvent.layout;
+                    if (height > 0) {
+                        onHeightChange?.(height);
+                    }
+                }
+            }}
         >
             <BannerAd
                 unitId={AD_UNITS.banner}
@@ -54,12 +64,12 @@ export function AdBanner({ onHeightChange }: AdBannerProps) {
                 }}
                 onAdFailedToLoad={(error) => {
                     console.log('[AdBanner] Failed to load ad, collapsing container:', error);
-                    setIsVisible(false);
+                    setAdFailed(true);
                     onHeightChange?.(0);
                 }}
                 onAdLoaded={() => {
                     console.log('[AdBanner] Ad loaded successfully');
-                    setIsVisible(true);
+                    setAdLoaded(true);
                 }}
             />
         </StyledView>

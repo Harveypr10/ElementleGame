@@ -53,6 +53,7 @@ export default function GameResultScreen() {
     const eventTitle = params.eventTitle as string;
     const eventDescription = params.eventDescription as string;
     const gameMode = params.gameMode as string;
+    const puzzleDate = params.puzzleDate as string; // Calendar date for share URL (not the historical answer)
     const isGuest = params.isGuest === 'true';
     const isLocalMode = gameMode === 'USER';
     const isStreakSaverGame = params.isStreakSaverGame === 'true';
@@ -93,9 +94,12 @@ export default function GameResultScreen() {
     };
     const formattedDate = `${getOrdinal(day)} ${month} ${year}`;
 
-    const shareText = isWin
-        ? `I solved today's Elementle in ${guessesCount} guesses! Can you beat me? https://elementle.tech/play/${answerDateCanonical}?mode=${gameMode}`
-        : `I tried today's Elementle puzzle but couldn't crack it! Can you? https://elementle.tech/play/${answerDateCanonical}?mode=${gameMode}`;
+    const todayDate = new Date().toISOString().split('T')[0];
+    const shareText = gameMode === 'USER'
+        ? `I've discovered when ${eventTitle} happened. Why don't you see what your personalised puzzle is for today!\nhttps://elementle.tech/play/${todayDate}?mode=USER`
+        : isWin
+            ? `I solved today's Elementle in ${guessesCount} guesses! Can you beat me?\nhttps://elementle.tech/play/${puzzleDate}?mode=REGION`
+            : `I tried today's Elementle puzzle but couldn't crack it! Can you?\nhttps://elementle.tech/play/${puzzleDate}?mode=REGION`;
 
     const surfaceColor = useThemeColor({}, 'surface');
     const borderColor = useThemeColor({}, 'border');

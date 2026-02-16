@@ -641,7 +641,13 @@ export function useGameEngine({
         if (isWin) {
             hapticsManager.success(); // Victory haptic
             soundManager.play('game_win'); // Victory sound
-            setGameState('won');
+            // [FIX] Defer gameState change by one frame so the guess animation
+            // starts on the native thread BEFORE the heavy re-render caused by
+            // keyboard unmount + Continue button mount + cascading useEffects.
+            requestAnimationFrame(() => {
+                setGameState('won');
+            });
+            // finalStreak will be set by updateUserStats (line ~899) with the real value
             // Show interstitial ad after delay (SKIP FOR GUESTS - they watched one at start)
             if (user) {
                 setTimeout(() => showInterstitialAd(), 2500);
@@ -649,7 +655,9 @@ export function useGameEngine({
         } else if (newGuesses.length >= maxGuesses) {
             hapticsManager.error(); // Lost game haptic
             soundManager.play('game_lose'); // Lost game sound
-            setGameState('lost');
+            requestAnimationFrame(() => {
+                setGameState('lost');
+            });
             // Show interstitial ad after delay (SKIP FOR GUESTS)
             if (!isGuest) {
                 setTimeout(() => showInterstitialAd(), 2500);

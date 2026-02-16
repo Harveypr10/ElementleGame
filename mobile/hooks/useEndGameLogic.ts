@@ -19,6 +19,7 @@ export interface EndGameParams {
     eventDescription: string;
     gameMode: 'REGION' | 'USER';
     puzzleId: string;
+    puzzleDate?: string; // Calendar date for share URL (not the historical answer)
     isGuest: boolean;
     isStreakSaverGame: boolean;
     isToday: boolean;
@@ -91,6 +92,7 @@ export function useEndGameLogic(params: EndGameParams): UseEndGameLogicReturn {
         answerDateCanonical,
         eventTitle,
         gameMode,
+        puzzleDate,
         isGuest,
         isStreakSaverGame,
         isToday,
@@ -119,8 +121,15 @@ export function useEndGameLogic(params: EndGameParams): UseEndGameLogicReturn {
     const formattedDate = useMemo(() => formatDate(answerDateCanonical), [answerDateCanonical]);
 
     const shareText = useMemo(() => {
-        return `I ${isWin ? 'solved' : 'tried'} today's Elementle puzzle!\n${eventTitle}\n${formattedDate}\n${isWin ? `Guessed in ${guessesCount}/${maxGuesses}` : `Used all ${maxGuesses} guesses`}`;
-    }, [isWin, eventTitle, formattedDate, guessesCount, maxGuesses]);
+        const todayDate = new Date().toISOString().split('T')[0];
+        if (gameMode === 'USER') {
+            return `I've discovered when ${eventTitle} happened. Why don't you see what your personalised puzzle is for today!\nhttps://elementle.tech/play/${todayDate}?mode=USER`;
+        }
+        const linkUrl = puzzleDate
+            ? `\nhttps://elementle.tech/play/${puzzleDate}?mode=REGION`
+            : '\nPlay at elementle.tech';
+        return `I ${isWin ? 'solved' : 'tried'} today's Elementle puzzle!\n${eventTitle}\n${formattedDate}\n${isWin ? `Guessed in ${guessesCount}/${maxGuesses}` : `Used all ${maxGuesses} guesses`}${linkUrl}`;
+    }, [isWin, eventTitle, formattedDate, guessesCount, maxGuesses, puzzleDate, gameMode]);
 
     // ========================================================================
     // Celebration State

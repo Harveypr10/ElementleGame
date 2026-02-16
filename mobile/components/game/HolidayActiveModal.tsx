@@ -1,77 +1,107 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Modal } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { Image } from 'expo-image';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import { styled } from 'nativewind';
 import { Ionicons } from '@expo/vector-icons';
+
+const StyledView = styled(View);
+const StyledText = styled(Text);
+const StyledTouchableOpacity = styled(TouchableOpacity);
+
+const HolidayHamsterImg = require('../../assets/ui/webp_assets/Holiday-Hamster.webp');
 
 interface HolidayActiveModalProps {
     visible: boolean;
     holidayEndDate: string; // "Wednesday 11 February" format
     onExitHoliday: () => void;
     onContinueHoliday: () => void;
+    gameType?: 'REGION' | 'USER';
 }
 
 export const HolidayActiveModal = ({
     visible,
     holidayEndDate,
     onExitHoliday,
-    onContinueHoliday
+    onContinueHoliday,
+    gameType = 'USER'
 }: HolidayActiveModalProps) => {
 
     if (!visible) return null;
 
+    // Match StreakSaverPopup colors per game type
+    const bgColor = gameType === 'REGION' ? '#FFD429' : '#fdab58';
+
     return (
         <Modal transparent animationType="fade" visible={visible}>
-            <View className="flex-1 justify-center items-center bg-black/60 px-6">
+            <View style={{
+                flex: 1,
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingHorizontal: 24,
+            }}>
                 <Animated.View
                     entering={ZoomIn.duration(300)}
-                    className="w-full bg-white rounded-3xl p-6 items-center shadow-xl"
-                    style={{ maxWidth: 360 }}
+                    style={{ width: '100%', maxWidth: 360 }}
                 >
-                    {/* Icon */}
-                    <View className="mb-4">
-                        <View className="flex-row items-center gap-2">
-                            <Ionicons name="umbrella-outline" size={24} color="#EAB308" />
-                            <Text className="text-xl font-bold text-gray-800">
+                    <StyledView
+                        className="rounded-2xl p-6 w-full shadow-2xl items-center"
+                        style={{ backgroundColor: bgColor }}
+                    >
+                        {/* Header */}
+                        <StyledView className="flex-row items-center justify-center gap-2 mb-2">
+                            <Ionicons name="umbrella-outline" size={24} color="#1e293b" />
+                            <StyledText className="text-2xl font-n-bold text-slate-900">
                                 Holiday Mode Active
-                            </Text>
-                        </View>
-                    </View>
+                            </StyledText>
+                        </StyledView>
 
-                    {/* Body Text */}
-                    <Text className="text-base text-slate-600 text-center mb-4 leading-6">
-                        Playing today won't extend your streak unless you exit holiday mode.
-                    </Text>
+                        {/* Description */}
+                        <StyledText className="text-center text-slate-700 font-n-medium mb-4 leading-6">
+                            Playing today won't extend your streak unless you exit holiday mode.
+                        </StyledText>
 
-                    <Text className="text-base text-slate-800 text-center font-medium mb-4">
-                        Holiday runs until {holidayEndDate}
-                    </Text>
+                        {/* Holiday Hamster Image */}
+                        <StyledView className="items-center mb-4">
+                            <Image
+                                source={HolidayHamsterImg}
+                                style={{ width: 140, height: 140 }}
+                                contentFit="contain"
+                            />
+                        </StyledView>
 
-                    <Text className="text-sm text-slate-500 text-center mb-8">
-                        Choose how you'd like to continue:
-                    </Text>
+                        {/* Holiday End Date */}
+                        <StyledText className="text-base text-slate-900 text-center font-n-bold mb-2">
+                            Holiday runs until {holidayEndDate}
+                        </StyledText>
 
-                    {/* Buttons */}
-                    <View className="w-full gap-3">
-                        <TouchableOpacity
-                            onPress={onExitHoliday}
-                            className="w-full py-3.5 border border-slate-300 rounded-full active:bg-slate-50"
-                        >
-                            <Text className="text-blue-500 text-center font-semibold text-base">
-                                Exit Holiday Mode
-                            </Text>
-                        </TouchableOpacity>
+                        <StyledText className="text-sm text-slate-700 text-center font-n-medium mb-6">
+                            Choose how you'd like to continue:
+                        </StyledText>
 
-                        <TouchableOpacity
-                            onPress={onContinueHoliday}
-                            className="w-full py-3.5 bg-blue-400 rounded-full shadow-sm active:bg-blue-500"
-                        >
-                            <Text className="text-white text-center font-bold text-base">
-                                Continue in Holiday Mode
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
+                        {/* Buttons - Continue on top (blue), Exit on bottom (white) */}
+                        <StyledView className="w-full gap-3">
+                            <StyledTouchableOpacity
+                                onPress={onContinueHoliday}
+                                className="w-full py-3 bg-blue-400 active:bg-blue-500 rounded-2xl"
+                            >
+                                <StyledText className="text-white font-n-bold text-center text-lg">
+                                    Continue in Holiday Mode
+                                </StyledText>
+                            </StyledTouchableOpacity>
 
+                            <StyledTouchableOpacity
+                                onPress={onExitHoliday}
+                                className="w-full py-3 bg-white active:bg-slate-100 rounded-2xl"
+                            >
+                                <StyledText className="text-slate-700 font-n-bold text-center text-lg">
+                                    Exit Holiday Mode
+                                </StyledText>
+                            </StyledTouchableOpacity>
+                        </StyledView>
+
+                    </StyledView>
                 </Animated.View>
             </View>
         </Modal>
