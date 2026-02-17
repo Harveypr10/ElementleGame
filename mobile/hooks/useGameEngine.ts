@@ -685,6 +685,22 @@ export function useGameEngine({
                     digits: numDigits // Save digits so migration can use it
                 };
 
+                // [FIX] Clean up old-date guest Region keys before saving.
+                // Guests can only play today's puzzle from onboarding, so we keep
+                // at most one day of data. Wipe keys for OTHER dates, but keep
+                // today's key if it already exists (same puzzleId = same day).
+                if (mode === 'REGION') {
+                    const allKeys = await AsyncStorage.getAllKeys();
+                    const regionGuestKeys = allKeys.filter(k => k.startsWith('guest_game_REGION_'));
+                    const currentKey = `guest_game_${mode}_${puzzleId}`;
+                    for (const oldKey of regionGuestKeys) {
+                        if (oldKey !== currentKey) {
+                            console.log(`[GameEngine] Removing stale guest Region key: ${oldKey}`);
+                            await AsyncStorage.removeItem(oldKey);
+                        }
+                    }
+                }
+
                 await AsyncStorage.setItem(`guest_game_${mode}_${puzzleId}`, JSON.stringify(stateToSave));
                 // Add console log to verify saving
                 console.log(`[GameEngine] Saved guest game data for ${mode} ${puzzleId}`, stateToSave);

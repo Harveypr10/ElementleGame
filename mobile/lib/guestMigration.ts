@@ -52,6 +52,7 @@ export async function saveGuestGameData(data: GuestGameData): Promise<void> {
 export async function migrateGuestDataToUser(userId: string): Promise<{
     success: boolean;
     migratedGames: number;
+    hasDeferredGames: boolean;
     error?: string;
 }> {
     try {
@@ -65,11 +66,15 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
 
         if (guestGameKeys.length === 0) {
             console.log('[GuestMigration] No guest data to migrate');
-            return { success: true, migratedGames: 0 };
+            return { success: true, migratedGames: 0, hasDeferredGames: false };
         }
 
         let migratedCount = 0;
         const migratedModes = new Set<'REGION' | 'USER'>();
+        let deferredCount = 0;
+
+        // [FIX] Calculate today's date for deferral check
+        const today = new Date().toISOString().split('T')[0];
 
         // 2. Iterate and migrate each game
         for (const key of guestGameKeys) {
@@ -135,6 +140,15 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
                     // If it exists, we assume migration is done for this one. 
                     await AsyncStorage.removeItem(key);
                     continue;
+                }
+
+                // [FIX] Defer today's Region games — they must wait for StreakSaver
+                // to be resolved before being written, otherwise the streak gets
+                // recalculated before the user has a chance to use StreakSaver.
+                if (mode === 'REGION' && puzzleDate === today) {
+                    console.log(`[GuestMigration] Deferring today's Region game (${puzzleDate}) — waiting for StreakSaver`);
+                    deferredCount++;
+                    continue; // Leave the AsyncStorage key in place
                 }
 
                 console.log(`[GuestMigration] Inserting attempt for ${key} date=${puzzleDate} result=${gameData.result}`);
@@ -210,15 +224,141 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
             getQueryClient().invalidateQueries({ queryKey: ['game-attempts'] });
         }
 
-        return { success: true, migratedGames: migratedCount };
+        return { success: true, migratedGames: migratedCount, hasDeferredGames: deferredCount > 0 };
 
     } catch (error: any) {
         console.error('[GuestMigration] Migration failed:', error);
         return {
             success: false,
             migratedGames: 0,
+            hasDeferredGames: false,
             error: error?.message || 'Unknown error'
         };
+    }
+}
+
+/**
+ * Migrate deferred guest games (today's Region puzzle) after StreakSaver is resolved.
+ * Called from the Home screen once StreakSaver/Holiday flow is complete.
+ * 
+ * @param userId - The authenticated user's ID
+ * @param holidayActive - Whether holiday mode is currently active
+ */
+export async function migrateDeferredGuestGames(
+    userId: string,
+    holidayActive: boolean
+): Promise<{ migratedGames: number }> {
+    try {
+        const allKeys = await AsyncStorage.getAllKeys();
+        const guestGameKeys = allKeys.filter(key => key.startsWith('guest_game_'));
+
+        if (guestGameKeys.length === 0) {
+            return { migratedGames: 0 };
+        }
+
+        console.log(`[GuestMigration] Deferred migration: ${guestGameKeys.length} remaining keys, holidayActive=${holidayActive}`);
+
+        let migratedCount = 0;
+        const migratedModes = new Set<'REGION' | 'USER'>();
+
+        for (const key of guestGameKeys) {
+            try {
+                const parts = key.split('_');
+                if (parts.length < 4) continue;
+
+                const mode = parts[2] as 'REGION' | 'USER';
+                const puzzleIdRaw = parts[3];
+
+                const storedValue = await AsyncStorage.getItem(key);
+                if (!storedValue) continue;
+
+                const gameData = JSON.parse(storedValue);
+                if (!gameData.guesses || !Array.isArray(gameData.guesses)) continue;
+
+                const table = mode === 'REGION' ? 'game_attempts_region' : 'game_attempts_user';
+                const puzzleIdField = mode === 'REGION' ? 'allocated_region_id' : 'allocated_user_id';
+                const guessesTable = mode === 'REGION' ? 'guesses_region' : 'guesses_user';
+
+                // Check existence (duplicate guard)
+                const { data: existing } = await supabase
+                    .from(table)
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq(puzzleIdField, puzzleIdRaw)
+                    .maybeSingle();
+
+                if (existing) {
+                    console.log(`[GuestMigration:Deferred] ${key} already exists, removing key`);
+                    await AsyncStorage.removeItem(key);
+                    continue;
+                }
+
+                // [FIX] Determine streak_day_status based on holiday mode:
+                // - Holiday active: streak_day_status = 0 (holiday day, won't add to streak)
+                // - Normal: streak_day_status = 1 if won, null otherwise
+                const streakDayStatus = holidayActive
+                    ? 0
+                    : (gameData.result === 'won' ? 1 : null);
+
+                console.log(`[GuestMigration:Deferred] Inserting ${key} with streak_day_status=${streakDayStatus} (holiday=${holidayActive})`);
+
+                const { data: newAttempt, error: insertError } = await supabase
+                    .from(table)
+                    .insert({
+                        user_id: userId,
+                        [puzzleIdField]: parseInt(puzzleIdRaw),
+                        result: gameData.result === 'in_progress' ? null : gameData.result,
+                        num_guesses: gameData.guesses.length,
+                        started_at: gameData.updatedAt || new Date().toISOString(),
+                        completed_at: gameData.result ? (gameData.updatedAt || new Date().toISOString()) : null,
+                        digits: gameData.digits ? gameData.digits.toString() : '8',
+                        streak_day_status: streakDayStatus
+                    })
+                    .select('id')
+                    .single();
+
+                if (insertError || !newAttempt) {
+                    console.error(`[GuestMigration:Deferred] Failed to insert ${key}`, insertError);
+                    continue;
+                }
+
+                // Insert guesses
+                if (gameData.guesses.length > 0) {
+                    const guessRows = gameData.guesses.map((g: string) => ({
+                        game_attempt_id: newAttempt.id,
+                        guess_value: g,
+                        guessed_at: gameData.updatedAt || new Date().toISOString()
+                    }));
+                    await supabase.from(guessesTable).insert(guessRows);
+                }
+
+                migratedModes.add(mode);
+                migratedCount++;
+                await AsyncStorage.removeItem(key);
+                console.log(`[GuestMigration:Deferred] Migrated ${key}`);
+            } catch (innerError) {
+                console.error(`[GuestMigration:Deferred] Error processing ${key}`, innerError);
+            }
+        }
+
+        // Recalculate stats
+        for (const mode of Array.from(migratedModes)) {
+            await recalculateStatsForMode(userId, mode);
+        }
+
+        // Invalidate queries
+        if (migratedCount > 0) {
+            console.log('[GuestMigration:Deferred] Invalidating queries...');
+            getQueryClient().invalidateQueries({ queryKey: ['userStats'] });
+            getQueryClient().invalidateQueries({ queryKey: ['streak-saver-status'] });
+            getQueryClient().invalidateQueries({ queryKey: ['pendingBadges'] });
+            getQueryClient().invalidateQueries({ queryKey: ['game-attempts'] });
+        }
+
+        return { migratedGames: migratedCount };
+    } catch (error) {
+        console.error('[GuestMigration:Deferred] Migration failed:', error);
+        return { migratedGames: 0 };
     }
 }
 

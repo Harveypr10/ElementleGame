@@ -11,7 +11,7 @@ interface Toast {
     id: string;
     title: string;
     description?: string;
-    variant?: 'default' | 'success' | 'error' | 'share';
+    variant?: 'default' | 'success' | 'error' | 'share' | 'migration';
     duration?: number;
     position?: 'top' | 'bottom';
 }
@@ -115,9 +115,10 @@ function BottomToastMessage({ toast }: { toast: Toast }) {
 
     const bgColor =
         toast.variant === 'share' ? '#e87daa' :
-            toast.variant === 'success' ? '#22c55e' :
-                toast.variant === 'error' ? '#ef4444' :
-                    '#334155';
+            toast.variant === 'migration' ? '#7DAAE8' :
+                toast.variant === 'success' ? '#22c55e' :
+                    toast.variant === 'error' ? '#ef4444' :
+                        '#334155';
 
     return (
         <Animated.View

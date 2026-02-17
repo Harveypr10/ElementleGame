@@ -9,6 +9,7 @@ import HomeScreenWeb from './index.web';
 import { supabase } from '../../lib/supabase';
 import { HelpCircle, Settings } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { migrateDeferredGuestGames } from '../../lib/guestMigration';
 import { useOptions } from '../../lib/options';
 import { useUserStats } from '../../hooks/useUserStats';
 import { HomeCard } from '../../components/home/HomeCard';
@@ -454,12 +455,20 @@ export default function HomeScreen() {
             const userOfferStreakSaver = streakSaverStatus?.user?.offerStreakSaver ?? false;
             const userOfferHolidayRescue = streakSaverStatus?.user?.offerHolidayRescue ?? false;
 
-            // [FIX] If popup is currently visible, check if the current popupMode still meets criteria
-            // This handles the case where holiday mode was activated, invalidating the flags
+            // [FIX] If popup is currently visible, check if the current popupMode still meets criteria.
+            // EXCEPTION: If holidayActive just became true while popup is showing, the user
+            // activated holiday FROM the popup. Don't dismiss — the popup manages its own
+            // lifecycle during calendar animations and will call onClose('holiday') when done.
             if (streakSaverVisible) {
+                if (holidayActive) {
+                    // Holiday was activated from within the popup — let it handle its own lifecycle
+                    console.log(`[Home] Holiday active while popup visible — letting popup manage its own calendar animations`);
+                    return;
+                }
+
                 const currentModeStillEligible =
-                    (popupMode === 'REGION' && (regionOfferStreakSaver || regionOfferHolidayRescue) && !holidayActive) ||
-                    (popupMode === 'USER' && (userOfferStreakSaver || userOfferHolidayRescue) && !holidayActive);
+                    (popupMode === 'REGION' && (regionOfferStreakSaver || regionOfferHolidayRescue)) ||
+                    (popupMode === 'USER' && (userOfferStreakSaver || userOfferHolidayRescue));
 
                 if (!currentModeStillEligible) {
                     console.log(`[Home] Current popup mode ${popupMode} no longer eligible, dismissing popup`);
@@ -559,14 +568,22 @@ export default function HomeScreen() {
         // Check if there are ANY remaining offers that the popup system would
         // still want to show — if so, wait.
         if (streakSaverActive && !dismissedPopup) {
+            // [FIX] If holiday was just activated (holidayActive=true) but the popup
+            // hasn't called onClose yet (dismissedPopup=false), the calendar animations
+            // are still playing inside the StreakSaver popup. Wait for them to finish.
+            if (holidayActive) {
+                console.log('[Home DeferredNav] Waiting — holiday animations may still be playing in StreakSaver popup');
+                return;
+            }
+
             const regionHasPendingOffer =
                 !isJustCompleted('REGION') &&
-                ((streakSaverStatus?.region?.offerStreakSaver && !holidayActive) ||
-                    (streakSaverStatus?.region?.offerHolidayRescue && !holidayActive && holidaySaverActive));
+                ((streakSaverStatus?.region?.offerStreakSaver) ||
+                    (streakSaverStatus?.region?.offerHolidayRescue && holidaySaverActive));
             const userHasPendingOffer =
                 !isJustCompleted('USER') &&
-                ((streakSaverStatus?.user?.offerStreakSaver && !holidayActive) ||
-                    (streakSaverStatus?.user?.offerHolidayRescue && !holidayActive && holidaySaverActive));
+                ((streakSaverStatus?.user?.offerStreakSaver) ||
+                    (streakSaverStatus?.user?.offerHolidayRescue && holidaySaverActive));
 
             if (regionHasPendingOffer || userHasPendingOffer) {
                 console.log(`[Home DeferredNav] Waiting — remaining streak saver offers: region=${regionHasPendingOffer}, user=${userHasPendingOffer}`);
@@ -590,6 +607,14 @@ export default function HomeScreen() {
         const today = todaysPuzzleDate;
         if (holidayActive && puzzle.date === today) {
             console.log('[Home] Holiday Mode active + deferred puzzle is today — showing Holiday modal');
+            // [FIX] Show toast BEFORE holiday modal so user knows it's a shared puzzle
+            toast({
+                title: 'Puzzle shared with you!',
+                description: 'Continue in holiday mode or exit to play the shared puzzle.',
+                variant: 'share',
+                position: 'bottom',
+                duration: 5000,
+            });
             setHolidayModalMode(puzzle.mode === 'USER' ? 'USER' : 'REGION');
             setShowHolidayModal(true);
             // Modal callbacks will handle navigation (existing onExitHoliday / onContinueHoliday)
@@ -609,10 +634,72 @@ export default function HomeScreen() {
         }, 300);
     }, [deferredPuzzle, isAppReady, loading, isFocused, streakSaverVisible, isStreakSaverLoading, user, holidayActive, streakSaverStatus, dismissedPopup, isJustCompleted, streakSaverActive, holidaySaverActive]);
 
+    // ============================================================
+    // DEFERRED GUEST MIGRATION
+    // After StreakSaver/Holiday popup flow completes, migrate any
+    // deferred guest game data (today's Region puzzle played before sign-in).
+    // This must run AFTER StreakSaver is resolved so the streak isn't
+    // destroyed before the user can use their saver.
+    // ============================================================
+    const guestMigrationDoneRef = useRef(false);
 
+    useEffect(() => {
+        // Only run once per session
+        if (guestMigrationDoneRef.current) return;
 
+        // Wait for user to be signed in
+        if (!user) return;
 
+        // Wait for app to be fully ready and data loaded
+        if (!isAppReady || loading || !isFocused) return;
 
+        // Wait for StreakSaver status to be loaded
+        if (isStreakSaverLoading) return;
+
+        // Wait for popup check to complete at least once
+        if (!popupCheckDoneRef.current) return;
+
+        // Wait for any StreakSaver popup to be dismissed
+        if (streakSaverVisible) return;
+
+        // Wait if in streak saver mode (user is playing yesterday's puzzle)
+        if (isInStreakSaverMode) return;
+
+        // If StreakSaver was active but not yet dismissed, wait
+        if (streakSaverActive && !dismissedPopup) {
+            // If holiday just activated from popup, wait for it to finish
+            if (holidayActive) return;
+
+            // Check if any offers are still pending
+            const regionHasPending = !isJustCompleted('REGION') &&
+                (streakSaverStatus?.region?.offerStreakSaver || streakSaverStatus?.region?.offerHolidayRescue);
+            const userHasPending = !isJustCompleted('USER') &&
+                (streakSaverStatus?.user?.offerStreakSaver || streakSaverStatus?.user?.offerHolidayRescue);
+            if (regionHasPending || userHasPending) return;
+        }
+
+        // All clear — run deferred migration
+        guestMigrationDoneRef.current = true;
+
+        (async () => {
+            try {
+                const result = await migrateDeferredGuestGames(user.id, holidayActive);
+                if (result.migratedGames > 0) {
+                    console.log(`[Home] Deferred guest migration complete: ${result.migratedGames} games`);
+                    toast({
+                        title: "Today's puzzle data has been added to your account...",
+                        variant: 'migration',
+                        position: 'bottom',
+                        duration: 5000,
+                    });
+                }
+            } catch (e) {
+                console.error('[Home] Deferred guest migration error:', e);
+            }
+        })();
+    }, [user, isAppReady, loading, isFocused, isStreakSaverLoading, streakSaverVisible,
+        isInStreakSaverMode, streakSaverActive, dismissedPopup, holidayActive,
+        streakSaverStatus, isJustCompleted]);
     const handleBadgeClose = async () => {
         // [FIX] Filter out already-seen badges before processing
         const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
@@ -1082,7 +1169,9 @@ export default function HomeScreen() {
                     visible={streakSaverVisible}
                     onClose={(action) => {
                         setStreakSaverVisible(false);
-                        if (action === 'dismiss') setDismissedPopup(true);
+                        // [FIX] Set dismissedPopup for both 'dismiss' and 'holiday' — signals
+                        // to the deferred nav guard that the popup flow is fully complete.
+                        if (action === 'dismiss' || action === 'holiday') setDismissedPopup(true);
 
                         // [FIX] Sequence Chain: If we just finished REGION (via decline or holiday), 
                         // and we know USER might be waiting, force a check/transition.
