@@ -1024,7 +1024,7 @@ export function useGameEngine({
         handleClear,
         isValidGuess: currentInput.length === numDigits,
         invalidShake, // Return counter
-        isRestored: attemptId !== null && gameState !== 'loading' && gameState !== 'playing', // Derived state for restoration
+        isRestored, // [FIX] Use state variable instead of derived value — prevents flipping to true on win/loss
         wasInitiallyComplete, // True only if game was loaded as completed (for ad timing)
         numDigits // Expose authoritative digit count
     };

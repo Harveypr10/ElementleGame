@@ -14,6 +14,11 @@ let activeProvider: AdProvider = 'none';
 let ageCategory: AgeCategory = 'child';
 let isInitialized = false;
 
+// No-op subscriber for web (ads never initialize)
+export function subscribeToAdInit(listener: () => void): () => void {
+    return () => { };
+}
+
 // Config stubs
 export const APPLOVIN_CONFIG = {
     sdkKey: '',

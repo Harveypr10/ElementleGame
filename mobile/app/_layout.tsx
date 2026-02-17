@@ -316,8 +316,30 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        if (!session && !isGuest && !inAuthGroup && !inGameFlow && !inPublicPages) {
-            if (!inRootIndex) {
+        if (!session && !isGuest && !inAuthGroup && !inPublicPages) {
+            if (inGameFlow) {
+                // [FIX] Expo-router auto-resolved a deep link URL to /game/MODE/DATE
+                // before auth was ready. Extract puzzle info from segments and store
+                // as deferred so it's available after login.
+                const segs = segments as string[];
+                const gameMode = segs[1]; // 'REGION' or 'USER'
+                const gameId = segs[2];   // puzzle date or ID
+                if (gameMode && gameId) {
+                    console.log(`[NavGuard] Unauthenticated on game route — storing deferred puzzle: ${gameMode}/${gameId}`);
+                    setDeferredPuzzle({ mode: gameMode, date: gameId });
+                }
+                router.replace('/(auth)/onboarding');
+                // Show toast telling user to sign in
+                setTimeout(() => {
+                    toast({
+                        title: 'Puzzle shared with you!',
+                        description: 'Click Login to either sign-up or sign-in. You will then be able to play the puzzle shared with you',
+                        variant: 'share',
+                        position: 'bottom',
+                        duration: 5000,
+                    });
+                }, 500);
+            } else if (!inRootIndex) {
                 console.log('[NavGuard] Unauthorized access -> Redirecting to onboarding');
                 router.replace('/(auth)/onboarding');
             }

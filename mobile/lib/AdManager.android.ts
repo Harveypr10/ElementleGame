@@ -14,6 +14,11 @@ export async function initializeAds(force: boolean = false): Promise<void> {
     console.log('[AdManager] Android - ads disabled (no native module)');
 }
 
+// No-op subscriber for Android (ads never initialize)
+export function subscribeToAdInit(listener: () => void): () => void {
+    return () => { };
+}
+
 export function getActiveProvider(): AdProvider {
     return 'none';
 }

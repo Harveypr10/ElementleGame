@@ -392,6 +392,9 @@ export default function HomeScreen() {
 
     // Streak Saver Popup State
     const [streakSaverVisible, setStreakSaverVisible] = useState(false);
+    // [FIX] Track when the popup check effect has completed at least once,
+    // so deferred navigation doesn't race ahead before the popup has a chance to show.
+    const popupCheckDoneRef = useRef(false);
     const [holidayModeVisible, setHolidayModeVisible] = useState(false);
     const [isRescueMode, setIsRescueMode] = useState(false);
 
@@ -509,7 +512,13 @@ export default function HomeScreen() {
 
             console.log('[Home PopupCheck] No popup to show');
         }
-    }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup, streakSaverVisible, popupMode, isInStreakSaverMode, holidayActive, streakSaverActive, holidaySaverActive]);
+
+        // [FIX] Mark popup check as complete so deferred navigation knows
+        // it's safe to proceed (popup had its chance to show).
+        if (isAppReady && !loading && user && !isStreakSaverLoading) {
+            popupCheckDoneRef.current = true;
+        }
+    }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup, streakSaverVisible, popupMode, isInStreakSaverMode, holidayActive, streakSaverActive, holidaySaverActive, isStreakSaverLoading]);
 
     // ============================================================
     // DEFERRED DEEP LINK NAVIGATION
@@ -533,6 +542,12 @@ export default function HomeScreen() {
 
         // Wait for StreakSaver status to be loaded (so popup check can run with valid data)
         if (isStreakSaverLoading) return;
+
+        // [FIX] Wait for the popup check effect to complete at least once.
+        // This prevents a race where both effects fire in the same render cycle
+        // after login — the deferred navigation would pass through before
+        // streakSaverVisible has been set to true by the popup check.
+        if (!popupCheckDoneRef.current) return;
 
         // Wait for any StreakSaver/Holiday popup to be dismissed
         if (streakSaverVisible) return;

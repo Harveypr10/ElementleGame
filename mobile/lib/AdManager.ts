@@ -23,15 +23,24 @@ const USE_APPLOVIN_FOR_ADULTS = false;
 
 export type AdProvider = 'admob' | 'applovin' | 'none';
 export type AgeCategory = 'child' | 'teen' | 'adult';
+type AdInitListener = () => void;
 
 // --- Singleton state -------------------------------------------------------
 
 let activeProvider: AdProvider = 'none';
 let ageCategory: AgeCategory = 'child';
 let isInitialized = false;
+const listeners: Set<AdInitListener> = new Set();
 
 const AD_PROVIDER_KEY = 'ad_manager_provider';
 const AGE_CATEGORY_KEY = 'ad_manager_age_category';
+
+// --- Subscription API (lets components re-render when init completes) ------
+
+export function subscribeToAdInit(listener: AdInitListener): () => void {
+    listeners.add(listener);
+    return () => { listeners.delete(listener); };
+}
 
 // --- Ad Unit Configs -------------------------------------------------------
 
@@ -167,10 +176,12 @@ export async function initializeAds(force: boolean = false): Promise<void> {
         ]);
 
         console.log('[AdManager] Initialization complete:', { provider: activeProvider, category });
+        listeners.forEach(fn => fn());
     } catch (error) {
         console.error('[AdManager] Initialization error:', error);
         activeProvider = 'none';
         isInitialized = true;
+        listeners.forEach(fn => fn());
     }
 }
 
@@ -191,6 +202,7 @@ export async function resetAdManager(): Promise<void> {
     ageCategory = 'child';
     isInitialized = false;
     await AsyncStorage.multiRemove([AD_PROVIDER_KEY, AGE_CATEGORY_KEY]);
+    listeners.forEach(fn => fn());
     console.log('[AdManager] Reset complete');
 }
 

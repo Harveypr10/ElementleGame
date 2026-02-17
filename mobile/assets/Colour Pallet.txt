@@ -1,0 +1,23 @@
+Blue: #7DAAE8 or rgb(125, 170, 232) or hsl(215, 70%, 70%)
+Yellow: #FFD429 or rgb(255, 212, 41) or hsl(48, 100%, 58%)
+Green: #A4DB57 or rgb(164, 219, 87) or hsl(85, 65%, 60%)
+Grey: #C4C9D4 or rgb(196, 201, 212) or hsl(220, 15%, 80%)
+
+Background Grey: #FAFAFA or rgb(250, 250, 250) or hsl(0, 0%, 98%)
+
+Dark Mode
+Background Blue: #0F1729 or rgb(15, 23, 41) or hsl(226, 13%, 11%)
+Box Blue: #344256 or rgb(52, 66, 86) or hsl(219, 29%, 27%)
+
+font: Nunito
+
+
+Delicious Creamsicle Party Color Palette - used for "local" game
+Colour	Hex	RGB
+Orange	#fdab58	(253,171,88)
+Pink	#d680ad	(214,128,173)
+Blue	#66becb	(102,190,203)
+Beige	#fff2cc	(255,242,204)
+Green	#93cd78	(147,205,120)
+
+Red	#6b1e1e

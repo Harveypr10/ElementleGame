@@ -31,10 +31,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
         setToasts(prev => [...prev, newToast]);
 
-        // Auto-remove after duration
+        // Auto-remove after duration + buffer for exit animation to complete.
+        // The BottomToastMessage exit animation starts at (duration - 400)ms
+        // and takes 300ms. Adding 500ms buffer ensures the animation finishes
+        // before React unmounts the component (fixes iPhone instant-disappear).
+        const removalBuffer = 500;
         setTimeout(() => {
             setToasts(prev => prev.filter(t => t.id !== id));
-        }, duration);
+        }, duration + removalBuffer);
     };
 
     const topToasts = toasts.filter(t => t.position !== 'bottom');

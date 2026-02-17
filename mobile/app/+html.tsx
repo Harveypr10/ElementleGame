@@ -20,6 +20,15 @@ export default function Root({ children }: PropsWithChildren) {
                 <meta name="description" content="Elementle - A daily historical date guessing game. Test your knowledge of history!" />
                 <title>Elementle</title>
 
+                {/* Open Graph / Link Preview Image */}
+                <meta property="og:title" content="Elementle" />
+                <meta property="og:description" content="A daily historical date guessing game. Test your knowledge of history!" />
+                <meta property="og:image" content="/hamster-icon-blue.png" />
+                <meta property="og:image:width" content="1024" />
+                <meta property="og:image:height" content="1024" />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:image" content="/hamster-icon-blue.png" />
+
                 <ScrollViewStyleReset />
 
                 {/* Magic Link & Recovery Link Redirect Script */}
