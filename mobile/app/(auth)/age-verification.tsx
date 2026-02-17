@@ -21,6 +21,7 @@ import {
     NativeScrollEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,9 +55,11 @@ const MONTHS = [
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
 
-// Slider dimensions
-const SLIDER_WIDTH = SCREEN_WIDTH * 0.85;
+// Slider dimensions — cap at 500px so it doesn't overflow on iPad
+const MAX_SLIDER_WIDTH = 500;
+const SLIDER_WIDTH = Math.min(SCREEN_WIDTH * 0.85, MAX_SLIDER_WIDTH);
 const ITEM_WIDTH = 70;
+const FADE_WIDTH = 40;
 
 interface WheelPickerProps {
     items: (string | number)[];
@@ -170,6 +173,22 @@ function WheelPicker({ items, selectedIndex, onIndexChange, label }: WheelPicker
                         );
                     })}
                 </ScrollView>
+
+                {/* Edge fade overlays — fade to blue background */}
+                <LinearGradient
+                    colors={['#7DAAE8', '#7DAAE800']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.fadeLeft}
+                    pointerEvents="none"
+                />
+                <LinearGradient
+                    colors={['#7DAAE800', '#7DAAE8']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.fadeRight}
+                    pointerEvents="none"
+                />
             </View>
         </View>
     );
@@ -408,6 +427,23 @@ const styles = StyleSheet.create({
         width: SLIDER_WIDTH,
         height: 50,
         justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    fadeLeft: {
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: FADE_WIDTH,
+        zIndex: 1,
+    },
+    fadeRight: {
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: FADE_WIDTH,
+        zIndex: 1,
     },
     centerIndicator: {
         position: 'absolute',

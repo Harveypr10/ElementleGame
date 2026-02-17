@@ -553,6 +553,27 @@ export default function HomeScreen() {
         // Wait for any StreakSaver/Holiday popup to be dismissed
         if (streakSaverVisible) return;
 
+        // [FIX] Wait for ALL queued streak saver offers to be handled.
+        // When the Region popup is dismissed, there's a 500ms gap before the
+        // User popup shows. Without this guard, deferred nav fires in that gap.
+        // Check if there are ANY remaining offers that the popup system would
+        // still want to show — if so, wait.
+        if (streakSaverActive && !dismissedPopup) {
+            const regionHasPendingOffer =
+                !isJustCompleted('REGION') &&
+                ((streakSaverStatus?.region?.offerStreakSaver && !holidayActive) ||
+                    (streakSaverStatus?.region?.offerHolidayRescue && !holidayActive && holidaySaverActive));
+            const userHasPendingOffer =
+                !isJustCompleted('USER') &&
+                ((streakSaverStatus?.user?.offerStreakSaver && !holidayActive) ||
+                    (streakSaverStatus?.user?.offerHolidayRescue && !holidayActive && holidaySaverActive));
+
+            if (regionHasPendingOffer || userHasPendingOffer) {
+                console.log(`[Home DeferredNav] Waiting — remaining streak saver offers: region=${regionHasPendingOffer}, user=${userHasPendingOffer}`);
+                return;
+            }
+        }
+
         // Prevent double navigation
         if (deferredNavigatedRef.current) return;
         deferredNavigatedRef.current = true;
@@ -586,7 +607,7 @@ export default function HomeScreen() {
             console.log(`[Home] Navigating to deferred deep link puzzle: /game/${puzzle.mode}/${puzzle.date}`);
             router.push(`/game/${puzzle.mode}/${puzzle.date}`);
         }, 300);
-    }, [deferredPuzzle, isAppReady, loading, isFocused, streakSaverVisible, isStreakSaverLoading, user, holidayActive]);
+    }, [deferredPuzzle, isAppReady, loading, isFocused, streakSaverVisible, isStreakSaverLoading, user, holidayActive, streakSaverStatus, dismissedPopup, isJustCompleted, streakSaverActive, holidaySaverActive]);
 
 
 

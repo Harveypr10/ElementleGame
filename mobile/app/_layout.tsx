@@ -95,6 +95,19 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // 1c. Puzzle Readiness State (checked concurrently during splash)
     const [userPuzzleReady, setUserPuzzleReady] = useState(false);
 
+    // [FIX] Dedup ref: tracks the last puzzle date we stored/toasted for,
+    // preventing double popups when BOTH expo-router URL resolution AND
+    // Linking.addEventListener fire for the same warm-start deep link.
+    const lastDeferredPuzzleDateRef = useRef<string | null>(null);
+
+    // [FIX] Router mount guard: tracks whether router is ready for navigation.
+    // Prevents "Attempted to navigate before mounting" crash on force-quit + deep link.
+    const routerMountedRef = useRef(false);
+    useEffect(() => {
+        // Router is ready once this effect runs (component is mounted)
+        routerMountedRef.current = true;
+    }, []);
+
     // Reset splash when session is lost (sign-out) so re-auth gets a fresh splash
     const prevSessionRef = useRef(session);
     useEffect(() => {
@@ -263,7 +276,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             segments.includes('password-reset') ||
             segments.includes('reset-password');
 
-        const inGameFlow = segments[0] === 'game' || segments[0] === 'game-result';
+        const inGameFlow = segments[0] === 'game' || segments[0] === 'game-result' || segments[0] === 'play';
         const inRootIndex = segments.length === 0 || segments[0] === 'index';
         const inPublicPages = segments.includes('privacy') || segments.includes('support') || segments.includes('terms');
         const inSetNewPassword = segments.includes('set-new-password');
@@ -274,6 +287,34 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         // It's checked when: (1) guest clicks Play, (2) new account creation
 
         // ============================================================
+        // SAFE NAVIGATION HELPER
+        // Wraps router.replace in try-catch to prevent crash when
+        // Root Layout hasn't mounted yet (force-quit + deep link).
+        // Falls back to a delayed retry if the first attempt fails.
+        // ============================================================
+        const safeReplace = (route: string) => {
+            try {
+                if (!routerMountedRef.current) {
+                    console.warn('[NavGuard] Router not mounted yet — deferring navigation to:', route);
+                    setTimeout(() => {
+                        try { router.replace(route as any); } catch (e) {
+                            console.error('[NavGuard] Deferred navigation also failed:', e);
+                        }
+                    }, 500);
+                    return;
+                }
+                router.replace(route as any);
+            } catch (e) {
+                console.warn('[NavGuard] Navigation failed (router not ready) — retrying:', route, e);
+                setTimeout(() => {
+                    try { router.replace(route as any); } catch (e2) {
+                        console.error('[NavGuard] Retry navigation failed:', e2);
+                    }
+                }, 500);
+            }
+        };
+
+        // ============================================================
         // STEP 0: Consume any pending puzzle deep link IMMEDIATELY
         // regardless of auth state or current route (including game routes
         // that expo-router may have auto-resolved from the deep link URL).
@@ -282,19 +323,78 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         if (pendingPuzzleDate) {
             const pending = consumePendingPuzzle();
             if (pending) {
-                console.log(`[NavGuard] Consuming pending puzzle deep link (auth state: session=${!!session}, guest=${isGuest}, segments=${segments}): ${pending.mode}/${pending.date}`);
-                setDeferredPuzzle(pending);
+                // [FIX] Dedup: skip if we already stored this exact puzzle
+                const isDuplicate = lastDeferredPuzzleDateRef.current === `${pending.mode}/${pending.date}`;
+                if (isDuplicate) {
+                    console.log(`[NavGuard] Skipping duplicate pending puzzle (already deferred): ${pending.mode}/${pending.date}`);
+                } else {
+                    console.log(`[NavGuard] Consuming pending puzzle deep link (auth state: session=${!!session}, guest=${isGuest}, segments=${segments}): ${pending.mode}/${pending.date}`);
+                    setDeferredPuzzle(pending);
+                    lastDeferredPuzzleDateRef.current = `${pending.mode}/${pending.date}`;
+                }
 
                 if (session && hasCompletedFirstLogin()) {
                     // Signed in: always route to home (even if expo-router put us on a game screen)
-                    router.replace('/(tabs)');
+                    safeReplace('/(tabs)');
                     return;
                 } else if (!session || isGuest) {
                     // Not signed in: redirect to onboarding (puzzle stored for after sign-in)
                     if (!inAuthGroup) {
-                        router.replace('/(auth)/onboarding');
+                        safeReplace('/(auth)/onboarding');
                     }
-                    // Show toast telling user to sign in
+                    // Show toast only if not a duplicate
+                    if (!isDuplicate) {
+                        setTimeout(() => {
+                            toast({
+                                title: 'Puzzle shared with you!',
+                                description: 'Click Login to either sign-up or sign-in. You will then be able to play the puzzle shared with you',
+                                variant: 'share',
+                                position: 'bottom',
+                                duration: 5000,
+                            });
+                        }, 500);
+                    }
+                    return;
+                }
+            }
+        }
+
+        // Guests should NOT access tabs/home
+        if (isGuest && inTabsGroup) {
+            console.log('[NavGuard] Guest tried to access tabs -> Redirecting to onboarding');
+            safeReplace('/(auth)/onboarding');
+            return;
+        }
+
+        if (!session && !isGuest && !inAuthGroup && !inPublicPages) {
+            // [FIX] Only intercept /play routes (deep links) — NOT /game routes.
+            // The /game/MODE/DATE route is used for guest play (onboarding → ad → game).
+            // Intercepting it here was breaking guest play by treating it as a deep link.
+            // Deep links use /play/DATE — they're handled by pendingPuzzleDate (STEP 0)
+            // AND this fallback for any that slip through.
+            const isDeepLinkRoute = segments[0] === 'play';
+
+            if (isDeepLinkRoute) {
+                // Expo-router auto-resolved a deep link URL to /play/DATE
+                const segs = segments as string[];
+                const gameId = segs[1];
+                const gameMode = 'REGION'; // mode is a query param, not available in segments
+
+                const puzzleKey = gameId ? `${gameMode}/${gameId}` : null;
+                const isDuplicateGame = puzzleKey ? lastDeferredPuzzleDateRef.current === puzzleKey : true;
+
+                if (puzzleKey && !isDuplicateGame) {
+                    console.log(`[NavGuard] Unauthenticated on play route — storing deferred puzzle: ${puzzleKey}`);
+                    setDeferredPuzzle({ mode: gameMode, date: gameId! });
+                    lastDeferredPuzzleDateRef.current = puzzleKey;
+                } else if (puzzleKey) {
+                    console.log(`[NavGuard] Skipping duplicate play route deferred puzzle: ${puzzleKey}`);
+                }
+
+                safeReplace('/(auth)/onboarding');
+
+                // Show toast only if this is the first encounter with this puzzle
+                if (puzzleKey && !isDuplicateGame) {
                     setTimeout(() => {
                         toast({
                             title: 'Puzzle shared with you!',
@@ -304,55 +404,38 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                             duration: 5000,
                         });
                     }, 500);
-                    return;
                 }
-            }
-        }
-
-        // Guests should NOT access tabs/home
-        if (isGuest && inTabsGroup) {
-            console.log('[NavGuard] Guest tried to access tabs -> Redirecting to onboarding');
-            router.replace('/(auth)/onboarding');
-            return;
-        }
-
-        if (!session && !isGuest && !inAuthGroup && !inPublicPages) {
-            if (inGameFlow) {
-                // [FIX] Expo-router auto-resolved a deep link URL to /game/MODE/DATE
-                // before auth was ready. Extract puzzle info from segments and store
-                // as deferred so it's available after login.
-                const segs = segments as string[];
-                const gameMode = segs[1]; // 'REGION' or 'USER'
-                const gameId = segs[2];   // puzzle date or ID
-                if (gameMode && gameId) {
-                    console.log(`[NavGuard] Unauthenticated on game route — storing deferred puzzle: ${gameMode}/${gameId}`);
-                    setDeferredPuzzle({ mode: gameMode, date: gameId });
-                }
-                router.replace('/(auth)/onboarding');
-                // Show toast telling user to sign in
-                setTimeout(() => {
-                    toast({
-                        title: 'Puzzle shared with you!',
-                        description: 'Click Login to either sign-up or sign-in. You will then be able to play the puzzle shared with you',
-                        variant: 'share',
-                        position: 'bottom',
-                        duration: 5000,
-                    });
-                }, 500);
-            } else if (!inRootIndex) {
+            } else if (!inRootIndex && !inGameFlow) {
+                // Redirect unknown routes to onboarding, but let /game routes through
+                // for guest play (onboarding → age verification → ad → game)
                 console.log('[NavGuard] Unauthorized access -> Redirecting to onboarding');
-                router.replace('/(auth)/onboarding');
+                safeReplace('/(auth)/onboarding');
             }
         } else if (session) {
             const completedFirstLogin = hasCompletedFirstLogin();
 
             if (!completedFirstLogin && !inAuthGroup) {
                 console.log('[NavGuard] User needs to complete profile setup');
-                router.replace('/(auth)/personalise');
+                safeReplace('/(auth)/personalise');
             } else if (completedFirstLogin) {
                 if (inAuthGroup && !inPersonaliseFlow && !inAgeVerification) {
                     console.log('[NavGuard] Redirecting authenticated user to app');
-                    router.replace('/(tabs)');
+                    safeReplace('/(tabs)');
+                } else if (inGameFlow && (segments[0] === 'play')) {
+                    // [FIX] Authenticated user landed on /play route (deep link).
+                    // Extract puzzle info and redirect to home where deferred
+                    // puzzle handling will navigate to the game after startup checks.
+                    const segs = segments as string[];
+                    const playDate = segs[1];
+                    if (playDate) {
+                        const puzzleKey = `REGION/${playDate}`;
+                        if (lastDeferredPuzzleDateRef.current !== puzzleKey) {
+                            console.log(`[NavGuard] Authenticated user on play route — storing deferred puzzle: ${puzzleKey}`);
+                            setDeferredPuzzle({ mode: 'REGION', date: playDate });
+                            lastDeferredPuzzleDateRef.current = puzzleKey;
+                        }
+                    }
+                    safeReplace('/(tabs)');
                 }
             }
         }

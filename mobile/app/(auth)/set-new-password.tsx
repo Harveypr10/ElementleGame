@@ -138,23 +138,24 @@ export default function SetNewPasswordScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 className="flex-1"
             >
-                <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 24 }} keyboardShouldPersistTaps="handled">
-                    {/* Header — centered title with absolute-positioned back button */}
-                    <StyledView className="py-4" style={{ position: 'relative', alignItems: 'center', justifyContent: 'center', minHeight: 48 }}>
-                        <StyledTouchableOpacity
-                            testID="password-back"
-                            onPress={() => {
-                                hapticsManager.light();
-                                router.back();
-                            }}
-                            style={{ position: 'absolute', left: 0, top: 16 }}
-                        >
-                            <ChevronLeft size={28} color={iconColor} />
-                        </StyledTouchableOpacity>
-                        <StyledText style={{ fontSize: 24, fontWeight: 'bold', color: textColor }} className="font-n-bold">
-                            {getTitle()}
-                        </StyledText>
-                    </StyledView>
+                {/* Header — outside ScrollView so back arrow stays at screen edge on iPad */}
+                <StyledView className="py-4 px-6" style={{ position: 'relative', alignItems: 'center', justifyContent: 'center', minHeight: 48 }}>
+                    <StyledTouchableOpacity
+                        testID="password-back"
+                        onPress={() => {
+                            hapticsManager.light();
+                            router.back();
+                        }}
+                        style={{ position: 'absolute', left: 16, top: 16 }}
+                    >
+                        <ChevronLeft size={28} color={iconColor} />
+                    </StyledTouchableOpacity>
+                    <StyledText style={{ fontSize: 24, fontWeight: 'bold', color: textColor }} className="font-n-bold">
+                        {getTitle()}
+                    </StyledText>
+                </StyledView>
+
+                <StyledScrollView className="flex-1" contentContainerStyle={{ paddingHorizontal: 24, maxWidth: 768, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
 
                     {success ? (
                         <StyledView className="flex-1 justify-center items-center py-20">

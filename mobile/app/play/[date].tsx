@@ -12,17 +12,16 @@ export default function PlayLandingPage() {
     const params = useLocalSearchParams();
     const mode = (params.mode as string) || 'REGION';
 
-    // NATIVE: Redirect immediately to the game
+    // NATIVE: Do NOT redirect to the game screen here!
+    // auth.tsx's deep link handler (checkNativeDeepLink / Linking.addEventListener)
+    // already extracts the puzzle date+mode and stores it as pendingPuzzleDate.
+    // NavigationGuard then handles routing:
+    //   - If user is logged in → deferred puzzle, navigate to home
+    //   - If not logged in → deferred puzzle, navigate to onboarding with toast
+    // Redirecting here would bypass auth checks and cause "Couldn't load the puzzle"
+    // errors because the game screen would try to fetch before user is authenticated.
     if (Platform.OS !== 'web') {
-        React.useEffect(() => {
-            const targetDate = date || 'today';
-            router.replace({
-                pathname: `/game/${mode}/${targetDate}`,
-                params: { skipIntro: 'true' },
-            });
-        }, []);
-
-        // Show nothing while redirecting
+        // Render nothing — NavigationGuard will redirect away from this route
         return null;
     }
 
