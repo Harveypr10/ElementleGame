@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { useAuth } from './auth';
@@ -220,7 +221,15 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             if (storedSounds !== null) setSoundsEnabled(storedSounds === 'true');
 
             const storedDarkMode = await AsyncStorage.getItem('opt_dark_mode');
-            if (storedDarkMode !== null) setDarkModeState(storedDarkMode === 'true');
+            if (storedDarkMode !== null) {
+                setDarkModeState(storedDarkMode === 'true');
+            } else {
+                // First launch: use system theme as smart default
+                const systemScheme = Appearance.getColorScheme();
+                const systemIsDark = systemScheme === 'dark';
+                setDarkModeState(systemIsDark);
+                await AsyncStorage.setItem('opt_dark_mode', String(systemIsDark));
+            }
 
             const storedClues = await AsyncStorage.getItem('opt_clues_enabled');
             if (storedClues !== null) setCluesEnabled(storedClues === 'true');

@@ -7,7 +7,6 @@ import {
     ScrollView,
     StyleSheet,
     ActivityIndicator,
-    useColorScheme,
     Platform,
     Alert,
     KeyboardAvoidingView,
@@ -20,6 +19,7 @@ import { PasswordInput } from '../../components/ui/PasswordInput';
 import { YearMonthPicker, useYearMonthPicker } from '../../components/ui/YearMonthPicker';
 import { validatePassword } from '../../lib/passwordValidation';
 import { useAuth } from '../../lib/auth';
+import { useOptions } from '../../lib/options';
 import { supabase, checkLinkedIdentity, signInWithLinkedIdentity } from '../../lib/supabase';
 import { signInWithGoogle, signInWithApple, isAppleSignInAvailable, configureGoogleSignIn } from '../../lib/socialAuth';
 import { saveAgeVerification, getAgeVerification, setAgeVerificationDirect } from '../../lib/ageVerification';
@@ -62,8 +62,7 @@ export default function LoginPage() {
     const initialStep = params.step as LoginStep;
     const subscribeFirst = params.subscribeFirst === '1';
 
-    const colorScheme = useColorScheme();
-    const isDarkMode = colorScheme === 'dark';
+    const { darkMode: isDarkMode } = useOptions();
     const { signInWithEmail, signUpWithEmail, markSigningIn } = useAuth();
 
     const [step, setStep] = useState<LoginStep>(initialStep || 'email');
@@ -588,7 +587,7 @@ export default function LoginPage() {
 
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { maxWidth: 768, alignSelf: 'center', width: '100%' }]}
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={[styles.card, { backgroundColor: cardBg }]}>

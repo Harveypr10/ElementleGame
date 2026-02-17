@@ -312,7 +312,7 @@ export default function PersonalisePage() {
 
             <ScrollView
                 style={styles.scrollView}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { maxWidth: 768, alignSelf: 'center', width: '100%' }]}
                 keyboardShouldPersistTaps="handled"
             >
                 <View style={[styles.card, { backgroundColor: cardBg }]}>

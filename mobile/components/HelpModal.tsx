@@ -83,7 +83,7 @@ export function HelpModal({ visible, onClose }: HelpModalProps) {
             <StyledView className="flex-1 justify-end bg-black/50">
                 <StyledView
                     className="rounded-t-3xl w-full flex-col"
-                    style={{ backgroundColor: surfaceColor, height: '89.5%' }}
+                    style={{ backgroundColor: surfaceColor, height: '89.5%', maxWidth: 768, alignSelf: 'center' }}
                 >
                     {/* Header */}
                     <StyledView

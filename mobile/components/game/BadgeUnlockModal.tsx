@@ -67,10 +67,22 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
 
     const [isClosing, setIsClosing] = useState(false);
     const [showModal, setShowModal] = useState(false);
+    // Track the badge we last opened so we don't re-open the same one
+    // when isClosing flips false before the parent sets visible=false.
+    const lastOpenedBadgeRef = useRef<string | null>(null);
 
     // Handle visibility changes - fade in
     useEffect(() => {
         if (visible && !isClosing && badge) {
+            // Build a fingerprint for this specific badge instance
+            const badgeKey = `${badge.name}-${badge.threshold}-${badge.category}`;
+            if (lastOpenedBadgeRef.current === badgeKey) {
+                // Already shown this exact badge — skip (parent hasn't
+                // flipped visible=false yet after handleClose)
+                return;
+            }
+            lastOpenedBadgeRef.current = badgeKey;
+
             // Opening: show modal and animate in
             setShowModal(true);
             loopCount.current = 0;
@@ -94,6 +106,12 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
             setTimeout(() => {
                 animationRef.current?.play();
             }, 300);
+        }
+
+        // When visible goes false, clear the fingerprint so the same
+        // badge can be shown again in a future session.
+        if (!visible) {
+            lastOpenedBadgeRef.current = null;
         }
     }, [visible, isClosing, badge]);
 

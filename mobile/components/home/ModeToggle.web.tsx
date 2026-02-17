@@ -4,8 +4,9 @@
  * Web-specific implementation with proper CSS font styling.
  */
 
-import { View, Text, TouchableOpacity, Animated, LayoutChangeEvent, useColorScheme, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, LayoutChangeEvent, StyleSheet } from 'react-native';
 import { useRef, useState, useEffect } from 'react';
+import { useOptions } from '../../lib/options';
 
 interface ModeToggleProps {
     mode: 'REGION' | 'USER';
@@ -19,8 +20,7 @@ interface ModeToggleProps {
 export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel, regionLabel = 'UK Edition' }: ModeToggleProps) {
     const [containerWidth, setContainerWidth] = useState(0);
     const [activeMode, setActiveMode] = useState(mode);
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { darkMode: isDark } = useOptions();
 
     // Theme colors
     const containerBg = isDark ? '#1e293b' : '#f1f5f9';

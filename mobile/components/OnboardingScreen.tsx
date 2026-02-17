@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { formatCanonicalDateWithOrdinal } from '../lib/dateFormat';
 import { ThemedView } from './ThemedView';
 import { ThemedText } from './ThemedText';
+import { useOptions } from '../lib/options';
 
 interface OnboardingScreenProps {
     eventTitle: string;
@@ -24,8 +25,7 @@ export function OnboardingScreen({
     onSubscribe,
     onDevReset,
 }: OnboardingScreenProps) {
-    const colorScheme = useColorScheme();
-    const isDarkMode = colorScheme === 'dark';
+    const { darkMode: isDarkMode } = useOptions();
     const router = useRouter();
 
     // Format date as "15th January 2026"

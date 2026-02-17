@@ -51,7 +51,7 @@ export function GoProButton({ onPress, scale = 1 }: GoProButtonProps) {
                     paddingVertical: 6 * scale,
                 }}
             >
-                <StyledText style={{ fontSize: 14 * scale, fontWeight: 'bold', color: 'white' }}>
+                <StyledText style={{ fontSize: 12 * scale, fontWeight: 'bold', color: 'white' }}>
                     Pro
                 </StyledText>
             </StyledTouchableOpacity>

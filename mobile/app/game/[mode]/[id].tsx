@@ -396,7 +396,7 @@ export default function GameScreen() {
                 </SafeAreaView>
 
                 {/* Secondary color strip - extends header color down so content cards overlap it */}
-                <View style={{ backgroundColor: brandColor, height: 30 }} />
+                <View style={{ backgroundColor: brandColor, height: 50 }} />
 
                 {/* Main Content Area: Handles Loading, Error, and Active Game */}
                 <View style={{ flex: 1, marginTop: -30, zIndex: 5 }}>

@@ -340,7 +340,7 @@ export default function StatsScreen() {
                             onPress={() => router.back()}
                             className="p-2 -ml-2"
                         >
-                            <ChevronLeft size={24} color="#FFFFFF" />
+                            <ChevronLeft size={28} color="#FFFFFF" />
                         </StyledTouchableOpacity>
                         <ThemedText baseSize={36} className="font-n-bold font-heading" style={{ color: '#FFFFFF' }}>
                             {mode === 'REGION' ? `${userRegion} Stats` : 'Personal Stats'}

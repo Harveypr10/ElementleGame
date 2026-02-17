@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, useColorScheme, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
@@ -16,6 +16,7 @@ import { useAuth } from '../../lib/auth';
 import { useSubscription } from '../../hooks/useSubscription';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
+import { useOptions } from '../../lib/options';
 
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
@@ -25,8 +26,7 @@ export default function SubscriptionFlow() {
     const params = useLocalSearchParams<{ newSignup?: string }>();
     const { user, isGuest } = useAuth();
     const { isPro, isLoading: isSubLoading } = useSubscription();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { darkMode: isDark } = useOptions();
     const { width: windowWidth } = useWindowDimensions();
     const isLargeScreen = windowWidth >= 768;
 

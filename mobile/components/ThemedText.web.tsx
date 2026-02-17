@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { Text, TextProps, StyleSheet, useColorScheme } from 'react-native';
+import { Text, TextProps, StyleSheet } from 'react-native';
+import { useOptions } from '../lib/options';
 
 // Text size presets (matching mobile)
 const TEXT_SIZES = {
@@ -37,8 +38,7 @@ export function ThemedText({
     children,
     ...props
 }: ThemedTextProps) {
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { darkMode: isDark } = useOptions();
 
     // Determine text color
     const defaultColor = isDark ? '#f1f5f9' : '#1e293b'; // slate-100 : slate-800

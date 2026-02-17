@@ -99,6 +99,7 @@ const GameModePage = React.memo(({
     // Responsive scaling for large screens - use actual screen width
     const { width: screenWidth } = useWindowDimensions();
     const scale = screenWidth >= 768 ? 1.25 : 1;
+    const cardHeightScale = screenWidth >= 768 ? 1.06 : 1; // 15% smaller buttons on iPad (1.25 * 0.85 ≈ 1.06)
 
     // Helper: Calculate Total Guesses
     const calculateTotalGuesses = (distribution: any, gamesWon: number, gamesPlayed: number) => {
@@ -158,7 +159,7 @@ const GameModePage = React.memo(({
             <View className="space-y-4">
                 {/* PERCENTILE TEXT (Dynamic & Above Play Button) */}
                 {percentileMessage && (
-                    <ThemedText className="text-slate-500 font-n-medium text-center mb-4" baseSize={16 * scale}>
+                    <ThemedText className="text-slate-500 font-n-medium text-center" baseSize={16 * scale} style={{ marginBottom: screenWidth >= 768 ? 8 : 16 }}>
                         {percentileMessage}
                     </ThemedText>
                 )}
@@ -192,7 +193,7 @@ const GameModePage = React.memo(({
                     }}
                     height={144}
                     iconStyle={{ width: 89, height: 89 }}
-                    scale={scale}
+                    scale={cardHeightScale}
                 >
                     {todayStatus === 'solved' && (
                         <View className="flex-row gap-2 mt-0 w-full" style={{ flexDirection: 'row' }}>
@@ -222,7 +223,7 @@ const GameModePage = React.memo(({
                     }}
                     height={120}
                     iconStyle={{ width: 78, height: 78 }}
-                    scale={scale}
+                    scale={cardHeightScale}
                 >
                     <View className="flex-row w-full" style={{ flexDirection: 'row' }}>
                         <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
@@ -244,7 +245,7 @@ const GameModePage = React.memo(({
                     }}
                     height={120}
                     iconStyle={{ width: 78, height: 78 }}
-                    scale={scale}
+                    scale={cardHeightScale}
                 >
                     <View className="flex-row gap-2 w-full" style={{ flexDirection: 'row' }}>
                         <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
@@ -859,7 +860,7 @@ export default function HomeScreen() {
 
     return (
         <AdBannerContext.Provider value={true}>
-            <ThemedView className="flex-1" style={{ paddingBottom: isPro ? 0 : adBannerHeight }}>
+            <ThemedView className="flex-1">
                 <SafeAreaView edges={['top']} className="z-50" style={{ backgroundColor: backgroundColor }}>
                     {/* Header - Fixed & Safe Area Adjusted */}
                     <StyledView
@@ -868,21 +869,21 @@ export default function HomeScreen() {
                     >
 
                         {/* Top Left Icon (Help) */}
-                        <StyledView style={{ position: 'absolute', left: 16, top: 8 }}>
+                        <StyledView style={{ position: 'absolute', left: 16, top: SCREEN_WIDTH >= 768 ? 0 : 11 }}>
                             <StyledTouchableOpacity onPress={() => setHelpVisible(true)}>
                                 <HelpCircle size={28} color={iconColor} />
                             </StyledTouchableOpacity>
                         </StyledView>
 
                         {/* Top Right: Settings Icon */}
-                        <StyledView style={{ position: 'absolute', right: 16, top: 8 }}>
+                        <StyledView style={{ position: 'absolute', right: 16, top: SCREEN_WIDTH >= 768 ? 0 : 11 }}>
                             <StyledTouchableOpacity onPress={() => router.push('/settings')}>
                                 <Settings size={28} color={iconColor} />
                             </StyledTouchableOpacity>
                         </StyledView>
 
-                        {/* Title - reduced top padding by 60% */}
-                        <ThemedText className="font-n-bold mb-3 font-heading" baseSize={SCREEN_WIDTH >= 768 ? 48 : 36} style={{ paddingTop: 16 }}>
+                        {/* Title - aligned with icons at top */}
+                        <ThemedText className="font-n-bold mb-3 font-heading" baseSize={SCREEN_WIDTH >= 768 ? 48 : 36} style={{ paddingTop: SCREEN_WIDTH >= 768 ? 0 : 11 }}>
                             Elementle
                         </ThemedText>
 
@@ -924,11 +925,11 @@ export default function HomeScreen() {
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={{ paddingBottom: 40 }}
                     >
-                        <StyledView className="flex-row justify-center w-full max-w-7xl self-center px-6 gap-8" style={{ marginTop: 8, flexDirection: 'row' }}>
+                        <StyledView className="flex-row justify-center w-full max-w-7xl self-center px-6 gap-8" style={{ marginTop: 4, flexDirection: 'row' }}>
                             {/* Left Column: Region Game (UK/World) */}
                             <StyledView className="flex-1 max-w-lg">
                                 {/* Mode Label */}
-                                <StyledView className="items-center" style={{ marginBottom: 10 }}>
+                                <StyledView className="items-center" style={{ marginBottom: 5 }}>
                                     <ThemedText className="font-n-bold" lightColor="#0f172a" darkColor="#ffffff" baseSize={25}>
                                         {userRegion} Edition
                                     </ThemedText>
@@ -957,7 +958,7 @@ export default function HomeScreen() {
                             {/* Right Column: User Game (Personal) */}
                             <StyledView className="flex-1 max-w-lg">
                                 {/* User Name Label */}
-                                <StyledView className="items-center" style={{ marginBottom: 10 }}>
+                                <StyledView className="items-center" style={{ marginBottom: 5 }}>
                                     <ThemedText className="font-n-bold" lightColor="#0f172a" darkColor="#ffffff" baseSize={25}>
                                         {firstName}
                                     </ThemedText>

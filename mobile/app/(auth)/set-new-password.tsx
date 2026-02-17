@@ -26,6 +26,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { validatePassword } from '../../lib/passwordValidation';
 import { hapticsManager } from '../../lib/hapticsManager';
+import { useThemeColor } from '../../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -56,6 +57,15 @@ export default function SetNewPasswordScreen() {
     // Refs for keyboard navigation
     const newPasswordRef = useRef<TextInput>(null);
     const confirmPasswordRef = useRef<TextInput>(null);
+
+    // Theme colors
+    const backgroundColor = useThemeColor({}, 'background');
+    const textColor = useThemeColor({}, 'text');
+    const surfaceColor = useThemeColor({}, 'surface');
+    const iconColor = useThemeColor({}, 'icon');
+    const secondaryTextColor = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
+    const inputBg = useThemeColor({ light: '#f1f5f9', dark: '#1e293b' }, 'surface');
+    const reqBg = useThemeColor({ light: '#f8fafc', dark: 'rgba(30,41,59,0.5)' }, 'surface');
 
     // Get screen title based on mode
     const getTitle = () => {
@@ -123,7 +133,7 @@ export default function SetNewPasswordScreen() {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
+        <SafeAreaView style={{ flex: 1, backgroundColor }}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 className="flex-1"
@@ -139,9 +149,9 @@ export default function SetNewPasswordScreen() {
                             }}
                             style={{ position: 'absolute', left: 0, top: 16 }}
                         >
-                            <ChevronLeft size={28} color="#1e293b" />
+                            <ChevronLeft size={28} color={iconColor} />
                         </StyledTouchableOpacity>
-                        <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white">
+                        <StyledText style={{ fontSize: 24, fontWeight: 'bold', color: textColor }} className="font-n-bold">
                             {getTitle()}
                         </StyledText>
                     </StyledView>
@@ -151,24 +161,24 @@ export default function SetNewPasswordScreen() {
                             <StyledView className="w-20 h-20 rounded-full bg-green-100 items-center justify-center mb-4">
                                 <Check size={40} color="#22c55e" />
                             </StyledView>
-                            <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white text-center mb-2">
+                            <StyledText style={{ fontSize: 24, fontWeight: 'bold', color: textColor, textAlign: 'center', marginBottom: 8 }} className="font-n-bold">
                                 Password Updated!
                             </StyledText>
-                            <StyledText className="text-slate-600 dark:text-slate-400 text-center">
+                            <StyledText style={{ color: secondaryTextColor, textAlign: 'center' }}>
                                 Your password has been updated successfully.
                             </StyledText>
                         </StyledView>
                     ) : (
                         <StyledView className="py-4">
                             {/* Description */}
-                            <StyledText className="text-slate-600 dark:text-slate-400 mb-6">
+                            <StyledText style={{ color: secondaryTextColor, marginBottom: 24 }}>
                                 {mode === 'create' && 'Create a password to enable email login alongside your social account.'}
                                 {mode === 'change' && 'Choose a new password for your account.'}
                             </StyledText>
 
                             {/* New Password */}
                             <StyledView className="mb-4">
-                                <StyledText className="text-slate-700 dark:text-slate-300 font-n-medium mb-2">
+                                <StyledText style={{ color: textColor, marginBottom: 8 }} className="font-n-medium">
                                     {mode === 'change' ? 'New Password' : 'Password'}
                                 </StyledText>
                                 <View style={{ position: 'relative' }}>
@@ -176,9 +186,9 @@ export default function SetNewPasswordScreen() {
                                     <StyledTextInput
                                         ref={!showNewPassword ? newPasswordRef : undefined}
                                         testID="new-password-input"
-                                        className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
+                                        className="font-n-medium"
                                         style={[
-                                            { paddingLeft: 16, paddingVertical: 16, paddingRight: 48 },
+                                            { backgroundColor: inputBg, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 12, color: textColor, paddingRight: 48 },
                                             showNewPassword && { position: 'absolute', width: 0, height: 0, opacity: 0 },
                                         ]}
                                         placeholder="Enter new password"
@@ -199,9 +209,9 @@ export default function SetNewPasswordScreen() {
                                     <StyledTextInput
                                         ref={showNewPassword ? newPasswordRef : undefined}
                                         testID="new-password-input-visible"
-                                        className="bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12"
+                                        className="font-n-medium"
                                         style={[
-                                            { paddingLeft: 16, paddingVertical: 16, paddingRight: 48 },
+                                            { backgroundColor: inputBg, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 12, color: textColor, paddingRight: 48 },
                                             !showNewPassword && { position: 'absolute', width: 0, height: 0, opacity: 0 },
                                         ]}
                                         placeholder="Enter new password"
@@ -232,8 +242,8 @@ export default function SetNewPasswordScreen() {
 
                             {/* Password Requirements */}
                             {newPassword.length > 0 && (
-                                <StyledView className="mb-4 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
-                                    <StyledText className="text-slate-700 dark:text-slate-300 font-n-medium mb-2 text-sm">
+                                <StyledView style={{ backgroundColor: reqBg, padding: 16, borderRadius: 12, marginBottom: 16 }}>
+                                    <StyledText style={{ color: textColor, fontSize: 14, marginBottom: 8 }} className="font-n-medium">
                                         Password Requirements
                                     </StyledText>
                                     <PasswordRequirement
@@ -257,7 +267,7 @@ export default function SetNewPasswordScreen() {
 
                             {/* Confirm Password */}
                             <StyledView className="mb-4">
-                                <StyledText className="text-slate-700 dark:text-slate-300 font-n-medium mb-2">
+                                <StyledText style={{ color: textColor, marginBottom: 8 }} className="font-n-medium">
                                     Confirm Password
                                 </StyledText>
                                 <View style={{ position: 'relative' }}>
@@ -265,14 +275,11 @@ export default function SetNewPasswordScreen() {
                                     <StyledTextInput
                                         ref={!showConfirmPassword ? confirmPasswordRef : undefined}
                                         testID="confirm-password-input"
-                                        className={`bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12 ${confirmPassword.length > 0 && !passwordsMatch
-                                            ? 'border-2 border-red-500'
-                                            : confirmPassword.length > 0 && passwordsMatch
-                                                ? 'border-2 border-green-500'
-                                                : ''
-                                            }`}
+                                        className="font-n-medium"
                                         style={[
-                                            { paddingLeft: 16, paddingVertical: 16, paddingRight: 48 },
+                                            { backgroundColor: inputBg, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 12, color: textColor, paddingRight: 48 },
+                                            confirmPassword.length > 0 && !passwordsMatch && { borderWidth: 2, borderColor: '#ef4444' },
+                                            confirmPassword.length > 0 && passwordsMatch && { borderWidth: 2, borderColor: '#22c55e' },
                                             showConfirmPassword && { position: 'absolute', width: 0, height: 0, opacity: 0 },
                                         ]}
                                         placeholder="Confirm new password"
@@ -292,14 +299,11 @@ export default function SetNewPasswordScreen() {
                                     <StyledTextInput
                                         ref={showConfirmPassword ? confirmPasswordRef : undefined}
                                         testID="confirm-password-input-visible"
-                                        className={`bg-slate-100 dark:bg-slate-800 px-4 py-4 rounded-xl text-slate-900 dark:text-white font-n-medium pr-12 ${confirmPassword.length > 0 && !passwordsMatch
-                                            ? 'border-2 border-red-500'
-                                            : confirmPassword.length > 0 && passwordsMatch
-                                                ? 'border-2 border-green-500'
-                                                : ''
-                                            }`}
+                                        className="font-n-medium"
                                         style={[
-                                            { paddingLeft: 16, paddingVertical: 16, paddingRight: 48 },
+                                            { backgroundColor: inputBg, paddingHorizontal: 16, paddingVertical: 16, borderRadius: 12, color: textColor, paddingRight: 48 },
+                                            confirmPassword.length > 0 && !passwordsMatch && { borderWidth: 2, borderColor: '#ef4444' },
+                                            confirmPassword.length > 0 && passwordsMatch && { borderWidth: 2, borderColor: '#22c55e' },
                                             !showConfirmPassword && { position: 'absolute', width: 0, height: 0, opacity: 0 },
                                         ]}
                                         placeholder="Confirm new password"

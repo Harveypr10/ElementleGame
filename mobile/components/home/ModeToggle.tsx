@@ -1,5 +1,5 @@
 
-import { View, Text, TouchableOpacity, Animated, LayoutChangeEvent, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, LayoutChangeEvent } from 'react-native';
 import { styled } from 'nativewind';
 import { useRef, useState, useEffect } from 'react';
 import { ThemedText } from '../ThemedText';

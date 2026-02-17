@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, ScrollView, useColorScheme } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { styled } from 'nativewind';
 import { Check, RefreshCw } from 'lucide-react-native';
 import { getOfferings, purchasePackage, restorePurchases, syncSubscriptionToDatabase } from '../lib/RevenueCat';
@@ -26,11 +26,9 @@ export default function Paywall({ onPurchaseSuccess, onPurchaseCancel, onLoginRe
     const [purchasing, setPurchasing] = useState(false);
     const [restoring, setRestoring] = useState(false);
     const [selectedPackage, setSelectedPackage] = useState<any>(null);
-    const { textScale } = useOptions();
+    const { textScale, darkMode: isDark } = useOptions();
     const queryClient = useQueryClient();
     const { user } = useAuth();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
 
     // Dark mode system colors
     const systemBackgroundColor = '#020617'; // slate-950

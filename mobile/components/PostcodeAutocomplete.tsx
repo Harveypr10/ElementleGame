@@ -8,7 +8,6 @@ import {
     StyleSheet,
     Text,
     TextInputProps,
-    useColorScheme,
     ScrollView,
 } from 'react-native';
 

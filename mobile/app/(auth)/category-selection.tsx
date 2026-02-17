@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, useColorScheme, useWindowDimensions, LayoutChangeEvent, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, useWindowDimensions, LayoutChangeEvent, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { useRouter } from 'expo-router';
@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { hapticsManager } from '../../lib/hapticsManager';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
+import { useOptions } from '../../lib/options';
 
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
@@ -43,8 +44,7 @@ export default function CategorySelectionScreen() {
     const router = useRouter();
 
     const { user } = useAuth();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { darkMode: isDark } = useOptions();
 
     // System colors matches stats.tsx
     const systemBackgroundColor = '#020617'; // slate-950

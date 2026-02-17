@@ -129,6 +129,7 @@ export default function AccountInfoPage() {
                         className="flex-1"
                         style={{ paddingHorizontal: 16, paddingVertical: 16 }}
                         keyboardShouldPersistTaps="handled"
+                        contentContainerStyle={{ maxWidth: 768, alignSelf: 'center', width: '100%' }}
                     >
                         {/* Profile Section */}
                         <StyledView

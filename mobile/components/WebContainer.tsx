@@ -9,14 +9,15 @@
  */
 
 import React from 'react';
-import { View, Platform, StyleSheet, useColorScheme, useWindowDimensions } from 'react-native';
+import { View, Platform, StyleSheet, useWindowDimensions } from 'react-native';
+import { useOptions } from '../lib/options';
 
 interface WebContainerProps {
     children: React.ReactNode;
 }
 
 export function WebContainer({ children }: WebContainerProps): React.ReactElement {
-    const colorScheme = useColorScheme();
+    const { darkMode: isDark } = useOptions();
     const { width: windowWidth } = useWindowDimensions();
 
     // On mobile, just pass through children without any wrapper
@@ -25,7 +26,6 @@ export function WebContainer({ children }: WebContainerProps): React.ReactElemen
     }
 
     // On web, wrap in a centered container
-    const isDark = colorScheme === 'dark';
 
     // On narrow screens (like mobile browser), fill the width
     // On wider screens, cap at iPad width (1024px) for the intended layout

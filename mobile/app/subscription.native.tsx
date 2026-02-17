@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, useColorScheme, useWindowDimensions } from 'react-native';
+import { View, Text, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
@@ -17,6 +17,7 @@ import { supabase } from '../lib/supabase';
 import Paywall from '../components/Paywall';
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
+import { useOptions } from '../lib/options';
 
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
@@ -50,8 +51,7 @@ export default function SubscriptionPage() {
     const { from } = useLocalSearchParams();
     const { isPro } = useSubscription();
     const { user } = useAuth();
-    const colorScheme = useColorScheme();
-    const isDark = colorScheme === 'dark';
+    const { darkMode: isDark } = useOptions();
     const { width: windowWidth } = useWindowDimensions();
     const isLargeScreen = windowWidth >= 768;
 
