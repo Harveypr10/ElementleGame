@@ -12,12 +12,14 @@ import {
     Keyboard,
     Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, HelpCircle, ChevronRight } from 'lucide-react-native';
 import { PostcodeAutocomplete } from '../../components/PostcodeAutocomplete';
 import { supabase } from '../../lib/supabase';
 import { useColorScheme } from 'nativewind';
 import { ThemedText } from '../../components/ThemedText';
+import { ThemedView } from '../../components/ThemedView';
 import { getAgeVerification } from '../../lib/ageVerification';
 
 interface Region {
@@ -291,224 +293,227 @@ export default function PersonalisePage() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-            <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={handleBack}
-                    style={styles.backButton}
-                    onPressIn={() => Keyboard.dismiss()}
-                >
-                    <ChevronLeft size={28} color={textColor} />
-                </TouchableOpacity>
-                <ThemedText style={[styles.headerTitle, { color: textColor }]} size="lg">
-                    Personalise your game
-                </ThemedText>
-                <View style={styles.headerSpacer} />
-            </View>
-
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={[styles.scrollContent, { maxWidth: 768, alignSelf: 'center', width: '100%' }]}
-                keyboardShouldPersistTaps="handled"
-            >
-                <View style={[styles.card, { backgroundColor: cardBg }]}>
-                    <ThemedText style={[styles.subtitle, { color: textColor }]} size="sm">
-                        Set up your profile to get personalised puzzles
-                    </ThemedText>
-
-                    <View style={styles.formContainer}>
-                        {/* Name Fields (2 column grid) */}
-                        <View style={styles.nameGrid}>
-                            <View style={styles.nameField}>
-                                <ThemedText style={[styles.label, { color: textColor }]} size="sm">First Name</ThemedText>
-                                <TextInput
-                                    ref={firstNameRef}
-                                    style={[styles.input, { color: textColor }]}
-                                    className="font-nunito"
-                                    placeholder="First name"
-                                    placeholderTextColor="#999"
-                                    value={firstName}
-                                    onChangeText={setFirstName}
-                                    autoCapitalize="words"
-                                    returnKeyType="next"
-                                    onSubmitEditing={() => lastNameRef.current?.focus()}
-                                    blurOnSubmit={false}
-                                />
-                            </View>
-
-                            <View style={styles.nameField}>
-                                <ThemedText style={[styles.label, { color: textColor }]} size="sm">Last Name</ThemedText>
-                                <TextInput
-                                    ref={lastNameRef}
-                                    style={[styles.input, { color: textColor }]}
-                                    className="font-nunito"
-                                    placeholder="Last name"
-                                    placeholderTextColor="#999"
-                                    value={lastName}
-                                    onChangeText={setLastName}
-                                    autoCapitalize="words"
-                                    returnKeyType="done"
-                                    onSubmitEditing={() => Keyboard.dismiss()}
-                                />
-                            </View>
-                        </View>
-
-                        {/* Region Field */}
-                        <View style={styles.fieldContainer}>
-                            <View style={styles.labelRow}>
-                                <ThemedText style={[styles.label, { color: textColor }]} size="sm">Region</ThemedText>
-                                <TouchableOpacity
-                                    onPress={() =>
-                                        Alert.alert(
-                                            'Region',
-                                            'Puzzle questions are based on your geographical region'
-                                        )
-                                    }
-                                >
-                                    <HelpCircle size={16} color="#999" />
-                                </TouchableOpacity>
-                            </View>
-
-                            {loadingRegions ? (
-                                <ActivityIndicator />
-                            ) : (
-                                <TouchableOpacity
-                                    style={[styles.regionSelector, { borderColor: isDarkMode ? '#444' : '#d1d5db' }]}
-                                    onPress={() => setRegionModalVisible(true)}
-                                    onPressIn={() => Keyboard.dismiss()}
-                                >
-                                    <ThemedText style={[styles.regionSelectorText, { color: textColor }]} size="base">
-                                        {regions.find(r => r.code === region)?.name || 'Select Region'}
-                                    </ThemedText>
-                                    <ChevronRight size={20} color="#999" />
-                                </TouchableOpacity>
-                            )}
-
-                            <ThemedText style={[styles.helperText, { color: textColor }]} size="xs">
-                                This determines which region version of the game you play
-                            </ThemedText>
-                        </View>
-
-                        {/* Postcode Field */}
-                        <View style={[styles.fieldContainer, { zIndex: 100, position: 'relative' }]}>
-                            <View style={styles.labelRow}>
-                                <ThemedText style={[styles.label, { color: textColor }]} size="sm">Postcode</ThemedText>
-                                <TouchableOpacity
-                                    onPress={() =>
-                                        Alert.alert(
-                                            'Postcode',
-                                            'Your postcode helps us provide local puzzles tailored to your area'
-                                        )
-                                    }
-                                >
-                                    <HelpCircle size={16} color="#999" />
-                                </TouchableOpacity>
-                            </View>
-
-                            <PostcodeAutocomplete
-                                value={postcode}
-                                onChange={setPostcode}
-                                placeholder="Enter postcode"
-                                required={false}
-                            />
-                        </View>
-
-                        {/* Ads Consent Checkbox - Only show for 18+ users */}
-                        {isAdult && (
-                            <TouchableOpacity
-                                style={styles.checkboxRow}
-                                onPress={() => setAdsConsent(!adsConsent)}
-                            >
-                                <View style={[styles.checkbox, adsConsent && styles.checkboxChecked]}>
-                                    {adsConsent && <ThemedText style={styles.checkmark}>✓</ThemedText>}
-                                </View>
-                                <ThemedText style={[styles.checkboxLabel, { color: textColor }]} size="sm">
-                                    I agree to receive tailored ads and promotional content (optional)
-                                </ThemedText>
-                            </TouchableOpacity>
-                        )}
-
-                        {/* Generate Questions Button */}
-                        <TouchableOpacity
-                            style={[
-                                styles.primaryButton,
-                                !firstName.trim() && styles.disabledButton,
-                            ]}
-                            onPress={handleGenerateQuestions}
-                            onPressIn={() => Keyboard.dismiss()}
-                            disabled={!firstName.trim() || loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color="#fff" />
-                            ) : (
-                                <ThemedText style={styles.primaryButtonText} size="lg">Generate Questions</ThemedText>
-                            )}
-                        </TouchableOpacity>
-                    </View>
+        <ThemedView style={styles.container}>
+            <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
+                <View style={styles.header}>
+                    <TouchableOpacity
+                        onPress={handleBack}
+                        style={styles.backButton}
+                        onPressIn={() => Keyboard.dismiss()}
+                    >
+                        <ChevronLeft size={28} color={textColor} />
+                    </TouchableOpacity>
+                    <ThemedText size="2xl" className="font-n-bold">Personalise your game</ThemedText>
+                    <View style={styles.headerSpacer} />
                 </View>
+            </SafeAreaView>
 
-                <TouchableOpacity
-                    style={styles.returnLink}
-                    onPress={() => router.push('/(auth)/login')}
-                    onPressIn={() => Keyboard.dismiss()}
-                >
-                    <ThemedText style={styles.linkText} size="sm">Return to log in</ThemedText>
-                </TouchableOpacity>
-            </ScrollView>
-
-            {/* Region Selection Modal */}
-            <Modal
-                visible={regionModalVisible}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setRegionModalVisible(false)}
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
             >
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={() => setRegionModalVisible(false)}
+
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={[styles.scrollContent, { maxWidth: 768, alignSelf: 'center', width: '100%' }]}
+                    keyboardShouldPersistTaps="handled"
                 >
-                    <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-                        <View style={styles.modalHeader}>
-                            <ThemedText style={[styles.modalTitle, { color: textColor }]} size="xl">Select Region</ThemedText>
-                            <TouchableOpacity onPress={() => setRegionModalVisible(false)}>
-                                <ThemedText style={styles.modalClose}>✕</ThemedText>
+                    <View style={[styles.card, { backgroundColor: cardBg }]}>
+                        <ThemedText style={[styles.subtitle, { color: textColor }]} size="sm">
+                            Set up your profile to get personalised puzzles
+                        </ThemedText>
+
+                        <View style={styles.formContainer}>
+                            {/* Name Fields (2 column grid) */}
+                            <View style={styles.nameGrid}>
+                                <View style={styles.nameField}>
+                                    <ThemedText style={[styles.label, { color: textColor }]} size="sm">First Name</ThemedText>
+                                    <TextInput
+                                        ref={firstNameRef}
+                                        style={[styles.input, { color: textColor }]}
+                                        className="font-nunito"
+                                        placeholder="First name"
+                                        placeholderTextColor="#999"
+                                        value={firstName}
+                                        onChangeText={setFirstName}
+                                        autoCapitalize="words"
+                                        returnKeyType="next"
+                                        onSubmitEditing={() => lastNameRef.current?.focus()}
+                                        blurOnSubmit={false}
+                                    />
+                                </View>
+
+                                <View style={styles.nameField}>
+                                    <ThemedText style={[styles.label, { color: textColor }]} size="sm">Last Name</ThemedText>
+                                    <TextInput
+                                        ref={lastNameRef}
+                                        style={[styles.input, { color: textColor }]}
+                                        className="font-nunito"
+                                        placeholder="Last name"
+                                        placeholderTextColor="#999"
+                                        value={lastName}
+                                        onChangeText={setLastName}
+                                        autoCapitalize="words"
+                                        returnKeyType="done"
+                                        onSubmitEditing={() => Keyboard.dismiss()}
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Region Field */}
+                            <View style={styles.fieldContainer}>
+                                <View style={styles.labelRow}>
+                                    <ThemedText style={[styles.label, { color: textColor }]} size="sm">Region</ThemedText>
+                                    <TouchableOpacity
+                                        onPress={() =>
+                                            Alert.alert(
+                                                'Region',
+                                                'Puzzle questions are based on your geographical region'
+                                            )
+                                        }
+                                    >
+                                        <HelpCircle size={16} color="#999" />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {loadingRegions ? (
+                                    <ActivityIndicator />
+                                ) : (
+                                    <TouchableOpacity
+                                        style={[styles.regionSelector, { borderColor: isDarkMode ? '#444' : '#d1d5db' }]}
+                                        onPress={() => setRegionModalVisible(true)}
+                                        onPressIn={() => Keyboard.dismiss()}
+                                    >
+                                        <ThemedText style={[styles.regionSelectorText, { color: textColor }]} size="base">
+                                            {regions.find(r => r.code === region)?.name || 'Select Region'}
+                                        </ThemedText>
+                                        <ChevronRight size={20} color="#999" />
+                                    </TouchableOpacity>
+                                )}
+
+                                <ThemedText style={[styles.helperText, { color: textColor }]} size="xs">
+                                    This determines which region version of the game you play
+                                </ThemedText>
+                            </View>
+
+                            {/* Postcode Field */}
+                            <View style={[styles.fieldContainer, { zIndex: 100, position: 'relative' }]}>
+                                <View style={styles.labelRow}>
+                                    <ThemedText style={[styles.label, { color: textColor }]} size="sm">Postcode</ThemedText>
+                                    <TouchableOpacity
+                                        onPress={() =>
+                                            Alert.alert(
+                                                'Postcode',
+                                                'Your postcode helps us provide local puzzles tailored to your area'
+                                            )
+                                        }
+                                    >
+                                        <HelpCircle size={16} color="#999" />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <PostcodeAutocomplete
+                                    value={postcode}
+                                    onChange={setPostcode}
+                                    placeholder="Enter postcode"
+                                    required={false}
+                                />
+                            </View>
+
+                            {/* Ads Consent Checkbox - Only show for 18+ users */}
+                            {isAdult && (
+                                <TouchableOpacity
+                                    style={styles.checkboxRow}
+                                    onPress={() => setAdsConsent(!adsConsent)}
+                                >
+                                    <View style={[styles.checkbox, adsConsent && styles.checkboxChecked]}>
+                                        {adsConsent && <ThemedText style={styles.checkmark}>✓</ThemedText>}
+                                    </View>
+                                    <ThemedText style={[styles.checkboxLabel, { color: textColor }]} size="sm">
+                                        I agree to receive tailored ads and promotional content (optional)
+                                    </ThemedText>
+                                </TouchableOpacity>
+                            )}
+
+                            {/* Generate Questions Button */}
+                            <TouchableOpacity
+                                style={[
+                                    styles.primaryButton,
+                                    !firstName.trim() && styles.disabledButton,
+                                ]}
+                                onPress={handleGenerateQuestions}
+                                onPressIn={() => Keyboard.dismiss()}
+                                disabled={!firstName.trim() || loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <ThemedText style={styles.primaryButtonText} size="lg">Generate Questions</ThemedText>
+                                )}
                             </TouchableOpacity>
                         </View>
-                        <ScrollView style={styles.modalList}>
-                            {regions.map((r) => (
-                                <TouchableOpacity
-                                    key={r.code}
-                                    style={[
-                                        styles.modalOption,
-                                        region === r.code && styles.modalOptionSelected
-                                    ]}
-                                    onPress={() => {
-                                        setRegion(r.code);
-                                        setRegionModalVisible(false);
-                                    }}
-                                >
-                                    <ThemedText style={[
-                                        styles.modalOptionText,
-                                        { color: textColor },
-                                        region === r.code && styles.modalOptionTextSelected
-                                    ]} size="base">
-                                        {r.name}
-                                    </ThemedText>
-                                    {region === r.code && (
-                                        <ThemedText style={styles.modalOptionCheck}>✓</ThemedText>
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
                     </View>
-                </TouchableOpacity>
-            </Modal>
-        </KeyboardAvoidingView>
+
+                    <TouchableOpacity
+                        style={styles.returnLink}
+                        onPress={() => router.push('/(auth)/login')}
+                        onPressIn={() => Keyboard.dismiss()}
+                    >
+                        <ThemedText style={styles.linkText} size="sm">Return to log in</ThemedText>
+                    </TouchableOpacity>
+                </ScrollView>
+
+                {/* Region Selection Modal */}
+                <Modal
+                    visible={regionModalVisible}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setRegionModalVisible(false)}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={() => setRegionModalVisible(false)}
+                    >
+                        <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
+                            <View style={styles.modalHeader}>
+                                <ThemedText style={[styles.modalTitle, { color: textColor }]} size="xl">Select Region</ThemedText>
+                                <TouchableOpacity onPress={() => setRegionModalVisible(false)}>
+                                    <ThemedText style={styles.modalClose}>✕</ThemedText>
+                                </TouchableOpacity>
+                            </View>
+                            <ScrollView style={styles.modalList}>
+                                {regions.map((r) => (
+                                    <TouchableOpacity
+                                        key={r.code}
+                                        style={[
+                                            styles.modalOption,
+                                            region === r.code && styles.modalOptionSelected
+                                        ]}
+                                        onPress={() => {
+                                            setRegion(r.code);
+                                            setRegionModalVisible(false);
+                                        }}
+                                    >
+                                        <ThemedText style={[
+                                            styles.modalOptionText,
+                                            { color: textColor },
+                                            region === r.code && styles.modalOptionTextSelected
+                                        ]} size="base">
+                                            {r.name}
+                                        </ThemedText>
+                                        {region === r.code && (
+                                            <ThemedText style={styles.modalOptionCheck}>✓</ThemedText>
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
+            </KeyboardAvoidingView>
+        </ThemedView>
     );
 }
 
@@ -522,17 +527,15 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        paddingTop: Platform.OS === 'ios' ? 60 : 12,
     },
     backButton: {
-        padding: 4,
-    },
-    headerTitle: {
-        fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     headerSpacer: {
-        width: 32,
+        width: 40,
     },
     scrollView: {
         flex: 1,

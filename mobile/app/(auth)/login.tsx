@@ -12,6 +12,7 @@ import {
     KeyboardAvoidingView,
     Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Mail } from 'lucide-react-native';
 import { GoogleLogo } from '../../components/icons/GoogleLogo';
@@ -20,6 +21,8 @@ import { YearMonthPicker, useYearMonthPicker } from '../../components/ui/YearMon
 import { validatePassword } from '../../lib/passwordValidation';
 import { useAuth } from '../../lib/auth';
 import { useOptions } from '../../lib/options';
+import { ThemedText } from '../../components/ThemedText';
+import { ThemedView } from '../../components/ThemedView';
 import { supabase, checkLinkedIdentity, signInWithLinkedIdentity } from '../../lib/supabase';
 import { signInWithGoogle, signInWithApple, isAppleSignInAvailable, configureGoogleSignIn } from '../../lib/socialAuth';
 import { saveAgeVerification, getAgeVerification, setAgeVerificationDirect } from '../../lib/ageVerification';
@@ -568,404 +571,409 @@ export default function LoginPage() {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={[styles.container, { backgroundColor }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-            <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={handleBack}
-                    style={styles.backButton}
-                    onPressIn={() => Keyboard.dismiss()}
-                >
-                    <ChevronLeft size={28} color={textColor} />
-                </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: textColor }]}>Log in</Text>
-                <View style={styles.headerSpacer} />
-            </View>
+        <ThemedView style={styles.container}>
+            <SafeAreaView edges={['top']} style={{ backgroundColor: 'transparent' }}>
+                <View style={styles.header}>
+                    <TouchableOpacity
+                        onPress={handleBack}
+                        style={styles.backButton}
+                        onPressIn={() => Keyboard.dismiss()}
+                    >
+                        <ChevronLeft size={28} color={textColor} />
+                    </TouchableOpacity>
+                    <ThemedText size="2xl" className="font-n-bold">Log in</ThemedText>
+                    <View style={styles.headerSpacer} />
+                </View>
+            </SafeAreaView>
 
-            <ScrollView
-                style={styles.scrollView}
-                contentContainerStyle={[styles.scrollContent, { maxWidth: 768, alignSelf: 'center', width: '100%' }]}
-                keyboardShouldPersistTaps="handled"
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
             >
-                <View style={[styles.card, { backgroundColor: cardBg }]}>
-                    {/* Step 1: Email Entry */}
-                    {step === 'email' && (
-                        <View style={styles.stepContainer}>
-                            <TextInput
-                                ref={emailRef}
-                                style={[styles.input, { color: textColor }]}
-                                className="font-nunito"
-                                placeholder="Email"
-                                placeholderTextColor="#999"
-                                value={email}
-                                onChangeText={setEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                                autoComplete="email"
-                                textContentType="emailAddress"
-                                returnKeyType="go"
-                                onSubmitEditing={handleEmailContinue}
-                                blurOnSubmit={false}
-                            />
 
-                            <TouchableOpacity
-                                style={[
-                                    styles.primaryButton,
-                                    !isValidEmail(email) && styles.disabledButton
-                                ]}
-                                onPress={handleEmailContinue}
-                                onPressIn={() => Keyboard.dismiss()}
-                                disabled={!isValidEmail(email) || loading}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.primaryButtonText}>Continue</Text>
-                                )}
-                            </TouchableOpacity>
+                <ScrollView
+                    style={styles.scrollView}
+                    contentContainerStyle={[styles.scrollContent, { maxWidth: 768, alignSelf: 'center', width: '100%' }]}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={[styles.card, { backgroundColor: cardBg }]}>
+                        {/* Step 1: Email Entry */}
+                        {step === 'email' && (
+                            <View style={styles.stepContainer}>
+                                <TextInput
+                                    ref={emailRef}
+                                    style={[styles.input, { color: textColor }]}
+                                    className="font-nunito"
+                                    placeholder="Email"
+                                    placeholderTextColor="#999"
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                    autoComplete="username"
+                                    textContentType="username"
+                                    returnKeyType="go"
+                                    onSubmitEditing={handleEmailContinue}
+                                    blurOnSubmit={false}
+                                />
 
-                            <View style={styles.divider}>
-                                <View style={styles.dividerLine} />
-                                <Text style={[styles.dividerText, { color: textColor }]}>or</Text>
-                                <View style={styles.dividerLine} />
-                            </View>
-
-                            <TouchableOpacity
-                                style={[styles.socialButton, styles.googleButton]}
-                                onPress={handleGoogleSignIn}
-                                onPressIn={() => Keyboard.dismiss()}
-                                disabled={loading}
-                            >
-                                <View style={styles.socialButtonContent}>
-                                    <GoogleLogo size={20} />
-                                    <Text style={styles.socialButtonText}>Continue with Google</Text>
-                                </View>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.socialButton, styles.appleButton, !appleAvailable && styles.disabledButton]}
-                                onPress={handleAppleSignIn}
-                                onPressIn={() => Keyboard.dismiss()}
-                                disabled={!appleAvailable || loading}
-                            >
-                                <View style={styles.socialButtonContent}>
-                                    <Text style={styles.appleIcon}></Text>
-                                    <Text style={[styles.socialButtonText, { color: '#fff' }, !appleAvailable && { color: '#999' }]}>
-                                        {appleAvailable ? 'Continue with Apple' : 'Apple (iOS only)'}
-                                    </Text>
-                                </View>
-                            </TouchableOpacity>
-
-                            {/* Helper text when user cancels social auth */}
-                            {socialAuthHelperText && (
-                                <Text style={styles.socialAuthHelperText}>
-                                    {socialAuthHelperText}
-                                </Text>
-                            )}
-
-                            <Text style={[styles.termsText, { color: textColor }]}>
-                                By continuing, you agree to our{' '}
-                                <Text style={styles.link} onPress={() => router.push('/terms')}>Terms</Text> and{' '}
-                                <Text style={styles.link} onPress={() => router.push('/privacy')}>Privacy Policy</Text>
-                            </Text>
-                        </View>
-                    )}
-
-                    {/* Step 2a: Password Login */}
-                    {step === 'password' && (
-                        <View style={styles.stepContainer}>
-                            <Text style={[styles.stepTitle, { color: textColor }]}>Welcome back</Text>
-
-                            <View style={styles.emailDisplay}>
-                                <Text style={[styles.emailText, { color: textColor }]}>{email}</Text>
-                                <TouchableOpacity onPress={() => setStep('email')}>
-                                    <Text style={styles.editButton}>Edit</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <PasswordInput
-                                ref={passwordRef}
-                                value={password}
-                                onChangeText={setPassword}
-                                placeholder="Password"
-                                textContentType="password"
-                                autoComplete="password"
-                                returnKeyType="go"
-                                onSubmitEditing={handlePasswordLogin}
-                            />
-
-                            <TouchableOpacity
-                                style={styles.forgotPasswordButton}
-                                onPress={() => {
-                                    Alert.alert(
-                                        'Trouble signing in?',
-                                        'We will send a secure login link to your email. Click it to sign in instantly. You can then set a new password in the Account section of the Settings menu.',
-                                        [
-                                            { text: 'Cancel', style: 'cancel' },
-                                            {
-                                                text: 'Continue',
-                                                onPress: async () => {
-                                                    try {
-                                                        const { error } = await supabase.auth.signInWithOtp({
-                                                            email,
-                                                            options: {
-                                                                emailRedirectTo: 'elementle://auth/callback',
-                                                            },
-                                                        });
-                                                        if (error) throw error;
-                                                        Alert.alert('Email Sent', 'Check your inbox for a secure login link. It expires in 5 minutes.');
-                                                    } catch (err: any) {
-                                                        Alert.alert('Error', err.message || 'Failed to send login link.');
-                                                    }
-                                                },
-                                            },
-                                        ]
-                                    );
-                                }}
-                            >
-                                <Text style={styles.secondaryButtonText}>Trouble signing in?</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.primaryButton, (!password || loading) && styles.disabledButton]}
-                                onPress={handlePasswordLogin}
-                                onPressIn={() => Keyboard.dismiss()}
-                                disabled={!password || loading}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.primaryButtonText}>Log in</Text>
-                                )}
-                            </TouchableOpacity>
-
-                            {/* Magic Link Option - only if enabled for this user */}
-                            {userAuthInfo?.magicLinkEnabled && (
                                 <TouchableOpacity
-                                    style={[styles.socialButton, styles.magicLinkButton, (sendingMagicLink || magicLinkCountdown > 0) && styles.disabledButton]}
-                                    onPress={handleSendMagicLink}
-                                    disabled={sendingMagicLink || magicLinkCountdown > 0}
+                                    style={[
+                                        styles.primaryButton,
+                                        !isValidEmail(email) && styles.disabledButton
+                                    ]}
+                                    onPress={handleEmailContinue}
+                                    onPressIn={() => Keyboard.dismiss()}
+                                    disabled={!isValidEmail(email) || loading}
                                 >
-                                    {sendingMagicLink ? (
-                                        <ActivityIndicator color="#7DAAE8" />
+                                    {loading ? (
+                                        <ActivityIndicator color="#fff" />
                                     ) : (
-                                        <View style={styles.socialButtonContent}>
-                                            <Mail size={20} color="#555" />
-                                            <Text style={[styles.socialButtonText, { color: '#333' }]}>
-                                                {magicLinkCountdown > 0
-                                                    ? `Resend in ${magicLinkCountdown}s`
-                                                    : magicLinkSent
-                                                        ? 'Resend sign in link'
-                                                        : 'Email me a one-time sign in link'}
-                                            </Text>
-                                        </View>
+                                        <Text style={styles.primaryButtonText}>Continue</Text>
                                     )}
                                 </TouchableOpacity>
-                            )}
 
-                            {/* Google OAuth Option - only if linked */}
-                            {userAuthInfo?.googleLinked && (
+                                <View style={styles.divider}>
+                                    <View style={styles.dividerLine} />
+                                    <Text style={[styles.dividerText, { color: textColor }]}>or</Text>
+                                    <View style={styles.dividerLine} />
+                                </View>
+
                                 <TouchableOpacity
                                     style={[styles.socialButton, styles.googleButton]}
                                     onPress={handleGoogleSignIn}
+                                    onPressIn={() => Keyboard.dismiss()}
+                                    disabled={loading}
                                 >
                                     <View style={styles.socialButtonContent}>
                                         <GoogleLogo size={20} />
                                         <Text style={styles.socialButtonText}>Continue with Google</Text>
                                     </View>
                                 </TouchableOpacity>
-                            )}
 
-                            {/* Apple OAuth Option - only if linked */}
-                            {userAuthInfo?.appleLinked && (
                                 <TouchableOpacity
-                                    style={[styles.socialButton, styles.appleButton]}
+                                    style={[styles.socialButton, styles.appleButton, !appleAvailable && styles.disabledButton]}
                                     onPress={handleAppleSignIn}
+                                    onPressIn={() => Keyboard.dismiss()}
+                                    disabled={!appleAvailable || loading}
                                 >
                                     <View style={styles.socialButtonContent}>
                                         <Text style={styles.appleIcon}></Text>
-                                        <Text style={[styles.socialButtonText, { color: '#fff' }]}>Continue with Apple</Text>
+                                        <Text style={[styles.socialButtonText, { color: '#fff' }, !appleAvailable && { color: '#999' }]}>
+                                            {appleAvailable ? 'Continue with Apple' : 'Apple (iOS only)'}
+                                        </Text>
                                     </View>
                                 </TouchableOpacity>
-                            )}
 
-                            {/* Magic Link Success Message */}
-                            {magicLinkSent && (
-                                <View style={styles.successMessage}>
-                                    <Text style={styles.successMessageText}>
-                                        Check your inbox for a secure login link. It expires in 5 minutes.
+                                {/* Helper text when user cancels social auth */}
+                                {socialAuthHelperText && (
+                                    <Text style={styles.socialAuthHelperText}>
+                                        {socialAuthHelperText}
                                     </Text>
-                                </View>
-                            )}
-                        </View>
-                    )}
+                                )}
 
-                    {/* Step 2b: Create Account */}
-                    {step === 'create-account' && (
-                        <View style={styles.stepContainer}>
-                            <Text style={[styles.stepTitle, { color: textColor }]}>Create account</Text>
-
-                            <View style={styles.emailDisplay}>
-                                <Text style={[styles.emailText, { color: textColor }]}>{email}</Text>
-                                <TouchableOpacity onPress={() => setStep('email')}>
-                                    <Text style={styles.editButton}>Edit</Text>
-                                </TouchableOpacity>
+                                <Text style={[styles.termsText, { color: textColor }]}>
+                                    By continuing, you agree to our{' '}
+                                    <Text style={styles.link} onPress={() => router.push('/terms')}>Terms</Text> and{' '}
+                                    <Text style={styles.link} onPress={() => router.push('/privacy')}>Privacy Policy</Text>
+                                </Text>
                             </View>
+                        )}
 
-                            <PasswordInput
-                                ref={newPasswordRef}
-                                value={password}
-                                onChangeText={setPassword}
-                                placeholder="Password"
-                                textContentType="newPassword"
-                                autoComplete="new-password"
-                                returnKeyType="next"
-                                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-                            />
+                        {/* Step 2a: Password Login */}
+                        {step === 'password' && (
+                            <View style={styles.stepContainer}>
+                                <Text style={[styles.stepTitle, { color: textColor }]}>Welcome back</Text>
 
-                            <PasswordInput
-                                ref={confirmPasswordRef}
-                                value={confirmPassword}
-                                onChangeText={setConfirmPassword}
-                                placeholder="Confirm password"
-                                textContentType="newPassword"
-                                autoComplete="new-password"
-                                returnKeyType="done"
-                                onSubmitEditing={() => Keyboard.dismiss()}
-                            />
+                                <View style={styles.emailDisplay}>
+                                    <Text style={[styles.emailText, { color: textColor }]}>{email}</Text>
+                                    <TouchableOpacity onPress={() => setStep('email')}>
+                                        <Text style={styles.editButton}>Edit</Text>
+                                    </TouchableOpacity>
+                                </View>
 
-                            <Text style={[styles.helperText, { color: textColor }]}>
-                                At least 8 characters including 1 letter, 1 number, and 1 special character
-                            </Text>
-
-                            {/* Age Picker */}
-                            <View style={styles.agePickerSection}>
-                                <YearMonthPicker
-                                    selectedYear={selectedYear}
-                                    selectedMonth={selectedMonth}
-                                    showMonthSlider={showMonthSlider}
-                                    onYearChange={setSelectedYear}
-                                    onMonthChange={setSelectedMonth}
-                                    variant="dark"
+                                <PasswordInput
+                                    ref={passwordRef}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    placeholder="Password"
+                                    textContentType="password"
+                                    autoComplete="password"
+                                    returnKeyType="go"
+                                    onSubmitEditing={handlePasswordLogin}
                                 />
-                            </View>
 
-                            <TouchableOpacity
-                                style={[
-                                    styles.primaryButton,
-                                    (!password || !confirmPassword) && styles.disabledButton
-                                ]}
-                                onPress={handleCreateAccount}
-                                onPressIn={() => Keyboard.dismiss()}
-                                disabled={!password || !confirmPassword || loading}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.primaryButtonText}>Create account</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    {/* Step 2c: Magic Link */}
-                    {step === 'magic-link' && (
-                        <View style={styles.stepContainer}>
-                            <Text style={[styles.stepTitle, { color: textColor }]}>Welcome back</Text>
-
-                            <View style={styles.emailDisplay}>
-                                <Text style={[styles.emailText, { color: textColor }]}>{email}</Text>
-                                <TouchableOpacity onPress={() => setStep('email')}>
-                                    <Text style={styles.editButton}>Edit</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <Text style={[styles.messageText, { color: textColor }]}>
-                                We'll send you a secure login link
-                            </Text>
-
-                            {magicLinkSent && (
-                                <View style={styles.successMessage}>
-                                    <Text style={styles.successMessageText}>
-                                        Check your inbox for a secure login link. It expires in 5 minutes.
-                                    </Text>
-                                </View>
-                            )}
-
-                            <TouchableOpacity
-                                style={[
-                                    styles.primaryButton,
-                                    magicLinkCountdown > 0 && styles.disabledButton
-                                ]}
-                                onPress={handleSendMagicLink}
-                                onPressIn={() => Keyboard.dismiss()}
-                                disabled={magicLinkCountdown > 0 || loading}
-                            >
-                                {loading ? (
-                                    <ActivityIndicator color="#fff" />
-                                ) : (
-                                    <Text style={styles.primaryButtonText}>
-                                        {magicLinkCountdown > 0
-                                            ? `Resend in ${magicLinkCountdown}s`
-                                            : magicLinkSent
-                                                ? 'Resend link'
-                                                : 'Email me a one-time sign in link'}
-                                    </Text>
-                                )}
-                            </TouchableOpacity>
-
-                            {userAuthInfo?.hasPassword && (
                                 <TouchableOpacity
-                                    style={styles.secondaryButton}
-                                    onPress={() => setStep('password')}
+                                    style={styles.forgotPasswordButton}
+                                    onPress={() => {
+                                        Alert.alert(
+                                            'Trouble signing in?',
+                                            'We will send a secure login link to your email. Click it to sign in instantly. You can then set a new password in the Account section of the Settings menu.',
+                                            [
+                                                { text: 'Cancel', style: 'cancel' },
+                                                {
+                                                    text: 'Continue',
+                                                    onPress: async () => {
+                                                        try {
+                                                            const { error } = await supabase.auth.signInWithOtp({
+                                                                email,
+                                                                options: {
+                                                                    emailRedirectTo: 'elementle://auth/callback',
+                                                                },
+                                                            });
+                                                            if (error) throw error;
+                                                            Alert.alert('Email Sent', 'Check your inbox for a secure login link. It expires in 5 minutes.');
+                                                        } catch (err: any) {
+                                                            Alert.alert('Error', err.message || 'Failed to send login link.');
+                                                        }
+                                                    },
+                                                },
+                                            ]
+                                        );
+                                    }}
                                 >
-                                    <Text style={styles.secondaryButtonText}>Use password instead</Text>
+                                    <Text style={styles.secondaryButtonText}>Trouble signing in?</Text>
                                 </TouchableOpacity>
-                            )}
-                        </View>
-                    )}
 
-                    {/* Step 2d: Set Password (iOS PWA) */}
-                    {step === 'set-password' && (
-                        <View style={styles.stepContainer}>
-                            <Text style={[styles.stepTitle, { color: textColor }]}>Set password</Text>
+                                <TouchableOpacity
+                                    style={[styles.primaryButton, (!password || loading) && styles.disabledButton]}
+                                    onPress={handlePasswordLogin}
+                                    onPressIn={() => Keyboard.dismiss()}
+                                    disabled={!password || loading}
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.primaryButtonText}>Log in</Text>
+                                    )}
+                                </TouchableOpacity>
 
-                            <View style={styles.emailDisplay}>
-                                <Text style={[styles.emailText, { color: textColor }]}>{email}</Text>
-                                <TouchableOpacity onPress={() => setStep('email')}>
-                                    <Text style={styles.editButton}>Edit</Text>
+                                {/* Magic Link Option - only if enabled for this user */}
+                                {userAuthInfo?.magicLinkEnabled && (
+                                    <TouchableOpacity
+                                        style={[styles.socialButton, styles.magicLinkButton, (sendingMagicLink || magicLinkCountdown > 0) && styles.disabledButton]}
+                                        onPress={handleSendMagicLink}
+                                        disabled={sendingMagicLink || magicLinkCountdown > 0}
+                                    >
+                                        {sendingMagicLink ? (
+                                            <ActivityIndicator color="#7DAAE8" />
+                                        ) : (
+                                            <View style={styles.socialButtonContent}>
+                                                <Mail size={20} color="#555" />
+                                                <Text style={[styles.socialButtonText, { color: '#333' }]}>
+                                                    {magicLinkCountdown > 0
+                                                        ? `Resend in ${magicLinkCountdown}s`
+                                                        : magicLinkSent
+                                                            ? 'Resend sign in link'
+                                                            : 'Email me a one-time sign in link'}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
+
+                                {/* Google OAuth Option - only if linked */}
+                                {userAuthInfo?.googleLinked && (
+                                    <TouchableOpacity
+                                        style={[styles.socialButton, styles.googleButton]}
+                                        onPress={handleGoogleSignIn}
+                                    >
+                                        <View style={styles.socialButtonContent}>
+                                            <GoogleLogo size={20} />
+                                            <Text style={styles.socialButtonText}>Continue with Google</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
+
+                                {/* Apple OAuth Option - only if linked */}
+                                {userAuthInfo?.appleLinked && (
+                                    <TouchableOpacity
+                                        style={[styles.socialButton, styles.appleButton]}
+                                        onPress={handleAppleSignIn}
+                                    >
+                                        <View style={styles.socialButtonContent}>
+                                            <Text style={styles.appleIcon}></Text>
+                                            <Text style={[styles.socialButtonText, { color: '#fff' }]}>Continue with Apple</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
+
+                                {/* Magic Link Success Message */}
+                                {magicLinkSent && (
+                                    <View style={styles.successMessage}>
+                                        <Text style={styles.successMessageText}>
+                                            Check your inbox for a secure login link. It expires in 5 minutes.
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Step 2b: Create Account */}
+                        {step === 'create-account' && (
+                            <View style={styles.stepContainer}>
+                                <Text style={[styles.stepTitle, { color: textColor }]}>Create account</Text>
+
+                                <View style={styles.emailDisplay}>
+                                    <Text style={[styles.emailText, { color: textColor }]}>{email}</Text>
+                                    <TouchableOpacity onPress={() => setStep('email')}>
+                                        <Text style={styles.editButton}>Edit</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <PasswordInput
+                                    ref={newPasswordRef}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    placeholder="Password"
+                                    textContentType="newPassword"
+                                    autoComplete="new-password"
+                                    returnKeyType="next"
+                                    onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                                />
+
+                                <PasswordInput
+                                    ref={confirmPasswordRef}
+                                    value={confirmPassword}
+                                    onChangeText={setConfirmPassword}
+                                    placeholder="Confirm password"
+                                    textContentType="newPassword"
+                                    autoComplete="new-password"
+                                    returnKeyType="done"
+                                    onSubmitEditing={() => Keyboard.dismiss()}
+                                />
+
+                                <Text style={[styles.helperText, { color: textColor }]}>
+                                    At least 8 characters including 1 letter, 1 number, and 1 special character
+                                </Text>
+
+                                {/* Age Picker */}
+                                <View style={styles.agePickerSection}>
+                                    <YearMonthPicker
+                                        selectedYear={selectedYear}
+                                        selectedMonth={selectedMonth}
+                                        showMonthSlider={showMonthSlider}
+                                        onYearChange={setSelectedYear}
+                                        onMonthChange={setSelectedMonth}
+                                        variant="dark"
+                                    />
+                                </View>
+
+                                <TouchableOpacity
+                                    style={[
+                                        styles.primaryButton,
+                                        (!password || !confirmPassword) && styles.disabledButton
+                                    ]}
+                                    onPress={handleCreateAccount}
+                                    onPressIn={() => Keyboard.dismiss()}
+                                    disabled={!password || !confirmPassword || loading}
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.primaryButtonText}>Create account</Text>
+                                    )}
                                 </TouchableOpacity>
                             </View>
+                        )}
 
-                            <Text style={[styles.messageText, { color: textColor }]}>
-                                Magic links don't work well in iOS web apps. Please set a password to continue.
-                            </Text>
+                        {/* Step 2c: Magic Link */}
+                        {step === 'magic-link' && (
+                            <View style={styles.stepContainer}>
+                                <Text style={[styles.stepTitle, { color: textColor }]}>Welcome back</Text>
 
-                            <TouchableOpacity
-                                style={styles.primaryButton}
-                                onPress={() => Alert.alert('Send Email', 'Password reset email will be sent')}
-                            >
-                                <Text style={styles.primaryButtonText}>Send password reset email</Text>
-                            </TouchableOpacity>
-                        </View>
+                                <View style={styles.emailDisplay}>
+                                    <Text style={[styles.emailText, { color: textColor }]}>{email}</Text>
+                                    <TouchableOpacity onPress={() => setStep('email')}>
+                                        <Text style={styles.editButton}>Edit</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <Text style={[styles.messageText, { color: textColor }]}>
+                                    We'll send you a secure login link
+                                </Text>
+
+                                {magicLinkSent && (
+                                    <View style={styles.successMessage}>
+                                        <Text style={styles.successMessageText}>
+                                            Check your inbox for a secure login link. It expires in 5 minutes.
+                                        </Text>
+                                    </View>
+                                )}
+
+                                <TouchableOpacity
+                                    style={[
+                                        styles.primaryButton,
+                                        magicLinkCountdown > 0 && styles.disabledButton
+                                    ]}
+                                    onPress={handleSendMagicLink}
+                                    onPressIn={() => Keyboard.dismiss()}
+                                    disabled={magicLinkCountdown > 0 || loading}
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.primaryButtonText}>
+                                            {magicLinkCountdown > 0
+                                                ? `Resend in ${magicLinkCountdown}s`
+                                                : magicLinkSent
+                                                    ? 'Resend link'
+                                                    : 'Email me a one-time sign in link'}
+                                        </Text>
+                                    )}
+                                </TouchableOpacity>
+
+                                {userAuthInfo?.hasPassword && (
+                                    <TouchableOpacity
+                                        style={styles.secondaryButton}
+                                        onPress={() => setStep('password')}
+                                    >
+                                        <Text style={styles.secondaryButtonText}>Use password instead</Text>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Step 2d: Set Password (iOS PWA) */}
+                        {step === 'set-password' && (
+                            <View style={styles.stepContainer}>
+                                <Text style={[styles.stepTitle, { color: textColor }]}>Set password</Text>
+
+                                <View style={styles.emailDisplay}>
+                                    <Text style={[styles.emailText, { color: textColor }]}>{email}</Text>
+                                    <TouchableOpacity onPress={() => setStep('email')}>
+                                        <Text style={styles.editButton}>Edit</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <Text style={[styles.messageText, { color: textColor }]}>
+                                    Magic links don't work well in iOS web apps. Please set a password to continue.
+                                </Text>
+
+                                <TouchableOpacity
+                                    style={styles.primaryButton}
+                                    onPress={() => Alert.alert('Send Email', 'Password reset email will be sent')}
+                                >
+                                    <Text style={styles.primaryButtonText}>Send password reset email</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+
+                    {step !== 'email' && (
+                        <TouchableOpacity
+                            style={styles.returnLink}
+                            onPress={() => setStep('email')}
+                            onPressIn={() => Keyboard.dismiss()}
+                        >
+                            <Text style={styles.linkText}>Return to log in</Text>
+                        </TouchableOpacity>
                     )}
-                </View>
-
-                {step !== 'email' && (
-                    <TouchableOpacity
-                        style={styles.returnLink}
-                        onPress={() => setStep('email')}
-                        onPressIn={() => Keyboard.dismiss()}
-                    >
-                        <Text style={styles.linkText}>Return to log in</Text>
-                    </TouchableOpacity>
-                )}
-            </ScrollView>
-        </KeyboardAvoidingView >
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </ThemedView>
     );
 }
 
@@ -979,18 +987,15 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        paddingTop: Platform.OS === 'ios' ? 60 : 12,
     },
     backButton: {
-        padding: 4,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        fontFamily: 'Nunito-Bold',
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     headerSpacer: {
-        width: 32,
+        width: 40,
     },
     scrollView: {
         flex: 1,

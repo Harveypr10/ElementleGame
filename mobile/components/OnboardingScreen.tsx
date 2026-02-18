@@ -73,7 +73,7 @@ export function OnboardingScreen({
         const webPlatform = getWebPlatform();
 
         const ctaText = webPlatform === 'desktop'
-            ? 'Play on your mobile device:'
+            ? 'For the full experience, play on your mobile device:'
             : 'To get the full experience:';
 
         const openLink = (url: string) => {
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 12,
+        gap: 6,
     },
     badgesRowDesktop: {
         // Side-by-side for desktop, same flex direction
@@ -343,8 +343,8 @@ const styles = StyleSheet.create({
         height: 50,
     },
     googleBadge: {
-        width: 170,
-        height: 50,
+        width: 221,
+        height: 65,
     },
     // ─────────────────────────────────────────────────────────────────
     dateText: {

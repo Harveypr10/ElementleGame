@@ -257,7 +257,7 @@ function ToggleRow({ label, subLabel, value, onToggle, disabled = false, isStrea
                 value={value}
                 onValueChange={onToggle}
                 disabled={disabled}
-                trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                trackColor={{ false: '#cbd5e1', true: '#3b82f6' }}
                 thumbColor="#ffffff"
             />
         </Pressable>

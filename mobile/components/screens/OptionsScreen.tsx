@@ -68,7 +68,7 @@ const ToggleRow = ({
                 value={value}
                 onValueChange={disabled ? undefined : onToggle}
                 disabled={disabled}
-                trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                trackColor={{ false: '#cbd5e1', true: '#3b82f6' }}
                 thumbColor={'#ffffff'}
             />
         </StyledTouchableOpacity>
@@ -364,7 +364,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                                     <Switch
                                         value={false}
                                         disabled={true}
-                                        trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
+                                        trackColor={{ false: '#cbd5e1', true: '#3b82f6' }}
                                         thumbColor={'#ffffff'}
                                     // Removed ios_backgroundColor manual override which was causing layering issues
                                     />
