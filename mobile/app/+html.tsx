@@ -14,7 +14,7 @@ export default function Root({ children }: PropsWithChildren) {
                 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
                 {/* Smart App Banner for iOS Safari */}
-                <meta name="apple-itunes-app" content="app-id=6758143250" />
+                <meta name="apple-itunes-app" content="app-id=6758105410" />
 
                 {/* SEO */}
                 <meta name="description" content="Elementle - A daily historical date guessing game. Test your knowledge of history!" />

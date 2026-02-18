@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,26 @@ import { formatCanonicalDateWithOrdinal } from '../lib/dateFormat';
 import { ThemedView } from './ThemedView';
 import { ThemedText } from './ThemedText';
 import { useOptions } from '../lib/options';
+
+// ── Web Platform Detection ──────────────────────────────────────────
+// Platform.OS returns 'web' for all browsers — we use userAgent to
+// distinguish iOS, Android, and Desktop web visitors.
+type WebPlatform = 'ios' | 'android' | 'desktop';
+
+function getWebPlatform(): WebPlatform {
+    if (Platform.OS !== 'web') return 'desktop'; // shouldn't reach here on native, but safe default
+    const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '').toLowerCase();
+    if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+    if (/android/.test(ua)) return 'android';
+    return 'desktop';
+}
+
+const APP_STORE_URL = 'https://apps.apple.com/app/id6758105410';
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.dobl.elementle';
+const APPLE_BADGE_URL = 'https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg';
+const GOOGLE_BADGE_URL = 'https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png';
+
+// ── Component ───────────────────────────────────────────────────────
 
 interface OnboardingScreenProps {
     eventTitle: string;
@@ -27,6 +47,7 @@ export function OnboardingScreen({
 }: OnboardingScreenProps) {
     const { darkMode: isDarkMode } = useOptions();
     const router = useRouter();
+    const isWeb = Platform.OS === 'web';
 
     // Format date as "15th January 2026"
     const displayDate = useMemo(
@@ -45,6 +66,72 @@ export function OnboardingScreen({
         } catch (e) {
             Alert.alert('Error', 'Failed to clear storage');
         }
+    };
+
+    // ── Store Badge Rendering (Web Only) ────────────────────────────
+    const renderStoreBadges = () => {
+        const webPlatform = getWebPlatform();
+
+        const ctaText = webPlatform === 'desktop'
+            ? 'Play on your mobile device:'
+            : 'To get the full experience:';
+
+        const openLink = (url: string) => {
+            if (typeof window !== 'undefined') {
+                window.open(url, '_blank', 'noopener');
+            } else {
+                Linking.openURL(url);
+            }
+        };
+
+        return (
+            <View style={styles.storeCTAContainer}>
+                <ThemedText
+                    baseSize={14}
+                    style={styles.storeCTAText}
+                    testID="text-store-cta"
+                >
+                    {ctaText}
+                </ThemedText>
+
+                <View style={[
+                    styles.badgesRow,
+                    webPlatform === 'desktop' && styles.badgesRowDesktop,
+                ]}>
+                    {/* Apple Badge: show on iOS web or Desktop */}
+                    {(webPlatform === 'ios' || webPlatform === 'desktop') && (
+                        <TouchableOpacity
+                            onPress={() => openLink(APP_STORE_URL)}
+                            activeOpacity={0.8}
+                            testID="badge-app-store"
+                            style={styles.badgeTouchable}
+                        >
+                            <Image
+                                source={{ uri: APPLE_BADGE_URL }}
+                                style={styles.appleBadge}
+                                contentFit="contain"
+                            />
+                        </TouchableOpacity>
+                    )}
+
+                    {/* Google Badge: show on Android web or Desktop */}
+                    {(webPlatform === 'android' || webPlatform === 'desktop') && (
+                        <TouchableOpacity
+                            onPress={() => openLink(PLAY_STORE_URL)}
+                            activeOpacity={0.8}
+                            testID="badge-play-store"
+                            style={styles.badgeTouchable}
+                        >
+                            <Image
+                                source={{ uri: GOOGLE_BADGE_URL }}
+                                style={styles.googleBadge}
+                                contentFit="contain"
+                            />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+        );
     };
 
     return (
@@ -108,14 +195,17 @@ export function OnboardingScreen({
                         <Text style={styles.buttonText}>Log in</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        onPress={onSubscribe}
-                        style={[styles.button, styles.greyButton]}
-                        testID="button-onboarding-subscribe"
-                        activeOpacity={0.9}
-                    >
-                        <Text style={styles.buttonText}>Subscribe</Text>
-                    </TouchableOpacity>
+                    {/* Web: Show app store badges instead of Subscribe */}
+                    {isWeb ? renderStoreBadges() : (
+                        <TouchableOpacity
+                            onPress={onSubscribe}
+                            style={[styles.button, styles.greyButton]}
+                            testID="button-onboarding-subscribe"
+                            activeOpacity={0.9}
+                        >
+                            <Text style={styles.buttonText}>Subscribe</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 <ThemedText
@@ -225,6 +315,38 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontFamily: 'Nunito_700Bold',
     },
+    // ── Store CTA Styles (Web Only) ─────────────────────────────────
+    storeCTAContainer: {
+        alignItems: 'center',
+        gap: 8,
+        paddingTop: 4,
+    },
+    storeCTAText: {
+        fontFamily: 'Nunito_400Regular',
+        opacity: 0.6,
+        textAlign: 'center',
+    },
+    badgesRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+    },
+    badgesRowDesktop: {
+        // Side-by-side for desktop, same flex direction
+    },
+    badgeTouchable: {
+        // Wrapper for touch feedback
+    },
+    appleBadge: {
+        width: 150,
+        height: 50,
+    },
+    googleBadge: {
+        width: 170,
+        height: 50,
+    },
+    // ─────────────────────────────────────────────────────────────────
     dateText: {
         fontFamily: 'Nunito_400Regular',
         paddingTop: 16,
