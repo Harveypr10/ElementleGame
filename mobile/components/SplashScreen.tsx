@@ -5,27 +5,34 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-na
 import { StatusBar } from 'expo-status-bar';
 
 /**
- * In-app splash screen — renders the same baked image used by the native
- * OS splash (configured in app.config.ts). This ensures a seamless handoff:
- *   Native splash (Welcome-Hamster-Blue.png)  →  This component (same image)
+ * In-app splash screen — renders the transparent hamster image on a solid
+ * blue (#7DAAE8) background, exactly matching the native OS splash configured
+ * in app.config.ts. This "Composition Pattern" ensures a seamless handoff:
+ *
+ *   Native splash (transparent hamster on blue bg, resizeMode: contain)
+ *     → This component (same image, same sizing, same blue bg)
+ *
  * No text elements are used, so there is zero font-loading flicker.
+ * The image uses `contain` fitting to match the native splash's resizeMode.
  */
 
-const SplashImage = require('../assets/ui/Welcome-Hamster-Blue.png');
+const SplashImage = require('../assets/ui/Welcome-Hamster-Transparent.png');
 const { width, height } = Dimensions.get('window');
+
+// On iPads / large screens (width >= 768), render the image 50% larger
+const isLargeScreen = width >= 768;
+const scaleFactor = isLargeScreen ? 1.5 : 1.0;
 
 interface SplashScreenProps {
     onComplete: () => void;
 }
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
-    const opacity = useSharedValue(0);
+    const opacity = useSharedValue(1);
 
     useEffect(() => {
-        // Fade in the image onto the solid blue background
-        opacity.value = withTiming(1, { duration: 800 });
-
-        // Hold for a moment after fade-in, then trigger completion
+        // Image is immediately visible (opacity 1) to match native splash.
+        // Hold for a moment, then trigger completion.
         const timer = setTimeout(() => {
             onComplete();
         }, 2500);
@@ -41,14 +48,12 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         <View style={styles.container}>
             <StatusBar style="light" />
             <Animated.View style={[styles.content, animatedStyle]}>
-                <View style={styles.imageContainer}>
-                    <Image
-                        source={SplashImage}
-                        style={styles.image}
-                        contentFit="contain"
-                        cachePolicy="disk"
-                    />
-                </View>
+                <Image
+                    source={SplashImage}
+                    style={styles.image}
+                    contentFit="contain"
+                    cachePolicy="disk"
+                />
             </Animated.View>
         </View>
     );
@@ -68,19 +73,11 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     image: {
-        width: width * 0.68,
-        height: height * 0.56,
-        maxWidth: 400,
-        maxHeight: 720,
-        marginTop: height * 0.56 * 0.1, // Push down by ~20% of image height
-    },
-    imageContainer: {
-        width: width * 0.68,
-        height: height * 0.56,
-        maxWidth: 400,
-        maxHeight: 720,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
+        // Match native splash sizing: contain within the full screen area.
+        // Scale factor increases size by 50% on iPads / large screens.
+        width: width * 0.68 * scaleFactor,
+        height: height * 0.56 * scaleFactor,
+        maxWidth: 400 * scaleFactor,
+        maxHeight: 720 * scaleFactor,
     },
 });

@@ -24,6 +24,10 @@ type OptionsContextType = {
     darkMode: boolean;
     toggleDarkMode: () => void;
 
+    useDeviceDisplay: boolean;
+    toggleUseDeviceDisplay: () => boolean;
+    syncDarkModeWithDevice: () => void;
+
     cluesEnabled: boolean;
     toggleClues: () => void;
 
@@ -49,6 +53,8 @@ type OptionsContextType = {
     quickMenuEnabled: boolean;
     toggleQuickMenu: () => void;
 
+    // Device display
+
     // Computed from textSize
     textScale: number;
     loading: boolean;
@@ -61,6 +67,9 @@ const OptionsContext = createContext<OptionsContextType>({
     toggleSounds: () => { },
     darkMode: false,
     toggleDarkMode: () => { },
+    useDeviceDisplay: false,
+    toggleUseDeviceDisplay: () => false,
+    syncDarkModeWithDevice: () => { },
     cluesEnabled: true,
     toggleClues: () => { },
 
@@ -92,6 +101,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [textSize, setTextSizeState] = useState<TextSize>('medium');
     const [soundsEnabled, setSoundsEnabled] = useState(false);
     const [darkMode, setDarkModeState] = useState(false);
+    const [useDeviceDisplay, setUseDeviceDisplay] = useState(false);
     const [cluesEnabled, setCluesEnabled] = useState(true);
     const [quickMenuEnabled, setQuickMenuEnabled] = useState(true); // Default true (Shown)
 
@@ -180,6 +190,20 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                     // Force immediate apply
                     setColorScheme(data.dark_mode ? 'dark' : 'light');
                 }
+                if ((data as any).use_device_display !== undefined && (data as any).use_device_display !== null) {
+                    setUseDeviceDisplay((data as any).use_device_display);
+                    AsyncStorage.setItem('opt_use_device_display', String((data as any).use_device_display));
+                    // If device display is enabled, sync dark mode with device NOW
+                    if ((data as any).use_device_display) {
+                        const deviceScheme = Appearance.getColorScheme();
+                        if (deviceScheme) {
+                            const deviceIsDark = deviceScheme === 'dark';
+                            setDarkModeState(deviceIsDark);
+                            setColorScheme(deviceIsDark ? 'dark' : 'light');
+                            AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
+                        }
+                    }
+                }
                 if (data.clues_enabled !== undefined && data.clues_enabled !== null) {
                     setCluesEnabled(data.clues_enabled);
                     AsyncStorage.setItem('opt_clues_enabled', String(data.clues_enabled));
@@ -221,14 +245,45 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             if (storedSounds !== null) setSoundsEnabled(storedSounds === 'true');
 
             const storedDarkMode = await AsyncStorage.getItem('opt_dark_mode');
-            if (storedDarkMode !== null) {
+            const storedUseDeviceDisplay = await AsyncStorage.getItem('opt_use_device_display');
+
+            if (storedUseDeviceDisplay !== null) {
+                const useDevice = storedUseDeviceDisplay === 'true';
+                setUseDeviceDisplay(useDevice);
+                if (useDevice) {
+                    // Device display mode: sync dark mode from device
+                    const deviceScheme = Appearance.getColorScheme();
+                    if (deviceScheme) {
+                        const deviceIsDark = deviceScheme === 'dark';
+                        setDarkModeState(deviceIsDark);
+                        await AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
+                    } else if (storedDarkMode !== null) {
+                        setDarkModeState(storedDarkMode === 'true');
+                    }
+                } else if (storedDarkMode !== null) {
+                    setDarkModeState(storedDarkMode === 'true');
+                }
+            } else if (storedDarkMode !== null) {
+                // Existing user with no device display setting stored — keep manual mode
                 setDarkModeState(storedDarkMode === 'true');
+                setUseDeviceDisplay(false);
             } else {
-                // First launch: use system theme as smart default
+                // First launch: check if we can read device scheme
                 const systemScheme = Appearance.getColorScheme();
-                const systemIsDark = systemScheme === 'dark';
-                setDarkModeState(systemIsDark);
-                await AsyncStorage.setItem('opt_dark_mode', String(systemIsDark));
+                if (systemScheme) {
+                    // Device scheme readable — default to using device display
+                    const systemIsDark = systemScheme === 'dark';
+                    setUseDeviceDisplay(true);
+                    setDarkModeState(systemIsDark);
+                    await AsyncStorage.setItem('opt_use_device_display', 'true');
+                    await AsyncStorage.setItem('opt_dark_mode', String(systemIsDark));
+                } else {
+                    // Can't read device scheme — default to manual off
+                    setUseDeviceDisplay(false);
+                    setDarkModeState(false);
+                    await AsyncStorage.setItem('opt_use_device_display', 'false');
+                    await AsyncStorage.setItem('opt_dark_mode', 'false');
+                }
             }
 
             const storedClues = await AsyncStorage.getItem('opt_clues_enabled');
@@ -310,6 +365,61 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                 .update({ dark_mode: newValue })
                 .eq('user_id', user.id)
                 .then(({ error }) => { if (error) console.log('[Options] Error updating dark mode:', error) });
+        }
+    };
+
+    // Toggle "Use device display settings"
+    // Returns true if successfully enabled, false otherwise
+    const toggleUseDeviceDisplay = (): boolean => {
+        const newValue = !useDeviceDisplay;
+        if (newValue) {
+            // Enabling: check if we can read the device scheme
+            const deviceScheme = Appearance.getColorScheme();
+            if (!deviceScheme) {
+                console.log('[Options] Cannot read device display settings');
+                return false; // Signal failure — caller should show error
+            }
+            // Successfully read device scheme
+            const deviceIsDark = deviceScheme === 'dark';
+            console.log('[Options] Enabling device display tracking, device is dark:', deviceIsDark);
+            setUseDeviceDisplay(true);
+            setDarkModeState(deviceIsDark);
+            setColorScheme(deviceIsDark ? 'dark' : 'light');
+            AsyncStorage.setItem('opt_use_device_display', 'true');
+            AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ use_device_display: true, dark_mode: deviceIsDark } as any)
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error updating use_device_display:', error) });
+            }
+            return true;
+        } else {
+            // Disabling: just turn off, leave dark mode as-is
+            console.log('[Options] Disabling device display tracking');
+            setUseDeviceDisplay(false);
+            AsyncStorage.setItem('opt_use_device_display', 'false');
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ use_device_display: false } as any)
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error updating use_device_display:', error) });
+            }
+            return true;
+        }
+    };
+
+    // Sync dark mode with device (called from Home screen on focus)
+    const syncDarkModeWithDevice = () => {
+        if (!useDeviceDisplay) return;
+        const deviceScheme = Appearance.getColorScheme();
+        if (!deviceScheme) return;
+        const deviceIsDark = deviceScheme === 'dark';
+        if (deviceIsDark !== darkMode) {
+            console.log('[Options] Device display changed, syncing dark mode:', { deviceIsDark, wasDark: darkMode });
+            setDarkModeState(deviceIsDark);
+            setColorScheme(deviceIsDark ? 'dark' : 'light');
+            AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
         }
     };
 
@@ -402,6 +512,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             textSize, setTextSize,
             soundsEnabled, toggleSounds,
             darkMode, toggleDarkMode,
+            useDeviceDisplay, toggleUseDeviceDisplay, syncDarkModeWithDevice,
             cluesEnabled, toggleClues,
             dateLength, setDateLength,
             dateFormatOrder, setDateFormatOrder,

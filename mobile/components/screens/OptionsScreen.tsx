@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { styled, useColorScheme } from 'nativewind';
 import { ChevronLeft, Flame } from 'lucide-react-native';
@@ -28,24 +28,34 @@ const ToggleRow = ({
     value,
     onToggle,
     disabled = false,
-    borderColor
+    onDisabledPress,
+    borderColor,
+    noBorder = false,
+    compact = false,
+    labelAsSubheading = false
 }: {
     label: string,
-    subLabel: string,
+    subLabel?: string,
     value: boolean,
     onToggle: () => void,
     disabled?: boolean,
-    borderColor: string
+    onDisabledPress?: () => void,
+    borderColor: string,
+    noBorder?: boolean,
+    compact?: boolean,
+    labelAsSubheading?: boolean
 }) => {
     return (
         <StyledTouchableOpacity
-            onPress={!disabled ? onToggle : undefined}
-            className="flex-row justify-between items-center py-3 active:opacity-70 border-b last:border-0"
-            style={{ minHeight: 60, borderColor: borderColor }}
-            disabled={disabled}
+            onPress={disabled ? onDisabledPress : onToggle}
+            className={`flex-row justify-between items-center ${compact ? 'py-1' : 'py-3'} active:opacity-70 ${noBorder ? '' : 'border-b last:border-0'}`}
+            style={{ minHeight: compact ? 36 : 60, borderColor: noBorder ? 'transparent' : borderColor }}
         >
             <StyledView className="flex-1 pr-3 justify-center">
-                <ThemedText className={`font-n-bold ${disabled ? 'opacity-50' : ''}`} size="base">
+                <ThemedText
+                    className={`${labelAsSubheading ? 'opacity-60' : 'font-n-bold'} ${disabled ? 'opacity-50' : ''}`}
+                    size={labelAsSubheading ? 'sm' : 'base'}
+                >
                     {label}
                 </ThemedText>
                 {subLabel && (
@@ -56,7 +66,7 @@ const ToggleRow = ({
             </StyledView>
             <Switch
                 value={value}
-                onValueChange={onToggle}
+                onValueChange={disabled ? undefined : onToggle}
                 disabled={disabled}
                 trackColor={{ false: '#e2e8f0', true: '#3b82f6' }}
                 thumbColor={'#ffffff'}
@@ -121,6 +131,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
         textSize, setTextSize,
         soundsEnabled, toggleSounds,
         darkMode, toggleDarkMode,
+        useDeviceDisplay, toggleUseDeviceDisplay,
         cluesEnabled, toggleClues,
         dateLength, setDateLength,
         dateFormatOrder, setDateFormatOrder,
@@ -187,14 +198,50 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                                 textColor={textColor}
                             />
 
-                            {/* Dark Mode */}
-                            <ToggleRow
-                                label="Dark Mode"
-                                subLabel="Toggle dark theme"
-                                value={darkMode}
-                                onToggle={toggleDarkMode}
-                                borderColor={borderColor}
-                            />
+                            {/* Dark Mode Group */}
+                            <StyledView
+                                className="py-2 border-b"
+                                style={{ borderColor: borderColor }}
+                            >
+                                <ThemedText className="font-n-bold" size="base">
+                                    Dark Mode
+                                </ThemedText>
+                                <ToggleRow
+                                    label="Use device's settings"
+                                    value={useDeviceDisplay}
+                                    onToggle={() => {
+                                        const success = toggleUseDeviceDisplay();
+                                        if (!success) {
+                                            Alert.alert(
+                                                'Cannot Read Device Settings',
+                                                "Cannot read the device's display settings. Please set the mode manually.",
+                                                [{ text: 'OK' }]
+                                            );
+                                        }
+                                    }}
+                                    borderColor={borderColor}
+                                    noBorder
+                                    compact
+                                    labelAsSubheading
+                                />
+                                <ToggleRow
+                                    label="Enable dark theme"
+                                    value={darkMode}
+                                    onToggle={toggleDarkMode}
+                                    disabled={useDeviceDisplay}
+                                    onDisabledPress={() => {
+                                        Alert.alert(
+                                            'Setting Locked',
+                                            "Cannot change display theme when the device's settings are engaged.",
+                                            [{ text: 'OK' }]
+                                        );
+                                    }}
+                                    borderColor={borderColor}
+                                    noBorder
+                                    compact
+                                    labelAsSubheading
+                                />
+                            </StyledView>
 
                             {/* Quick Menu */}
                             <ToggleRow

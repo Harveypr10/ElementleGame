@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../lib/auth';
@@ -28,6 +28,7 @@ export interface UseGameEngineProps {
     maxGuesses?: number;
     mode?: GameMode;
     preserveStreakStatus?: boolean;
+    guestReplay?: boolean;
 }
 
 export function useGameEngine({
@@ -36,12 +37,16 @@ export function useGameEngine({
     puzzleDate,
     maxGuesses = 5,
     mode = 'REGION',
-    preserveStreakStatus = false
+    preserveStreakStatus = false,
+    guestReplay = false
 }: UseGameEngineProps) {
     const { user, session, isGuest } = useAuth();
     const [gameState, setGameState] = useState<GameState>('loading');
     const [currentInput, setCurrentInput] = useState('');
     const [guesses, setGuesses] = useState<CellFeedback[][]>([]);
+    const guessesRef = useRef<CellFeedback[][]>([]); // Always up-to-date for async closures
+    // Keep ref in sync with state
+    guessesRef.current = guesses;
     // Track streak day status from the fetched attempt
     const [streakDayStatus, setStreakDayStatus] = useState<number | null>(null);
     const [keyStates, setKeyStates] = useState<Record<string, KeyState>>({});
@@ -55,6 +60,14 @@ export function useGameEngine({
     const { holidayActive } = useStreakSaverStatus();
     const [finalStreak, setFinalStreak] = useState<number | null>(null);
     const queryClient = useQueryClient(); // Initialize QueryClient
+
+    // Guest Replay State
+    const guestReplayGuessesRef = useRef<string[]>([]);
+    const guestReplayIndexRef = useRef(0);
+    const [guestReplayReady, setGuestReplayReady] = useState(false);
+    const [guestReplayCount, setGuestReplayCount] = useState(0);
+    const isGuestReplayRef = useRef(guestReplay); // Capture for async closures
+    isGuestReplayRef.current = guestReplay;
 
 
 
@@ -348,6 +361,36 @@ export function useGameEngine({
             try {
                 setGameState('loading');
 
+                // 0. GUEST REPLAY MODE — load from guest AsyncStorage even though user is authenticated
+                if (guestReplay && user) {
+                    const guestKey = `guest_game_${mode}_${puzzleId}`;
+                    const savedState = await AsyncStorage.getItem(guestKey);
+                    if (savedState) {
+                        const parsed = JSON.parse(savedState);
+                        console.log('[useGameEngine] Guest Replay: loaded guest data', { guesses: parsed.guesses?.length, result: parsed.result });
+
+                        // Store guesses for sequential replay — DON'T set them in state yet
+                        if (parsed.guesses && Array.isArray(parsed.guesses)) {
+                            guestReplayGuessesRef.current = parsed.guesses;
+                            guestReplayIndexRef.current = 0;
+                            setGuestReplayCount(parsed.guesses.length);
+                        }
+
+                        // If guest saved digits, lock them
+                        if (parsed.digits) {
+                            setGameDigits(parsed.digits);
+                        }
+
+                        // Start as playing with empty guesses — replay will fill them
+                        setGameState('playing');
+                        setGuestReplayReady(true);
+                        return;
+                    } else {
+                        console.log('[useGameEngine] Guest Replay: no guest data found, falling through to normal load');
+                        // Fall through to normal load
+                    }
+                }
+
                 // 1. Check for existing attempt
                 if (!user) {
                     const savedState = await AsyncStorage.getItem(`guest_game_${mode}_${puzzleId}`);
@@ -607,16 +650,17 @@ export function useGameEngine({
         return feedback.every(f => f.state === 'correct');
     };
 
-    const submitGuess = async () => {
-        if (currentInput.length !== numDigits || gameState !== 'playing') return;
+    const submitGuess = async (directInput?: string) => {
+        const inputToUse = directInput ?? currentInput;
+        if (inputToUse.length !== numDigits || gameState !== 'playing') return;
 
         // 0. DATE VALIDATION
         console.log('[GameEngine] Validating date:', {
-            input: currentInput,
+            input: inputToUse,
             format: dateFormat,
             answerCanonical: answerDateCanonical
         });
-        const canonicalGuessCheck = parseUserDateWithContext(currentInput, dateFormat, answerDateCanonical);
+        const canonicalGuessCheck = parseUserDateWithContext(inputToUse, dateFormat, answerDateCanonical);
         console.log('[GameEngine] Validation result:', canonicalGuessCheck);
         if (!canonicalGuessCheck) {
             console.log('[GameEngine] Date validation FAILED - triggering shake');
@@ -627,14 +671,18 @@ export function useGameEngine({
         }
 
         // 1. Calculate feedback
-        const feedback = calculateFeedbackOnly(currentInput, formattedAnswer);
+        const feedback = calculateFeedbackOnly(inputToUse, formattedAnswer);
         const isWin = isGuessCorrect(feedback);
-        const newGuesses = [...guesses, feedback];
+        // [FIX] Use ref instead of state closure to get the CURRENT guesses.
+        // React state closures are stale during rapid successive calls (e.g. guest replay).
+        const newGuesses = [...guessesRef.current, feedback];
+        // Immediately update the ref so the NEXT call sees this guess
+        guessesRef.current = newGuesses;
         const newWrongGuessCount = !isWin ? wrongGuessCount + 1 : wrongGuessCount;
 
         // Update local state immediately
         setGuesses(newGuesses);
-        setKeyStates(prev => updateKeyStatesOnly(currentInput, feedback, prev));
+        setKeyStates(prev => updateKeyStatesOnly(inputToUse, feedback, prev));
         setCurrentInput('');
         setWrongGuessCount(newWrongGuessCount);
 
@@ -1027,6 +1075,52 @@ export function useGameEngine({
         setCurrentInput('');
     };
 
+    // ============================================================
+    // GUEST REPLAY: Replay next saved guest guess with animation
+    // Called by ActiveGame on a timer. Sets currentInput briefly
+    // (for visual fill), then submits via the normal path.
+    // Returns { done } to signal when all guesses are replayed.
+    // ============================================================
+    const replayGuestGuess = async (): Promise<{ done: boolean }> => {
+        const guessesArr = guestReplayGuessesRef.current;
+        const idx = guestReplayIndexRef.current;
+
+        if (!guessesArr || idx >= guessesArr.length) {
+            return { done: true };
+        }
+
+        const canonicalGuess = guessesArr[idx];
+        guestReplayIndexRef.current = idx + 1;
+
+        // Convert canonical (YYYY-MM-DD) to display format matching the current dateFormat
+        const displayGuess = formatCanonicalDate(canonicalGuess, dateFormat);
+        console.log(`[GameEngine] Guest Replay: guess ${idx + 1}/${guessesArr.length}`, { canonical: canonicalGuess, display: displayGuess });
+
+        // Show digits in the input row briefly for visual effect
+        setCurrentInput(displayGuess);
+
+        // Wait one frame for the UI to render the filled input
+        await new Promise(resolve => setTimeout(resolve, 400));
+
+        // Submit using the direct input path (bypasses state closure timing)
+        await submitGuess(displayGuess);
+
+        const done = guestReplayIndexRef.current >= guessesArr.length;
+
+        // If all guesses replayed, clean up the guest AsyncStorage key
+        if (done) {
+            try {
+                const guestKey = `guest_game_${mode}_${puzzleId}`;
+                await AsyncStorage.removeItem(guestKey);
+                console.log(`[GameEngine] Guest Replay: cleaned up ${guestKey}`);
+            } catch (e) {
+                console.error('[GameEngine] Guest Replay: failed to clean up guest key:', e);
+            }
+        }
+
+        return { done };
+    };
+
     return {
         gameState,
         currentInput,
@@ -1042,6 +1136,10 @@ export function useGameEngine({
         invalidShake, // Return counter
         isRestored, // [FIX] Use state variable instead of derived value — prevents flipping to true on win/loss
         wasInitiallyComplete, // True only if game was loaded as completed (for ad timing)
-        numDigits // Expose authoritative digit count
+        numDigits, // Expose authoritative digit count
+        // Guest Replay
+        replayGuestGuess,
+        guestReplayReady,
+        guestReplayCount
     };
 }

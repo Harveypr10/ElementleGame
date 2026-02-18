@@ -41,7 +41,7 @@ export function useStreakSaverStatus(todaysPuzzleDate?: string) {
     const { streakSaverActive, holidaySaverActive } = useOptions();
 
     // Fetch streak saver status from database
-    const { data: status, isLoading, refetch } = useQuery({
+    const { data: status, isLoading, isFetching, refetch } = useQuery({
         queryKey: ['streak-saver-status', user?.id, todaysPuzzleDate, streakSaverActive, holidaySaverActive],
         queryFn: async () => {
             if (!user) return null;
@@ -700,6 +700,7 @@ export function useStreakSaverStatus(todaysPuzzleDate?: string) {
     return {
         status,
         isLoading,
+        isFetching,
         refetch,
         hasMissedRegion,
         hasMissedUser,

@@ -9,7 +9,6 @@ import HomeScreenWeb from './index.web';
 import { supabase } from '../../lib/supabase';
 import { HelpCircle, Settings } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { migrateDeferredGuestGames } from '../../lib/guestMigration';
 import { useOptions } from '../../lib/options';
 import { useUserStats } from '../../hooks/useUserStats';
 import { HomeCard } from '../../components/home/HomeCard';
@@ -277,7 +276,7 @@ export default function HomeScreen() {
     const params = useLocalSearchParams(); // Use params for initialMode
     const { user, deferredPuzzle, consumeDeferredPuzzle } = useAuth();
     const { toast } = useToast();
-    const { gameMode, setGameMode, streakSaverActive, holidaySaverActive } = useOptions();
+    const { gameMode, setGameMode, streakSaverActive, holidaySaverActive, syncDarkModeWithDevice } = useOptions();
     const { profile } = useProfile();
     const userRegion = profile?.region || 'UK';
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
@@ -298,6 +297,8 @@ export default function HomeScreen() {
                 console.log(`[Home] Date changed from ${todaysPuzzleDate} to ${newToday}. Refreshing.`);
                 setTodaysPuzzleDate(newToday);
             }
+            // Re-check device display setting (handles auto light/dark at night)
+            syncDarkModeWithDevice();
         }
     }, [isFocused]);
 
@@ -356,7 +357,8 @@ export default function HomeScreen() {
 
     const {
         status: streakSaverStatus,
-        isLoading: isStreakSaverLoading,
+        isLoading: isStreakSaverLoadingInitial,
+        isFetching: isStreakSaverFetching,
         regionCanUseStreakSaver,
         userCanUseStreakSaver,
         userOfferStreakSaver,
@@ -367,6 +369,11 @@ export default function HomeScreen() {
         hasMissedRegion,
         hasMissedUser
     } = useStreakSaverStatus(todaysPuzzleDate);
+
+    // [FIX] isLoading only covers initial fetch with no cache.
+    // isFetching also covers background refetches (e.g. after sign-out/sign-in).
+    // We need BOTH to ensure we never evaluate with stale/default data.
+    const isStreakSaverLoading = isStreakSaverLoadingInitial || isStreakSaverFetching;
     const { isPro } = useSubscription();
     const { incrementInteraction } = useConversionPrompt();
     // SCREEN_WIDTH defined by hook above
@@ -440,13 +447,14 @@ export default function HomeScreen() {
             loading,
             hasUser: !!user,
             dismissedPopup,
-            isInStreakSaverMode
+            isInStreakSaverMode,
+            isStreakSaverLoading
         });
 
         // Only show popup when app is ready, screen is focused, loaded, and not dismissed
         // [FIX] Also suppress if we are currently IN a streak saver mode (e.g. just clicked "Use")
         // [FIX] If streak saver toggle is OFF, never show any popup
-        if (isAppReady && isFocused && !loading && user && !dismissedPopup && !isInStreakSaverMode && streakSaverActive) {
+        if (isAppReady && isFocused && !loading && user && !dismissedPopup && !isInStreakSaverMode && streakSaverActive && !isStreakSaverLoading) {
 
             // Extract new flags from status (default to false if loading/null)
             const regionOfferStreakSaver = streakSaverStatus?.region?.offerStreakSaver ?? false;
@@ -531,16 +539,18 @@ export default function HomeScreen() {
     }, [isAppReady, isFocused, loading, streakSaverStatus, user, isJustCompleted, dismissedPopup, streakSaverVisible, popupMode, isInStreakSaverMode, holidayActive, streakSaverActive, holidaySaverActive, isStreakSaverLoading]);
 
     // ============================================================
-    // DEFERRED DEEP LINK NAVIGATION
-    // After StreakSaver/Holiday popup flow completes (or is not needed),
-    // navigate to the deep-linked puzzle if one is pending.
+    // "GAME SHARED" BUTTON
+    // Instead of auto-navigating to shared puzzles (which races with
+    // StreakSavers and Holiday Mode), we show a button on the Home
+    // screen that the user must tap to load the shared puzzle.
+    // The button only appears once all startup flows are complete.
     // ============================================================
-    const deferredNavigatedRef = useRef(false);
+    const [showSharedButton, setShowSharedButton] = useState(false);
 
     useEffect(() => {
-        // Don't navigate if no deferred puzzle
+        // No deferred puzzle → hide button
         if (!deferredPuzzle) {
-            deferredNavigatedRef.current = false; // Reset for next deep link
+            setShowSharedButton(false);
             return;
         }
 
@@ -550,31 +560,19 @@ export default function HomeScreen() {
         // Wait for app to be fully ready and data loaded
         if (!isAppReady || loading || !isFocused) return;
 
-        // Wait for StreakSaver status to be loaded (so popup check can run with valid data)
+        // Wait for StreakSaver status to be loaded
         if (isStreakSaverLoading) return;
 
-        // [FIX] Wait for the popup check effect to complete at least once.
-        // This prevents a race where both effects fire in the same render cycle
-        // after login — the deferred navigation would pass through before
-        // streakSaverVisible has been set to true by the popup check.
+        // Wait for popup check to complete at least once
         if (!popupCheckDoneRef.current) return;
 
         // Wait for any StreakSaver/Holiday popup to be dismissed
         if (streakSaverVisible) return;
 
-        // [FIX] Wait for ALL queued streak saver offers to be handled.
-        // When the Region popup is dismissed, there's a 500ms gap before the
-        // User popup shows. Without this guard, deferred nav fires in that gap.
-        // Check if there are ANY remaining offers that the popup system would
-        // still want to show — if so, wait.
+        // Wait for ALL queued streak saver offers to be handled
         if (streakSaverActive && !dismissedPopup) {
-            // [FIX] If holiday was just activated (holidayActive=true) but the popup
-            // hasn't called onClose yet (dismissedPopup=false), the calendar animations
-            // are still playing inside the StreakSaver popup. Wait for them to finish.
-            if (holidayActive) {
-                console.log('[Home DeferredNav] Waiting — holiday animations may still be playing in StreakSaver popup');
-                return;
-            }
+            // Note: holidayActive no longer blocks the button — the press handler
+            // (handleSharedGamePress) shows the holiday modal when appropriate.
 
             const regionHasPendingOffer =
                 !isJustCompleted('REGION') &&
@@ -585,29 +583,27 @@ export default function HomeScreen() {
                 ((streakSaverStatus?.user?.offerStreakSaver) ||
                     (streakSaverStatus?.user?.offerHolidayRescue && holidaySaverActive));
 
-            if (regionHasPendingOffer || userHasPendingOffer) {
-                console.log(`[Home DeferredNav] Waiting — remaining streak saver offers: region=${regionHasPendingOffer}, user=${userHasPendingOffer}`);
-                return;
-            }
+            if (regionHasPendingOffer || userHasPendingOffer) return;
         }
 
-        // Prevent double navigation
-        if (deferredNavigatedRef.current) return;
-        deferredNavigatedRef.current = true;
+        // All clear — show the button
+        console.log('[Home] Shared puzzle ready — showing Game Shared button');
+        setShowSharedButton(true);
+    }, [deferredPuzzle, isAppReady, loading, isFocused, streakSaverVisible, isStreakSaverLoading, user, holidayActive, streakSaverStatus, dismissedPopup, isJustCompleted, streakSaverActive, holidaySaverActive]);
 
-        // Consume SYNCHRONOUSLY to clear deferredPuzzle state immediately,
-        // preventing re-triggers when user navigates back from the game.
+    // Handler for the "Game Shared" button press
+    const handleSharedGamePress = () => {
         const puzzle = consumeDeferredPuzzle();
+        setShowSharedButton(false);
         if (!puzzle) return;
 
-        console.log(`[Home] Processing deferred deep link: ${puzzle.mode}/${puzzle.date}, holidayActive=${holidayActive}`);
+        console.log(`[Home] Game Shared button pressed: ${puzzle.mode}/${puzzle.date}, holidayActive=${holidayActive}`);
 
         // Holiday Mode interception: if user is on holiday and this is today's puzzle,
         // show the Holiday exit/continue modal before navigating.
         const today = todaysPuzzleDate;
         if (holidayActive && puzzle.date === today) {
-            console.log('[Home] Holiday Mode active + deferred puzzle is today — showing Holiday modal');
-            // [FIX] Show toast BEFORE holiday modal so user knows it's a shared puzzle
+            console.log('[Home] Holiday Mode active — showing Holiday modal for shared puzzle');
             toast({
                 title: 'Puzzle shared with you!',
                 description: 'Continue in holiday mode or exit to play the shared puzzle.',
@@ -615,13 +611,16 @@ export default function HomeScreen() {
                 position: 'bottom',
                 duration: 5000,
             });
+            // Delay the modal so the toast is visible first (Modal renders in a
+            // separate native window layer and would cover the toast otherwise)
             setHolidayModalMode(puzzle.mode === 'USER' ? 'USER' : 'REGION');
-            setShowHolidayModal(true);
-            // Modal callbacks will handle navigation (existing onExitHoliday / onContinueHoliday)
+            setTimeout(() => {
+                setShowHolidayModal(true);
+            }, 2000);
             return;
         }
 
-        // Normal navigation — delay slightly for any popup dismiss animations
+        // Normal navigation
         toast({
             title: 'Loading the puzzle that has been shared with you...',
             variant: 'share',
@@ -629,23 +628,23 @@ export default function HomeScreen() {
             duration: 5000,
         });
         setTimeout(() => {
-            console.log(`[Home] Navigating to deferred deep link puzzle: /game/${puzzle.mode}/${puzzle.date}`);
+            console.log(`[Home] Navigating to shared puzzle: /game/${puzzle.mode}/${puzzle.date}`);
             router.push(`/game/${puzzle.mode}/${puzzle.date}`);
         }, 300);
-    }, [deferredPuzzle, isAppReady, loading, isFocused, streakSaverVisible, isStreakSaverLoading, user, holidayActive, streakSaverStatus, dismissedPopup, isJustCompleted, streakSaverActive, holidaySaverActive]);
+    };
 
     // ============================================================
-    // DEFERRED GUEST MIGRATION
-    // After StreakSaver/Holiday popup flow completes, migrate any
-    // deferred guest game data (today's Region puzzle played before sign-in).
+    // DEFERRED GUEST REPLAY
+    // After StreakSaver/Holiday popup flow completes, navigate to
+    // the game screen to visually replay the guest's saved game data.
     // This must run AFTER StreakSaver is resolved so the streak isn't
     // destroyed before the user can use their saver.
     // ============================================================
-    const guestMigrationDoneRef = useRef(false);
+    const guestReplayTriggeredRef = useRef(false);
 
     useEffect(() => {
-        // Only run once per session
-        if (guestMigrationDoneRef.current) return;
+        // Only trigger once per session
+        if (guestReplayTriggeredRef.current) return;
 
         // Wait for user to be signed in
         if (!user) return;
@@ -678,28 +677,29 @@ export default function HomeScreen() {
             if (regionHasPending || userHasPending) return;
         }
 
-        // All clear — run deferred migration
-        guestMigrationDoneRef.current = true;
+        // All clear — check if there's deferred guest data to replay
+        guestReplayTriggeredRef.current = true;
 
         (async () => {
             try {
-                const result = await migrateDeferredGuestGames(user.id, holidayActive);
-                if (result.migratedGames > 0) {
-                    console.log(`[Home] Deferred guest migration complete: ${result.migratedGames} games`);
-                    toast({
-                        title: "Today's puzzle data has been added to your account...",
-                        variant: 'migration',
-                        position: 'bottom',
-                        duration: 5000,
-                    });
+                // Check for any remaining guest_game_REGION_* keys
+                const allKeys = await AsyncStorage.getAllKeys();
+                const guestRegionKeys = allKeys.filter(k => k.startsWith('guest_game_REGION_'));
+
+                if (guestRegionKeys.length > 0) {
+                    console.log(`[Home] Found ${guestRegionKeys.length} deferred guest games, navigating to replay`);
+                    // Navigate to the game screen with guestReplay flag
+                    router.push(`/game/REGION/${todaysPuzzleDate}?guestReplay=true&skipIntro=true`);
+                } else {
+                    console.log('[Home] No deferred guest games found');
                 }
             } catch (e) {
-                console.error('[Home] Deferred guest migration error:', e);
+                console.error('[Home] Deferred guest replay check error:', e);
             }
         })();
     }, [user, isAppReady, loading, isFocused, isStreakSaverLoading, streakSaverVisible,
         isInStreakSaverMode, streakSaverActive, dismissedPopup, holidayActive,
-        streakSaverStatus, isJustCompleted]);
+        streakSaverStatus, isJustCompleted, todaysPuzzleDate]);
     const handleBadgeClose = async () => {
         // [FIX] Filter out already-seen badges before processing
         const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
@@ -1005,8 +1005,29 @@ export default function HomeScreen() {
                             />
                         )}
 
-                        {/* Greeting Row with Go Pro Button */}
+                        {/* Greeting Row with Game Shared + Go Pro Buttons */}
                         <StyledView style={{ width: '100%', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                            {/* Game Shared button (left side) — only visible when a shared puzzle is pending */}
+                            {showSharedButton && (
+                                <StyledView style={{ position: 'absolute', left: 16 }}>
+                                    <StyledTouchableOpacity
+                                        onPress={handleSharedGamePress}
+                                        testID="button-game-shared"
+                                        style={{
+                                            backgroundColor: '#e87daa',
+                                            paddingHorizontal: 8 * (SCREEN_WIDTH >= 768 ? 1.25 : 1),
+                                            paddingVertical: 6 * (SCREEN_WIDTH >= 768 ? 1.25 : 1),
+                                            borderRadius: 8,
+                                            maxWidth: 70,
+                                        }}
+                                    >
+                                        <StyledText style={{ fontSize: 12 * (SCREEN_WIDTH >= 768 ? 1.25 : 1), fontWeight: 'bold', color: 'white', textAlign: 'center' }}>
+                                            Game Shared
+                                        </StyledText>
+                                    </StyledTouchableOpacity>
+                                </StyledView>
+                            )}
+                            {/* Go Pro button (right side) */}
                             <StyledView style={{ position: 'absolute', right: 16 }}>
                                 <GoProButton
                                     onPress={() => {

@@ -16,6 +16,7 @@ import { useSubscription } from '../../hooks/useSubscription';
 import { IntroScreen } from './IntroScreen';
 import { useOptions } from '../../lib/options';
 import { useReviewPrompt } from '../../hooks/useReviewPrompt';
+import { useToast } from '../../contexts/ToastContext';
 
 import { useUserStats } from '../../hooks/useUserStats';
 import { useBadgeSystem, Badge } from '../../hooks/useBadgeSystem';
@@ -57,10 +58,11 @@ interface ActiveGameProps {
 
 export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGameStateChange, isStreakSaverGame, onStreakSaverExit, introVisible, onIntroChange, contentOpacity, isTodayPuzzle }: ActiveGameProps) {
     const router = useRouter();
-    const { mode, id, skipIntro, preserveStreakStatus: preserveParam } = useLocalSearchParams();
+    const { mode, id, skipIntro, preserveStreakStatus: preserveParam, guestReplay: guestReplayParam } = useLocalSearchParams();
     const { dateLength, cluesEnabled, dateFormatOrder } = useOptions();
     const { user } = useAuth();
     const isGuest = !user;
+    const isGuestReplay = guestReplayParam === 'true';
 
     const { showAd, isClosed: adClosed } = useInterstitialAd();
     const { isPro } = useSubscription();
@@ -68,6 +70,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     const reviewTriggeredRef = React.useRef(false);
     const surfaceColor = useThemeColor({}, 'surface');
     const queryClient = useQueryClient();
+    const { toast } = useToast();
 
     // Local State
     const [preserveStreakStatus, setPreserveStreakStatus] = React.useState(false);
@@ -115,13 +118,18 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
         wasInitiallyComplete, // True only when viewing a previously completed game
         numDigits, // Get authoritative digit count
         finalStreak, // Get authoritative calculated streak
-        streakDayStatus // Get the DB status for today's game
+        streakDayStatus, // Get the DB status for today's game
+        // Guest Replay
+        replayGuestGuess,
+        guestReplayReady,
+        guestReplayCount
     } = useGameEngine({
         puzzleId: puzzle.id,
         answerDateCanonical: puzzle.solutionDate, // Use the actual solution date
         puzzleDate: puzzle.date, // Pass calendar date for Steak Saver validation
         mode: gameMode,
-        preserveStreakStatus // Pass down the user's choice
+        preserveStreakStatus, // Pass down the user's choice
+        guestReplay: isGuestReplay // Load from guest AsyncStorage for replay
     });
 
     // ... (placeHolders logic remains same)
@@ -185,7 +193,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
         if (onGameStateChange) onGameStateChange(gameState);
 
         const startTime = Date.now();
-        const MINIMUM_LOADING_TIME = 1500; // 1.5 seconds
+        const MINIMUM_LOADING_TIME = 1000; // 1 second
 
         const timer = setTimeout(() => {
 
@@ -212,6 +220,49 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
 
         return () => clearTimeout(timer);
     }, [gameState, guesses.length, isRestored, skipIntro]);
+
+    // ============================================================
+    // GUEST REPLAY ORCHESTRATION
+    // After loading completes, sequentially replay saved guest guesses
+    // on a timer. Shows blue toast while replaying.
+    // ============================================================
+    const guestReplayStartedRef = React.useRef(false);
+
+    useEffect(() => {
+        // Only run for guest replay games
+        if (!isGuestReplay || !guestReplayReady) return;
+
+        // Don't start until loading UI is done
+        if (isLoading) return;
+
+        // Only start once
+        if (guestReplayStartedRef.current) return;
+        guestReplayStartedRef.current = true;
+
+        console.log(`[ActiveGame] Guest Replay: starting replay of ${guestReplayCount} guesses`);
+
+        // Show blue toast
+        toast({
+            title: 'Loading your game data for today\'s puzzle',
+            variant: 'migration',
+            position: 'bottom',
+            duration: 4000,
+        });
+
+        // Replay guesses on a timer
+        let guessIndex = 0;
+        const replayInterval = setInterval(async () => {
+            const result = await replayGuestGuess();
+            guessIndex++;
+
+            if (result.done) {
+                clearInterval(replayInterval);
+                console.log(`[ActiveGame] Guest Replay: all ${guessIndex} guesses replayed`);
+            }
+        }, 1200); // 1.2 seconds between each guess to allow animation
+
+        return () => clearInterval(replayInterval);
+    }, [isGuestReplay, guestReplayReady, isLoading, guestReplayCount]);
 
     // -- Side Effects --
 

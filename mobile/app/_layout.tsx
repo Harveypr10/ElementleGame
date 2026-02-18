@@ -77,7 +77,7 @@ export const queryClient = new QueryClient({
   Handles redirection based on auth state and "First Login Setup"
 */
 function NavigationGuard({ children }: { children: React.ReactNode }) {
-    const { session, authPhase, hasCompletedFirstLogin, isGuest, user, pendingPuzzleDate, pendingPuzzleMode, consumePendingPuzzle, setDeferredPuzzle } = useAuth();
+    const { session, authPhase, hasCompletedFirstLogin, isGuest, user, pendingPuzzleDate, pendingPuzzleMode, consumePendingPuzzle, setDeferredPuzzle, deferredPuzzle } = useAuth();
     const segments = useSegments();
     const router = useRouter();
     const { toast } = useToast();
@@ -99,6 +99,15 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // preventing double popups when BOTH expo-router URL resolution AND
     // Linking.addEventListener fire for the same warm-start deep link.
     const lastDeferredPuzzleDateRef = useRef<string | null>(null);
+
+    // [FIX] Clear the dedup ref when the deferred puzzle is consumed (e.g. by the
+    // "Game Shared" button on the Home screen). This ensures the NEXT deep link
+    // won't be falsely flagged as a duplicate of the previous one.
+    useEffect(() => {
+        if (!deferredPuzzle) {
+            lastDeferredPuzzleDateRef.current = null;
+        }
+    }, [deferredPuzzle]);
 
     // [FIX] Router mount guard: tracks whether router is ready for navigation.
     // Prevents "Attempted to navigate before mounting" crash on force-quit + deep link.
@@ -380,6 +389,22 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 const gameId = segs[1];
                 const gameMode = 'REGION'; // mode is a query param, not available in segments
 
+                // [FIX] Validate that gameId is an actual date (YYYY-MM-DD), not a route
+                // parameter placeholder like "[date]". After STEP 0 consumes the pending
+                // puzzle, NavGuard can re-run while segments still show the placeholder.
+                const isValidDate = gameId && /^\d{4}-\d{2}-\d{2}$/.test(gameId);
+                if (!isValidDate) {
+                    // Date is a placeholder (e.g. "[date]") — expo-router resolved the
+                    // URL before the Linking handler could set the pending puzzle refs.
+                    // Just redirect; STEP 0 will handle the pending puzzle on the next
+                    // render once pendingPuzzleDate state has propagated.
+                    console.log(`[NavGuard] Unauthenticated play route with placeholder date — deferring to STEP 0`);
+                    if (!inAuthGroup) {
+                        safeReplace('/(auth)/onboarding');
+                    }
+                    return;
+                }
+
                 const puzzleKey = gameId ? `${gameMode}/${gameId}` : null;
                 const isDuplicateGame = puzzleKey ? lastDeferredPuzzleDateRef.current === puzzleKey : true;
 
@@ -427,13 +452,20 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                     // puzzle handling will navigate to the game after startup checks.
                     const segs = segments as string[];
                     const playDate = segs[1];
-                    if (playDate) {
+                    // [FIX] Validate playDate is a real date, not a placeholder like "[date]"
+                    const isValidPlayDate = playDate && /^\d{4}-\d{2}-\d{2}$/.test(playDate);
+                    if (isValidPlayDate) {
                         const puzzleKey = `REGION/${playDate}`;
                         if (lastDeferredPuzzleDateRef.current !== puzzleKey) {
                             console.log(`[NavGuard] Authenticated user on play route — storing deferred puzzle: ${puzzleKey}`);
                             setDeferredPuzzle({ mode: 'REGION', date: playDate });
                             lastDeferredPuzzleDateRef.current = puzzleKey;
                         }
+                    } else {
+                        // Date is a placeholder (e.g. "[date]") — expo-router resolved
+                        // the URL before the Linking handler set the refs. Don't consume
+                        // here; STEP 0 will handle it once pendingPuzzleDate state propagates.
+                        console.log(`[NavGuard] Authenticated play route with placeholder date — deferring to STEP 0`);
                     }
                     safeReplace('/(tabs)');
                 }

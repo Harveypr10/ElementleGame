@@ -204,12 +204,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const consumePendingPuzzle = (): { date: string; mode: string } | null => {
         const date = pendingPuzzleDateRef.current;
+        // [FIX] Early return if ref is null — do NOT clear state.
+        // Clearing state here cancels any queued setPendingPuzzleDate() from the
+        // auth warm-start handler (React batches both, net result = null).
+        if (!date) return null;
         const mode = pendingPuzzleModeRef.current ?? 'REGION';
         pendingPuzzleDateRef.current = null;
         pendingPuzzleModeRef.current = null;
         setPendingPuzzleDate(null);
         setPendingPuzzleMode(null);
-        if (!date) return null;
         return { date, mode };
     };
 

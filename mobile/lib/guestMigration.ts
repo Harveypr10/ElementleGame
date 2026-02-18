@@ -113,13 +113,18 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
                 const puzzleIdField = mode === 'REGION' ? 'allocated_region_id' : 'allocated_user_id';
                 const guessesTable = mode === 'REGION' ? 'guesses_region' : 'guesses_user';
 
-                // 1. Get Date
-                let puzzleDate = gameData.puzzleDate;
+                // 1. Get puzzle answer date (for migration) and calendar date (for deferral check)
+                let puzzleDate = gameData.puzzleDate; // This is the ANSWER date (e.g. 1927-04-23)
+                let calendarDate: string | null = null; // This is the ALLOCATION date (e.g. 2026-02-18)
+
+                // Always fetch the allocation date from DB for deferral check
+                const allocationTable = mode === 'REGION' ? 'questions_allocated_region' : 'questions_allocated_user';
+                const { data: allocData } = await supabase.from(allocationTable).select('puzzle_date').eq('id', parseInt(puzzleIdRaw)).single();
+                calendarDate = allocData?.puzzle_date || null;
+
                 if (!puzzleDate) {
-                    console.log(`[GuestMigration] Date missing in data, fetching from DB for ${puzzleIdRaw}...`);
-                    const allocationTable = mode === 'REGION' ? 'questions_allocated_region' : 'questions_allocated_user';
-                    const { data: allocData } = await supabase.from(allocationTable).select('puzzle_date').eq('id', parseInt(puzzleIdRaw)).single();
-                    puzzleDate = allocData?.puzzle_date;
+                    console.log(`[GuestMigration] Date missing in data, using allocation date for ${puzzleIdRaw}: ${calendarDate}`);
+                    puzzleDate = calendarDate;
                 }
                 if (!puzzleDate) {
                     console.log(`[GuestMigration] Skipping ${key}: Could not resolve puzzleDate`);
@@ -145,8 +150,10 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
                 // [FIX] Defer today's Region games — they must wait for StreakSaver
                 // to be resolved before being written, otherwise the streak gets
                 // recalculated before the user has a chance to use StreakSaver.
-                if (mode === 'REGION' && puzzleDate === today) {
-                    console.log(`[GuestMigration] Deferring today's Region game (${puzzleDate}) — waiting for StreakSaver`);
+                // IMPORTANT: Compare using the CALENDAR date (allocation date), not
+                // the answer date (which is a historical date like 1927-04-23).
+                if (mode === 'REGION' && calendarDate === today) {
+                    console.log(`[GuestMigration] Deferring today's Region game (calendar=${calendarDate}, answer=${puzzleDate}) — waiting for StreakSaver`);
                     deferredCount++;
                     continue; // Leave the AsyncStorage key in place
                 }
