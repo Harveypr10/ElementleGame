@@ -28,11 +28,13 @@ interface SplashScreenProps {
 }
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
-    const opacity = useSharedValue(1);
+    const opacity = useSharedValue(0);
 
     useEffect(() => {
-        // Image is immediately visible (opacity 1) to match native splash.
-        // Hold for a moment, then trigger completion.
+        // Fade in the hamster image over 800ms
+        opacity.value = withTiming(1, { duration: 800 });
+
+        // Hold for a moment after fade-in, then trigger completion.
         const timer = setTimeout(() => {
             onComplete();
         }, 2500);

@@ -332,7 +332,7 @@ export default function GameResultScreen() {
                         <View className="flex-1 items-center justify-center w-full">
                             {/* Header */}
                             <StyledView className="items-center mb-6">
-                                <ThemedText style={{ fontSize: (isLargeScreen ? 36 : 31) * textScale, lineHeight: (isLargeScreen ? 40 : 35) * textScale }} className="font-n-bold text-center">
+                                <ThemedText style={{ fontSize: (isLargeScreen ? 40 : 31) * textScale, lineHeight: (isLargeScreen ? 46 : 35) * textScale }} className="font-n-bold text-center">
                                     {isWin ? "Congratulations!" : "Unlucky!"}
                                 </ThemedText>
                             </StyledView>
@@ -342,7 +342,7 @@ export default function GameResultScreen() {
                                 <StyledImage
                                     source={isWin ? WinHamsterImg : LoseHamsterImg}
                                     className={isLargeScreen ? "w-48 h-48" : "w-32 h-32"}
-                                    style={{ width: isLargeScreen ? 192 : 128, height: isLargeScreen ? 192 : 128, maxWidth: '100%', maxHeight: 160 }}
+                                    style={{ width: isLargeScreen ? 211 : 128, height: isLargeScreen ? 211 : 128, maxWidth: '100%', maxHeight: isLargeScreen ? 211 : 160 }}
                                     resizeMode="contain"
                                 />
                             </StyledView>
@@ -362,14 +362,14 @@ export default function GameResultScreen() {
                                 <ThemedText style={{ fontSize: (isLargeScreen ? 27 : 18) * textScale, color: '#0f172a' }} className="font-n-semibold text-center mb-2">
                                     {eventTitle}
                                 </ThemedText>
-                                <ThemedText style={{ fontSize: (isLargeScreen ? 21 : 14) * textScale, color: '#334155' }} className="text-center opacity-80">
+                                <ThemedText style={{ fontSize: (isLargeScreen ? 21 : 14) * textScale, color: '#334155', fontFamily: 'Nunito' }} className="text-center opacity-80">
                                     {eventDescription || "A historic day to remember!"}
                                 </ThemedText>
                             </StyledView>
 
                             {/* Guesses text - Reduced margin */}
                             {isWin && (
-                                <ThemedText style={{ fontSize: (isLargeScreen ? 24 : 20) * textScale }} className="text-center font-n-medium mb-2 opacity-60">
+                                <ThemedText style={{ fontSize: (isLargeScreen ? 20 : 20) * textScale, marginTop: isLargeScreen ? 12 : 0, marginBottom: isLargeScreen ? 12 : 0 }} className="text-center font-n-medium mb-2 opacity-60">
                                     You solved it in {guessesCount} {guessesCount === 1 ? 'guess' : 'guesses'}!
                                 </ThemedText>
                             )}
@@ -397,10 +397,10 @@ export default function GameResultScreen() {
                                         {/* Stats Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: statsColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}
+                                            style={{ backgroundColor: statsColor, height: isLargeScreen ? 85 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: isLargeScreen ? 32 : 16 }}
                                             onPress={() => router.push(`/stats?mode=${gameMode}`)}
                                         >
-                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Stats</StyledText>
+                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 24 : 18 }}>Stats</StyledText>
                                             <View className="w-[60px] h-[60px] justify-center items-center" style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                                                 <StyledImage
                                                     source={StatsHamsterImg}
@@ -414,10 +414,10 @@ export default function GameResultScreen() {
                                         {/* Share Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: shareColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}
+                                            style={{ backgroundColor: shareColor, height: isLargeScreen ? 85 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: isLargeScreen ? 32 : 16 }}
                                             onPress={handleShare}
                                         >
-                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Share</StyledText>
+                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 24 : 18 }}>Share</StyledText>
                                             <View className="w-[60px] h-[60px] justify-center items-center" style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                                                 <StyledImage
                                                     source={ShareHamsterImg}
@@ -434,7 +434,7 @@ export default function GameResultScreen() {
                                         {/* Home Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: homeColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}
+                                            style={{ backgroundColor: homeColor, height: isLargeScreen ? 85 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: isLargeScreen ? 32 : 16 }}
                                             onPress={() => {
                                                 if (gameMode === 'REGION' || gameMode === 'USER') {
                                                     setGameMode(gameMode);
@@ -451,7 +451,7 @@ export default function GameResultScreen() {
                                                 router.push('/(tabs)');
                                             }}
                                         >
-                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Home</StyledText>
+                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 24 : 18 }}>Home</StyledText>
                                             <View className="w-[60px] h-[60px] justify-center items-center" style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                                                 <StyledImage
                                                     source={HomeHamsterImg}
@@ -465,10 +465,10 @@ export default function GameResultScreen() {
                                         {/* Archive Button */}
                                         <StyledTouchableOpacity
                                             className="flex-1 rounded-3xl shadow-sm active:opacity-90"
-                                            style={{ backgroundColor: archiveColor, height: isLargeScreen ? 94 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 }}
+                                            style={{ backgroundColor: archiveColor, height: isLargeScreen ? 85 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: isLargeScreen ? 32 : 16 }}
                                             onPress={() => router.push({ pathname: '/archive', params: { mode: gameMode } })}
                                         >
-                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 18 * 1.5 : 18 }}>Archive</StyledText>
+                                            <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 24 : 18 }}>Archive</StyledText>
                                             <View className="w-[60px] h-[60px] justify-center items-center" style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center' }}>
                                                 <StyledImage
                                                     source={ArchiveHamsterImg}
