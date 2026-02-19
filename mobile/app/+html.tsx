@@ -23,8 +23,14 @@ export default function Root({ children }: PropsWithChildren) {
                 <meta name="description" content="Elementle - A daily historical date guessing game. Test your knowledge of history!" />
                 <title>Elementle</title>
 
+                {/* Favicon & Apple Touch Icon (share sheet / iMessage preview) */}
+                <link rel="icon" href="/favicon.ico" sizes="32x32" />
+                <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
                 {/* Open Graph / Link Preview Image */}
                 <meta property="og:title" content="Elementle" />
+                <meta property="og:type" content="website" />
+                <meta property="og:url" content="https://elementle.tech" />
                 <meta property="og:description" content="A daily historical date guessing game. Test your knowledge of history!" />
                 <meta property="og:image" content="/hamster-icon-blue.png" />
                 <meta property="og:image:width" content="1024" />
