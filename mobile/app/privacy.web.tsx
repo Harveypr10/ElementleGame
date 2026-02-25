@@ -54,22 +54,29 @@ export default function PrivacyWeb() {
                     <ScrollView style={styles.scrollContent}>
                         <View style={{ marginBottom: 24 }}>
                             <Text style={styles.cardTitle}>Privacy Policy for Elementle</Text>
-                            <Text style={styles.cardSubtitle}>Last updated: October 2025</Text>
+                            <Text style={styles.cardSubtitle}>Last updated: February 2026</Text>
                         </View>
 
                         <View style={styles.section}>
                             <Text style={styles.subHeader}>1. Information We Collect</Text>
                             <Text style={styles.paragraph}>
-                                When you create an account, we collect the following information as part of providing the game service:
+                                When you create an account, we collect the following information:
                             </Text>
                             <View style={styles.list}>
-                                <Text style={styles.listItem}>• Email address</Text>
-                                <Text style={styles.listItem}>• First and last name</Text>
-                                <Text style={styles.listItem}>• Game progress and guess data (including your daily guesses, streaks, and statistics)</Text>
+                                <Text style={styles.listItem}>• Email address (for login and account recovery)</Text>
+                                <Text style={styles.listItem}>• First and last name (for personalisation)</Text>
+                                <Text style={styles.listItem}>• Postcode or location data (to provide local puzzles relevant to your area)</Text>
+                                <Text style={styles.listItem}>• Game progress data (guesses, streaks, statistics, and badges)</Text>
+                                <Text style={styles.listItem}>• Subscription and purchase information (to manage your Pro subscription)</Text>
                             </View>
                             <Text style={styles.paragraph}>
-                                We may also collect optional information if you provide consent (see Section 4).
+                                We also automatically collect:
                             </Text>
+                            <View style={styles.list}>
+                                <Text style={styles.listItem}>• Device identifiers (for analytics, ad serving, and fraud prevention)</Text>
+                                <Text style={styles.listItem}>• Crash reports and performance data (to improve app stability)</Text>
+                                <Text style={styles.listItem}>• Usage data (how you interact with features, screens, and settings)</Text>
+                            </View>
                         </View>
 
                         <View style={styles.section}>
@@ -77,7 +84,10 @@ export default function PrivacyWeb() {
                             <Text style={styles.paragraph}>We use your information to:</Text>
                             <View style={styles.list}>
                                 <Text style={styles.listItem}>• Provide and maintain the Elementle game service</Text>
-                                <Text style={styles.listItem}>• Track your game progress, guesses, and statistics to power features such as streaks and leaderboards</Text>
+                                <Text style={styles.listItem}>• Track your game progress, streaks, badges, and statistics</Text>
+                                <Text style={styles.listItem}>• Process and manage subscriptions</Text>
+                                <Text style={styles.listItem}>• Serve advertisements (personalised if you consent, contextual otherwise)</Text>
+                                <Text style={styles.listItem}>• Monitor app performance and fix crashes</Text>
                                 <Text style={styles.listItem}>• Send important service updates (e.g. account or security notifications)</Text>
                             </View>
                         </View>
@@ -85,26 +95,42 @@ export default function PrivacyWeb() {
                         <View style={styles.section}>
                             <Text style={styles.subHeader}>3. Data Storage</Text>
                             <Text style={styles.paragraph}>
-                                Your data is securely stored using Supabase, a trusted database platform. We retain your data only as long as necessary to provide the service or comply with legal obligations.
+                                Your data is securely stored using Supabase, a hosted database platform. We retain your account data for as long as your account is active. If you delete your account, your personal data will be removed within 30 days, except where we are required by law to retain it.
                             </Text>
                         </View>
 
                         <View style={styles.section}>
-                            <Text style={styles.subHeader}>4. Optional Data Use (Consent-Based)</Text>
+                            <Text style={styles.subHeader}>4. Third-Party Services</Text>
                             <Text style={styles.paragraph}>
-                                With your explicit consent, we may also use your data to tailor advertising and promotional content to your interests. This consent is optional and not required to play the game. You can withdraw consent at any time in the app’s Settings.
+                                We use the following third-party services that may collect data:
                             </Text>
-                        </View>
-
-                        <View style={styles.section}>
-                            <Text style={styles.subHeader}>5. Data Sharing</Text>
+                            <View style={styles.list}>
+                                <Text style={styles.listItem}>• Google AdMob & AppLovin — Serve advertisements. May collect device identifiers (IDFA), location data, and interaction data for ad targeting and measurement.</Text>
+                                <Text style={styles.listItem}>• RevenueCat — Manages subscriptions and in-app purchases. Collects purchase receipts and a user identifier.</Text>
+                                <Text style={styles.listItem}>• Sentry — Monitors app crashes and performance. Collects crash logs, device information, and performance metrics. This data is not linked to your identity.</Text>
+                                <Text style={styles.listItem}>• Supabase — Stores your account and game data securely.</Text>
+                            </View>
                             <Text style={styles.paragraph}>
-                                We do not sell, trade, or otherwise transfer your personal information to third parties. Your game statistics may be aggregated and anonymised for global leaderboards. Advertising partners will only receive data if you have explicitly opted in under Section 4.
+                                When you grant App Tracking Transparency permission, advertising partners may use your data across apps and websites for targeted advertising.
                             </Text>
                         </View>
 
                         <View style={styles.section}>
-                            <Text style={styles.subHeader}>6. Your Rights</Text>
+                            <Text style={styles.subHeader}>5. Optional Data Use (Consent-Based)</Text>
+                            <Text style={styles.paragraph}>
+                                With your explicit consent, we may share your data with advertising partners to tailor ads to your interests. If you do not consent, you will still see ads, but they will not be personalised. You can change your consent at any time in the Privacy section of Settings.
+                            </Text>
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.subHeader}>6. Data Sharing</Text>
+                            <Text style={styles.paragraph}>
+                                We do not sell your personal information. We share data only with the third-party services listed in Section 4, solely for the purposes described. Your game statistics may be aggregated and anonymised for leaderboards. We may also disclose information if required by law.
+                            </Text>
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.subHeader}>7. Your Rights</Text>
                             <Text style={styles.paragraph}>Under GDPR and UK GDPR, you have the right to:</Text>
                             <View style={styles.list}>
                                 <Text style={styles.listItem}>• Access your personal data</Text>
@@ -115,9 +141,29 @@ export default function PrivacyWeb() {
                         </View>
 
                         <View style={styles.section}>
-                            <Text style={styles.subHeader}>7. Contact Us</Text>
+                            <Text style={styles.subHeader}>8. Account Deletion</Text>
                             <Text style={styles.paragraph}>
-                                If you have questions about this Privacy Policy or your data rights, please contact us through the Feedback section in Settings.
+                                You can delete your account at any time from Settings {'>'} Account Info {'>'} Delete Account. When you delete your account, we will permanently remove your personal data, game progress, and subscription records within 30 days. Some anonymised, aggregated data (e.g. leaderboard contributions) may be retained.
+                            </Text>
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.subHeader}>9. Children's Privacy</Text>
+                            <Text style={styles.paragraph}>
+                                Elementle is rated for users aged 4+ and does not knowingly collect personal information from children under 13 (or 16 in the EEA/UK) without parental consent. If you believe a child has provided us with personal data, please contact us and we will delete it promptly.
+                            </Text>
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.subHeader}>10. Contact Us</Text>
+                            <Text style={styles.paragraph}>
+                                If you have questions about this Privacy Policy or wish to exercise your data rights, please contact us at:
+                            </Text>
+                            <Text style={styles.paragraph}>
+                                Email: privacy@dobl.uk
+                            </Text>
+                            <Text style={styles.paragraph}>
+                                Or through the Feedback section in the app's Settings.
                             </Text>
                         </View>
 

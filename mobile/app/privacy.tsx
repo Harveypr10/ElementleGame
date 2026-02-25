@@ -64,31 +64,43 @@ export default function PrivacyScreen() {
     const sections = [
         {
             title: "1. Information We Collect",
-            content: "When you create an account, we collect the following information as part of providing the game service:\n• Email address\n• First and last name\n• Postcode (used to create questions relevant to your local area)\n• Game progress and guess data"
+            content: "When you create an account, we collect the following information:\n\n• Email address (for login and account recovery)\n• First and last name (for personalisation)\n• Postcode or location data (to provide local puzzles relevant to your area)\n• Game progress data (guesses, streaks, statistics, and badges)\n• Subscription and purchase information (to manage your Pro subscription)\n\nWe also automatically collect:\n\n• Device identifiers (for analytics, ad serving, and fraud prevention)\n• Crash reports and performance data (to improve app stability)\n• Usage data (how you interact with features, screens, and settings)"
         },
         {
             title: "2. How We Use Your Information",
-            content: "We use your information to:\n• Provide and maintain the Elementle game service\n• Track your game progress, guesses, and statistics to power features such as streaks and leaderboards\n• Send important service updates (e.g. account or security notifications)"
+            content: "We use your information to:\n\n• Provide and maintain the Elementle game service\n• Track your game progress, streaks, badges, and statistics\n• Process and manage subscriptions\n• Serve advertisements (personalised if you consent, contextual otherwise)\n• Monitor app performance and fix crashes\n• Send important service updates (e.g. account or security notifications)"
         },
         {
             title: "3. Data Storage",
-            content: "Your data is securely stored using Supabase, a trusted database platform. We retain your data only as long as necessary to provide the service or comply with legal obligations."
+            content: "Your data is securely stored using Supabase, a hosted database platform. We retain your account data for as long as your account is active. If you delete your account, your personal data will be removed within 30 days, except where we are required by law to retain it."
         },
         {
-            title: "4. Optional Data Use",
-            content: "With your explicit consent, we may also use your data to tailor advertising and promotional content to your interests. This consent is optional and not required to play the game."
+            title: "4. Third-Party Services",
+            content: "We use the following third-party services that may collect data:\n\n• Google AdMob & AppLovin — Serve advertisements. May collect device identifiers (IDFA), location data, and interaction data for ad targeting and measurement.\n• RevenueCat — Manages subscriptions and in-app purchases. Collects purchase receipts and a user identifier.\n• Sentry — Monitors app crashes and performance. Collects crash logs, device information, and performance metrics. This data is not linked to your identity.\n• Supabase — Stores your account and game data securely.\n\nWhen you grant App Tracking Transparency permission, advertising partners may use your data across apps and websites for targeted advertising."
         },
         {
-            title: "5. Data Sharing",
-            content: "We do not sell, trade, or otherwise transfer your personal information to third parties. Your game statistics may be aggregated and anonymised for global leaderboards. Advertising partners will only receive data if you have explicitly opted in."
+            title: "5. Optional Data Use (Consent-Based)",
+            content: "With your explicit consent, we may share your data with advertising partners to tailor ads to your interests. If you do not consent, you will still see ads, but they will not be personalised. You can change your consent at any time in the Privacy section of Settings."
         },
         {
-            title: `6. Your Rights (${legislationName})`,
+            title: "6. Data Sharing",
+            content: "We do not sell your personal information. We share data only with the third-party services listed in Section 4, solely for the purposes described. Your game statistics may be aggregated and anonymised for leaderboards. We may also disclose information if required by law."
+        },
+        {
+            title: `7. Your Rights (${legislationName})`,
             content: rightsContent
         },
         {
-            title: "7. Contact Us",
-            content: "If you have questions about this Privacy Policy or your data rights, please contact us through the Feedback section in Settings."
+            title: "8. Account Deletion",
+            content: "You can delete your account at any time from Settings > Account Info > Delete Account. When you delete your account, we will permanently remove your personal data, game progress, and subscription records within 30 days. Some anonymised, aggregated data (e.g. leaderboard contributions) may be retained."
+        },
+        {
+            title: "9. Children's Privacy",
+            content: "Elementle is rated for users aged 4+ and does not knowingly collect personal information from children under 13 (or 16 in the EEA/UK) without parental consent. If you believe a child has provided us with personal data, please contact us and we will delete it promptly."
+        },
+        {
+            title: "10. Contact Us",
+            content: "If you have questions about this Privacy Policy or wish to exercise your data rights, please contact us at:\n\nEmail: privacy@dobl.uk\n\nOr through the Feedback section in the app's Settings."
         }
     ];
 
@@ -114,7 +126,7 @@ export default function PrivacyScreen() {
                 <StyledView className="w-full max-w-3xl self-center">
                     {/* Last Updated */}
                     <ThemedText size="sm" style={{ color: secondaryTextColor }} className="mb-6 text-center">
-                        Last updated: October 2025
+                        Last updated: February 2026
                     </ThemedText>
 
                     {/* Policy Sections */}
