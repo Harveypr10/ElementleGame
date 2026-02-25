@@ -253,7 +253,7 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', region =
                     {/* Header */}
                     <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 6, position: 'relative' }}>
                         <Text style={{ fontSize: 30, fontFamily: 'Nunito-Bold', color: '#FFFFFF', textAlign: 'center' }}>Badges</Text>
-                        <TouchableOpacity onPress={onClose} style={{ position: 'absolute', right: 24, padding: 8, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 9999 }}>
+                        <TouchableOpacity onPress={onClose} style={{ position: 'absolute', right: 24, padding: 8, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 9999 }} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}>
                             <X size={22} color="#FFFFFF" />
                         </TouchableOpacity>
                     </View>

@@ -45,6 +45,7 @@ export default function FeedbackScreen() {
                     <StyledTouchableOpacity
                         onPress={goBack}
                         className="w-10 h-10 items-center justify-center p-2"
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                     >
                         <ChevronLeft size={28} color={colors.icon} />
                     </StyledTouchableOpacity>

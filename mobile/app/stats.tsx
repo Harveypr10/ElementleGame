@@ -339,6 +339,7 @@ export default function StatsScreen() {
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
                             className="p-2 -ml-2"
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <ChevronLeft size={28} color="#FFFFFF" />
                         </StyledTouchableOpacity>
@@ -557,6 +558,7 @@ export default function StatsScreen() {
                                         onPress={() => setShowBadgesModal(true)}
                                         className="flex-row items-center px-0 py-1"
                                         style={{ flexDirection: 'row' }}
+                                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                     >
                                         <ThemedText className="font-n-semibold text-sm mr-1" style={{ color: theme.viewAllText }}>
                                             View all
@@ -814,6 +816,7 @@ export default function StatsScreen() {
                                     onPress={() => setShowPercentileInfo(false)}
                                     className="p-1 rounded-full"
                                     style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                                 >
                                     <X size={20} color="#FFFFFF" />
                                 </TouchableOpacity>

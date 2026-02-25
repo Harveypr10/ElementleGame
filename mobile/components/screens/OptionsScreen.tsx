@@ -164,6 +164,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                         <StyledTouchableOpacity
                             onPress={handleBack}
                             className="w-10 h-10 items-center justify-center"
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <ChevronLeft size={28} color={iconColor} />
                         </StyledTouchableOpacity>

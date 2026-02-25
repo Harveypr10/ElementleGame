@@ -45,6 +45,7 @@ export function GoProButton({ onPress, scale = 1 }: GoProButtonProps) {
                 onPress={onPress}
                 testID="button-pro-status"
                 className="rounded-lg shadow-sm active:opacity-80"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 style={{
                     backgroundColor: '#f97316', // orange-500
                     paddingHorizontal: 12 * scale,
@@ -64,6 +65,7 @@ export function GoProButton({ onPress, scale = 1 }: GoProButtonProps) {
             onPress={onPress}
             testID="button-go-pro"
             className="rounded-lg shadow-sm active:opacity-80"
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={{
                 backgroundColor: '#f97316', // orange-500
                 paddingHorizontal: 8 * scale,

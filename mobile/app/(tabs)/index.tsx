@@ -991,14 +991,14 @@ export default function HomeScreen() {
 
                         {/* Top Left Icon (Help) */}
                         <StyledView style={{ position: 'absolute', left: 16, top: SCREEN_WIDTH >= 768 ? 0 : 11 }}>
-                            <StyledTouchableOpacity onPress={() => setHelpVisible(true)}>
+                            <StyledTouchableOpacity onPress={() => setHelpVisible(true)} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}>
                                 <HelpCircle size={28} color={iconColor} />
                             </StyledTouchableOpacity>
                         </StyledView>
 
                         {/* Top Right: Settings Icon */}
                         <StyledView style={{ position: 'absolute', right: 16, top: SCREEN_WIDTH >= 768 ? 0 : 11 }}>
-                            <StyledTouchableOpacity onPress={() => router.push('/settings')}>
+                            <StyledTouchableOpacity onPress={() => router.push('/settings')} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}>
                                 <Settings size={28} color={iconColor} />
                             </StyledTouchableOpacity>
                         </StyledView>

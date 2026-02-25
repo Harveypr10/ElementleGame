@@ -125,6 +125,7 @@ export default function OTPVerificationScreen() {
                                 router.back();
                             }}
                             className="mr-4"
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <ChevronLeft size={28} color="#1e293b" />
                         </StyledTouchableOpacity>
@@ -181,6 +182,7 @@ export default function OTPVerificationScreen() {
                                 testID="otp-resend"
                                 onPress={handleResendCode}
                                 disabled={resending}
+                                hitSlop={{ top: 10, bottom: 10 }}
                             >
                                 <StyledText className="text-blue-500 font-n-bold">
                                     {resending ? 'Sending...' : 'Resend'}

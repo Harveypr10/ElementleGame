@@ -212,6 +212,7 @@ export function OnboardingScreen({
                         activeOpacity={0.8}
                         testID="link-onboarding-login"
                         style={{ paddingVertical: 4 }}
+                        hitSlop={{ top: 10, bottom: 10 }}
                     >
                         <Text style={[styles.loginLinkText, { color: secondaryTextColor }]}>
                             Already playing?{' '}
@@ -238,17 +239,17 @@ export function OnboardingScreen({
 
                 {/* Privacy, Support & Subscribe (mobile) Links */}
                 <View style={styles.linksContainer}>
-                    <TouchableOpacity onPress={() => router.push('/privacy')} activeOpacity={0.7}>
+                    <TouchableOpacity onPress={() => router.push('/privacy')} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10 }}>
                         <ThemedText baseSize={13} style={styles.linkText}>Privacy Policy</ThemedText>
                     </TouchableOpacity>
                     <ThemedText baseSize={13} style={styles.linkSeparator}>·</ThemedText>
-                    <TouchableOpacity onPress={() => router.push('/support')} activeOpacity={0.7}>
+                    <TouchableOpacity onPress={() => router.push('/support')} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10 }}>
                         <ThemedText baseSize={13} style={styles.linkText}>Support</ThemedText>
                     </TouchableOpacity>
                     {!isWeb && (
                         <>
                             <ThemedText baseSize={13} style={styles.linkSeparator}>·</ThemedText>
-                            <TouchableOpacity onPress={onSubscribe} activeOpacity={0.7}>
+                            <TouchableOpacity onPress={onSubscribe} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10 }}>
                                 <ThemedText baseSize={13} style={styles.linkText}>Subscribe</ThemedText>
                             </TouchableOpacity>
                         </>

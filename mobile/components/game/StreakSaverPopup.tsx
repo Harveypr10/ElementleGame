@@ -357,6 +357,7 @@ export function StreakSaverPopup({
                                         <StyledTouchableOpacity
                                             onPress={() => onClose('dismiss')}
                                             className="absolute -right-2 -top-2 p-2 bg-white/20 rounded-full"
+                                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                                         >
                                             <X size={20} color="#1e293b" />
                                         </StyledTouchableOpacity>

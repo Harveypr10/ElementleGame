@@ -234,6 +234,7 @@ export function BadgeUnlockModal({ visible, badge, onClose, showCloseButton = fa
                             onPress={handleClose}
                             className="absolute right-6 top-12 z-50 p-2 bg-white/20 rounded-full"
                             disabled={isClosing}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <X size={24} color="white" />
                         </StyledTouchableOpacity>

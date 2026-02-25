@@ -147,6 +147,7 @@ export default function SetNewPasswordScreen() {
                             router.back();
                         }}
                         style={{ position: 'absolute', left: 16, top: 16 }}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                     >
                         <ChevronLeft size={28} color={iconColor} />
                     </StyledTouchableOpacity>

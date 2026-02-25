@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Dimensions, Animated, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, ActivityIndicator, Dimensions, Animated, useWindowDimensions, Platform, Share } from 'react-native';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { styled } from 'nativewind';
-import { ChevronLeft, ChevronRight, Settings, HelpCircle, ArrowLeft } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Settings, HelpCircle, ArrowLeft, Share2 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     format,
@@ -35,6 +35,7 @@ import { useNetwork } from '../contexts/NetworkContext';
 import { useStreakSaverStatus } from '../hooks/useStreakSaverStatus';
 import { HolidayActiveModal } from '../components/game/HolidayActiveModal';
 import { endHolidayMode } from '../lib/supabase-rpc';
+import { generateArchiveShareText } from '../lib/generateArchiveShareText';
 
 // Web version import
 import ArchiveScreenWeb from './archive.web';
@@ -56,12 +57,13 @@ interface DayStatus {
 }
 
 // Sub-component for individual month page
-const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, onPlayPuzzle, width }: {
+const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, onPlayPuzzle, onMonthDataReady, width }: {
     monthDate: Date,
     isActive: boolean,
     gameMode: string,
     isScreenFocused: boolean,
     onPlayPuzzle: (puzzleId: number, date?: Date, status?: string) => void,
+    onMonthDataReady?: (monthDate: Date, data: Record<string, any>) => void,
     width: number
 }) => {
     const router = useRouter();
@@ -239,6 +241,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
 
             setMonthData(processed);
             setHasFetched(true);
+            onMonthDataReady?.(monthDate, processed);
             await AsyncStorage.setItem(cacheKey, JSON.stringify(processed));
 
         } catch (e) {
@@ -373,6 +376,16 @@ export default function ArchiveScreen() {
     const { holidayActive, holidayEndDate } = useStreakSaverStatus();
     const [showHolidayModal, setShowHolidayModal] = useState(false);
     const [pendingPuzzleId, setPendingPuzzleId] = useState<number | null>(null);
+
+    // Share feature: store each month's data from MonthPage, keyed by yyyy-MM
+    const monthDataMapRef = useRef<Record<string, Record<string, any>>>({});
+    const [dataVersion, setDataVersion] = useState(0); // triggers re-render when month data arrives
+
+    const handleMonthDataReady = React.useCallback((monthDate: Date, data: Record<string, any>) => {
+        const key = format(monthDate, 'yyyy-MM');
+        monthDataMapRef.current[key] = data;
+        setDataVersion(v => v + 1);
+    }, []);
 
     const handlePlayPuzzle = (puzzleId: number, date?: Date, status?: string) => {
         // [FIX] Holiday Modal Logic Check
@@ -597,6 +610,81 @@ export default function ArchiveScreen() {
         setActiveIndex(targetIndex);
     };
 
+    const handleShare = React.useCallback(async () => {
+        try {
+            const monthDate = months[activeIndex] || today;
+            const monthLabel = format(monthDate, 'MMM yyyy');
+            const edition = gameMode === 'USER' ? 'Personalised' : 'UK Edition';
+            const monthKey = format(monthDate, 'yyyy-MM');
+            const data = monthDataMapRef.current[monthKey] || {};
+
+            const isCurrentMonth = isSameMonth(monthDate, new Date());
+
+            // Build days array from monthData (1st to last day of month)
+            const start = startOfMonth(monthDate);
+            const end = endOfMonth(monthDate);
+            const daysInMonth = eachDayOfInterval({ start, end });
+
+            const days = daysInMonth.map(day => {
+                const key = format(day, 'yyyy-MM-dd');
+                const entry = data[key];
+                return {
+                    status: entry?.status || 'not-played' as 'won' | 'lost' | 'played' | 'not-played',
+                    isFuture: entry?.isFuture ?? (isFuture(day) && !isSameDay(day, new Date())),
+                };
+            });
+
+            const wonCount = days.filter(d => d.status === 'won').length;
+
+            // Denominator: current month = days elapsed (non-future), past month = total days
+            const totalDenominator = isCurrentMonth
+                ? days.filter(d => !d.isFuture).length
+                : daysInMonth.length;
+
+            // Percentile logic:
+            // - Current month: show only if day of month >= 5
+            // - Previous month: show if current day of month < 5 (percentile not yet recalculated)
+            // - Other months: don't show
+            let percentile: number | undefined;
+            const now = new Date();
+            const currentDay = now.getDate();
+            const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const isPreviousMonth = isSameMonth(monthDate, prevMonthDate);
+            const shouldShowPercentile =
+                (isCurrentMonth && currentDay >= 5) ||
+                (isPreviousMonth && currentDay < 5);
+
+            if (shouldShowPercentile && user) {
+                try {
+                    const STATS_TABLE = gameMode === 'REGION' ? 'user_stats_region' : 'user_stats_user';
+                    const { data: statsData } = await supabase
+                        .from(STATS_TABLE as any)
+                        .select('cumulative_monthly_percentile')
+                        .eq('user_id', user.id)
+                        .single();
+                    if ((statsData as any)?.cumulative_monthly_percentile) {
+                        percentile = (statsData as any).cumulative_monthly_percentile;
+                    }
+                } catch (e) { /* silent */ }
+            }
+
+            const shareText = generateArchiveShareText({
+                edition,
+                monthLabel,
+                days,
+                wonCount,
+                totalDenominator,
+                isCurrentMonth,
+                percentile,
+                deepLinkUrl: 'https://elementle.tech',
+            });
+
+            await Share.share({ message: shareText });
+        } catch (e) {
+            console.error('[Archive] Share error:', e);
+        }
+    }, [activeIndex, months, today, gameMode, user]);
+
     const returnToToday = () => {
         handleDateSelect(today);
     };
@@ -637,7 +725,7 @@ export default function ArchiveScreen() {
                 {/* Header Row */}
                 <StyledView className="flex-row items-center justify-center py-3 w-full" style={{ position: 'relative', flexDirection: 'row' }}>
                     {/* Back Button - Absolute positioned at left - Web Safe Padding */}
-                    <StyledTouchableOpacity onPress={() => router.back()} className="p-2" style={{ position: 'absolute', left: 16, zIndex: 10 }}>
+                    <StyledTouchableOpacity onPress={() => router.back()} className="p-2" style={{ position: 'absolute', left: 16, zIndex: 10 }} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}>
                         <ChevronLeft size={28} color="#FFFFFF" />
                     </StyledTouchableOpacity>
 
@@ -766,6 +854,7 @@ export default function ArchiveScreen() {
                                         gameMode={gameMode}
                                         isScreenFocused={isFocused}
                                         onPlayPuzzle={handlePlayPuzzle}
+                                        onMonthDataReady={handleMonthDataReady}
                                         width={calendarContentWidth - 16}
                                     />
                                 </StyledView>
@@ -782,6 +871,39 @@ export default function ArchiveScreen() {
                         />
                     </StyledView>
                 </StyledView>
+
+                {/* Share Button — outside card, only when games have been played */}
+                {(() => {
+                    const monthKey = format(currentMonthDate, 'yyyy-MM');
+                    const mData = monthDataMapRef.current[monthKey] || {};
+                    const hasPlayed = Object.values(mData).some((d: any) => d.status === 'won' || d.status === 'lost' || d.status === 'played');
+                    return hasPlayed ? (
+                        <StyledView style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 4 }}>
+                            <StyledTouchableOpacity
+                                onPress={handleShare}
+                                activeOpacity={0.85}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: brandColor,
+                                    paddingHorizontal: 24,
+                                    paddingVertical: 10,
+                                    borderRadius: 9999,
+                                    gap: 8,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 2 },
+                                    shadowOpacity: 0.1,
+                                    shadowRadius: 4,
+                                    elevation: 2,
+                                }}
+                            >
+                                <StyledText style={{ color: '#FFFFFF', fontSize: 15, fontFamily: 'Nunito-Bold' }}>Share</StyledText>
+                                <Share2 size={18} color="#FFFFFF" />
+                            </StyledTouchableOpacity>
+                        </StyledView>
+                    ) : null;
+                })()}
             </StyledView>
 
             {/* Return to Today Button (Bottom Floating/Fixed) */}
@@ -791,7 +913,7 @@ export default function ArchiveScreen() {
                         variant="surface"
                         style={{ paddingHorizontal: 24, paddingVertical: 12, borderRadius: 9999, borderWidth: 1, borderColor: darkMode ? '#334155' : '#f1f5f9', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4 }}
                     >
-                        <TouchableOpacity onPress={returnToToday}>
+                        <TouchableOpacity onPress={returnToToday} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                             <ThemedText style={{ fontSize: 16 * textScale, color: brandColorDark }} className="font-n-bold">
                                 Return to today
                             </ThemedText>

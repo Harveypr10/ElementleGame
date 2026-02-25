@@ -558,6 +558,7 @@ export default function LoginPage() {
                         onPress={handleBack}
                         style={styles.backButton}
                         onPressIn={() => Keyboard.dismiss()}
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                     >
                         <ChevronLeft size={28} color={textColor} />
                     </TouchableOpacity>

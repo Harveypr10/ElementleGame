@@ -107,6 +107,7 @@ export function HolidayModePopup({ visible, onClose, currentStreak, gameType, sh
                             <StyledTouchableOpacity
                                 onPress={onClose}
                                 className="absolute -right-2 -top-2 p-2"
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                             >
                                 <X size={24} className="text-slate-400" />
                             </StyledTouchableOpacity>

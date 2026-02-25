@@ -313,6 +313,7 @@ export default function CategorySelectionScreen() {
                         <StyledTouchableOpacity
                             onPress={handleExit}
                             style={{ position: 'absolute', left: 0, top: 8, padding: 8, marginLeft: -8, zIndex: 10 }}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <ChevronLeft size={28} color="#FFFFFF" />
                         </StyledTouchableOpacity>

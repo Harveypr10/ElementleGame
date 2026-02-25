@@ -65,6 +65,7 @@ export default function SettingsScreen() {
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
                             style={{ position: 'absolute', left: 0, zIndex: 10, padding: 8 }}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <ChevronLeft size={28} color={colors.icon} />
                         </StyledTouchableOpacity>

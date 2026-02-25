@@ -122,7 +122,7 @@ export function HelpModal({ visible, onClose, isGuest = false, onLoginPress }: H
 
                         {/* Close button - absolute positioned */}
                         <StyledView style={{ position: 'absolute', right: 16, top: 0, bottom: 0, justifyContent: 'center' }}>
-                            <StyledTouchableOpacity onPress={onClose} style={{ padding: 8 }}>
+                            <StyledTouchableOpacity onPress={onClose} style={{ padding: 8 }} hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}>
                                 <X size={24} color={iconColor} />
                             </StyledTouchableOpacity>
                         </StyledView>

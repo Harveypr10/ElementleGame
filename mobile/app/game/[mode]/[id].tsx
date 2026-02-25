@@ -388,6 +388,7 @@ export default function GameScreen() {
                                 <TouchableOpacity
                                     onPress={handleBack}
                                     className="items-center justify-center bg-transparent p-2"
+                                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                                 >
                                     <ChevronLeft size={28} color={headerIconColor} />
                                 </TouchableOpacity>
@@ -406,6 +407,7 @@ export default function GameScreen() {
                             <TouchableOpacity
                                 onPress={() => setHelpVisible(true)}
                                 className="items-center justify-center bg-transparent p-2"
+                                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                             >
                                 <HelpCircle size={28} color={headerIconColor} />
                             </TouchableOpacity>

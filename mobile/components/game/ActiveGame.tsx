@@ -4,7 +4,6 @@ import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { HelpCircle } from 'lucide-react-native';
-import { supabase } from '../../lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { InputGrid } from '../InputGrid';
@@ -24,7 +23,6 @@ import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { StreakCelebration } from './StreakCelebration';
-import { checkAndAwardStreakBadge, checkAndAwardElementleBadge, checkAndAwardPercentileBadge } from '../../lib/supabase-rpc';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -158,7 +156,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
 
     // -- Hook Integrations --
     const { stats, refetch: refetchStats } = useUserStats(gameMode);
-    const { checkBadgesForWin, markBadgeAsSeen, pendingBadges } = useBadgeSystem();
+    const { markBadgeAsSeen, pendingBadges } = useBadgeSystem();
 
 
     // Support lifted state or local fallback
@@ -296,43 +294,16 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                 queryClient.invalidateQueries({ queryKey: ['pendingBadges'] });
                 queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
 
-                // Check badges (Directly via RPC to avoid cache delays)
-                // IMPORTANT: Skip badge awarding if this is a restored game (viewing completed game)
+                // Badges are awarded by useGameEngine during submitGuess.
+                // Read pending badges from the query (already populated by useGameEngine).
                 let earnedBadges: any[] = [];
-                if (isRestored) {
-                    console.log('[ActiveGame] Skipping badge check - restored game (viewing, not fresh win)');
+                if (!isRestored) {
+                    // Allow time for pendingBadges query to refresh after invalidation above
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    earnedBadges = pendingBadges || [];
+                    console.log(`[ActiveGame] Read ${earnedBadges.length} pending badges from query`);
                 } else {
-                    try {
-                        // Get region context
-                        let userRegion = 'UK'; // Default
-                        // Note: We might need to fetch the user's region here if we want to be 100% accurate for REGION mode
-                        // But ActiveGame doesn't have easy access to profile without a query. 
-                        // However, useGameEngine does this too.
-                        // For UI feedback, 'UK' default is acceptable if we can't get it, or we rely on what useGameEngine did?
-                        // Let's try to fetch it quickly or use 'UK' as fallback.
-                        if (gameMode === 'REGION' && user) {
-                            const { data: profile } = await supabase.from('user_profiles').select('region').eq('id', user.id).single();
-                            userRegion = profile?.region || 'UK';
-                        }
-                        const REGION_CTX = gameMode === 'REGION' ? userRegion : 'GLOBAL';
-
-                        console.log(`[ActiveGame] Checking Badges via RPC for immediate feedback (Region: ${REGION_CTX})...`);
-
-                        if (user && displayStreak > 0) {
-                            const streakBadge = await checkAndAwardStreakBadge(user.id, displayStreak, gameMode, REGION_CTX);
-                            if (streakBadge) earnedBadges.push(streakBadge);
-                        }
-
-                        if (user && (guesses.length === 1 || guesses.length === 2)) {
-                            const elementleBadge = await checkAndAwardElementleBadge(user.id, guesses.length, gameMode, REGION_CTX);
-                            if (elementleBadge) earnedBadges.push(elementleBadge);
-                        }
-
-                        // We don't wait for percentile badge for UI feedback usually as it's slow/broken
-
-                    } catch (e) {
-                        console.error('[ActiveGame] Error checking badges:', e);
-                    }
+                    console.log('[ActiveGame] Skipping badge read - restored game');
                 }
 
                 // Store earned badges for passing to game-result
@@ -567,35 +538,14 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                                         // Prioritize authoritative finalStreak if available (from local hook state)
                                         const displayStreak = finalStreak ?? stats?.current_streak ?? 0;
 
-                                        // Fetch badges for immediate gratification (Manual Path)
-                                        // IMPORTANT: Skip if this is a restored game (viewing completed game)
+                                        // Badges are awarded by useGameEngine during submitGuess.
+                                        // Read pending badges from the query (already populated).
                                         let earnedBadges: any[] = [];
                                         if (isRestored) {
                                             console.log('[ActiveGame] Manual Continue - skipping badges (restored game)');
                                         } else {
-                                            try {
-                                                // Quick RPC checks
-                                                if (user) {
-                                                    // Get Region Context
-                                                    let userRegion = 'UK';
-                                                    if (gameMode === 'REGION') {
-                                                        const { data: profile } = await supabase.from('user_profiles').select('region').eq('id', user.id).single();
-                                                        userRegion = profile?.region || 'UK';
-                                                    }
-                                                    const REGION_CTX = gameMode === 'REGION' ? userRegion : 'GLOBAL';
-
-                                                    if (displayStreak > 0) {
-                                                        const streakBadge = await checkAndAwardStreakBadge(user.id, displayStreak, gameMode, REGION_CTX);
-                                                        if (streakBadge) earnedBadges.push(streakBadge);
-                                                    }
-                                                    if (guesses.length === 1 || guesses.length === 2) {
-                                                        const elementleBadge = await checkAndAwardElementleBadge(user.id, guesses.length, gameMode, REGION_CTX);
-                                                        if (elementleBadge) earnedBadges.push(elementleBadge);
-                                                    }
-                                                }
-                                            } catch (e) {
-                                                console.log('[ActiveGame] Manual nav badge check failed', e);
-                                            }
+                                            earnedBadges = pendingBadges || [];
+                                            console.log(`[ActiveGame] Manual Continue - read ${earnedBadges.length} pending badges`);
                                         }
 
                                         // Manual continue - store badges and navigate (celebrations happen on game-result)

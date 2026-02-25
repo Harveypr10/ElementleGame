@@ -94,7 +94,7 @@ export const MonthSelectModal = ({ visible, onClose, currentDate, minDate, maxDa
                         <ThemedText className="font-n-bold" size="xl">
                             Select Month
                         </ThemedText>
-                        <StyledTouchableOpacity onPress={onClose} className="p-1">
+                        <StyledTouchableOpacity onPress={onClose} className="p-1" hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}>
                             <X size={24} color={iconColor} />
                         </StyledTouchableOpacity>
                     </StyledView>
