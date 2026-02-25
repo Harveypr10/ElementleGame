@@ -96,11 +96,11 @@ export default function PrivacyScreen() {
         },
         {
             title: "9. Children's Privacy",
-            content: "Elementle is rated for users aged 4+ and does not knowingly collect personal information from children under 13 (or 16 in the EEA/UK) without parental consent. If you believe a child has provided us with personal data, please contact us and we will delete it promptly."
+            content: "Elementle is rated for users aged 13+ and does not knowingly collect personal information from children under 13 (or 16 in the EEA/UK) without parental consent. If you believe a child has provided us with personal data, please contact us and we will delete it promptly."
         },
         {
             title: "10. Contact Us",
-            content: "If you have questions about this Privacy Policy or wish to exercise your data rights, please contact us at:\n\nEmail: privacy@dobl.uk\n\nOr through the Feedback section in the app's Settings."
+            content: "If you have questions about this Privacy Policy or wish to exercise your data rights, please contact us at:\n\nEmail: privacy@dobl.tech\n\nOr through the Feedback section in the app's Settings."
         }
     ];
 

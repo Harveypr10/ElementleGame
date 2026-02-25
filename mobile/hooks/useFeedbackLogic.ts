@@ -38,7 +38,7 @@ export const useFeedbackLogic = () => {
             const subject = 'Feedback - Elementle';
             const ratingText = rating > 0 ? `Rating: ${rating}/5 stars\n\n` : '';
             const body = `Feedback from: ${userEmail}\n\n${ratingText}Feedback:\n${feedback}`;
-            const mailtoUrl = `mailto:no-reply@dobl.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const mailtoUrl = `mailto:no-reply@dobl.tech?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
             await Linking.openURL(mailtoUrl);
 
@@ -46,7 +46,7 @@ export const useFeedbackLogic = () => {
 
         } catch (error: any) {
             console.error('Error opening email:', error);
-            return { success: false, error: 'Could not open email client. Please email us at no-reply@dobl.uk' };
+            return { success: false, error: 'Could not open email client. Please email us at no-reply@dobl.tech' };
         } finally {
             setIsSubmitting(false);
         }

@@ -36,7 +36,7 @@ export const useBugReportLogic = () => {
             const userEmail = user?.email || 'Anonymous';
             const subject = 'Bug Report - Elementle';
             const body = `Report from: ${userEmail}\n\nDescription:\n${description}`;
-            const mailtoUrl = `mailto:no-reply@dobl.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const mailtoUrl = `mailto:no-reply@dobl.tech?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
             // On Web, Linking.canOpenURL might return false for mailto depending on browser, 
             // but Linking.openURL usually works or window.location.href.
@@ -51,7 +51,7 @@ export const useBugReportLogic = () => {
 
         } catch (error: any) {
             console.error('Error opening email:', error);
-            return { success: false, error: 'Could not open email client. Please email us at no-reply@dobl.uk' };
+            return { success: false, error: 'Could not open email client. Please email us at no-reply@dobl.tech' };
         } finally {
             setIsSubmitting(false);
         }

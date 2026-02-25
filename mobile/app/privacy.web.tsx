@@ -150,7 +150,7 @@ export default function PrivacyWeb() {
                         <View style={styles.section}>
                             <Text style={styles.subHeader}>9. Children's Privacy</Text>
                             <Text style={styles.paragraph}>
-                                Elementle is rated for users aged 4+ and does not knowingly collect personal information from children under 13 (or 16 in the EEA/UK) without parental consent. If you believe a child has provided us with personal data, please contact us and we will delete it promptly.
+                                Elementle is rated for users aged 13+ and does not knowingly collect personal information from children under 13 (or 16 in the EEA/UK) without parental consent. If you believe a child has provided us with personal data, please contact us and we will delete it promptly.
                             </Text>
                         </View>
 
@@ -160,7 +160,7 @@ export default function PrivacyWeb() {
                                 If you have questions about this Privacy Policy or wish to exercise your data rights, please contact us at:
                             </Text>
                             <Text style={styles.paragraph}>
-                                Email: privacy@dobl.uk
+                                Email: privacy@dobl.tech
                             </Text>
                             <Text style={styles.paragraph}>
                                 Or through the Feedback section in the app's Settings.

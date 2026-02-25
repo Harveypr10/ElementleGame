@@ -41,12 +41,12 @@ export default function SupportScreen() {
             const userEmail = user?.email || 'Not logged in';
             const subject = 'Elementle Support';
             const body = `From: ${userEmail}\n\n${message}`;
-            const mailtoUrl = `mailto:support@dobl.uk?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const mailtoUrl = `mailto:support@dobl.tech?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
             await Linking.openURL(mailtoUrl);
         } catch (error: any) {
             console.error('Error opening email:', error);
-            Alert.alert('Error', 'Could not open email client. Please email us at support@dobl.uk');
+            Alert.alert('Error', 'Could not open email client. Please email us at support@dobl.tech');
         } finally {
             setIsSubmitting(false);
         }
