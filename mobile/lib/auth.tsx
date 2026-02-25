@@ -301,7 +301,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[Auth] Profile not found after retries — creating minimal profile');
         try {
             const fullName = userMeta?.full_name || userMeta?.name || 'Player';
-            const email = userMeta?.email || 'unknown@elementle.tech';
+            const email = userMeta?.email || 'admin@dobl.tech';
             const nameParts = fullName.split(' ');
             const { data: newProfile, error: insertError } = await supabase
                 .from('user_profiles')

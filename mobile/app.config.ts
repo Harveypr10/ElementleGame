@@ -46,6 +46,7 @@ if (!isAndroidBuild) {
         {
             androidAppId: "ca-app-pub-6974310366527526~3682153035",
             iosAppId: "ca-app-pub-6974310366527526~9453354469",
+            delayAppMeasurementInit: true,
             skAdNetworkItems: [
                 "cstr6suwn9.skadnetwork",
                 "4fzdc2evr5.skadnetwork",

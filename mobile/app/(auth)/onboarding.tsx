@@ -4,14 +4,15 @@ import { OnboardingScreen } from '../../components/OnboardingScreen';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { useInterstitialAd } from '../../hooks/useInterstitialAd';
+import { useAdsConsent } from '../../hooks/useAdsConsent';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
-import { hasCompletedAgeVerification } from '../../lib/ageVerification';
 
 export default function OnboardingPage() {
     const router = useRouter();
     const { signOut } = useAuth();
     const { showAd, isLoaded, isClosed } = useInterstitialAd();
+    const { triggerConsentFlow } = useAdsConsent();
     const [eventTitle, setEventTitle] = useState('Loading...');
     const [puzzleDate, setPuzzleDate] = useState('');
     const [loading, setLoading] = useState(true);
@@ -33,6 +34,7 @@ export default function OnboardingPage() {
     };
 
     // Watch for Ad Closure to navigate
+    // Safety timeout ensures user isn't trapped if CLOSED event never fires
     useEffect(() => {
         if (waitingForAd && isClosed) {
             const targetDate = puzzleDate || 'today';
@@ -42,6 +44,20 @@ export default function OnboardingPage() {
             });
             setWaitingForAd(false);
         }
+
+        // Safety timeout: if ad was shown but CLOSED event never fires, navigate anyway
+        if (waitingForAd && !isClosed) {
+            const safetyTimer = setTimeout(() => {
+                console.warn('[Onboarding] Ad safety timeout — navigating to game');
+                const targetDate = puzzleDate || 'today';
+                router.replace({
+                    pathname: `/game/REGION/${targetDate}`,
+                    params: { skipIntro: 'true' }
+                });
+                setWaitingForAd(false);
+            }, 30000); // 30s — generous to allow full ad playback
+            return () => clearTimeout(safetyTimer);
+        }
     }, [waitingForAd, isClosed, puzzleDate]);
 
     useEffect(() => {
@@ -49,7 +65,7 @@ export default function OnboardingPage() {
     }, []);
 
     const fetchTodaysPuzzle = async () => {
-        // ... existing implementation ...
+        // ... existing implementation ..
         try {
             const today = new Date().toISOString().split('T')[0];
 
@@ -106,28 +122,15 @@ export default function OnboardingPage() {
     };
 
     const handlePlay = async () => {
-        // Check if age verification is complete before playing as guest
-        const hasVerifiedAge = await hasCompletedAgeVerification();
+        // Trigger UMP/ATT consent flow before playing as guest
+        // (SDK handles de-duplication — only shows prompts if not yet answered)
+        await triggerConsentFlow();
 
-        if (!hasVerifiedAge) {
-            // Redirect to age verification, passing puzzle date for return navigation
-            router.push({
-                pathname: '/(auth)/age-verification',
-                params: {
-                    returnTo: 'game',
-                    puzzleDate: puzzleDate || 'today'
-                }
-            });
-            return;
-        }
-
-        // Age verified - proceed with game
-        // Trigger Ad if loaded
+        // Show interstitial if loaded, otherwise proceed directly
         if (isLoaded) {
             setWaitingForAd(true);
             showAd();
         } else {
-            // No ad ready? Proceed anyway
             const targetDate = puzzleDate || 'today';
             router.replace({
                 pathname: `/game/REGION/${targetDate}`,
@@ -136,8 +139,12 @@ export default function OnboardingPage() {
         }
     };
 
-    const handleLogin = () => {
-        router.push('/(auth)/login');
+    const handleCreateAccount = () => {
+        router.push({ pathname: '/(auth)/login', params: { intent: 'signup' } });
+    };
+
+    const handleLoginLink = () => {
+        router.push({ pathname: '/(auth)/login', params: { intent: 'login' } });
     };
 
     const handleSubscribe = () => {
@@ -159,7 +166,8 @@ export default function OnboardingPage() {
             eventTitle={eventTitle}
             puzzleDateCanonical={puzzleDate}
             onPlay={handlePlay}
-            onLogin={handleLogin}
+            onCreateAccount={handleCreateAccount}
+            onLoginLink={handleLoginLink}
             onSubscribe={handleSubscribe}
             onDevReset={handleDevReset}
         />

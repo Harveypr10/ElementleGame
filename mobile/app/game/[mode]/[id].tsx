@@ -71,6 +71,24 @@ export default function GameScreen() {
     const [showExitWarning, setShowExitWarning] = useState(false);
     const [helpVisible, setHelpVisible] = useState(false);
 
+    // Auto-show How to Play on first ever game load
+    const helpCheckedRef = useRef(false);
+    useEffect(() => {
+        if (helpCheckedRef.current) return;
+        helpCheckedRef.current = true;
+        (async () => {
+            try {
+                const hasSeen = await AsyncStorage.getItem('has_seen_how_to_play');
+                if (!hasSeen) {
+                    setHelpVisible(true);
+                    await AsyncStorage.setItem('has_seen_how_to_play', 'true');
+                }
+            } catch (e) {
+                console.log('[GameScreen] Error checking how-to-play flag:', e);
+            }
+        })();
+    }, []);
+
 
     // Intercept back navigation
     const handleBack = async () => {
@@ -450,7 +468,15 @@ export default function GameScreen() {
                 />
 
                 {/* Help Modal */}
-                <HelpModal visible={helpVisible} onClose={() => setHelpVisible(false)} />
+                <HelpModal
+                    visible={helpVisible}
+                    onClose={() => setHelpVisible(false)}
+                    isGuest={isGuest}
+                    onLoginPress={() => {
+                        setHelpVisible(false);
+                        router.replace({ pathname: '/(auth)/login', params: { fromGuest: '1' } });
+                    }}
+                />
             </ThemedView>
         </View>
     );

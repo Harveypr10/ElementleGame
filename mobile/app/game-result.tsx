@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Share, Image, useWindowDimensions, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { useQueryClient } from '@tanstack/react-query';
+import { Share2 } from 'lucide-react-native';
 import { useOptions } from '../lib/options';
+import { generateShareText } from '../lib/generateShareText';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
 
 // Platform-specific web component
 import GameResultScreenWeb from './game-result.web';
@@ -42,7 +46,7 @@ export default function GameResultScreen() {
 
     const router = useRouter();
     const queryClient = useQueryClient();
-    const { textScale, setGameMode } = useOptions();
+    const { textScale, setGameMode, dateFormatOrder } = useOptions();
     const params = useLocalSearchParams();
 
     // Parse params
@@ -95,11 +99,135 @@ export default function GameResultScreen() {
     const formattedDate = `${getOrdinal(day)} ${month} ${year}`;
 
     const todayDate = new Date().toISOString().split('T')[0];
-    const shareText = gameMode === 'USER'
-        ? `I've discovered when ${eventTitle} happened. Why don't you see what your personalised puzzle is for today!\nhttps://elementle.tech/play/${todayDate}?mode=USER`
-        : isWin
-            ? `I solved today's Elementle in ${guessesCount} guesses! Can you beat me?\nhttps://elementle.tech/play/${puzzleDate}?mode=REGION`
-            : `I tried today's Elementle puzzle but couldn't crack it! Can you?\nhttps://elementle.tech/play/${puzzleDate}?mode=REGION`;
+
+    // Parse guess feedback for emoji grid
+    const parsedFeedback = useMemo(() => {
+        try {
+            const raw = params.guessFeedback as string;
+            if (!raw) return [];
+            return JSON.parse(raw) as { state: string; digit: string }[][];
+        } catch {
+            return [];
+        }
+    }, [params.guessFeedback]);
+
+    // Reconstruct canonical guess dates from digit rows
+    const isMMFirst = dateFormatOrder && dateFormatOrder.startsWith('mm');
+    const guessDateCanonicals = useMemo(() => {
+        return parsedFeedback.map(row => {
+            const digits = row.map(c => c.digit).join('');
+            if (digits.length === 8) {
+                const p1 = digits.substring(0, 2);
+                const p2 = digits.substring(2, 4);
+                const yyyy = digits.substring(4, 8);
+                const mm = isMMFirst ? p1 : p2;
+                const dd = isMMFirst ? p2 : p1;
+                return `${yyyy}-${mm}-${dd}`;
+            } else if (digits.length === 6) {
+                const p1 = digits.substring(0, 2);
+                const p2 = digits.substring(2, 4);
+                const yy = digits.substring(4, 6);
+                const mm = isMMFirst ? p1 : p2;
+                const dd = isMMFirst ? p2 : p1;
+                const answerCentury = answerDateCanonical.substring(0, 2);
+                return `${answerCentury}${yy}-${mm}-${dd}`;
+            }
+            return '';
+        });
+    }, [parsedFeedback, answerDateCanonical, isMMFirst]);
+
+    // Edition label
+    const edition = gameMode === 'USER' ? 'Personalised' : 'UK Edition';
+
+    // Format short date for share header using PUZZLE date (not historical answer date)
+    const puzzleDateObj = new Date(puzzleDate + 'T00:00:00');
+    const puzzleDay = puzzleDateObj.getDate();
+    const puzzleShortMonth = puzzleDateObj.toLocaleString('default', { month: 'short' });
+    const puzzleYear = puzzleDateObj.getFullYear();
+    const shareFormattedDate = `${getOrdinal(puzzleDay)} ${puzzleShortMonth} ${puzzleYear}`;
+
+    // Deep link URL
+    const deepLinkUrl = gameMode === 'USER'
+        ? `https://elementle.tech/play/${todayDate}?mode=USER`
+        : `https://elementle.tech/play/${puzzleDate}?mode=REGION`;
+
+    // ---- Share-only streak (does NOT affect celebration logic) ----
+    // Async query: fetch current_streak from stats + check if this puzzle is the newest won.
+    const { user } = useAuth();
+    const [shareStreak, setShareStreak] = useState(0);
+
+    React.useEffect(() => {
+        if (!isWin || isGuest || !user) return;
+
+        const fetchShareStreak = async () => {
+            try {
+                const statsTable = gameMode === 'USER' ? 'user_stats_user' : 'user_stats_region';
+                const attemptsTable = gameMode === 'USER' ? 'game_attempts_user' : 'game_attempts_region';
+                const allocFK = gameMode === 'USER' ? 'allocated_user_id' : 'allocated_region_id';
+                const allocTable = gameMode === 'USER' ? 'questions_allocated_user' : 'questions_allocated_region';
+
+                // 1. Fetch current streak from stats
+                const { data: statsData } = await supabase
+                    .from(statsTable)
+                    .select('current_streak')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
+
+                const dbStreak = statsData?.current_streak ?? 0;
+                if (dbStreak <= 0) {
+                    console.log('[GameResult][ShareStreak] No active streak:', dbStreak);
+                    return;
+                }
+
+                // 2. Find the newest won puzzle date via allocation FK join
+                const { data: newestAttempt } = await supabase
+                    .from(attemptsTable)
+                    .select(`result, ${allocFK}(puzzle_date)`)
+                    .eq('user_id', user.id)
+                    .eq('result', 'won')
+                    .order('completed_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                const newestPuzzleDate = (newestAttempt as any)?.[allocFK]?.puzzle_date;
+                console.log('[GameResult][ShareStreak] DB check:', { dbStreak, newestPuzzleDate, currentPuzzleDate: puzzleDate });
+
+                if (newestPuzzleDate === puzzleDate) {
+                    setShareStreak(dbStreak);
+                } else {
+                    console.log('[GameResult][ShareStreak] Not newest puzzle, skipping streak');
+                }
+            } catch (e) {
+                console.error('[GameResult][ShareStreak] Error:', e);
+            }
+        };
+
+        fetchShareStreak();
+    }, [isWin, isGuest, gameMode, puzzleDate, user]);
+
+    const showStreak = shareStreak > 0;
+
+    const shareText = useMemo(() => {
+        if (parsedFeedback.length > 0) {
+            return generateShareText({
+                edition,
+                formattedDate: shareFormattedDate,
+                eventTitle,
+                guessFeedback: parsedFeedback,
+                guessDateCanonicals,
+                answerDateCanonical,
+                currentStreak: shareStreak,
+                showStreak,
+                guessesCount,
+                deepLinkUrl,
+                isWin,
+            });
+        }
+        // Fallback if no feedback data
+        return isWin
+            ? `I solved today's Elementle in ${guessesCount} guesses! Can you beat me?\n${deepLinkUrl}`
+            : `I tried today's Elementle puzzle but couldn't crack it! Can you?\n${deepLinkUrl}`;
+    }, [parsedFeedback, guessDateCanonicals, shareStreak, showStreak, guessesCount, isWin, eventTitle]);
 
     const surfaceColor = useThemeColor({}, 'surface');
     const borderColor = useThemeColor({}, 'border');
@@ -378,16 +506,27 @@ export default function GameResultScreen() {
                         {/* Buttons Stack (Bottom Fixed) - Reduced button heights */}
                         <StyledView className="w-full mb-4">
                             {isGuest ? (
-                                <StyledView className="w-full">
+                                <StyledView className="w-full" style={{ alignItems: 'center' }}>
                                     <StyledTouchableOpacity
-                                        className="w-full flex-row items-center justify-center px-4 rounded-3xl shadow-sm active:opacity-90"
-                                        style={{ backgroundColor: homeColor, height: 72 }}
+                                        className="flex-row items-center justify-center px-4 rounded-3xl shadow-sm active:opacity-90"
+                                        style={{ backgroundColor: homeColor, height: 60, width: '70%' }}
                                         onPress={() => {
-                                            // Use replace so going back from Login goes to root/onboarding, not here
-                                            router.replace('/(auth)/login');
+                                            router.replace({
+                                                pathname: '/(auth)/login',
+                                                params: { fromGuest: '1' },
+                                            });
                                         }}
                                     >
-                                        <StyledText className="text-xl font-n-bold text-slate-800 dark:text-slate-900">Continue</StyledText>
+                                        <StyledText className="text-xl font-n-bold" style={{ color: '#FFFFFF' }}>Continue</StyledText>
+                                    </StyledTouchableOpacity>
+
+                                    <StyledTouchableOpacity
+                                        className="flex-row items-center justify-center px-4 rounded-3xl shadow-sm active:opacity-90"
+                                        style={{ backgroundColor: shareColor, height: 60, width: '70%', marginTop: 12 }}
+                                        onPress={handleShare}
+                                    >
+                                        <StyledText className="text-xl font-n-bold" style={{ color: '#FFFFFF', marginRight: 8 }}>Share</StyledText>
+                                        <Share2 size={22} color="#FFFFFF" />
                                     </StyledTouchableOpacity>
                                 </StyledView>
                             ) : (

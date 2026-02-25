@@ -39,7 +39,7 @@ import { syncPendingGames } from '../lib/sync';
 import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { ConversionPromptModal } from '../components/ConversionPromptModal';
-import { initializeAds } from '../lib/AdManager';
+
 import { initializeRevenueCat } from '../lib/RevenueCat';
 import { SplashScreen } from '../components/SplashScreen';
 // Lazy-loaded to avoid adding to _layout.tsx's initial module graph,
@@ -49,7 +49,7 @@ const SubscriptionLifecycleManager = React.lazy(
         m => ({ default: m.SubscriptionLifecycleManager })
     )
 );
-import { hasCompletedAgeVerification } from '../lib/ageVerification';
+
 import { Asset } from 'expo-asset';
 import '../lib/typography'; // Global Font Patch
 
@@ -89,8 +89,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     // Prevents re-flash when authPhase temporarily leaves 'ready' during sign-in pipeline.
     const splashDismissedRef = useRef(false);
 
-    // 1b. Age Verification State
-    const [hasAgeVerification, setHasAgeVerification] = useState<boolean | null>(null);
+
 
     // 1c. Puzzle Readiness State (checked concurrently during splash)
     const [userPuzzleReady, setUserPuzzleReady] = useState(false);
@@ -176,16 +175,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         return () => subscription.remove();
     }, []);
 
-    // Check age verification on mount AND when segments change
-    // (re-check after user completes age verification and navigates)
-    // [WEB FIX] On web, skip async check - no age-gated ads needed
-    useEffect(() => {
-        if (Platform.OS === 'web') {
-            setHasAgeVerification(true); // Web doesn't need age verification for ads
-            return;
-        }
-        hasCompletedAgeVerification().then(setHasAgeVerification);
-    }, [segments]);
+
 
     // Deep link handling is now centralized in auth.tsx (AuthProvider)
     // Web: detectSessionInUrl: true auto-processes tokens
@@ -229,12 +219,8 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         checkReadiness();
     }, [user?.id]);
 
-    // Initialize ads AFTER age verification is confirmed (deferred init)
-    useEffect(() => {
-        if (hasAgeVerification === true) {
-            initializeAds().catch(console.error);
-        }
-    }, [hasAgeVerification]);
+    // Ad initialization is now handled by useAdsConsent hook
+    // (triggered in Home Screen and onboarding after UMP consent)
 
     // 2. Sync Logic
     const { isConnected } = useNetwork();
@@ -256,8 +242,8 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         // Already dismissed — skip all evaluation
     } else {
         const shouldShowSplash = Platform.OS === 'web'
-            ? (!isSplashMinTimeMet || hasAgeVerification === null)
-            : (authNotReady || !isSplashMinTimeMet || hasAgeVerification === null);
+            ? (!isSplashMinTimeMet)
+            : (authNotReady || !isSplashMinTimeMet);
 
         if (!shouldShowSplash) {
             splashDismissedRef.current = true;
@@ -272,7 +258,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 
         const inAuthGroup = segments.includes('(auth)') || segments.includes('login');
         const inTabsGroup = segments[0] === '(tabs)';
-        const inAgeVerification = segments.includes('age-verification');
+
         const inPersonaliseFlow =
             segments.includes('personalise') ||
             segments.includes('generating-questions') ||
@@ -443,7 +429,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 console.log('[NavGuard] User needs to complete profile setup');
                 safeReplace('/(auth)/personalise');
             } else if (completedFirstLogin) {
-                if (inAuthGroup && !inPersonaliseFlow && !inAgeVerification) {
+                if (inAuthGroup && !inPersonaliseFlow) {
                     console.log('[NavGuard] Redirecting authenticated user to app');
                     safeReplace('/(tabs)');
                 } else if (inGameFlow && (segments[0] === 'play')) {
@@ -471,7 +457,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 }
             }
         }
-    }, [session, isGuest, showSplash, authPhase, segments, hasCompletedFirstLogin, hasAgeVerification, pendingPuzzleDate]);
+    }, [session, isGuest, showSplash, authPhase, segments, hasCompletedFirstLogin, pendingPuzzleDate]);
 
     // 4. Wrap children in Readiness Context so screens know when to trigger modals
     return (

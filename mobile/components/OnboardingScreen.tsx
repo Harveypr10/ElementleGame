@@ -32,7 +32,8 @@ interface OnboardingScreenProps {
     eventTitle: string;
     puzzleDateCanonical: string;
     onPlay: () => void;
-    onLogin: () => void;
+    onCreateAccount: () => void;
+    onLoginLink: () => void;
     onSubscribe: () => void;
     onDevReset?: () => void;
 }
@@ -41,7 +42,8 @@ export function OnboardingScreen({
     eventTitle,
     puzzleDateCanonical,
     onPlay,
-    onLogin,
+    onCreateAccount,
+    onLoginLink,
     onSubscribe,
     onDevReset,
 }: OnboardingScreenProps) {
@@ -94,10 +96,7 @@ export function OnboardingScreen({
                     {ctaText}
                 </ThemedText>
 
-                <View style={[
-                    styles.badgesRow,
-                    webPlatform === 'desktop' && styles.badgesRowDesktop,
-                ]}>
+                <View style={styles.badgesRow}>
                     {/* Apple Badge: show on iOS web or Desktop */}
                     {(webPlatform === 'ios' || webPlatform === 'desktop') && (
                         <TouchableOpacity
@@ -140,6 +139,10 @@ export function OnboardingScreen({
             testID="onboarding-screen"
         >
             <View style={styles.content}>
+                {/* Flex spacer 0: top of screen → title */}
+                <View style={{ flex: 1, maxHeight: 64 }} />
+
+                {/* Top section: Title + Hamster (fixed spacing) */}
                 <ThemedText
                     baseSize={44}
                     style={styles.title}
@@ -158,6 +161,10 @@ export function OnboardingScreen({
                     />
                 </View>
 
+                {/* Flex spacer 1: hamster → prompt text */}
+                <View style={{ flex: 1, maxHeight: 64 }} />
+
+                {/* Middle section: Question + Event Title */}
                 <View style={styles.textContainer}>
                     <ThemedText
                         baseSize={18}
@@ -176,6 +183,10 @@ export function OnboardingScreen({
                     </ThemedText>
                 </View>
 
+                {/* Flex spacer 2: event title → buttons */}
+                <View style={{ flex: 1, maxHeight: 45 }} />
+
+                {/* Buttons + login link */}
                 <View style={styles.buttonsContainer}>
                     <TouchableOpacity
                         onPress={onPlay}
@@ -187,27 +198,35 @@ export function OnboardingScreen({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        onPress={onLogin}
+                        onPress={onCreateAccount}
                         style={[styles.button, styles.greyButton]}
-                        testID="button-onboarding-login"
+                        testID="button-onboarding-create-account"
                         activeOpacity={0.9}
                     >
-                        <Text style={styles.buttonText}>Log in</Text>
+                        <Text style={styles.buttonText}>Create Account</Text>
                     </TouchableOpacity>
 
-                    {/* Web: Show app store badges instead of Subscribe */}
-                    {isWeb ? renderStoreBadges() : (
-                        <TouchableOpacity
-                            onPress={onSubscribe}
-                            style={[styles.button, styles.greyButton]}
-                            testID="button-onboarding-subscribe"
-                            activeOpacity={0.9}
-                        >
-                            <Text style={styles.buttonText}>Subscribe</Text>
-                        </TouchableOpacity>
-                    )}
+                    {/* "Already playing? Log in" text link */}
+                    <TouchableOpacity
+                        onPress={onLoginLink}
+                        activeOpacity={0.8}
+                        testID="link-onboarding-login"
+                        style={{ paddingVertical: 4 }}
+                    >
+                        <Text style={[styles.loginLinkText, { color: secondaryTextColor }]}>
+                            Already playing?{' '}
+                            <Text style={{ fontWeight: 'bold', textDecorationLine: 'underline', color: '#333' }}>Log in</Text>
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* Web: Show app store badges */}
+                    {isWeb && renderStoreBadges()}
                 </View>
 
+                {/* Flex spacer 3: login link → date */}
+                <View style={{ flex: 1, maxHeight: 64 }} />
+
+                {/* Footer: Date + Links */}
                 <ThemedText
                     baseSize={14}
                     className="opacity-60"
@@ -217,7 +236,7 @@ export function OnboardingScreen({
                     Puzzle date: {displayDate}
                 </ThemedText>
 
-                {/* Privacy & Support Links */}
+                {/* Privacy, Support & Subscribe (mobile) Links */}
                 <View style={styles.linksContainer}>
                     <TouchableOpacity onPress={() => router.push('/privacy')} activeOpacity={0.7}>
                         <ThemedText baseSize={13} style={styles.linkText}>Privacy Policy</ThemedText>
@@ -226,6 +245,14 @@ export function OnboardingScreen({
                     <TouchableOpacity onPress={() => router.push('/support')} activeOpacity={0.7}>
                         <ThemedText baseSize={13} style={styles.linkText}>Support</ThemedText>
                     </TouchableOpacity>
+                    {!isWeb && (
+                        <>
+                            <ThemedText baseSize={13} style={styles.linkSeparator}>·</ThemedText>
+                            <TouchableOpacity onPress={onSubscribe} activeOpacity={0.7}>
+                                <ThemedText baseSize={13} style={styles.linkText}>Subscribe</ThemedText>
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
             </View>
 
@@ -247,15 +274,16 @@ export function OnboardingScreen({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
-        padding: 16,
+        paddingHorizontal: 16,
+        paddingTop: 48,
+        paddingBottom: 24,
     },
     content: {
+        flex: 1,
         maxWidth: 448,
         width: '100%',
         alignItems: 'center',
-        gap: 24,
     },
     title: {
         fontWeight: 'bold',
@@ -267,6 +295,7 @@ const styles = StyleSheet.create({
         width: 128,
         justifyContent: 'center',
         alignItems: 'center',
+        marginTop: 16,
     },
     hamsterImage: {
         height: 128,
@@ -330,10 +359,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
-    },
-    badgesRowDesktop: {
-        // Side-by-side for desktop, same flex direction
+        gap: 12,
     },
     badgeTouchable: {
         // Wrapper for touch feedback
@@ -343,13 +369,18 @@ const styles = StyleSheet.create({
         height: 50,
     },
     googleBadge: {
-        width: 221,
-        height: 65,
+        width: 168,
+        height: 50, // Match Apple badge height
+    },
+    loginLinkText: {
+        fontSize: 15,
+        fontFamily: 'Nunito_400Regular',
+        textAlign: 'center',
     },
     // ─────────────────────────────────────────────────────────────────
     dateText: {
         fontFamily: 'Nunito_400Regular',
-        paddingTop: 16,
+        paddingTop: 0,
         textAlign: 'center',
     },
     linksContainer: {

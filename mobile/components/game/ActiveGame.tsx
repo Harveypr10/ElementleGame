@@ -394,7 +394,8 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                                 currentStreak: '0',
                                 isStreakSaverGame: isStreakSaverGame ? 'true' : 'false',
                                 isToday: (isTodayPuzzle ?? (puzzle.date === new Date().toISOString().split('T')[0])).toString(),
-                                justFinished: 'true'
+                                justFinished: 'true',
+                                guessFeedback: JSON.stringify(guesses.map(row => row.map(c => ({ state: c.state, digit: c.digit }))))
                             }
                         });
                     }, 1500);
@@ -428,7 +429,8 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                 isStreakSaverGame: isStreakSaverGame ? 'true' : 'false',
                 earnedBadges: JSON.stringify(finalBadges),
                 isToday: (isTodayPuzzle ?? (puzzle.date === new Date().toISOString().split('T')[0])).toString(),
-                justFinished: 'true'
+                justFinished: 'true',
+                guessFeedback: JSON.stringify(guesses.map(row => row.map(c => ({ state: c.state, digit: c.digit }))))
             }
         });
     };

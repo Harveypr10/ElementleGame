@@ -11,13 +11,16 @@ import {
     Alert,
     KeyboardAvoidingView,
     Keyboard,
+    Animated,
+    Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Mail } from 'lucide-react-native';
 import { GoogleLogo } from '../../components/icons/GoogleLogo';
 import { PasswordInput } from '../../components/ui/PasswordInput';
-import { YearMonthPicker, useYearMonthPicker } from '../../components/ui/YearMonthPicker';
+
 import { validatePassword } from '../../lib/passwordValidation';
 import { useAuth } from '../../lib/auth';
 import { useOptions } from '../../lib/options';
@@ -25,8 +28,7 @@ import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { supabase, checkLinkedIdentity, signInWithLinkedIdentity } from '../../lib/supabase';
 import { signInWithGoogle, signInWithApple, isAppleSignInAvailable, configureGoogleSignIn } from '../../lib/socialAuth';
-import { saveAgeVerification, getAgeVerification, setAgeVerificationDirect } from '../../lib/ageVerification';
-import { initializeAds } from '../../lib/AdManager';
+
 
 // Conditionally import native-only modules to prevent web build failures
 const AppleAuthentication = Platform.OS !== 'web'
@@ -64,6 +66,8 @@ export default function LoginPage() {
     const nextRoute = params.next as string;
     const initialStep = params.step as LoginStep;
     const subscribeFirst = params.subscribeFirst === '1';
+    const fromGuest = params.fromGuest === '1';
+    const intent = params.intent as string | undefined;
 
     const { darkMode: isDarkMode } = useOptions();
     const { signInWithEmail, signUpWithEmail, markSigningIn } = useAuth();
@@ -80,6 +84,39 @@ export default function LoginPage() {
     const [appleAvailable, setAppleAvailable] = useState(false);
     const [socialAuthHelperText, setSocialAuthHelperText] = useState<string | null>(null);
 
+    // Promo banner for guests coming from game-result
+    const [showPromoBanner, setShowPromoBanner] = useState(false);
+    const promoBannerAnim = useRef(new Animated.Value(250)).current; // starts off-screen (below)
+
+    useEffect(() => {
+        if (fromGuest && step === 'email') {
+            // Small delay to let the screen render first
+            const showTimer = setTimeout(() => {
+                setShowPromoBanner(true);
+                Animated.spring(promoBannerAnim, {
+                    toValue: 0,
+                    damping: 18,
+                    stiffness: 120,
+                    useNativeDriver: true,
+                }).start();
+            }, 400);
+
+            // Auto-dismiss after 8 seconds
+            const hideTimer = setTimeout(() => {
+                Animated.timing(promoBannerAnim, {
+                    toValue: 250,
+                    duration: 300,
+                    useNativeDriver: true,
+                }).start(() => setShowPromoBanner(false));
+            }, 8400);
+
+            return () => {
+                clearTimeout(showTimer);
+                clearTimeout(hideTimer);
+            };
+        }
+    }, [fromGuest, step]);
+
     // Check Apple Sign-In availability on mount
     useEffect(() => {
         isAppleSignInAvailable().then(setAppleAvailable);
@@ -92,14 +129,7 @@ export default function LoginPage() {
         }
     }, [step]);
 
-    // Age picker state for account creation
-    const {
-        selectedYear,
-        setSelectedYear,
-        selectedMonth,
-        setSelectedMonth,
-        showMonthSlider,
-    } = useYearMonthPicker();
+
 
     // Refs for keyboard navigation
     const emailRef = useRef<TextInput>(null);
@@ -119,28 +149,7 @@ export default function LoginPage() {
         }
     }, [magicLinkCountdown]);
 
-    // Prefill age picker from existing guest age verification data
-    useEffect(() => {
-        if (step === 'create-account') {
-            getAgeVerification().then((existingData) => {
-                if (existingData?.ageDate) {
-                    // Parse year and month from stored ageDate (YYYY-MM-DD)
-                    const [yearStr, monthStr] = existingData.ageDate.split('-');
-                    const year = parseInt(yearStr, 10);
-                    const month = parseInt(monthStr, 10) - 1; // 0-indexed
 
-                    // The stored date is 1st of the month AFTER birth month,
-                    // so we need to subtract 1 month to get actual birth month
-                    const actualMonth = month === 0 ? 11 : month - 1;
-                    const actualYear = month === 0 ? year - 1 : year;
-
-                    console.log('[Login] Prefilling age from guest data:', { actualYear, actualMonth: actualMonth + 1 });
-                    setSelectedYear(actualYear);
-                    setSelectedMonth(actualMonth);
-                }
-            });
-        }
-    }, [step]);
 
     const handleEmailContinue = async () => {
         if (!isValidEmail(email)) {
@@ -200,25 +209,6 @@ export default function LoginPage() {
 
             console.log('Login successful');
 
-            // Sync age data from user_profiles to AsyncStorage for ad targeting
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user?.id) {
-                const { data: profile } = await supabase
-                    .from('user_profiles')
-                    .select('age_date, is_adult')
-                    .eq('id', user.id)
-                    .single();
-
-                const profileData = profile as { age_date?: string; is_adult?: boolean } | null;
-                if (profileData?.age_date) {
-                    await setAgeVerificationDirect(profileData.age_date, profileData.is_adult ?? false);
-                    console.log('[Login] Synced age data from DB:', { age_date: profileData.age_date, is_adult: profileData.is_adult });
-
-                    // Reinitialize ads with updated age data
-                    await initializeAds(true);
-                }
-            }
-
             if (subscribeFirst) {
                 router.replace('/(auth)/subscription-flow');
             } else {
@@ -266,14 +256,6 @@ export default function LoginPage() {
                 Alert.alert('Error', error.message || 'Failed to create account');
                 return;
             }
-
-            // Save age verification data
-            const month = showMonthSlider ? selectedMonth + 1 : undefined;
-            await saveAgeVerification(selectedYear, month);
-            console.log('[Login] Age verification saved for new account');
-
-            // Initialize ads with correct age settings (force re-init since age just changed)
-            await initializeAds(true);
 
             console.log('Account created successfully');
             if (nextRoute) {
@@ -408,9 +390,8 @@ export default function LoginPage() {
 
                                     if (result.isNewUser) {
                                         router.replace({
-                                            pathname: '/(auth)/age-verification',
+                                            pathname: '/(auth)/personalise',
                                             params: {
-                                                returnTo: 'personalise',
                                                 firstName: userName.firstName,
                                                 lastName: userName.lastName,
                                                 ...(subscribeFirst ? { subscribeFirst: '1' } : {}),
@@ -525,9 +506,8 @@ export default function LoginPage() {
 
                                     if (result.isNewUser) {
                                         router.replace({
-                                            pathname: '/(auth)/age-verification',
+                                            pathname: '/(auth)/personalise',
                                             params: {
-                                                returnTo: 'personalise',
                                                 firstName: userName.firstName,
                                                 lastName: userName.lastName,
                                                 ...(subscribeFirst ? { subscribeFirst: '1' } : {}),
@@ -581,7 +561,9 @@ export default function LoginPage() {
                     >
                         <ChevronLeft size={28} color={textColor} />
                     </TouchableOpacity>
-                    <ThemedText size="2xl" className="font-n-bold">Log in</ThemedText>
+                    <ThemedText size="2xl" className="font-n-bold" style={{ textAlign: 'center', lineHeight: 28 }}>
+                        {fromGuest ? 'Create a Free Account\nor Log in' : intent === 'signup' ? 'Create Account' : 'Log in'}
+                    </ThemedText>
                     <View style={styles.headerSpacer} />
                 </View>
             </SafeAreaView>
@@ -849,17 +831,7 @@ export default function LoginPage() {
                                     At least 8 characters including 1 letter, 1 number, and 1 special character
                                 </Text>
 
-                                {/* Age Picker */}
-                                <View style={styles.agePickerSection}>
-                                    <YearMonthPicker
-                                        selectedYear={selectedYear}
-                                        selectedMonth={selectedMonth}
-                                        showMonthSlider={showMonthSlider}
-                                        onYearChange={setSelectedYear}
-                                        onMonthChange={setSelectedMonth}
-                                        variant="dark"
-                                    />
-                                </View>
+
 
                                 <TouchableOpacity
                                     style={[
@@ -973,6 +945,58 @@ export default function LoginPage() {
                     )}
                 </ScrollView>
             </KeyboardAvoidingView>
+
+            {/* Guest Promo Banner — slides up from bottom */}
+            {showPromoBanner && (
+                <Animated.View style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    transform: [{ translateY: promoBannerAnim }],
+                    backgroundColor: '#7DAAE8',
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    paddingHorizontal: 24,
+                    paddingTop: 20,
+                    paddingBottom: 36,
+                    alignItems: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: -4 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 12,
+                    elevation: 10,
+                }}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            Animated.timing(promoBannerAnim, {
+                                toValue: 250,
+                                duration: 300,
+                                useNativeDriver: true,
+                            }).start(() => setShowPromoBanner(false));
+                        }}
+                        style={{ position: 'absolute', top: 12, right: 16, padding: 4 }}
+                    >
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
+                    </TouchableOpacity>
+                    <Image
+                        source={require('../../assets/ui/webp_assets/Login-Hamster-White.webp')}
+                        style={{ width: 80, height: 80, marginBottom: 12 }}
+                        contentFit="contain"
+                    />
+                    <Text style={{
+                        color: '#FFFFFF',
+                        fontSize: 18,
+                        fontFamily: 'Nunito',
+                        fontWeight: '600',
+                        textAlign: 'center',
+                        lineHeight: 22,
+                        maxWidth: 320,
+                    }}>
+                        Create a free account or log in to save game data, explore the archive and play personalised puzzles
+                    </Text>
+                </Animated.View>
+            )}
         </ThemedView>
     );
 }

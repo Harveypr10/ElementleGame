@@ -1,37 +1,35 @@
 /**
  * Android-specific AdManager — No-op implementation.
- * 
+ *
  * react-native-google-mobile-ads is not available on Android due to
  * Gradle/Kotlin version conflicts. This file provides matching exports
  * so the rest of the app works without conditional imports.
  */
 
-// Re-export types so other files don't break
-export type AdProvider = 'admob' | 'applovin' | 'none';
-export type AgeCategory = 'child' | 'teen' | 'adult';
+export type AdProvider = 'admob' | 'none';
 
-export async function initializeAds(force: boolean = false): Promise<void> {
-    console.log('[AdManager] Android - ads disabled (no native module)');
-}
-
-// No-op subscriber for Android (ads never initialize)
 export function subscribeToAdInit(listener: () => void): () => void {
     return () => { };
+}
+
+export const ADMOB_CONFIG = {
+    banner: 'DUMMY_BANNER_ID',
+    interstitial: 'DUMMY_INTERSTITIAL_ID',
+};
+
+export function markAdsInitialized(): void {
+    console.log('[AdManager] Android - no-op markAdsInitialized');
 }
 
 export function getActiveProvider(): AdProvider {
     return 'none';
 }
 
-export function getAgeCategory(): AgeCategory {
-    return 'child';
-}
-
 export function isAdsInitialized(): boolean {
     return true;
 }
 
-export async function resetAdManager(): Promise<void> {
+export function resetAdManager(): void {
     console.log('[AdManager] Android - dummy reset');
 }
 

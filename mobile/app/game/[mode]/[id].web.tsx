@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -66,6 +66,23 @@ export default function GameScreenWeb() {
     // UI state
     const [helpVisible, setHelpVisible] = useState(false);
     const [gameState, setGameState] = useState<'loading' | 'playing' | 'won' | 'lost'>('loading');
+    const isGuest = !user;
+
+    // Auto-show How to Play on first ever game load (web)
+    const helpCheckedRef = useRef(false);
+    useEffect(() => {
+        if (helpCheckedRef.current) return;
+        helpCheckedRef.current = true;
+        try {
+            const hasSeen = localStorage.getItem('has_seen_how_to_play');
+            if (!hasSeen) {
+                setHelpVisible(true);
+                localStorage.setItem('has_seen_how_to_play', 'true');
+            }
+        } catch (e) {
+            console.log('[GameScreenWeb] Error checking how-to-play flag:', e);
+        }
+    }, []);
 
     // Determine intro visibility
     const isIntroActive = introPhase === 'visible';
@@ -180,6 +197,7 @@ export default function GameScreenWeb() {
             helpVisible={helpVisible}
             setHelpVisible={setHelpVisible}
             onBack={handleBack}
+            isGuest={isGuest}
         />
     );
 }
@@ -333,6 +351,7 @@ interface GameViewProps {
     helpVisible: boolean;
     setHelpVisible: (visible: boolean) => void;
     onBack: () => void;
+    isGuest: boolean;
 }
 
 function GameView({
@@ -347,6 +366,7 @@ function GameView({
     helpVisible,
     setHelpVisible,
     onBack,
+    isGuest,
 }: GameViewProps) {
     const router = useRouter();
     const { dateFormatOrder } = useOptions();
@@ -472,7 +492,15 @@ function GameView({
             </View>
 
             {/* Help Modal */}
-            <HelpModal visible={helpVisible} onClose={() => setHelpVisible(false)} />
+            <HelpModal
+                visible={helpVisible}
+                onClose={() => setHelpVisible(false)}
+                isGuest={isGuest}
+                onLoginPress={() => {
+                    setHelpVisible(false);
+                    router.replace({ pathname: '/(auth)/login', params: { fromGuest: '1' } });
+                }}
+            />
         </View>
     );
 }

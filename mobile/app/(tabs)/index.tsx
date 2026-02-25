@@ -35,6 +35,7 @@ import { useProfile } from '../../hooks/useProfile';
 import { getTodaysPuzzleDate } from '../../lib/dateUtils';
 import { useToast } from '../../contexts/ToastContext';
 import { usePuzzleReadiness } from '../../hooks/usePuzzleReadiness';
+import { useAdsConsent } from '../../hooks/useAdsConsent';
 
 // Import hamster images - trying UI folder versions which appear to be transparent
 const HistorianHamsterBlue = require('../../assets/ui/webp_assets/Historian-Hamster.webp');
@@ -387,6 +388,18 @@ export default function HomeScreen() {
         user?.id,
         todaysPuzzleDate
     );
+
+    // Trigger UMP/ATT consent flow on first Home Screen visit
+    // SDK handles de-duplication — if user already consented (e.g. as guest),
+    // this resolves silently without showing any UI
+    const { triggerConsentFlow } = useAdsConsent();
+    const consentTriggeredRef = useRef(false);
+    useEffect(() => {
+        if (user && !consentTriggeredRef.current) {
+            consentTriggeredRef.current = true;
+            triggerConsentFlow();
+        }
+    }, [user, triggerConsentFlow]);
 
     // Data States
     const [loading, setLoading] = useState(true);

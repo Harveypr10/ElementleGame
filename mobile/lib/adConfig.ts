@@ -1,9 +1,9 @@
 /**
  * AdMob Configuration
- * 
+ *
  * Centralized configuration for all ad unit IDs.
- * Delegates to AdManager's age-based strategy after initialization.
- * Falls back to test IDs before AdManager.initializeAds() completes.
+ * Delegates to AdManager after initialization.
+ * Falls back to test IDs before ads SDK initialization completes.
  */
 
 import { TestIds } from 'react-native-google-mobile-ads';
@@ -22,10 +22,10 @@ const TEST_AD_UNITS: AdConfig = {
 
 /**
  * Dynamic ad unit IDs:
- * - Before AdManager initializes: returns test IDs (safe for startup/TestFlight)
- * - After initializeAds(): returns production IDs based on age-based strategy
- * - If provider is 'none' (under 16 / COPPA): returns test IDs (ads won't display anyway)
- * - In __DEV__: AdManager sets provider to 'none', so test IDs are used
+ * - Before ads SDK initializes: returns test IDs (safe for startup/TestFlight)
+ * - After consent + mobileAds().initialize(): returns production IDs
+ * - If provider is 'none': returns test IDs (ads won't display anyway)
+ * - In __DEV__: test IDs are used
  */
 export const AD_UNITS: AdConfig = {
     get banner() {

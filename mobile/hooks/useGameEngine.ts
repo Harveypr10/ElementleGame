@@ -697,7 +697,8 @@ export function useGameEngine({
             });
             // finalStreak will be set by updateUserStats (line ~899) with the real value
             // Show interstitial ad after delay (SKIP FOR GUESTS - they watched one at start)
-            if (user) {
+            // Also skip during guest replay migration — user already watched an ad as guest
+            if (user && !guestReplay) {
                 setTimeout(() => showInterstitialAd(), 2500);
             }
         } else if (newGuesses.length >= maxGuesses) {
@@ -706,8 +707,8 @@ export function useGameEngine({
             requestAnimationFrame(() => {
                 setGameState('lost');
             });
-            // Show interstitial ad after delay (SKIP FOR GUESTS)
-            if (!isGuest) {
+            // Show interstitial ad after delay (SKIP FOR GUESTS and guest replay)
+            if (!isGuest && !guestReplay) {
                 setTimeout(() => showInterstitialAd(), 2500);
             }
         } else {

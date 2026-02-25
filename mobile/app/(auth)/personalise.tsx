@@ -20,7 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { useColorScheme } from 'nativewind';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
-import { getAgeVerification } from '../../lib/ageVerification';
+
 
 interface Region {
     code: string;
@@ -38,13 +38,10 @@ export default function PersonalisePage() {
     const [lastName, setLastName] = useState(params.lastName || '');
     const [region, setRegion] = useState<string>('');
     const [postcode, setPostcode] = useState('');
-    const [adsConsent, setAdsConsent] = useState(false);
     const [regions, setRegions] = useState<Region[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadingRegions, setLoadingRegions] = useState(true);
     const [regionModalVisible, setRegionModalVisible] = useState(false);
-    const [isAdult, setIsAdult] = useState(true); // Default true, will check on mount
-    const [ageDate, setAgeDate] = useState<string | null>(null); // Store age_date for profile
 
     // Refs for keyboard navigation
     const lastNameRef = useRef<TextInput>(null);
@@ -57,21 +54,6 @@ export default function PersonalisePage() {
     // Fetch regions on mount
     useEffect(() => {
         fetchRegions();
-    }, []);
-
-    // Check age verification on mount
-    useEffect(() => {
-        getAgeVerification().then((data) => {
-            if (data) {
-                setIsAdult(data.isAdult);
-                setAgeDate(data.ageDate);
-                // Non-adults can't consent to tailored ads
-                if (!data.isAdult) {
-                    setAdsConsent(false);
-                }
-                console.log('[Personalise] Age check:', { isAdult: data.isAdult, ageDate: data.ageDate });
-            }
-        });
     }, []);
 
     // Auto-select region once fetched
@@ -212,16 +194,8 @@ export default function PersonalisePage() {
                 region: region,
                 postcode: postcode.trim() || null,
                 accepted_terms: true,
-                ads_consent: adsConsent,
-                signup_method: 'password', // 'password', 'magic_link', 'google', 'apple'
+                signup_method: 'password',
             };
-
-            // Add age verification data if available
-            if (ageDate) {
-                profileData.age_date = ageDate;
-                profileData.is_adult = isAdult;
-                console.log('[Profile] Including age data:', { age_date: ageDate, is_adult: isAdult });
-            }
 
             // Only add tier_id if we found one
             if (tierIdToUse) {
@@ -289,7 +263,7 @@ export default function PersonalisePage() {
 
     const handleBack = () => {
         // Use replace to avoid "GO_BACK not handled" errors
-        router.replace('/(auth)/age-verification');
+        router.replace('/(auth)/login');
     };
 
     return (
@@ -421,20 +395,7 @@ export default function PersonalisePage() {
                                 />
                             </View>
 
-                            {/* Ads Consent Checkbox - Only show for 18+ users */}
-                            {isAdult && (
-                                <TouchableOpacity
-                                    style={styles.checkboxRow}
-                                    onPress={() => setAdsConsent(!adsConsent)}
-                                >
-                                    <View style={[styles.checkbox, adsConsent && styles.checkboxChecked]}>
-                                        {adsConsent && <ThemedText style={styles.checkmark}>✓</ThemedText>}
-                                    </View>
-                                    <ThemedText style={[styles.checkboxLabel, { color: textColor }]} size="sm">
-                                        I agree to receive tailored ads and promotional content (optional)
-                                    </ThemedText>
-                                </TouchableOpacity>
-                            )}
+
 
                             {/* Generate Questions Button */}
                             <TouchableOpacity

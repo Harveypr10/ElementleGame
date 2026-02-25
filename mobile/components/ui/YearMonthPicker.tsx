@@ -24,7 +24,6 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 import hapticsManager from '../../lib/hapticsManager';
-import { getAgeVerification } from '../../lib/ageVerification';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -271,43 +270,8 @@ export function useYearMonthPicker(defaultYear: number = DEFAULT_YEAR) {
     const [selectedYear, setSelectedYear] = useState(defaultYear);
     const [selectedMonth, setSelectedMonth] = useState(0);
     const [showMonthSlider, setShowMonthSlider] = useState(false);
-    const [isLoaded, setIsLoaded] = useState(false);
 
     const currentYear = CURRENT_YEAR;
-
-    // Load saved age data from AsyncStorage on mount (for guest-to-account conversion)
-    useEffect(() => {
-        const loadSavedAge = async () => {
-            try {
-                const ageData = await getAgeVerification();
-
-                if (ageData?.ageDate) {
-                    // Parse the age_date (format: YYYY-MM-DD)
-                    const parts = ageData.ageDate.split('-');
-                    if (parts.length >= 2) {
-                        const year = parseInt(parts[0], 10);
-                        const month = parseInt(parts[1], 10) - 1; // 0-indexed
-
-                        // Validate year is within range
-                        if (year >= MIN_YEAR && year <= MAX_YEAR) {
-                            setSelectedYear(year);
-                            // The month in age_date is "1st of following month", so subtract 1
-                            // to get the actual birth month. If month is 1 (January), wrap to December.
-                            const birthMonth = month === 0 ? 11 : month - 1;
-                            setSelectedMonth(birthMonth);
-                            console.log('[YearMonthPicker] Prefilled from AsyncStorage:', { year, birthMonth });
-                        }
-                    }
-                }
-            } catch (error) {
-                console.log('[YearMonthPicker] No saved age data to prefill');
-            } finally {
-                setIsLoaded(true);
-            }
-        };
-
-        loadSavedAge();
-    }, []);
 
     // Determine if month is needed based on year
     useEffect(() => {
@@ -324,7 +288,6 @@ export function useYearMonthPicker(defaultYear: number = DEFAULT_YEAR) {
         selectedMonth,
         setSelectedMonth,
         showMonthSlider,
-        isLoaded, // Expose loading state if needed
     };
 }
 
