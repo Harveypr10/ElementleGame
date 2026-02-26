@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { styled } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Shield, Clock, CalendarClock, Zap, Layers, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, Shield, Clock, CalendarClock, Zap, Layers, ChevronRight, MessageSquare, Users, BookOpen } from 'lucide-react-native';
 import { useOptions } from '../../../../lib/options';
 import { useProfile } from '../../../../hooks/useProfile';
 import DebugControlPanel from '../../../../components/admin/DebugControlPanel';
@@ -35,6 +35,20 @@ export default function AdminDashboard() {
 
     const menuItems = [
         {
+            title: "Users",
+            subtitle: "View and manage user profiles",
+            icon: Users,
+            color: "#2563eb", // Blue
+            route: "/settings/admin/users"
+        },
+        {
+            title: "Cases",
+            subtitle: "Manage user feedback and bug reports",
+            icon: MessageSquare,
+            color: "#0ea5e9", // Sky blue
+            route: "/settings/admin/cases"
+        },
+        {
             title: "Restrictions",
             subtitle: "Manage postcode and category change limits",
             icon: Shield,
@@ -54,6 +68,13 @@ export default function AdminDashboard() {
             icon: CalendarClock,
             color: "#2563eb", // Blue
             route: "/settings/admin/scheduler"
+        },
+        {
+            title: "Questions",
+            subtitle: "Manage questions, allocations & QA",
+            icon: BookOpen,
+            color: "#f59e0b",
+            route: "/settings/admin/questions"
         },
         {
             title: "Screen Navigator",

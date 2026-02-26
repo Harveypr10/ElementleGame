@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert, Animated } from 'react-native';
 import { styled } from 'nativewind';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, CheckCircle } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBugReportLogic } from '../hooks/useBugReportLogic';
 
@@ -18,21 +18,68 @@ export default function BugReportScreen() {
         description,
         setDescription,
         isSubmitting,
+        isSubmitted,
         submitBugReport,
+        handleSubmitPress,
         goBack,
         textScale,
+        hasAuthEmail,
+        showEmailPrompt,
+        guestEmail,
+        setGuestEmail,
         colors
     } = useBugReportLogic();
 
+    const successOpacity = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (isSubmitted) {
+            Animated.timing(successOpacity, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+
+            const timer = setTimeout(() => goBack(), 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [isSubmitted]);
+
     const handlePressSubmit = async () => {
+        if (!description.trim()) {
+            Alert.alert('Required', 'Please describe the bug.');
+            return;
+        }
+
+        const status = handleSubmitPress();
+        if (status === 'needs_email') return;
+
         const result = await submitBugReport();
         if (!result.success && result.error) {
             Alert.alert('Error', result.error);
-        } else if (result.success && result.message) {
-            // Success
-            Alert.alert('Opening Mail', result.message);
         }
     };
+
+    if (isSubmitted) {
+        return (
+            <ThemedView className="flex-1">
+                <SafeAreaView edges={['top']} style={{ backgroundColor: colors.surface }}>
+                    <StyledView className="flex-row items-center justify-between px-4 py-3" style={{ backgroundColor: colors.surface }}>
+                        <StyledView className="w-10" />
+                        <ThemedText size="2xl" className="font-n-bold">Report a Bug</ThemedText>
+                        <StyledView className="w-10" />
+                    </StyledView>
+                </SafeAreaView>
+                <Animated.View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', opacity: successOpacity, paddingHorizontal: 32 }}>
+                    <CheckCircle size={64} color="#22c55e" />
+                    <ThemedText size="xl" className="font-n-bold mt-4 text-center">Report Submitted</ThemedText>
+                    <ThemedText size="base" className="mt-2 text-center opacity-60">
+                        Thank you! We'll investigate this issue.
+                    </ThemedText>
+                </Animated.View>
+            </ThemedView>
+        );
+    }
 
     return (
         <ThemedView className="flex-1">
@@ -76,19 +123,45 @@ export default function BugReportScreen() {
                         />
                     </StyledView>
 
+                    {/* Guest Email Prompt */}
+                    {showEmailPrompt && !hasAuthEmail && (
+                        <StyledView
+                            className="rounded-2xl p-4 mb-4 border"
+                            style={{ backgroundColor: colors.surface, borderColor: colors.border }}
+                        >
+                            <ThemedText size="sm" className="font-n-bold mb-2 opacity-70">
+                                Would you like a response?
+                            </ThemedText>
+                            <ThemedText size="xs" className="mb-3 opacity-50">
+                                Provide your email so we can get back to you (optional).
+                            </ThemedText>
+                            <StyledTextInput
+                                style={{
+                                    fontSize: 15 * textScale,
+                                    backgroundColor: colors.background,
+                                    color: colors.text
+                                }}
+                                className="rounded-xl px-3 py-3"
+                                placeholder="your@email.com"
+                                placeholderTextColor="#94a3b8"
+                                value={guestEmail}
+                                onChangeText={setGuestEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                        </StyledView>
+                    )}
+
                     <StyledTouchableOpacity
                         onPress={handlePressSubmit}
                         disabled={isSubmitting}
                         className={`bg-blue-500 rounded-2xl py-3 px-4 shadow-sm ${isSubmitting ? 'opacity-70' : ''}`}
                     >
                         <ThemedText size="lg" className="text-center font-n-bold text-white">
-                            {isSubmitting ? 'Opening Link...' : 'Submit Report'}
+                            {isSubmitting ? 'Submitting...' : showEmailPrompt && !hasAuthEmail ? 'Submit Report' : 'Submit Report'}
                         </ThemedText>
                     </StyledTouchableOpacity>
-
-                    <ThemedText size="sm" className="text-center mt-4 opacity-50">
-                        This will open your default email app.
-                    </ThemedText>
                 </StyledView>
             </StyledScrollView>
         </ThemedView>

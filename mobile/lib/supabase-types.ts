@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_action_logs: {
+        Row: {
+          action_type: string
+          admin_id: string
+          created_at: string | null
+          description: string
+          id: string
+          new_state: Json | null
+          previous_state: Json | null
+          target_user_id: string
+        }
+        Insert: {
+          action_type: string
+          admin_id: string
+          created_at?: string | null
+          description: string
+          id?: string
+          new_state?: Json | null
+          previous_state?: Json | null
+          target_user_id: string
+        }
+        Update: {
+          action_type?: string
+          admin_id?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          new_state?: Json | null
+          previous_state?: Json | null
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_action_logs_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "admin_action_logs_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_action_logs_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "admin_action_logs_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_settings: {
         Row: {
           description: string | null
@@ -448,6 +510,52 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_notes: {
+        Row: {
+          admin_user_id: string
+          created_at: string | null
+          feedback_id: string
+          id: string
+          note: string
+        }
+        Insert: {
+          admin_user_id: string
+          created_at?: string | null
+          feedback_id: string
+          id?: string
+          note: string
+        }
+        Update: {
+          admin_user_id?: string
+          created_at?: string | null
+          feedback_id?: string
+          id?: string
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_notes_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "feedback_notes_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_notes_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "user_feedback"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_attempts_region: {
         Row: {
           allocated_region_id: number | null
@@ -648,6 +756,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      linked_identities: {
+        Row: {
+          created_at: string | null
+          disabled_at: string | null
+          id: string
+          provider: string
+          provider_email: string | null
+          provider_user_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          disabled_at?: string | null
+          id?: string
+          provider: string
+          provider_email?: string | null
+          provider_user_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          disabled_at?: string | null
+          id?: string
+          provider?: string
+          provider_email?: string | null
+          provider_user_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       location_allocation: {
         Row: {
@@ -1125,6 +1263,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_alloc_region_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_master_region_stats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_allocated_region_region"
             columns: ["region"]
             isOneToOne: false
@@ -1206,6 +1351,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_alloc_user_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_master_user_stats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_qau_category"
             columns: ["category_id"]
             isOneToOne: false
@@ -1226,6 +1378,7 @@ export type Database = {
           event_origin: string
           event_title: string
           id: number
+          is_approved: boolean | null
           populated_place_id: string | null
           quality_score: number | null
           question_kind: string | null
@@ -1242,6 +1395,7 @@ export type Database = {
           event_origin: string
           event_title: string
           id?: number
+          is_approved?: boolean | null
           populated_place_id?: string | null
           quality_score?: number | null
           question_kind?: string | null
@@ -1258,6 +1412,7 @@ export type Database = {
           event_origin?: string
           event_title?: string
           id?: number
+          is_approved?: boolean | null
           populated_place_id?: string | null
           quality_score?: number | null
           question_kind?: string | null
@@ -1285,6 +1440,7 @@ export type Database = {
           event_origin: string
           event_title: string
           id: number
+          is_approved: boolean | null
           populated_place_id: string | null
           quality_score: number | null
           question_kind: string | null
@@ -1301,6 +1457,7 @@ export type Database = {
           event_origin: string
           event_title: string
           id?: number
+          is_approved?: boolean | null
           populated_place_id?: string | null
           quality_score?: number | null
           question_kind?: string | null
@@ -1317,6 +1474,7 @@ export type Database = {
           event_origin?: string
           event_title?: string
           id?: number
+          is_approved?: boolean | null
           populated_place_id?: string | null
           quality_score?: number | null
           question_kind?: string | null
@@ -1601,18 +1759,24 @@ export type Database = {
           default_date_format: string
           id: number
           name: string
+          privacy_content: string | null
+          privacy_legislation: string | null
         }
         Insert: {
           code: string
           default_date_format: string
           id?: number
           name: string
+          privacy_content?: string | null
+          privacy_legislation?: string | null
         }
         Update: {
           code?: string
           default_date_format?: string
           id?: number
           name?: string
+          privacy_content?: string | null
+          privacy_legislation?: string | null
         }
         Relationships: []
       }
@@ -1741,6 +1905,63 @@ export type Database = {
           },
         ]
       }
+      user_feedback: {
+        Row: {
+          app_version: string | null
+          created_at: string | null
+          device_os: string | null
+          email: string | null
+          id: string
+          message: string
+          rating: number | null
+          status: string
+          type: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string | null
+          device_os?: string | null
+          email?: string | null
+          id?: string
+          message: string
+          rating?: number | null
+          status?: string
+          type: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string | null
+          device_os?: string | null
+          email?: string | null
+          id?: string
+          message?: string
+          rating?: number | null
+          status?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           accepted_terms: boolean
@@ -1748,6 +1969,7 @@ export type Database = {
           active_locations_count: number
           ads_consent: boolean
           ads_consent_updated_at: string | null
+          age_date: string | null
           apple_linked: boolean | null
           archive_synced_count: number | null
           categories_last_changed_at: string | null
@@ -1759,6 +1981,7 @@ export type Database = {
           google_linked: boolean | null
           id: string
           is_admin: boolean | null
+          is_adult: boolean | null
           last_name: string | null
           location: unknown
           magic_link: boolean | null
@@ -1780,6 +2003,7 @@ export type Database = {
           active_locations_count?: number
           ads_consent?: boolean
           ads_consent_updated_at?: string | null
+          age_date?: string | null
           apple_linked?: boolean | null
           archive_synced_count?: number | null
           categories_last_changed_at?: string | null
@@ -1791,6 +2015,7 @@ export type Database = {
           google_linked?: boolean | null
           id: string
           is_admin?: boolean | null
+          is_adult?: boolean | null
           last_name?: string | null
           location?: unknown
           magic_link?: boolean | null
@@ -1812,6 +2037,7 @@ export type Database = {
           active_locations_count?: number
           ads_consent?: boolean
           ads_consent_updated_at?: string | null
+          age_date?: string | null
           apple_linked?: boolean | null
           archive_synced_count?: number | null
           categories_last_changed_at?: string | null
@@ -1823,6 +2049,7 @@ export type Database = {
           google_linked?: boolean | null
           id?: string
           is_admin?: boolean | null
+          is_adult?: boolean | null
           last_name?: string | null
           location?: unknown
           magic_link?: boolean | null
@@ -1928,10 +2155,12 @@ export type Database = {
           digit_preference: string | null
           holiday_saver_active: boolean
           id: number
+          quick_menu_enabled: boolean | null
           sounds_enabled: boolean | null
           streak_saver_active: boolean
           text_size: string | null
           updated_at: string | null
+          use_device_display: boolean
           use_region_default: boolean | null
           user_id: string
         }
@@ -1943,10 +2172,12 @@ export type Database = {
           digit_preference?: string | null
           holiday_saver_active?: boolean
           id?: number
+          quick_menu_enabled?: boolean | null
           sounds_enabled?: boolean | null
           streak_saver_active?: boolean
           text_size?: string | null
           updated_at?: string | null
+          use_device_display?: boolean
           use_region_default?: boolean | null
           user_id: string
         }
@@ -1958,10 +2189,12 @@ export type Database = {
           digit_preference?: string | null
           holiday_saver_active?: boolean
           id?: number
+          quick_menu_enabled?: boolean | null
           sounds_enabled?: boolean | null
           streak_saver_active?: boolean
           text_size?: string | null
           updated_at?: string | null
+          use_device_display?: boolean
           use_region_default?: boolean | null
           user_id?: string
         }
@@ -2170,7 +2403,7 @@ export type Database = {
       }
       user_subscriptions: {
         Row: {
-          amount_paid: number
+          amount_paid: number | null
           auto_renew: boolean
           billing_period: string
           created_at: string
@@ -2184,6 +2417,8 @@ export type Database = {
           expires_at: string | null
           id: number
           payment_reference: string | null
+          revenuecat_product_id: string | null
+          revenuecat_subscriber_id: string | null
           reverted_to_standard: boolean
           source: string | null
           status: string
@@ -2201,7 +2436,7 @@ export type Database = {
           validity: unknown
         }
         Insert: {
-          amount_paid: number
+          amount_paid?: number | null
           auto_renew?: boolean
           billing_period?: string
           created_at?: string
@@ -2215,6 +2450,8 @@ export type Database = {
           expires_at?: string | null
           id?: number
           payment_reference?: string | null
+          revenuecat_product_id?: string | null
+          revenuecat_subscriber_id?: string | null
           reverted_to_standard?: boolean
           source?: string | null
           status?: string
@@ -2232,7 +2469,7 @@ export type Database = {
           validity?: unknown
         }
         Update: {
-          amount_paid?: number
+          amount_paid?: number | null
           auto_renew?: boolean
           billing_period?: string
           created_at?: string
@@ -2246,6 +2483,8 @@ export type Database = {
           expires_at?: string | null
           id?: number
           payment_reference?: string | null
+          revenuecat_product_id?: string | null
+          revenuecat_subscriber_id?: string | null
           reverted_to_standard?: boolean
           source?: string | null
           status?: string
@@ -2298,6 +2537,7 @@ export type Database = {
           id: string
           intro_allowed: boolean
           region: string
+          revenuecat_product_id: string | null
           sort_order: number | null
           streak_savers: number
           stripe_price_id: string | null
@@ -2319,6 +2559,7 @@ export type Database = {
           id?: string
           intro_allowed?: boolean
           region: string
+          revenuecat_product_id?: string | null
           sort_order?: number | null
           streak_savers?: number
           stripe_price_id?: string | null
@@ -2340,6 +2581,7 @@ export type Database = {
           id?: string
           intro_allowed?: boolean
           region?: string
+          revenuecat_product_id?: string | null
           sort_order?: number | null
           streak_savers?: number
           stripe_price_id?: string | null
@@ -2418,6 +2660,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_alloc_region_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_master_region_stats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_allocated_region_region"
             columns: ["region"]
             isOneToOne: false
@@ -2480,6 +2729,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "questions_master_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_alloc_user_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_master_user_stats"
             referencedColumns: ["id"]
           },
           {
@@ -2647,6 +2903,66 @@ export type Database = {
         }
         Relationships: []
       }
+      v_questions_master_region_stats: {
+        Row: {
+          accuracy_score: number | null
+          ai_model_used: string | null
+          allocation_count: number | null
+          answer_date_canonical: string | null
+          archive_id: number | null
+          categories: Json | null
+          created_at: string | null
+          earliest_allocation_date: string | null
+          event_description: string | null
+          event_origin: string | null
+          event_title: string | null
+          id: number | null
+          is_approved: boolean | null
+          populated_place_id: string | null
+          quality_score: number | null
+          question_kind: string | null
+          regions: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_qmr_pop_place"
+            columns: ["populated_place_id"]
+            isOneToOne: false
+            referencedRelation: "populated_places"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_questions_master_user_stats: {
+        Row: {
+          accuracy_score: number | null
+          ai_model_used: string | null
+          allocation_count: number | null
+          answer_date_canonical: string | null
+          archive_id: number | null
+          categories: Json | null
+          created_at: string | null
+          earliest_allocation_date: string | null
+          event_description: string | null
+          event_origin: string | null
+          event_title: string | null
+          id: number | null
+          is_approved: boolean | null
+          populated_place_id: string | null
+          quality_score: number | null
+          question_kind: string | null
+          regions: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_qmu_pop_place"
+            columns: ["populated_place_id"]
+            isOneToOne: false
+            referencedRelation: "populated_places"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _postgis_deprecate: {
@@ -2742,13 +3058,25 @@ export type Database = {
         Args: { p_start_date?: string; p_user_id: string }
         Returns: string
       }
-      activate_holiday_mode_mobile: {
-        Args: { p_duration_days: number; p_user_id: string }
-        Returns: {
-          message: string
-          success: boolean
-        }[]
-      }
+      activate_holiday_mode_mobile:
+        | {
+            Args: { p_duration_days: number; p_user_id: string }
+            Returns: {
+              message: string
+              success: boolean
+            }[]
+          }
+        | {
+            Args: {
+              p_duration_days: number
+              p_start_date?: string
+              p_user_id: string
+            }
+            Returns: {
+              message: string
+              success: boolean
+            }[]
+          }
       add_region_holiday_attempt: {
         Args: { p_puzzle_date: string; p_region: string; p_user_id: string }
         Returns: undefined
@@ -2795,6 +3123,79 @@ export type Database = {
             }
             Returns: string
           }
+      admin_allocation_stats: {
+        Args: {
+          p_filter_value: string
+          p_limit?: number
+          p_offset?: number
+          p_table: string
+        }
+        Returns: {
+          alloc_id: number
+          answer_date: string
+          avg_guesses: number
+          category_id: number
+          category_name: string
+          event_description: string
+          event_title: string
+          is_approved: boolean
+          is_played: boolean
+          play_count: number
+          puzzle_date: string
+          question_id: number
+          question_kind: string
+          win_count: number
+        }[]
+      }
+      admin_assign_subscription: {
+        Args: {
+          p_auto_renew?: boolean
+          p_billing_period: string
+          p_expires_at: string
+          p_tier: string
+          p_user_id: string
+          p_user_tier_id: string
+        }
+        Returns: undefined
+      }
+      admin_find_date_gaps: {
+        Args: {
+          p_extend_days?: number
+          p_filter_value: string
+          p_table: string
+        }
+        Returns: {
+          gap_date: string
+        }[]
+      }
+      admin_move_question: {
+        Args: { p_from_table: string; p_question_id: number }
+        Returns: Json
+      }
+      admin_swap_puzzle_dates: {
+        Args: { p_alloc_id_a: number; p_alloc_id_b: number; p_table: string }
+        Returns: Json
+      }
+      admin_unallocated_masters: {
+        Args: {
+          p_filter_value: string
+          p_limit?: number
+          p_offset?: number
+          p_table: string
+        }
+        Returns: {
+          accuracy_score: number
+          answer_date: string
+          categories: Json
+          created_at: string
+          event_description: string
+          event_title: string
+          is_approved: boolean
+          quality_score: number
+          question_id: number
+          question_kind: string
+        }[]
+      }
       allocate_for_scope: {
         Args: {
           p_category_id: number
@@ -2911,6 +3312,11 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      delete_user_account: { Args: never; Returns: undefined }
+      delete_user_identity: {
+        Args: { target_provider: string; target_user_id: string }
+        Returns: boolean
+      }
       describe_table_columns: {
         Args: { p_table_name: string }
         Returns: {
@@ -2963,6 +3369,12 @@ export type Database = {
         }[]
       }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      find_user_by_identity: {
+        Args: { p_provider: string; p_provider_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }
@@ -3169,6 +3581,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      is_admin: { Args: never; Returns: boolean }
       jwt_custom_claims: { Args: never; Returns: Json }
       longtransactionsenabled: { Args: never; Returns: boolean }
       mark_spec_dead: { Args: { p_spec_id: number }; Returns: undefined }

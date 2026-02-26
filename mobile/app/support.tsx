@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert, Linking } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert, Animated, Platform } from 'react-native';
 import { styled } from 'nativewind';
-import { ChevronLeft } from 'lucide-react-native';
+import { ChevronLeft, CheckCircle } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 
 import { ThemedText } from '../components/ThemedText';
 import { ThemedView } from '../components/ThemedView';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useOptions } from '../lib/options';
 import { useAuth } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
@@ -23,6 +25,12 @@ export default function SupportScreen() {
 
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSubmitted, setIsSubmitted] = useState(false);
+
+    // Guest email prompt
+    const [guestEmail, setGuestEmail] = useState('');
+    const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+    const hasAuthEmail = !!user?.email;
 
     const surfaceColor = useThemeColor({}, 'surface');
     const borderColor = useThemeColor({}, 'border');
@@ -30,27 +38,91 @@ export default function SupportScreen() {
     const textColor = useThemeColor({}, 'text');
     const iconColor = useThemeColor({}, 'icon');
 
+    let appVersion = Constants.expoConfig?.version || '1.0.0';
+    try {
+        const Application = require('expo-application');
+        if (Application.nativeApplicationVersion) {
+            appVersion = Application.nativeApplicationVersion;
+        }
+    } catch { }
+    const deviceOs = `${Platform.OS} ${Platform.Version}`;
+
+    const successOpacity = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        if (isSubmitted) {
+            Animated.timing(successOpacity, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+
+            const timer = setTimeout(() => router.back(), 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [isSubmitted]);
+
     const handleSubmit = async () => {
         if (!message.trim()) {
             Alert.alert('Required', 'Please describe how we can help.');
             return;
         }
 
+        // Show email prompt for guests on first tap
+        if (!hasAuthEmail && !showEmailPrompt) {
+            setShowEmailPrompt(true);
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            const userEmail = user?.email || 'Not logged in';
-            const subject = 'Elementle Support';
-            const body = `From: ${userEmail}\n\n${message}`;
-            const mailtoUrl = `mailto:support@dobl.tech?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const resolvedEmail = user?.email || guestEmail.trim() || null;
 
-            await Linking.openURL(mailtoUrl);
+            const { error } = await supabase.from('user_feedback').insert({
+                user_id: user?.id || null,
+                email: resolvedEmail,
+                type: 'support',
+                message: message.trim(),
+                rating: null,
+                app_version: appVersion,
+                device_os: deviceOs,
+            });
+
+            if (error) {
+                console.error('[Support] Supabase insert error:', error);
+                Alert.alert('Error', 'Failed to send your request. Please try again.');
+                return;
+            }
+
+            setIsSubmitted(true);
         } catch (error: any) {
-            console.error('Error opening email:', error);
-            Alert.alert('Error', 'Could not open email client. Please email us at support@dobl.tech');
+            console.error('[Support] Submit error:', error);
+            Alert.alert('Error', 'Something went wrong. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    if (isSubmitted) {
+        return (
+            <ThemedView className="flex-1">
+                <SafeAreaView edges={['top']} style={{ backgroundColor: surfaceColor }}>
+                    <StyledView className="flex-row items-center justify-between px-4 py-3" style={{ backgroundColor: surfaceColor }}>
+                        <StyledView className="w-10" />
+                        <ThemedText size="2xl" className="font-n-bold">Support</ThemedText>
+                        <StyledView className="w-10" />
+                    </StyledView>
+                </SafeAreaView>
+                <Animated.View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', opacity: successOpacity, paddingHorizontal: 32 }}>
+                    <CheckCircle size={64} color="#22c55e" />
+                    <ThemedText size="xl" className="font-n-bold mt-4 text-center">Request Received</ThemedText>
+                    <ThemedText size="base" className="mt-2 text-center opacity-60">
+                        We'll get back to you as soon as possible.
+                    </ThemedText>
+                </Animated.View>
+            </ThemedView>
+        );
+    }
 
     return (
         <ThemedView className="flex-1">
@@ -95,19 +167,45 @@ export default function SupportScreen() {
                         />
                     </StyledView>
 
+                    {/* Guest Email Prompt */}
+                    {showEmailPrompt && !hasAuthEmail && (
+                        <StyledView
+                            className="rounded-2xl p-4 mb-4 border"
+                            style={{ backgroundColor: surfaceColor, borderColor }}
+                        >
+                            <ThemedText size="sm" className="font-n-bold mb-2 opacity-70">
+                                Would you like a response?
+                            </ThemedText>
+                            <ThemedText size="xs" className="mb-3 opacity-50">
+                                Provide your email so we can get back to you (optional).
+                            </ThemedText>
+                            <StyledTextInput
+                                style={{
+                                    fontSize: 15 * textScale,
+                                    backgroundColor,
+                                    color: textColor
+                                }}
+                                className="rounded-xl px-3 py-3"
+                                placeholder="your@email.com"
+                                placeholderTextColor="#94a3b8"
+                                value={guestEmail}
+                                onChangeText={setGuestEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                        </StyledView>
+                    )}
+
                     <StyledTouchableOpacity
                         onPress={handleSubmit}
                         disabled={isSubmitting}
                         className={`bg-blue-500 rounded-2xl py-3 px-4 shadow-sm ${isSubmitting ? 'opacity-70' : ''}`}
                     >
                         <ThemedText size="lg" className="text-center font-n-bold text-white">
-                            {isSubmitting ? 'Opening Email...' : 'Contact Support'}
+                            {isSubmitting ? 'Submitting...' : 'Contact Support'}
                         </ThemedText>
                     </StyledTouchableOpacity>
-
-                    <ThemedText size="sm" className="text-center mt-4 opacity-50">
-                        This will open your default email app.
-                    </ThemedText>
                 </StyledView>
             </StyledScrollView>
         </ThemedView>

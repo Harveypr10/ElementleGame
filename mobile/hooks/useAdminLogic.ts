@@ -21,6 +21,20 @@ export interface AdminMenuItem {
 
 export const adminMenuItems: AdminMenuItem[] = [
     {
+        title: "Users",
+        subtitle: "View and manage user profiles",
+        icon: "Users",
+        color: "#2563eb",
+        route: "/settings/admin/users"
+    },
+    {
+        title: "Cases",
+        subtitle: "Manage user feedback and bug reports",
+        icon: "MessageSquare",
+        color: "#0ea5e9",
+        route: "/settings/admin/cases"
+    },
+    {
         title: "Restrictions",
         subtitle: "Manage postcode and category change limits",
         icon: "Shield",
@@ -40,6 +54,13 @@ export const adminMenuItems: AdminMenuItem[] = [
         icon: "CalendarClock",
         color: "#2563eb",
         route: "/settings/admin/scheduler"
+    },
+    {
+        title: "Questions",
+        subtitle: "Manage questions, allocations & QA",
+        icon: "BookOpen",
+        color: "#f59e0b",
+        route: "/settings/admin/questions"
     },
     {
         title: "Screen Navigator",

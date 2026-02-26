@@ -127,9 +127,7 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', region =
     const categoryBadges = useMemo(() => {
         return allBadges
             .filter(b => normalizeCategory(b.category) === currentCategory)
-            .sort((a, b) => currentCategory === 'percentile'
-                ? b.threshold - a.threshold  // Percentile: 50% first → 1% last
-                : a.threshold - b.threshold) // Others: ascending
+            .sort((a, b) => b.threshold - a.threshold)  // All categories: descending (higher threshold first)
             .map(badge => {
                 const userBadge = userBadges.find(ub => ub.badge_id === badge.id);
                 const isEarned = !!userBadge;
@@ -145,6 +143,7 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', region =
                 .map((item, idx) => item.isEarned ? idx : -1)
                 .filter(idx => idx !== -1);
 
+            // Scroll to the best (last) earned badge
             if (earnedIndices.length > 0) {
                 targetIndex = earnedIndices[earnedIndices.length - 1];
             }

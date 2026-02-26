@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
-import { ChevronLeft, Star } from 'lucide-react-native';
+import { ChevronLeft, Star, CheckCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useFeedbackLogic } from '../hooks/useFeedbackLogic';
 
@@ -12,7 +12,13 @@ export default function FeedbackWeb() {
         rating,
         setRating,
         isSubmitting,
+        isSubmitted,
         submitFeedback,
+        handleSubmitPress,
+        hasAuthEmail,
+        showEmailPrompt,
+        guestEmail,
+        setGuestEmail,
         userEmail
     } = useFeedbackLogic();
 
@@ -20,19 +26,40 @@ export default function FeedbackWeb() {
     const [submitHover, setSubmitHover] = useState(false);
 
     const handleSubmit = async () => {
+        if (!feedback.trim()) {
+            Alert.alert('Required', 'Please enter your feedback.');
+            return;
+        }
+
+        const status = handleSubmitPress();
+        if (status === 'needs_email') return;
+
         const result = await submitFeedback();
         if (!result.success && result.error) {
             Alert.alert('Error', result.error);
-        } else if (result.success && result.message) {
-            Alert.alert('Opening Mail', result.message);
-            // Optional: reset
-            setTimeout(() => {
-                setFeedback('');
-                setRating(0);
-                router.back();
-            }, 2000);
         }
     };
+
+    if (isSubmitted) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.contentWrapper}>
+                    <View style={styles.header}>
+                        <View style={{ width: 44 }} />
+                        <Text style={styles.title}>Feedback</Text>
+                        <View style={{ width: 44 }} />
+                    </View>
+                    <View style={[styles.card, { alignItems: 'center', paddingVertical: 48 }]}>
+                        <CheckCircle size={56} color="#22c55e" />
+                        <Text style={[styles.cardTitle, { marginTop: 16, textAlign: 'center' }]}>Thank you!</Text>
+                        <Text style={[styles.cardDescription, { textAlign: 'center' }]}>
+                            Your feedback has been submitted successfully.
+                        </Text>
+                    </View>
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -61,14 +88,16 @@ export default function FeedbackWeb() {
                         </Text>
                     </View>
 
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Your Email</Text>
-                        <TextInput
-                            value={userEmail}
-                            editable={false}
-                            style={[styles.input, styles.inputDisabled]}
-                        />
-                    </View>
+                    {userEmail ? (
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Your Email</Text>
+                            <TextInput
+                                value={userEmail}
+                                editable={false}
+                                style={[styles.input, styles.inputDisabled]}
+                            />
+                        </View>
+                    ) : null}
 
                     {/* Rating Stars */}
                     <View style={styles.formGroup}>
@@ -78,7 +107,6 @@ export default function FeedbackWeb() {
                                 <Pressable
                                     key={star}
                                     onPress={() => setRating(star)}
-                                    // Could add hover support for stars but simple press is fine for now
                                     style={styles.starButton}
                                 >
                                     <Star
@@ -104,6 +132,22 @@ export default function FeedbackWeb() {
                         />
                     </View>
 
+                    {/* Guest Email Prompt */}
+                    {showEmailPrompt && !hasAuthEmail && (
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Would you like a response? (optional)</Text>
+                            <TextInput
+                                value={guestEmail}
+                                onChangeText={setGuestEmail}
+                                style={styles.input}
+                                placeholder="your@email.com"
+                                placeholderTextColor="#9ca3af"
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+                        </View>
+                    )}
+
                     <Pressable
                         onPress={handleSubmit}
                         disabled={isSubmitting}
@@ -115,11 +159,9 @@ export default function FeedbackWeb() {
                             isSubmitting && styles.submitButtonDisabled
                         ]}
                     >
-                        {isSubmitting ? (
-                            <Text style={styles.submitButtonText}>Sending...</Text>
-                        ) : (
-                            <Text style={styles.submitButtonText}>Send Feedback</Text>
-                        )}
+                        <Text style={styles.submitButtonText}>
+                            {isSubmitting ? 'Submitting...' : 'Send Feedback'}
+                        </Text>
                     </Pressable>
 
                 </View>
@@ -140,7 +182,7 @@ const styles = StyleSheet.create({
     },
     contentWrapper: {
         width: '100%',
-        maxWidth: 448, // max-w-md
+        maxWidth: 448,
     },
     header: {
         flexDirection: 'row',

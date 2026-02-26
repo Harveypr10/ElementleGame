@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { ChevronLeft } from 'lucide-react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
+import { ChevronLeft, CheckCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useBugReportLogic } from '../hooks/useBugReportLogic';
 
@@ -10,30 +10,54 @@ export default function BugReportWeb() {
         description,
         setDescription,
         isSubmitting,
+        isSubmitted,
         submitBugReport,
+        handleSubmitPress,
+        hasAuthEmail,
+        showEmailPrompt,
+        guestEmail,
+        setGuestEmail,
         userEmail,
-        colors
     } = useBugReportLogic();
 
     const [backHover, setBackHover] = useState(false);
     const [submitHover, setSubmitHover] = useState(false);
 
     const handleSubmit = async () => {
+        if (!description.trim()) {
+            Alert.alert('Required', 'Please describe the bug.');
+            return;
+        }
+
+        const status = handleSubmitPress();
+        if (status === 'needs_email') return;
+
         const result = await submitBugReport();
         if (!result.success && result.error) {
-            // Using Alert on Web is native-like, acceptable for now
             Alert.alert('Error', result.error);
-        } else if (result.success && result.message) {
-            Alert.alert('Opening Mail', result.message);
-            // Optional: Clear form or go back?
-            // Legacy cleared and went back after 2s.
-            // We can just leave it or go back.
-            setTimeout(() => {
-                setDescription('');
-                router.back();
-            }, 2000);
         }
     };
+
+    if (isSubmitted) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.contentWrapper}>
+                    <View style={styles.header}>
+                        <View style={{ width: 44 }} />
+                        <Text style={styles.title}>Report a Bug</Text>
+                        <View style={{ width: 44 }} />
+                    </View>
+                    <View style={[styles.card, { alignItems: 'center', paddingVertical: 48 }]}>
+                        <CheckCircle size={56} color="#22c55e" />
+                        <Text style={[styles.cardTitle, { marginTop: 16, textAlign: 'center' }]}>Report Submitted</Text>
+                        <Text style={[styles.cardDescription, { textAlign: 'center' }]}>
+                            Thank you! We'll investigate this issue.
+                        </Text>
+                    </View>
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -62,14 +86,16 @@ export default function BugReportWeb() {
                         </Text>
                     </View>
 
-                    <View style={styles.formGroup}>
-                        <Text style={styles.label}>Your Email</Text>
-                        <TextInput
-                            value={userEmail}
-                            editable={false}
-                            style={[styles.input, styles.inputDisabled]}
-                        />
-                    </View>
+                    {userEmail ? (
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Your Email</Text>
+                            <TextInput
+                                value={userEmail}
+                                editable={false}
+                                style={[styles.input, styles.inputDisabled]}
+                            />
+                        </View>
+                    ) : null}
 
                     <View style={styles.formGroup}>
                         <Text style={styles.label}>Describe the bug</Text>
@@ -84,6 +110,22 @@ export default function BugReportWeb() {
                         />
                     </View>
 
+                    {/* Guest Email Prompt */}
+                    {showEmailPrompt && !hasAuthEmail && (
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Would you like a response? (optional)</Text>
+                            <TextInput
+                                value={guestEmail}
+                                onChangeText={setGuestEmail}
+                                style={styles.input}
+                                placeholder="your@email.com"
+                                placeholderTextColor="#9ca3af"
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+                        </View>
+                    )}
+
                     <Pressable
                         onPress={handleSubmit}
                         disabled={isSubmitting}
@@ -95,11 +137,9 @@ export default function BugReportWeb() {
                             isSubmitting && styles.submitButtonDisabled
                         ]}
                     >
-                        {isSubmitting ? (
-                            <Text style={styles.submitButtonText}>Sending...</Text>
-                        ) : (
-                            <Text style={styles.submitButtonText}>Send Bug Report</Text>
-                        )}
+                        <Text style={styles.submitButtonText}>
+                            {isSubmitting ? 'Submitting...' : 'Send Bug Report'}
+                        </Text>
                     </Pressable>
 
                 </View>
@@ -120,7 +160,7 @@ const styles = StyleSheet.create({
     },
     contentWrapper: {
         width: '100%',
-        maxWidth: 448, // max-w-md
+        maxWidth: 448,
     },
     header: {
         flexDirection: 'row',
@@ -141,7 +181,7 @@ const styles = StyleSheet.create({
     },
     title: {
         fontFamily: 'Nunito_700Bold',
-        fontSize: 32, // text-4xl equivalent roughly
+        fontSize: 32,
         color: '#000',
     },
     card: {
@@ -192,7 +232,7 @@ const styles = StyleSheet.create({
         height: 40,
     },
     inputDisabled: {
-        backgroundColor: '#f1f5f9', // muted
+        backgroundColor: '#f1f5f9',
         color: '#64748b',
     },
     textArea: {
@@ -201,7 +241,7 @@ const styles = StyleSheet.create({
         height: 'auto' as any,
     },
     submitButton: {
-        backgroundColor: '#0f172a', // primary
+        backgroundColor: '#0f172a',
         borderRadius: 6,
         paddingVertical: 10,
         paddingHorizontal: 16,

@@ -12,6 +12,25 @@ Sentry.init({
     dsn: SENTRY_DSN,
     debug: __DEV__,
     enabled: !__DEV__ && !!SENTRY_DSN,
+
+    // Performance: disabled to save transaction quota
+    tracesSampleRate: 0.0,
+
+    // Session Replay: only capture on error (50 free replays/month)
+    replaysSessionSampleRate: 0.0,
+    replaysOnErrorSampleRate: 1.0,
+
+    // Filter common non-fatal noise to preserve error quota
+    ignoreErrors: [
+        'Network request failed',
+        'Failed to fetch',
+        'NetworkError',
+        'AbortError',
+        'Timeout',
+        'TypeError: cancelled',
+        'TypeError: network request failed',
+        'Cannot find native module',
+    ],
 });
 import { styled } from 'nativewind';
 import { ThemedView } from '../components/ThemedView';

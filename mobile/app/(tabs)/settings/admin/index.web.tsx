@@ -5,16 +5,19 @@
 
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { ChevronLeft, Shield, Zap, CalendarClock, Layers, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, Shield, Zap, CalendarClock, Layers, ChevronRight, MessageSquare, Users, BookOpen } from 'lucide-react-native';
 import { useAdminLogic } from '../../../../hooks/useAdminLogic';
 import DebugControlPanel from '../../../../components/admin/DebugControlPanel';
 
 // Map icon names to components
 const iconMap: Record<string, any> = {
+    Users,
+    MessageSquare,
     Shield,
     Zap,
     CalendarClock,
     Layers,
+    BookOpen,
 };
 
 export default function AdminDashboardWeb() {

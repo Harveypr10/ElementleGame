@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Alert, Linking } from 'react-native';
-import { ChevronLeft } from 'lucide-react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, Platform } from 'react-native';
+import { ChevronLeft, CheckCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../lib/auth';
+import { supabase } from '../lib/supabase';
 
 export default function SupportWeb() {
     const router = useRouter();
@@ -10,8 +11,14 @@ export default function SupportWeb() {
 
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSubmitted, setIsSubmitted] = useState(false);
     const [backHover, setBackHover] = useState(false);
     const [submitHover, setSubmitHover] = useState(false);
+
+    // Guest email prompt
+    const [guestEmail, setGuestEmail] = useState('');
+    const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+    const hasAuthEmail = !!user?.email;
 
     const handleSubmit = async () => {
         if (!message.trim()) {
@@ -19,26 +26,62 @@ export default function SupportWeb() {
             return;
         }
 
+        // Show email prompt for guests on first tap
+        if (!hasAuthEmail && !showEmailPrompt) {
+            setShowEmailPrompt(true);
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            const userEmail = user?.email || 'Not logged in';
-            const subject = 'Elementle Support';
-            const body = `From: ${userEmail}\n\n${message}`;
-            const mailtoUrl = `mailto:support@dobl.tech?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const resolvedEmail = user?.email || guestEmail.trim() || null;
+            const deviceOs = `web ${navigator?.userAgent ? 'browser' : 'unknown'}`;
 
-            await Linking.openURL(mailtoUrl);
+            const { error } = await supabase.from('user_feedback').insert({
+                user_id: user?.id || null,
+                email: resolvedEmail,
+                type: 'support',
+                message: message.trim(),
+                rating: null,
+                app_version: '1.0.0',
+                device_os: deviceOs,
+            });
 
-            setTimeout(() => {
-                setMessage('');
-                router.back();
-            }, 2000);
+            if (error) {
+                console.error('[Support] Supabase insert error:', error);
+                Alert.alert('Error', 'Failed to send your request. Please try again.');
+                return;
+            }
+
+            setIsSubmitted(true);
         } catch (error: any) {
-            console.error('Error opening email:', error);
-            Alert.alert('Error', 'Could not open email client. Please email us at support@dobl.tech');
+            console.error('[Support] Submit error:', error);
+            Alert.alert('Error', 'Something went wrong. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    if (isSubmitted) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.contentWrapper}>
+                    <View style={styles.header}>
+                        <View style={{ width: 44 }} />
+                        <Text style={styles.title}>Support</Text>
+                        <View style={{ width: 44 }} />
+                    </View>
+                    <View style={[styles.card, { alignItems: 'center', paddingVertical: 48 }]}>
+                        <CheckCircle size={56} color="#22c55e" />
+                        <Text style={[styles.cardTitle, { marginTop: 16, textAlign: 'center' }]}>Request Received</Text>
+                        <Text style={[styles.cardDescription, { textAlign: 'center' }]}>
+                            We'll get back to you as soon as possible.
+                        </Text>
+                    </View>
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -66,16 +109,16 @@ export default function SupportWeb() {
                         </Text>
                     </View>
 
-                    {user && (
+                    {user?.email ? (
                         <View style={styles.formGroup}>
                             <Text style={styles.label}>Your Email</Text>
                             <TextInput
-                                value={user?.email || ''}
+                                value={user.email}
                                 editable={false}
                                 style={[styles.input, styles.inputDisabled]}
                             />
                         </View>
-                    )}
+                    ) : null}
 
                     <View style={styles.formGroup}>
                         <Text style={styles.label}>Your Message</Text>
@@ -90,6 +133,22 @@ export default function SupportWeb() {
                         />
                     </View>
 
+                    {/* Guest Email Prompt */}
+                    {showEmailPrompt && !hasAuthEmail && (
+                        <View style={styles.formGroup}>
+                            <Text style={styles.label}>Would you like a response? (optional)</Text>
+                            <TextInput
+                                value={guestEmail}
+                                onChangeText={setGuestEmail}
+                                style={styles.input}
+                                placeholder="your@email.com"
+                                placeholderTextColor="#9ca3af"
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+                        </View>
+                    )}
+
                     <Pressable
                         onPress={handleSubmit}
                         disabled={isSubmitting}
@@ -102,7 +161,7 @@ export default function SupportWeb() {
                         ]}
                     >
                         <Text style={styles.submitButtonText}>
-                            {isSubmitting ? 'Opening Email...' : 'Contact Support'}
+                            {isSubmitting ? 'Submitting...' : 'Contact Support'}
                         </Text>
                     </Pressable>
                 </View>

@@ -220,7 +220,13 @@ export default function StatsScreen() {
                     );
 
                     if (catBadges.length > 0) {
-                        catBadges.sort((a: any, b: any) => (b.badge?.threshold || 0) - (a.badge?.threshold || 0));
+                        // For 'elementle': lower threshold = better (winning in fewer guesses)
+                        // For 'streak' and 'percentile': higher threshold = better
+                        if (cat === 'elementle') {
+                            catBadges.sort((a: any, b: any) => (a.badge?.threshold || 0) - (b.badge?.threshold || 0));
+                        } else {
+                            catBadges.sort((a: any, b: any) => (b.badge?.threshold || 0) - (a.badge?.threshold || 0));
+                        }
                         highest[cat] = catBadges[0];
                     }
                 });

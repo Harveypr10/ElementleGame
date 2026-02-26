@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Linking, Alert, Platform } from 'react-native';
+import { useState, useCallback } from 'react';
+import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { useAuth } from '../lib/auth';
 import { useThemeColor } from './useThemeColor';
 import { useOptions } from '../lib/options';
+import { supabase } from '../lib/supabase';
 
 interface SubmitResult {
     success: boolean;
@@ -18,6 +20,11 @@ export const useBugReportLogic = () => {
 
     const [description, setDescription] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSubmitted, setIsSubmitted] = useState(false);
+
+    // Optional email for guests
+    const [guestEmail, setGuestEmail] = useState('');
+    const [showEmailPrompt, setShowEmailPrompt] = useState(false);
 
     // Theme Colors
     const backgroundColor = useThemeColor({}, 'background');
@@ -26,6 +33,34 @@ export const useBugReportLogic = () => {
     const textColor = useThemeColor({}, 'text');
     const iconColor = useThemeColor({}, 'icon');
 
+    let appVersion = Constants.expoConfig?.version || '1.0.0';
+    try {
+        const Application = require('expo-application');
+        if (Application.nativeApplicationVersion) {
+            appVersion = Application.nativeApplicationVersion;
+        }
+    } catch { }
+    const deviceOs = `${Platform.OS} ${Platform.Version}`;
+
+    const hasAuthEmail = !!user?.email;
+
+    /**
+     * Called when user taps Submit.
+     * If guest with no email, show the email prompt first.
+     */
+    const handleSubmitPress = useCallback((): 'needs_email' | 'submitting' => {
+        if (!description.trim()) {
+            return 'needs_email';
+        }
+
+        if (!hasAuthEmail && !showEmailPrompt) {
+            setShowEmailPrompt(true);
+            return 'needs_email';
+        }
+
+        return 'submitting';
+    }, [description, hasAuthEmail, showEmailPrompt]);
+
     const submitBugReport = async (): Promise<SubmitResult> => {
         if (!description.trim()) {
             return { success: false, error: 'Please describe the bug.' };
@@ -33,29 +68,36 @@ export const useBugReportLogic = () => {
 
         setIsSubmitting(true);
         try {
-            const userEmail = user?.email || 'Anonymous';
-            const subject = 'Bug Report - Elementle';
-            const body = `Report from: ${userEmail}\n\nDescription:\n${description}`;
-            const mailtoUrl = `mailto:no-reply@dobl.tech?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const resolvedEmail = user?.email || guestEmail.trim() || null;
 
-            // On Web, Linking.canOpenURL might return false for mailto depending on browser, 
-            // but Linking.openURL usually works or window.location.href.
-            // React Native Web's Linking.openURL maps to window.open or window.location.
+            const { error } = await supabase.from('user_feedback').insert({
+                user_id: user?.id || null,
+                email: resolvedEmail,
+                type: 'bug',
+                message: description.trim(),
+                rating: null,
+                app_version: appVersion,
+                device_os: deviceOs,
+            });
 
-            // We'll try openURL directly.
-            await Linking.openURL(mailtoUrl);
+            if (error) {
+                console.error('[BugReport] Supabase insert error:', error);
+                return { success: false, error: 'Failed to submit report. Please try again.' };
+            }
 
-            // We assume success if openURL didn't throw. 
-            // (Email clients don't return "success" callback easily).
-            return { success: true, message: 'Opening your email client...' };
-
+            setIsSubmitted(true);
+            return { success: true, message: 'Thank you! Your bug report has been submitted.' };
         } catch (error: any) {
-            console.error('Error opening email:', error);
-            return { success: false, error: 'Could not open email client. Please email us at no-reply@dobl.tech' };
+            console.error('[BugReport] Submit error:', error);
+            return { success: false, error: 'Something went wrong. Please try again.' };
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    const skipEmail = useCallback(() => {
+        setGuestEmail('');
+    }, []);
 
     const goBack = () => {
         router.back();
@@ -65,10 +107,17 @@ export const useBugReportLogic = () => {
         description,
         setDescription,
         isSubmitting,
+        isSubmitted,
         submitBugReport,
+        handleSubmitPress,
         goBack,
         textScale,
         userEmail: user?.email || '',
+        hasAuthEmail,
+        showEmailPrompt,
+        guestEmail,
+        setGuestEmail,
+        skipEmail,
         colors: {
             background: backgroundColor,
             surface: surfaceColor,
