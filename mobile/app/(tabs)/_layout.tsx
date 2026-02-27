@@ -3,7 +3,8 @@ import { useColorScheme } from 'nativewind';
 import { Home, Settings as SettingsIcon, SlidersHorizontal, Shield } from 'lucide-react-native';
 import { useProfile } from '../../hooks/useProfile';
 import { useOptions } from '../../lib/options';
-import { useWindowDimensions } from 'react-native';
+import { useWindowDimensions, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
     const { colorScheme } = useColorScheme();
@@ -12,6 +13,7 @@ export default function TabLayout() {
     const isDark = colorScheme === 'dark';
     const { width: screenWidth } = useWindowDimensions();
     const isLargeScreen = screenWidth >= 768;
+    const insets = useSafeAreaInsets();
 
     return (
         <Tabs
@@ -21,8 +23,8 @@ export default function TabLayout() {
                     display: quickMenuEnabled ? 'flex' : 'none',
                     backgroundColor: isDark ? '#0f172a' : '#f1f5f9',
                     borderTopWidth: 0,
-                    height: 75,
-                    paddingBottom: 18,
+                    height: Platform.OS === 'android' ? 60 + insets.bottom : 75,
+                    paddingBottom: Platform.OS === 'android' ? insets.bottom : 18,
                     paddingTop: 8,
                 },
                 tabBarActiveTintColor: isDark ? '#ffffff' : '#1e293b',

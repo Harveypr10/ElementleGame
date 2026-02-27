@@ -164,6 +164,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             foregroundImage: "./assets/Icon-512.png",
             backgroundColor: "#ffffff",
         },
+        androidStatusBar: {
+            barStyle: 'dark-content',
+            backgroundColor: '#00000000',
+            translucent: true,
+        },
         edgeToEdgeEnabled: true,
         // @ts-ignore - Expo SDK feature flag
         predictiveBackGestureEnabled: false,

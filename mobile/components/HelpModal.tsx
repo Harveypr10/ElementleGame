@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, Modal, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { styled } from 'nativewind';
 import { X, ArrowUp, ArrowDown } from 'lucide-react-native';
 import { ThemedText } from './ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -17,6 +18,7 @@ interface HelpModalProps {
 }
 
 export function HelpModal({ visible, onClose, isGuest = false, onLoginPress }: HelpModalProps) {
+    const insets = useSafeAreaInsets();
     const backgroundColor = useThemeColor({}, 'background');
     const surfaceColor = useThemeColor({}, 'surface');
     const borderColor = useThemeColor({}, 'border');
@@ -223,7 +225,7 @@ export function HelpModal({ visible, onClose, isGuest = false, onLoginPress }: H
                     {/* Footer */}
                     <StyledView
                         className="p-6 border-t"
-                        style={{ borderColor: borderColor }}
+                        style={{ borderColor: borderColor, paddingBottom: Platform.OS === 'android' ? 24 + insets.bottom : 24 }}
                     >
                         <StyledTouchableOpacity
                             onPress={handleButtonPress}

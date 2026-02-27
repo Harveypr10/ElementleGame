@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, Animated, Dimensions, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -22,6 +22,7 @@ import { useBadgeSystem, Badge } from '../../hooks/useBadgeSystem';
 import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StreakCelebration } from './StreakCelebration';
 
 const StyledView = styled(View);
@@ -67,6 +68,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     const { shouldShowReview, triggerReview } = useReviewPrompt();
     const reviewTriggeredRef = React.useRef(false);
     const surfaceColor = useThemeColor({}, 'surface');
+    const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
     const { toast } = useToast();
 
@@ -521,7 +523,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     </ThemedView>
 
                     {/* Keyboard or Continue Button */}
-                    <View style={{ paddingBottom: Dimensions.get('window').height < 700 ? 8 : 25, paddingTop: 8, maxWidth: 582, alignSelf: 'center', width: '100%' }}>
+                    <View style={{ paddingBottom: (Dimensions.get('window').height < 700 ? 8 : 25) + (Platform.OS === 'android' ? insets.bottom : 0), paddingTop: 8, maxWidth: 582, alignSelf: 'center', width: '100%' }}>
                         {(gameState === 'playing') ? (
                             <NumericKeyboard
                                 onDigitPress={handleDigitPress}
