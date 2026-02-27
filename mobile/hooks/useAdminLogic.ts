@@ -21,6 +21,13 @@ export interface AdminMenuItem {
 
 export const adminMenuItems: AdminMenuItem[] = [
     {
+        title: "Performance",
+        subtitle: "App analytics, revenue & gameplay metrics",
+        icon: "BarChart3",
+        color: "#10b981",
+        route: "/settings/admin/dashboard"
+    },
+    {
         title: "Users",
         subtitle: "View and manage user profiles",
         icon: "Users",

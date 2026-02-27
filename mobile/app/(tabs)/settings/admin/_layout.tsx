@@ -15,6 +15,7 @@ export default function AdminLayout() {
             <Stack.Screen name="scheduler" />
             <Stack.Screen name="tiers" />
             <Stack.Screen name="questions" />
+            <Stack.Screen name="dashboard" />
             <Stack.Screen name="navigator" />
         </Stack>
     );

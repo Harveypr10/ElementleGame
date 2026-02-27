@@ -16,6 +16,7 @@ import {
     Eye, EyeOff, ArrowRightLeft,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAdminQuestions, MasterQuestion, SortField } from '../../../../hooks/useAdminQuestions';
 import { useAdminAllocations, AllocationRow, UnallocatedRow, TrackMode, StatusFilter } from '../../../../hooks/useAdminAllocations';
 import { useAdminQuestionMutations } from '../../../../hooks/useAdminQuestionMutations';
@@ -155,7 +156,9 @@ export default function QuestionsScreen() {
             ?? selectedUnalloc?.question_id;
         if (!questionId) return;
 
-        const mode = (activeTab === 'User Tracks') ? 'user' as const : 'region' as const;
+        const mode = (activeTab === 'Master Library' || activeTab === 'QA Audit')
+            ? master.mode
+            : (activeTab === 'User Tracks' ? 'user' as const : 'region' as const);
 
         setModalLoading(true);
         setModalError(null);
@@ -1265,20 +1268,20 @@ export default function QuestionsScreen() {
     // Mobile: show detail or list
     if (!isWide) {
         return (
-            <View style={s.container}>
+            <SafeAreaView edges={['top']} style={s.container}>
                 {(selectedQuestion || selectedAlloc || selectedUnalloc) ? (
                     <View style={{ flex: 1 }}>{renderDetailPanel()}</View>
                 ) : (
                     renderMasterPane()
                 )}
                 {renderModals()}
-            </View>
+            </SafeAreaView>
         );
     }
 
     // Desktop: split pane
     return (
-        <View style={s.container}>
+        <SafeAreaView edges={['top']} style={s.container}>
             <View style={s.splitLayout}>
                 {renderMasterPane()}
                 <View style={s.detailPane}>
@@ -1286,7 +1289,7 @@ export default function QuestionsScreen() {
                 </View>
             </View>
             {renderModals()}
-        </View>
+        </SafeAreaView>
     );
 }
 

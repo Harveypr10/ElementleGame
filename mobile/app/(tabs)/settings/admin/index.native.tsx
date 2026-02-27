@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { styled } from 'nativewind';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Shield, Clock, CalendarClock, Zap, Layers, ChevronRight, MessageSquare, Users, BookOpen } from 'lucide-react-native';
+import { ChevronLeft, Shield, Clock, CalendarClock, Zap, Layers, ChevronRight, MessageSquare, Users, BookOpen, BarChart3 } from 'lucide-react-native';
 import { useOptions } from '../../../../lib/options';
 import { useProfile } from '../../../../hooks/useProfile';
 import DebugControlPanel from '../../../../components/admin/DebugControlPanel';
@@ -34,6 +34,13 @@ export default function AdminDashboard() {
     }
 
     const menuItems = [
+        {
+            title: "Performance",
+            subtitle: "App analytics, revenue & gameplay metrics",
+            icon: BarChart3,
+            color: "#10b981",
+            route: "/settings/admin/dashboard"
+        },
         {
             title: "Users",
             subtitle: "View and manage user profiles",

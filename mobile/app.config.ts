@@ -15,6 +15,15 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 const isAndroidBuild = process.env.EAS_BUILD_PLATFORM === 'android';
 
 const plugins: any[] = [
+    [
+        "expo-build-properties",
+        {
+            android: {
+                compileSdkVersion: 35,
+                targetSdkVersion: 35,
+            },
+        },
+    ],
     "expo-router",
     "expo-secure-store",
     "expo-audio",
@@ -159,10 +168,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         // @ts-ignore - Expo SDK feature flag
         predictiveBackGestureEnabled: false,
         permissions: [
-            "android.permission.RECORD_AUDIO",
-            "android.permission.MODIFY_AUDIO_SETTINGS",
             "android.permission.ACCESS_COARSE_LOCATION",
             "android.permission.ACCESS_FINE_LOCATION",
+        ],
+        blockedPermissions: [
+            "android.permission.RECORD_AUDIO",
+            "android.permission.MODIFY_AUDIO_SETTINGS",
+            "android.permission.CAMERA",
+            "android.permission.READ_CONTACTS",
+            "android.permission.WRITE_CONTACTS",
+            "android.permission.CALL_PHONE",
+            "android.permission.READ_PHONE_STATE",
+            "android.permission.READ_CALENDAR",
+            "android.permission.WRITE_CALENDAR",
+            "android.permission.READ_EXTERNAL_STORAGE",
+            "android.permission.WRITE_EXTERNAL_STORAGE",
         ],
         intentFilters: [
             {

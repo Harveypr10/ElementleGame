@@ -8,6 +8,7 @@ import {
     useWindowDimensions, ActivityIndicator, FlatList, Alert, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../../../lib/supabase';
 import {
     ChevronLeft, Search, RefreshCw, Users as UsersIcon,
@@ -1077,7 +1078,7 @@ export default function UsersScreen() {
 
     if (!isWide && selectedUserId) {
         return (
-            <View style={s.container}>
+            <SafeAreaView edges={['top']} style={s.container}>
                 <View style={s.mobileDetailHeader}>
                     <Pressable onPress={() => setSelectedUserId(null)} style={s.backBtn}>
                         <ChevronLeft size={22} color="#334155" />
@@ -1086,12 +1087,12 @@ export default function UsersScreen() {
                 </View>
                 {renderDetailContent()}
                 {renderModals()}
-            </View>
+            </SafeAreaView>
         );
     }
 
     return (
-        <View style={[s.container, isWide && { flexDirection: 'row' }]}>
+        <SafeAreaView edges={['top']} style={[s.container, isWide && { flexDirection: 'row' }]}>
             {masterList}
             {isWide && (
                 <View style={{ flex: 0.6 }}>
@@ -1099,7 +1100,7 @@ export default function UsersScreen() {
                 </View>
             )}
             {renderModals()}
-        </View>
+        </SafeAreaView>
     );
 }
 
