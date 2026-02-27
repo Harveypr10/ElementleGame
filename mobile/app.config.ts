@@ -161,8 +161,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     android: {
         package: "com.dobl.elementlegame",
         adaptiveIcon: {
-            foregroundImage: "./assets/Icon-512.png",
-            backgroundColor: "#ffffff",
+            foregroundImage: "./assets/adaptive-icon.png",
+            backgroundColor: "#7DAAE8",
         },
         androidStatusBar: {
             barStyle: 'dark-content',

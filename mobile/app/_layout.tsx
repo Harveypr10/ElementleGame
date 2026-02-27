@@ -36,6 +36,7 @@ import { styled } from 'nativewind';
 import { ThemedView } from '../components/ThemedView';
 import { WebContainer } from '../components/WebContainer';
 import * as ExpoSplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 
 // Import global CSS for NativeWind web support
 import '../global.css';
@@ -643,6 +644,7 @@ function Layout() {
 
     return (
         <ErrorBoundary>
+            <StatusBar style="dark" backgroundColor="transparent" translucent />
             <ToastProvider>
                 <SafeAreaProvider>
                     <QueryClientProvider client={queryClient}>
