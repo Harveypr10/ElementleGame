@@ -173,6 +173,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     const previousAdClosedRef = React.useRef(false);
     const [earnedBadgesState, setEarnedBadgesState] = React.useState<any[]>([]);
     const proNavigationTimerRef = React.useRef<NodeJS.Timeout | null>(null); // Store Pro user timer to cancel on manual Continue
+    const wasInitiallyCompleteRef = React.useRef(wasInitiallyComplete); // Track latest value for async timer checks
 
     // Calculate effective streak to show in Intro
     // use finalStreak (if just won) or current stats streak
@@ -264,6 +265,11 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
         return () => clearInterval(replayInterval);
     }, [isGuestReplay, guestReplayReady, isLoading, guestReplayCount]);
 
+    // Keep ref in sync with prop
+    React.useEffect(() => {
+        wasInitiallyCompleteRef.current = wasInitiallyComplete;
+    }, [wasInitiallyComplete]);
+
     // -- Side Effects --
 
     // Trigger Win Sequence
@@ -344,13 +350,27 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             // No timer cleanup needed since we removed the auto-trigger timers
 
         } else if (gameState === 'lost') {
+            // Skip for already-completed games being viewed
+            if (wasInitiallyComplete) {
+                console.log('[ActiveGame] Viewing previously lost game - skipping auto-navigate');
+                return;
+            }
+
+            if (processedGame.current) return;
             processedGame.current = true;
+
             let timer: NodeJS.Timeout;
 
             const handleLoss = async () => {
                 await refetchStats();
                 if (!isGuest) {
                     timer = setTimeout(() => {
+                        // Double-check via ref: wasInitiallyComplete may have become true
+                        // between when the timer was scheduled and when it fires
+                        if (wasInitiallyCompleteRef.current) {
+                            console.log('[ActiveGame] Lost timer fired but wasInitiallyComplete is now true - aborting navigate');
+                            return;
+                        }
                         router.replace({
                             pathname: '/game-result',
                             params: {
@@ -377,18 +397,19 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             handleLoss();
             return () => clearTimeout(timer);
         }
-    }, [gameState, isRestored, finalStreak, isStreakSaverGame, isTodayPuzzle]); // Added finalStreak, isStreakSaverGame, isTodayPuzzle to deps
+    }, [gameState, isRestored, finalStreak, isStreakSaverGame, isTodayPuzzle, wasInitiallyComplete]); // Added finalStreak, isStreakSaverGame, isTodayPuzzle to deps
 
     // Helper function to navigate to game-result with all params
     // Optional parameters allow passing captured values to avoid closure issues
     const navigateToResult = (overrideStreak?: number, overrideBadges?: any[]) => {
-        const finalStreak = overrideStreak ?? streakToDisplay;
+        const currentStreakVal = overrideStreak ?? streakToDisplay;
         const finalBadges = overrideBadges ?? earnedBadgesState;
+        const isWin = gameState === 'won';
 
         router.replace({
             pathname: '/game-result',
             params: {
-                isWin: 'true',
+                isWin: isWin ? 'true' : 'false',
                 guessesCount: guesses.length.toString(),
                 maxGuesses: '5',
                 answerDateCanonical: puzzle.solutionDate,
@@ -398,7 +419,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                 puzzleId: puzzle.id.toString(),
                 puzzleDate: puzzle.date,
                 isGuest: isGuest ? 'true' : 'false',
-                currentStreak: finalStreak.toString(),
+                currentStreak: currentStreakVal.toString(),
                 isStreakSaverGame: isStreakSaverGame ? 'true' : 'false',
                 earnedBadges: JSON.stringify(finalBadges),
                 isToday: (isTodayPuzzle ?? (puzzle.date === new Date().toISOString().split('T')[0])).toString(),

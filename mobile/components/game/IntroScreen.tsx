@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useThemeColor } from '../../hooks/useThemeColor';
-import { View, Text, Modal, TouchableOpacity, Animated, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Animated, Alert, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { format } from 'date-fns';
@@ -49,6 +50,7 @@ export function IntroScreen({
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const { cluesEnabled, streakSaverActive } = useOptions();
     const [isVisible, setIsVisible] = useState(visible);
+    const insets = useSafeAreaInsets();
 
     // Theme Colors
     const backgroundColor = useThemeColor({}, 'background');
@@ -162,7 +164,7 @@ export function IntroScreen({
                 </View>
 
                 {/* Bottom Section — Play button + optional buttons anchored to bottom */}
-                <View style={{ paddingHorizontal: 16, paddingBottom: 48, alignItems: 'center' }}>
+                <View style={{ paddingHorizontal: 16, paddingBottom: Platform.OS === 'android' ? Math.max(48, insets.bottom + 24) : 48, alignItems: 'center' }}>
                     <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
                         {/* Buttons */}
                         <View className="w-full items-center space-y-3">

@@ -2,6 +2,8 @@ import React, { Suspense } from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform, AppState, AppStateStatus } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
+import * as NotificationService from '../lib/NotificationService';
+import { useNotificationData } from '../hooks/useNotificationData';
 
 // Initialize Sentry at module level (before any component renders)
 const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
@@ -46,7 +48,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../lib/auth';
-import { OptionsProvider } from '../lib/options';
+import { OptionsProvider, useOptions } from '../lib/options';
 import { StreakSaverProvider } from '../contexts/StreakSaverContext';
 import { ToastProvider, useToast } from '../contexts/ToastContext';
 import { ConversionPromptProvider } from '../contexts/ConversionPromptContext';
@@ -62,6 +64,7 @@ import { ConversionPromptModal } from '../components/ConversionPromptModal';
 
 import { initializeRevenueCat } from '../lib/RevenueCat';
 import { SplashScreen } from '../components/SplashScreen';
+import { StreakCelebrationProvider } from '../contexts/StreakCelebrationContext';
 // Lazy-loaded to avoid adding to _layout.tsx's initial module graph,
 // which has fragile pre-existing require cycles through guestMigration → auth
 const SubscriptionLifecycleManager = React.lazy(
@@ -101,7 +104,11 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
     const segments = useSegments();
     const router = useRouter();
     const { toast } = useToast();
-
+    const {
+        reminderEnabled, reminderTime,
+        streakReminderEnabled, streakReminderTime,
+    } = useOptions();
+    const { hydrate: hydrateNotifs } = useNotificationData();
     // 1. Minimum Splash Time State
     const [isSplashMinTimeMet, setSplashMinTimeMet] = useState(false);
 
@@ -171,6 +178,28 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         if (Platform.OS === 'web') return;
         const subscription = AppState.addEventListener('change', async (nextState: AppStateStatus) => {
             if (nextState === 'active') {
+                // Clear notification badge on app foreground
+                NotificationService.clearBadge().catch(err =>
+                    console.warn('[NavGuard] Failed to clear notification badge:', err)
+                );
+
+                // Re-hydrate + re-schedule notifications to keep rolling horizon fresh
+                if (reminderEnabled || streakReminderEnabled) {
+                    hydrateNotifs().then(freshData => {
+                        if (freshData) {
+                            NotificationService.scheduleAll({
+                                reminderEnabled,
+                                reminderTime: reminderTime || '09:00',
+                                streakReminderEnabled,
+                                streakReminderTime: streakReminderTime || '20:00',
+                            }, freshData).catch(err =>
+                                console.warn('[NavGuard] Failed to re-schedule notifications:', err)
+                            );
+                        }
+                    }).catch(err =>
+                        console.warn('[NavGuard] Failed to hydrate notification data:', err)
+                    );
+                }
                 const elapsed = Date.now() - lastActiveRef.current;
                 const ONE_HOUR = 60 * 60 * 1000;
                 if (elapsed > ONE_HOUR) {
@@ -195,6 +224,32 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         return () => subscription.remove();
     }, []);
 
+
+    // [Notification Deep Link] Handle notification tap → navigate to the correct screen
+    useEffect(() => {
+        if (Platform.OS === 'web') return;
+
+        let Notifications: typeof import('expo-notifications') | null = null;
+        try {
+            Notifications = require('expo-notifications');
+        } catch (e) {
+            return; // Native module not available
+        }
+
+        const subscription = Notifications!.addNotificationResponseReceivedListener(response => {
+            const screen = response.notification.request.content.data?.screen as string | undefined;
+            console.log('[NavGuard] Notification tapped, screen:', screen);
+            if (screen && screen !== 'home') {
+                // Deep link to specific game screen (e.g. /game/REGION/today, /game/USER/next)
+                setTimeout(() => {
+                    router.push(screen as any);
+                }, 500); // Small delay to let the app finish foregrounding
+            }
+            // 'home' or missing screen → app just opens to wherever it was (home by default)
+        });
+
+        return () => subscription.remove();
+    }, [router]);
 
 
     // Deep link handling is now centralized in auth.tsx (AuthProvider)
@@ -522,33 +577,35 @@ function UserScopedProviders() {
                     <GuessCacheProvider>
                         <StreakSaverProvider>
                             <OptionsProvider>
-                                <WebContainer>
-                                    <ThemedView className="flex-1">
-                                        <NavigationGuard>
-                                            <Stack screenOptions={{ headerShown: false }}>
-                                                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                                <Stack.Screen name="game" options={{ headerShown: false }} />
-                                                <Stack.Screen
-                                                    name="archive"
-                                                    options={{
-                                                        headerShown: false,
-                                                        presentation: 'card'
-                                                    }}
-                                                />
-                                                <Stack.Screen
-                                                    name="stats"
-                                                    options={{
-                                                        headerShown: false,
-                                                        presentation: 'card'
-                                                    }}
-                                                />
-                                                <Stack.Screen name="index" options={{ headerShown: false }} />
+                                <StreakCelebrationProvider>
+                                    <WebContainer>
+                                        <ThemedView className="flex-1">
+                                            <NavigationGuard>
+                                                <Stack screenOptions={{ headerShown: false }}>
+                                                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                                    <Stack.Screen name="game" options={{ headerShown: false }} />
+                                                    <Stack.Screen
+                                                        name="archive"
+                                                        options={{
+                                                            headerShown: false,
+                                                            presentation: 'card'
+                                                        }}
+                                                    />
+                                                    <Stack.Screen
+                                                        name="stats"
+                                                        options={{
+                                                            headerShown: false,
+                                                            presentation: 'card'
+                                                        }}
+                                                    />
+                                                    <Stack.Screen name="index" options={{ headerShown: false }} />
 
-                                            </Stack>
-                                        </NavigationGuard>
-                                    </ThemedView>
-                                </WebContainer>
+                                                </Stack>
+                                            </NavigationGuard>
+                                        </ThemedView>
+                                    </WebContainer>
+                                </StreakCelebrationProvider>
                                 <ConversionPromptModal />
                                 <Suspense fallback={null}>
                                     <SubscriptionLifecycleManager />

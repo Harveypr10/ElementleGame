@@ -12,7 +12,7 @@ import {
     Keyboard,
     Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, HelpCircle, ChevronRight } from 'lucide-react-native';
 import { PostcodeAutocomplete } from '../../components/PostcodeAutocomplete';
@@ -32,6 +32,7 @@ export default function PersonalisePage() {
     const params = useLocalSearchParams<{ firstName?: string; lastName?: string; subscribeFirst?: string }>();
     const { colorScheme } = useColorScheme();
     const isDarkMode = colorScheme === 'dark';
+    const insets = useSafeAreaInsets();
 
     // Pre-fill name from social auth params (Apple/Google)
     const [firstName, setFirstName] = useState(params.firstName || '');
@@ -438,7 +439,7 @@ export default function PersonalisePage() {
                         activeOpacity={1}
                         onPress={() => setRegionModalVisible(false)}
                     >
-                        <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
+                        <View style={[styles.modalContent, { backgroundColor: cardBg }, Platform.OS === 'android' ? { paddingBottom: Math.max(40, insets.bottom + 20) } : undefined]}>
                             <View style={styles.modalHeader}>
                                 <ThemedText style={[styles.modalTitle, { color: textColor }]} size="xl">Select Region</ThemedText>
                                 <TouchableOpacity onPress={() => setRegionModalVisible(false)}>

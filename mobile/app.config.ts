@@ -28,6 +28,14 @@ const plugins: any[] = [
     "expo-secure-store",
     "expo-audio",
     "expo-font",
+    [
+        "expo-notifications",
+        {
+            icon: "./assets/hamster-icon-blue.png",
+            color: "#7DAAE8",
+        },
+    ],
+    "@react-native-community/datetimepicker",
     "@react-native-google-signin/google-signin",
     "expo-apple-authentication",
     [

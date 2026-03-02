@@ -606,24 +606,43 @@ export function useGameEngine({
     }, [user, puzzleId, formattedAnswer, dateFormat, mode]);
 
     const calculateFeedbackOnly = (guess: string, answer: string): CellFeedback[] => {
-        const feedback: CellFeedback[] = [];
-        const answerChars = answer.split('');
+        const feedback: CellFeedback[] = new Array(guess.length);
 
+        // ── Pass 1: Mark exact matches as 'correct' ──
+        // Track how many times each digit in the ANSWER is still unmatched
+        const unmatchedAnswerCounts: Record<string, number> = {};
+        for (const ch of answer) {
+            unmatchedAnswerCounts[ch] = (unmatchedAnswerCounts[ch] || 0) + 1;
+        }
+
+        // First pass: lock in correct positions and decrement their count
         for (let i = 0; i < guess.length; i++) {
-            const guessDigit = guess[i];
-            const targetDigit = answer[i];
-
-            if (guessDigit === targetDigit) {
-                feedback.push({ digit: guessDigit, state: 'correct' });
-            } else if (answer.includes(guessDigit)) {
-                // Simple logic: if present elsewhere
-                const param = parseInt(guessDigit) < parseInt(targetDigit) ? 'up' : 'down';
-                feedback.push({ digit: guessDigit, state: 'inSequence', arrow: param });
-            } else {
-                const param = parseInt(guessDigit) < parseInt(targetDigit) ? 'up' : 'down';
-                feedback.push({ digit: guessDigit, state: 'notInSequence', arrow: param });
+            if (guess[i] === answer[i]) {
+                feedback[i] = { digit: guess[i], state: 'correct' };
+                unmatchedAnswerCounts[guess[i]]--;
             }
         }
+
+        // ── Pass 2: Classify remaining digits ──
+        // A digit is 'inSequence' (orange) ONLY if there is still at least one
+        // unmatched position for that digit in the answer.  Otherwise it is grey.
+        for (let i = 0; i < guess.length; i++) {
+            if (feedback[i]) continue; // Already marked correct
+
+            const guessDigit = guess[i];
+            const targetDigit = answer[i];
+            const arrow = parseInt(guessDigit) < parseInt(targetDigit) ? 'up' : 'down';
+
+            if (unmatchedAnswerCounts[guessDigit] && unmatchedAnswerCounts[guessDigit] > 0) {
+                // Digit exists elsewhere AND not all its positions are found yet → orange
+                feedback[i] = { digit: guessDigit, state: 'inSequence', arrow };
+                unmatchedAnswerCounts[guessDigit]--;
+            } else {
+                // Either not in answer at all, or all positions for this digit already matched → grey
+                feedback[i] = { digit: guessDigit, state: 'notInSequence', arrow };
+            }
+        }
+
         return feedback;
     };
 
@@ -640,7 +659,10 @@ export function useGameEngine({
                     newKeyStates[digit] = 'inSequence';
                 }
             } else if (state === 'notInSequence') {
-                newKeyStates[digit] = 'ruledOut';
+                // Only rule out if not already known to be correct or present elsewhere
+                if (newKeyStates[digit] !== 'correct' && newKeyStates[digit] !== 'inSequence') {
+                    newKeyStates[digit] = 'ruledOut';
+                }
             }
         }
         return newKeyStates;

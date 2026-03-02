@@ -125,17 +125,35 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', region =
 
     // Filter real badges (no spacers)
     const categoryBadges = useMemo(() => {
-        return allBadges
+        const sorted = allBadges
             .filter(b => normalizeCategory(b.category) === currentCategory)
-            .sort((a, b) => b.threshold - a.threshold)  // All categories: descending (higher threshold first)
+            .sort((a, b) => currentCategory === 'streak'
+                ? a.threshold - b.threshold   // Streak: ascending (7 first, swipe right for higher)
+                : b.threshold - a.threshold   // Won In & Top %: descending (best/hardest first)
+            )
             .map(badge => {
                 const userBadge = userBadges.find(ub => ub.badge_id === badge.id);
                 const isEarned = !!userBadge;
-                return { badge, isEarned, userBadge };
+                return { badge, isEarned, userBadge, isSurpassed: false };
             });
+
+        // Mark easier badges as "surpassed" (solid appearance) for Streak & Top % only.
+        // Won In (elementle) badges are independent — winning in 1 doesn't imply winning in 2.
+        // In both sort orders, easier badges come first in the list,
+        // so everything from index 0 up to the highest earned index is surpassed.
+        if (currentCategory !== 'elementle') {
+            const lastEarnedIdx = sorted.reduce((max, item, idx) => item.isEarned ? idx : max, -1);
+            if (lastEarnedIdx >= 0) {
+                for (let i = 0; i <= lastEarnedIdx; i++) {
+                    sorted[i].isSurpassed = true;
+                }
+            }
+        }
+
+        return sorted;
     }, [allBadges, userBadges, currentCategory]);
 
-    // Initial Scroll to highest earned
+    // Initial Scroll to highest earned badge (ascending order: highest earned is last earned index)
     useEffect(() => {
         if (categoryBadges.length > 0 && flatListRef.current) {
             let targetIndex = 0;
@@ -143,7 +161,7 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', region =
                 .map((item, idx) => item.isEarned ? idx : -1)
                 .filter(idx => idx !== -1);
 
-            // Scroll to the best (last) earned badge
+            // Scroll to the highest earned badge (last in ascending list)
             if (earnedIndices.length > 0) {
                 targetIndex = earnedIndices[earnedIndices.length - 1];
             }
@@ -209,15 +227,17 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', region =
             extrapolate: 'clamp',
         });
 
+        const isSolid = item.isEarned || item.isSurpassed;
+
         return (
             <Animated.View style={{
                 width: ITEM_SIZE,
                 alignItems: 'center',
                 justifyContent: 'center',
                 transform: [{ scale }],
-                opacity: item.isEarned ? 1 : 0.5
+                opacity: isSolid ? 1 : 0.5
             }}>
-                <Animated.View style={{ opacity: item.isEarned ? opacity : Animated.multiply(opacity, 0.5) }}>
+                <Animated.View style={{ opacity: isSolid ? opacity : Animated.multiply(opacity, 0.5) }}>
                     <BadgeSlot
                         category={currentCategory}
                         badge={item}

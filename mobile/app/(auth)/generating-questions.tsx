@@ -5,7 +5,9 @@ import {
     StyleSheet,
     Animated,
     Alert,
+    Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -36,6 +38,7 @@ export default function GeneratingQuestionsScreen() {
     const postcode = params.postcode as string || '';
     const regenerationType = (params.regenerationType as RegenerationType) || 'first_login';
 
+    const insets = useSafeAreaInsets();
     const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
     const containerRef = useRef<View>(null);
     const sequenceStartedRef = useRef(false);
@@ -532,7 +535,7 @@ export default function GeneratingQuestionsScreen() {
             )}
 
             {/* Footer Text */}
-            <View style={styles.footer}>
+            <View style={[styles.footer, Platform.OS === 'android' ? { paddingBottom: Math.max(24, insets.bottom + 12) } : undefined]}>
                 <ThemedText style={styles.footerText} size="base">
                     Hold tight, Hammie is cooking up your personalised questions...
                 </ThemedText>
@@ -573,7 +576,8 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito-Bold',
     },
     footer: {
-        paddingVertical: 24,
+        paddingTop: 24,
+        paddingBottom: 24,
         alignItems: 'center',
     },
     footerText: {

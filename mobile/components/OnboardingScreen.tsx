@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, Linking } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -50,6 +51,7 @@ export function OnboardingScreen({
     const { darkMode: isDarkMode } = useOptions();
     const router = useRouter();
     const isWeb = Platform.OS === 'web';
+    const insets = useSafeAreaInsets();
 
     // Format date as "15th January 2026"
     const displayDate = useMemo(
@@ -135,7 +137,7 @@ export function OnboardingScreen({
 
     return (
         <ThemedView
-            style={styles.container}
+            style={[styles.container, Platform.OS === 'android' ? { paddingBottom: Math.max(24, insets.bottom + 12) } : undefined]}
             testID="onboarding-screen"
         >
             <View style={styles.content}>

@@ -15,7 +15,7 @@ import {
     Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Mail } from 'lucide-react-native';
 import { GoogleLogo } from '../../components/icons/GoogleLogo';
@@ -86,6 +86,7 @@ export default function LoginPage() {
 
     // Promo banner for guests coming from game-result
     const [showPromoBanner, setShowPromoBanner] = useState(false);
+    const insets = useSafeAreaInsets();
     const promoBannerAnim = useRef(new Animated.Value(250)).current; // starts off-screen (below)
 
     useEffect(() => {
@@ -960,7 +961,7 @@ export default function LoginPage() {
                     borderTopRightRadius: 24,
                     paddingHorizontal: 24,
                     paddingTop: 20,
-                    paddingBottom: 36,
+                    paddingBottom: Platform.OS === 'android' ? Math.max(36, insets.bottom + 16) : 36,
                     alignItems: 'center',
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: -4 },

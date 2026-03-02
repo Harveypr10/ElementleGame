@@ -28,10 +28,14 @@ import { ThemedText } from '../components/ThemedText';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { ConfettiOverlay } from '../components/game/ConfettiOverlay';
 import { RainOverlay } from '../components/game/RainOverlay';
-import { StreakCelebration } from '../components/game/StreakCelebration';
+import { useStreakCelebration } from '../contexts/StreakCelebrationContext';
 import { BadgeUnlockModal } from '../components/game/BadgeUnlockModal';
 import { useBadgeSystem } from '../hooks/useBadgeSystem';
 import { useStreakSaver } from '../contexts/StreakSaverContext';
+import { ReminderPromptModal } from '../components/game/ReminderPromptModal';
+import { ReminderSuccessToast } from '../components/game/ReminderSuccessToast';
+import * as NotificationService from '../lib/NotificationService';
+import { useNotificationData } from '../hooks/useNotificationData';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -46,7 +50,15 @@ export default function GameResultScreen() {
 
     const router = useRouter();
     const queryClient = useQueryClient();
-    const { textScale, setGameMode, dateFormatOrder } = useOptions();
+    const {
+        textScale, setGameMode, dateFormatOrder,
+        reminderEnabled, setReminderEnabled, reminderTime,
+        hasPromptedStreak2, setHasPromptedStreak2,
+        hasPromptedStreak7, setHasPromptedStreak7,
+        neverAskReminder, setNeverAskReminder,
+        streakReminderEnabled, streakReminderTime,
+    } = useOptions();
+    const { hydrate: hydrateNotifs } = useNotificationData();
     const params = useLocalSearchParams();
 
     // Parse params
@@ -237,19 +249,23 @@ export default function GameResultScreen() {
     // Hooks
     const { pendingBadges, markBadgeAsSeen } = useBadgeSystem();
     const { completeStreakSaverSession } = useStreakSaver();
+    const { scheduleCelebration, onCelebrationClosed } = useStreakCelebration();
 
     // States for sequencing
-    const [streakModalVisible, setStreakModalVisible] = useState(false);
     const [badgeModalVisible, setBadgeModalVisible] = useState(false);
-    const [currentBadge, setCurrentBadge] = useState<any>(null); // Using any or Badge type if imported
+    const [currentBadge, setCurrentBadge] = useState<any>(null); // The badge template for display
+    const [currentUserBadgeId, setCurrentUserBadgeId] = useState<number | null>(null); // The user_badge row ID for marking seen
     const [queueProcessed, setQueueProcessed] = useState(false);
     const [visitedBadgeIds, setVisitedBadgeIds] = useState<Set<number>>(new Set());
     const [celebrationTimerComplete, setCelebrationTimerComplete] = useState(false);
-    const [celebrationFullyClosed, setCelebrationFullyClosed] = useState(false); // True only after fade-out animation completes
     const celebrationHandledRef = React.useRef(false); // Prevent celebration effect from running multiple times
-    const celebrationClosedRef = React.useRef(false); // PERMANENT guard - once true, StreakCelebration never renders again
 
-    // Initial Effect: Trigger Streak Celebration after 2 second delay
+    // Reminder prompt states
+    const [reminderPromptVisible, setReminderPromptVisible] = useState(false);
+    const [reminderSuccessVisible, setReminderSuccessVisible] = useState(false);
+    const reminderPromptHandledRef = React.useRef(false);
+
+    // Initial Effect: Schedule Streak Celebration via root-level context (6 second delay)
     React.useEffect(() => {
         // [FIX] Prevent multiple runs - use ref guard
         if (celebrationHandledRef.current) return;
@@ -261,7 +277,7 @@ export default function GameResultScreen() {
         // 4. Just Finished (not viewing historical game)
 
         if (isWin && currentStreak > 0 && (isTodayParam || isStreakSaverGame) && justFinished) {
-            console.log('[GameResult] Setting up Streak Celebration timer (one-time)', {
+            console.log('[GameResult] Scheduling Streak Celebration via context (6s delay)', {
                 isWin,
                 currentStreak,
                 isTodayParam,
@@ -270,12 +286,11 @@ export default function GameResultScreen() {
 
             celebrationHandledRef.current = true; // Mark as handled FIRST to prevent re-entry
 
-            const timer = setTimeout(() => {
-                console.log('[GameResult] Showing celebration after 2.5s');
-                setStreakModalVisible(true);
-                setCelebrationTimerComplete(true);
-            }, 2500);
-            return () => clearTimeout(timer);
+            // Schedule celebration via root-level context — persists across navigation
+            scheduleCelebration(currentStreak, 6000);
+
+            // Badge queue can proceed immediately since celebration is handled independently by context
+            setCelebrationTimerComplete(true);
         } else {
             // No celebration needed, mark as handled and complete
             celebrationHandledRef.current = true;
@@ -290,20 +305,46 @@ export default function GameResultScreen() {
         }
     }, [isWin, currentStreak, isTodayParam, isStreakSaverGame, justFinished]);
 
-    // Handle Streak Close -> Start Badge Queue
-    const handleStreakClose = () => {
-        // PERMANENT CLOSE - set ref immediately so component never renders again
-        celebrationClosedRef.current = true;
+    // Register onCelebrationClosed callback for streak-2 reminder prompt
+    React.useEffect(() => {
+        if (!justFinished || !isWin) return;
 
-        // Hide celebration via visible prop
-        setStreakModalVisible(false);
+        onCelebrationClosed(() => {
+            // Check if we should show reminder prompt after streak-2 celebration
+            // Use currentStreak from params (same value passed to scheduleCelebration)
+            if (
+                currentStreak === 2 &&
+                !hasPromptedStreak2 &&
+                !neverAskReminder &&
+                !reminderEnabled &&
+                !reminderPromptHandledRef.current
+            ) {
+                console.log('[GameResult] Streak 2 celebration closed — showing reminder prompt');
+                reminderPromptHandledRef.current = true;
+                setReminderPromptVisible(true);
+            }
+        });
+    }, [justFinished, isWin, currentStreak, hasPromptedStreak2, neverAskReminder, reminderEnabled]);
 
-        // Wait for Modal's fade-out animation to complete before allowing badge processing
-        setTimeout(() => {
-            console.log('[GameResult] Celebration fully closed, allowing badge processing');
-            setCelebrationFullyClosed(true); // This triggers the effects to process badges
-        }, 200); // 200ms - quick transition after fade-out
-    };
+    // Schedule notification on game complete
+    React.useEffect(() => {
+        if (!justFinished || !isWin) return;
+        if (!reminderEnabled && !streakReminderEnabled) return;
+
+        (async () => {
+            try {
+                const freshData = await hydrateNotifs();
+                await NotificationService.scheduleAll({
+                    reminderEnabled,
+                    reminderTime: reminderTime || '09:00',
+                    streakReminderEnabled,
+                    streakReminderTime: streakReminderTime || '20:00',
+                }, freshData);
+            } catch (err) {
+                console.error('[GameResult] Failed to schedule notifications:', err);
+            }
+        })();
+    }, [justFinished, isWin, reminderEnabled, streakReminderEnabled, reminderTime, streakReminderTime, gameMode]);
 
     // Badge Queue Logic
     // We use pendingBadges from the hook which syncs with DB
@@ -311,33 +352,18 @@ export default function GameResultScreen() {
         // Don't process badges until celebration timer completes (even if no celebration shown)
         if (!celebrationTimerComplete) return;
 
-        // IMPORTANT: Wait for celebration to be fully closed (animation complete)
-        // If celebration was shown, wait for celebrationFullyClosed
-        // If celebration was skipped (streakModalVisible was never true), proceed immediately
-        if (streakModalVisible) return; // Still showing celebration
-        if (!celebrationFullyClosed && currentStreak > 0 && isWin && justFinished) {
-            // Celebration was/is being shown, wait for it to fully close
-            return;
-        }
-
         // If we haven't started processing queue, start now
         if (!queueProcessed && isWin) {
             console.log('[GameResult] Badge queue processing triggered');
             processNextBadge();
         }
-    }, [pendingBadges, streakModalVisible, queueProcessed, isWin, celebrationTimerComplete, celebrationFullyClosed, currentStreak, justFinished]);
+    }, [pendingBadges, queueProcessed, isWin, celebrationTimerComplete]);
 
     // [FIX] Initial load effect for passed badges (Instant Gratification)
     // If we have passed badges, merge them or use them to trigger immediately without waiting for query
     React.useEffect(() => {
         // Don't process badges until celebration timer completes
         if (!celebrationTimerComplete) return;
-
-        // IMPORTANT: Wait for celebration to be fully closed
-        if (streakModalVisible) return;
-        if (!celebrationFullyClosed && currentStreak > 0 && isWin && justFinished) {
-            return; // Wait for celebration to fully close
-        }
 
         // Only trigger if we aren't showing a badge and not waiting for streak
         if (!queueProcessed && isWin && passedBadges.length > 0 && !badgeModalVisible && !currentBadge) {
@@ -352,7 +378,7 @@ export default function GameResultScreen() {
                 setBadgeModalVisible(true);
             }
         }
-    }, [passedBadges, streakModalVisible, queueProcessed, isWin, badgeModalVisible, pendingBadges, currentBadge, visitedBadgeIds, celebrationTimerComplete, celebrationFullyClosed, currentStreak, justFinished]);
+    }, [passedBadges, queueProcessed, isWin, badgeModalVisible, pendingBadges, currentBadge, visitedBadgeIds, celebrationTimerComplete]);
 
     const processNextBadge = () => {
         // [FIX] Don't lock queue permanently if empty. Just check current state.
@@ -365,8 +391,9 @@ export default function GameResultScreen() {
 
         // Priority 1: Pending Badges (Server Source of Truth)
         if (pendingBadges && pendingBadges.length > 0) {
-            console.log(`[GameResult] Showing badge from Pending: ${pendingBadges[0].badge?.name}`);
+            console.log(`[GameResult] Showing badge from Pending: ${pendingBadges[0].badge?.name} (user_badge ID: ${pendingBadges[0].id})`);
             setCurrentBadge(pendingBadges[0].badge);
+            setCurrentUserBadgeId(pendingBadges[0].id); // Store the user_badge row ID
             setBadgeModalVisible(true);
         }
         // Priority 2: Passed Badges (Instant Gratification Fallback)
@@ -391,19 +418,35 @@ export default function GameResultScreen() {
     };
 
     const handleBadgeClose = async () => {
-        // [FIX] Mark as seen regardless of source (Pending or Passed)
-        // Ensure currentBadge has an ID (it should be the user_badge id from RPC or Query)
-        if (currentBadge && currentBadge.id) {
-            console.log(`[GameResult] Closing badge and marking as seen: ${currentBadge.name} (ID: ${currentBadge.id})`);
+        // Use the user_badge row ID for marking as seen (not the badge template ID)
+        const badgeIdToMark = currentUserBadgeId ?? currentBadge?.id;
+        if (badgeIdToMark) {
+            console.log(`[GameResult] Closing badge and marking as seen: ${currentBadge?.name} (ID: ${badgeIdToMark})`);
 
             // Add to visited set to prevent looping
-            setVisitedBadgeIds(prev => new Set(prev).add(currentBadge.id));
+            setVisitedBadgeIds(prev => new Set(prev).add(badgeIdToMark));
 
-            await markBadgeAsSeen(currentBadge.id);
+            await markBadgeAsSeen(badgeIdToMark);
         }
 
         setBadgeModalVisible(false);
-        setCurrentBadge(null); // Clear current so effect can pick up next if any
+        setCurrentBadge(null);
+        setCurrentUserBadgeId(null);
+
+        // Check if we should show streak-7 reminder prompt after a streak badge closes
+        if (
+            currentBadge?.category === 'Streak' &&
+            currentBadge?.threshold === 7 &&
+            !hasPromptedStreak7 &&
+            !neverAskReminder &&
+            !reminderEnabled &&
+            !reminderPromptHandledRef.current
+        ) {
+            console.log('[GameResult] Streak 7 badge closed — showing reminder prompt');
+            reminderPromptHandledRef.current = true;
+            // Small delay to let badge modal animation finish
+            setTimeout(() => setReminderPromptVisible(true), 400);
+        }
 
         // If we processed a passed badge, we might need to manually trigger next check or rely on query invalidation
         // But since we navigate away usually, or query updates, it should be fine.
@@ -427,29 +470,54 @@ export default function GameResultScreen() {
             {isWin && <ConfettiOverlay />}
             {!isWin && <RainOverlay />}
 
-            {/* Streak Celebration - only rendered if not permanently closed */}
-            {!celebrationClosedRef.current && (
-                <StreakCelebration
-                    visible={streakModalVisible}
-                    streak={currentStreak}
-                    onClose={handleStreakClose}
-                />
-            )}
-
-            {/* Debug: Log when we're attempting to render celebration */}
-            {celebrationShown && streakModalVisible && (
-                <>
-                    {console.log('[GameResult] WARNING: streakModalVisible=true but celebrationShown=true - this should not happen!')}
-                </>
-            )}
+            {/* StreakCelebration is now rendered at root level via StreakCelebrationProvider */}
 
             <BadgeUnlockModal
                 visible={badgeModalVisible}
                 badge={currentBadge}
+                gameMode={gameMode as 'REGION' | 'USER'}
                 onClose={handleBadgeClose}
-                gameMode={gameMode === 'USER' ? 'USER' : 'REGION'}
             />
 
+            {/* Reminder Prompt Modal (after streak celebration/badge) */}
+            <ReminderPromptModal
+                visible={reminderPromptVisible}
+                onClose={async (action) => {
+                    setReminderPromptVisible(false);
+
+                    if (action === 'yes') {
+                        const granted = await NotificationService.requestPermissions();
+                        if (granted) {
+                            await setReminderEnabled(true);
+                            const freshData = await hydrateNotifs();
+                            await NotificationService.scheduleAll({
+                                reminderEnabled: true,
+                                reminderTime: reminderTime || '09:00',
+                                streakReminderEnabled: true,
+                                streakReminderTime: streakReminderTime || '20:00',
+                            }, freshData);
+                            // Show success toast
+                            setTimeout(() => setReminderSuccessVisible(true), 300);
+                        }
+                    } else if (action === 'not_now') {
+                        // Set the appropriate prompted flag
+                        if (currentStreak === 2) {
+                            await setHasPromptedStreak2(true);
+                        } else {
+                            await setHasPromptedStreak7(true);
+                        }
+                    } else if (action === 'never') {
+                        await setNeverAskReminder(true);
+                    }
+                }}
+            />
+
+            {/* Reminder Success Toast */}
+            <ReminderSuccessToast
+                visible={reminderSuccessVisible}
+                reminderTime={reminderTime || '11:00'}
+                onDismiss={() => setReminderSuccessVisible(false)}
+            />
             <SafeAreaView edges={['top', 'bottom']} className="flex-1">
                 <StyledView className="flex-1 pt-8 pb-6 justify-between" style={{ alignItems: 'center' }}>
                     {/* Width Constraining Wrapper - 20% wider (580 * 1.2 = 696) */}

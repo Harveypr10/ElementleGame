@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Switch, Alert, Platform, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { styled, useColorScheme } from 'nativewind';
-import { ChevronLeft, Flame } from 'lucide-react-native';
+import { ChevronLeft, Flame, Bell } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOptions, TextSize, DateLength, DateFormatOrder } from '../../lib/options';
 import { useSubscription } from '../../hooks/useSubscription';
@@ -14,6 +14,16 @@ import { AdBannerContext } from '../../contexts/AdBannerContext';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
 import { useThemeColor } from '../../hooks/useThemeColor';
+import * as NotificationService from '../../lib/NotificationService';
+import { useNotificationData } from '../../hooks/useNotificationData';
+
+// Lazy import: native module may not be available until native build
+let DateTimePicker: any = null;
+try {
+    DateTimePicker = require('@react-native-community/datetimepicker').default;
+} catch (e) {
+    console.warn('[OptionsScreen] DateTimePicker native module not available yet');
+}
 
 const StyledView = styled(View);
 const StyledScrollView = styled(ScrollView);
@@ -137,8 +147,135 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
         dateFormatOrder, setDateFormatOrder,
         streakSaverActive, toggleStreakSaver,
         holidaySaverActive, toggleHolidaySaver,
-        quickMenuEnabled, toggleQuickMenu
+        quickMenuEnabled, toggleQuickMenu,
+        reminderEnabled, setReminderEnabled,
+        reminderTime, setReminderTime,
+        streakReminderEnabled, setStreakReminderEnabled,
+        streakReminderTime, setStreakReminderTime,
     } = useOptions();
+
+    const { data: notifData, hydrate: hydrateNotifs } = useNotificationData();
+
+    const [showDailyTimePicker, setShowDailyTimePicker] = useState(false);
+    const [showStreakTimePicker, setShowStreakTimePicker] = useState(false);
+
+    // Parse time strings to Dates for pickers
+    const dailyTimeAsDate = (() => {
+        const [h, m] = (reminderTime || '09:00').split(':').map(Number);
+        const d = new Date();
+        d.setHours(h, m, 0, 0);
+        return d;
+    })();
+
+    const streakTimeAsDate = (() => {
+        const [h, m] = (streakReminderTime || '20:00').split(':').map(Number);
+        const d = new Date();
+        d.setHours(h, m, 0, 0);
+        return d;
+    })();
+
+    // Format time for display
+    const formatTimeDisplay = (time24: string) => {
+        const [hours, minutes] = time24.split(':').map(Number);
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const displayHour = hours % 12 || 12;
+        return `${displayHour}:${minutes.toString().padStart(2, '0')} ${period}`;
+    };
+
+    // Helper: hydrate + reschedule
+    const reschedule = async (overrides?: { rEnabled?: boolean; rTime?: string; sEnabled?: boolean; sTime?: string }) => {
+        const freshData = await hydrateNotifs();
+        await NotificationService.scheduleAll({
+            reminderEnabled: overrides?.rEnabled ?? reminderEnabled,
+            reminderTime: overrides?.rTime ?? (reminderTime || '09:00'),
+            streakReminderEnabled: overrides?.sEnabled ?? streakReminderEnabled,
+            streakReminderTime: overrides?.sTime ?? (streakReminderTime || '20:00'),
+        }, freshData);
+    };
+
+    // Permission flow shared by both toggles
+    const ensurePermissions = async (): Promise<boolean> => {
+        const granted = await NotificationService.requestPermissions();
+        if (!granted) {
+            Alert.alert(
+                'Enable Notifications',
+                'To receive reminders, please enable notifications for Elementle in your device Settings.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Open Settings',
+                        onPress: () => {
+                            if (Platform.OS === 'ios') {
+                                Linking.openURL('app-settings:');
+                            } else {
+                                Linking.openSettings();
+                            }
+                        },
+                    },
+                ]
+            );
+            return false;
+        }
+        return true;
+    };
+
+    const handleDailyReminderToggle = async () => {
+        const newValue = !reminderEnabled;
+        if (newValue) {
+            if (!(await ensurePermissions())) return;
+            await setReminderEnabled(true);
+            await reschedule({ rEnabled: true });
+        } else {
+            await setReminderEnabled(false);
+            if (!streakReminderEnabled) {
+                await NotificationService.cancelAll();
+            } else {
+                await reschedule({ rEnabled: false });
+            }
+        }
+    };
+
+    const handleStreakReminderToggle = async () => {
+        const newValue = !streakReminderEnabled;
+        if (newValue) {
+            if (!(await ensurePermissions())) return;
+            await setStreakReminderEnabled(true);
+            await reschedule({ sEnabled: true });
+        } else {
+            await setStreakReminderEnabled(false);
+            if (!reminderEnabled) {
+                await NotificationService.cancelAll();
+            } else {
+                await reschedule({ sEnabled: false });
+            }
+        }
+    };
+
+    const handleDailyTimeChange = async (_event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') setShowDailyTimePicker(false);
+        if (selectedDate) {
+            const h = selectedDate.getHours().toString().padStart(2, '0');
+            const m = selectedDate.getMinutes().toString().padStart(2, '0');
+            const newTime = `${h}:${m}`;
+            await setReminderTime(newTime);
+            if (reminderEnabled || streakReminderEnabled) {
+                await reschedule({ rTime: newTime });
+            }
+        }
+    };
+
+    const handleStreakTimeChange = async (_event: any, selectedDate?: Date) => {
+        if (Platform.OS === 'android') setShowStreakTimePicker(false);
+        if (selectedDate) {
+            const h = selectedDate.getHours().toString().padStart(2, '0');
+            const m = selectedDate.getMinutes().toString().padStart(2, '0');
+            const newTime = `${h}:${m}`;
+            await setStreakReminderTime(newTime);
+            if (reminderEnabled || streakReminderEnabled) {
+                await reschedule({ sTime: newTime });
+            }
+        }
+    };
 
     const iconColor = useThemeColor({}, 'icon');
     const surfaceColor = useThemeColor({}, 'surface');
@@ -164,7 +301,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                         <StyledTouchableOpacity
                             onPress={handleBack}
                             className="w-10 h-10 items-center justify-center"
-                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <ChevronLeft size={28} color={iconColor} />
                         </StyledTouchableOpacity>
@@ -372,6 +509,103 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                                 </StyledTouchableOpacity>
                             )}
                         </StyledView>
+
+                        {/* Notifications Card */}
+                        {isAuthenticated && (
+                            <StyledView
+                                className="rounded-2xl p-4 mb-3 border border-blue-200 dark:border-blue-800"
+                                style={{ backgroundColor: darkMode ? 'rgba(219, 234, 254, 0.1)' : '#eff6ff' }}
+                            >
+                                <StyledView className="flex-row items-center mb-3">
+                                    <StyledView className="w-8 h-8 rounded-full items-center justify-center mr-2" style={{ backgroundColor: '#7DAAE8' }}>
+                                        <Bell size={18} color="#ffffff" />
+                                    </StyledView>
+                                    <ThemedText className="font-n-bold uppercase tracking-wide" style={{ color: darkMode ? '#93c5fd' : '#1e40af' }} size="sm">
+                                        Notifications
+                                    </ThemedText>
+                                </StyledView>
+
+                                {/* ── Daily Reminder ── */}
+                                <ToggleRow
+                                    label="Daily Reminder"
+                                    subLabel="Get notified to play"
+                                    value={reminderEnabled}
+                                    onToggle={handleDailyReminderToggle}
+                                    borderColor={borderColor}
+                                />
+
+                                {reminderEnabled && (
+                                    <>
+                                        <StyledTouchableOpacity
+                                            onPress={() => setShowDailyTimePicker(true)}
+                                            className="flex-row justify-between items-center py-3 border-b"
+                                            style={{ minHeight: 52, borderColor }}
+                                        >
+                                            <StyledView className="flex-1 pr-3 justify-center">
+                                                <ThemedText className="font-n-bold" size="base">
+                                                    Reminder Time
+                                                </ThemedText>
+                                            </StyledView>
+                                            <StyledView className="px-3 py-1.5 rounded-lg" style={{ backgroundColor: '#7DAAE8' }}>
+                                                <ThemedText className="text-white font-n-bold" size="base">
+                                                    {formatTimeDisplay(reminderTime || '09:00')}
+                                                </ThemedText>
+                                            </StyledView>
+                                        </StyledTouchableOpacity>
+
+                                        {showDailyTimePicker && DateTimePicker && (
+                                            <DateTimePicker
+                                                value={dailyTimeAsDate}
+                                                mode="time"
+                                                is24Hour={false}
+                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                onChange={handleDailyTimeChange}
+                                            />
+                                        )}
+                                    </>
+                                )}
+
+                                {/* ── Streak Reminder ── */}
+                                <ToggleRow
+                                    label="Streak Reminder"
+                                    subLabel="Get notified when at risk of losing your streak"
+                                    value={streakReminderEnabled}
+                                    onToggle={handleStreakReminderToggle}
+                                    borderColor={borderColor}
+                                />
+
+                                {streakReminderEnabled && (
+                                    <>
+                                        <StyledTouchableOpacity
+                                            onPress={() => setShowStreakTimePicker(true)}
+                                            className="flex-row justify-between items-center py-3"
+                                            style={{ minHeight: 52 }}
+                                        >
+                                            <StyledView className="flex-1 pr-3 justify-center">
+                                                <ThemedText className="font-n-bold" size="base">
+                                                    Streak Time
+                                                </ThemedText>
+                                            </StyledView>
+                                            <StyledView className="px-3 py-1.5 rounded-lg" style={{ backgroundColor: '#f97316' }}>
+                                                <ThemedText className="text-white font-n-bold" size="base">
+                                                    {formatTimeDisplay(streakReminderTime || '20:00')}
+                                                </ThemedText>
+                                            </StyledView>
+                                        </StyledTouchableOpacity>
+
+                                        {showStreakTimePicker && DateTimePicker && (
+                                            <DateTimePicker
+                                                value={streakTimeAsDate}
+                                                mode="time"
+                                                is24Hour={false}
+                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                onChange={handleStreakTimeChange}
+                                            />
+                                        )}
+                                    </>
+                                )}
+                            </StyledView>
+                        )}
 
                         {/* Guest Notice */}
                         {!isAuthenticated && (

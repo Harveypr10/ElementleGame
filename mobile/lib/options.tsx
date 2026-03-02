@@ -53,7 +53,21 @@ type OptionsContextType = {
     quickMenuEnabled: boolean;
     toggleQuickMenu: () => void;
 
-    // Device display
+    // Notification Reminders (local-only, no Supabase sync)
+    reminderEnabled: boolean;
+    setReminderEnabled: (enabled: boolean) => void;
+    reminderTime: string;
+    setReminderTime: (time: string) => void;
+    streakReminderEnabled: boolean;
+    setStreakReminderEnabled: (enabled: boolean) => void;
+    streakReminderTime: string;
+    setStreakReminderTime: (time: string) => void;
+    hasPromptedStreak2: boolean;
+    setHasPromptedStreak2: (val: boolean) => void;
+    hasPromptedStreak7: boolean;
+    setHasPromptedStreak7: (val: boolean) => void;
+    neverAskReminder: boolean;
+    setNeverAskReminder: (val: boolean) => void;
 
     // Computed from textSize
     textScale: number;
@@ -89,6 +103,21 @@ const OptionsContext = createContext<OptionsContextType>({
     quickMenuEnabled: true,
     toggleQuickMenu: () => { },
 
+    reminderEnabled: false,
+    setReminderEnabled: () => { },
+    reminderTime: '09:00',
+    setReminderTime: () => { },
+    streakReminderEnabled: false,
+    setStreakReminderEnabled: () => { },
+    streakReminderTime: '20:00',
+    setStreakReminderTime: () => { },
+    hasPromptedStreak2: false,
+    setHasPromptedStreak2: () => { },
+    hasPromptedStreak7: false,
+    setHasPromptedStreak7: () => { },
+    neverAskReminder: false,
+    setNeverAskReminder: () => { },
+
     textScale: 1.0,
     loading: true,
 });
@@ -109,6 +138,15 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [dateFormatOrder, setDateFormatOrderState] = useState<DateFormatOrder>('ddmmyy');
     const [streakSaverActive, setStreakSaverActive] = useState(true);
     const [holidaySaverActive, setHolidaySaverActive] = useState(true);
+
+    // Notification Reminder States (local-only)
+    const [reminderEnabled, setReminderEnabledState] = useState(false);
+    const [reminderTime, setReminderTimeState] = useState('09:00');
+    const [streakReminderEnabled, setStreakReminderEnabledState] = useState(false);
+    const [streakReminderTime, setStreakReminderTimeState] = useState('20:00');
+    const [hasPromptedStreak2, setHasPromptedStreak2State] = useState(false);
+    const [hasPromptedStreak7, setHasPromptedStreak7State] = useState(false);
+    const [neverAskReminder, setNeverAskReminderState] = useState(false);
 
     // App State (Local Only usually)
     const [gameModeState, setGameModeState] = useState<GameMode>('REGION');
@@ -298,6 +336,28 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             const storedQuickMenu = await AsyncStorage.getItem('opt_quick_menu');
             if (storedQuickMenu !== null) setQuickMenuEnabled(storedQuickMenu === 'true');
 
+            // Load Reminder Settings
+            const storedReminderEnabled = await AsyncStorage.getItem('opt_reminder_enabled');
+            if (storedReminderEnabled !== null) setReminderEnabledState(storedReminderEnabled === 'true');
+
+            const storedReminderTime = await AsyncStorage.getItem('opt_reminder_time');
+            if (storedReminderTime !== null) setReminderTimeState(storedReminderTime);
+
+            const storedStreakReminderEnabled = await AsyncStorage.getItem('opt_streak_reminder_enabled');
+            if (storedStreakReminderEnabled !== null) setStreakReminderEnabledState(storedStreakReminderEnabled === 'true');
+
+            const storedStreakReminderTime = await AsyncStorage.getItem('opt_streak_reminder_time');
+            if (storedStreakReminderTime !== null) setStreakReminderTimeState(storedStreakReminderTime);
+
+            const storedPrompted2 = await AsyncStorage.getItem('opt_prompted_streak2');
+            if (storedPrompted2 !== null) setHasPromptedStreak2State(storedPrompted2 === 'true');
+
+            const storedPrompted7 = await AsyncStorage.getItem('opt_prompted_streak7');
+            if (storedPrompted7 !== null) setHasPromptedStreak7State(storedPrompted7 === 'true');
+
+            const storedNeverAsk = await AsyncStorage.getItem('opt_never_ask_reminder');
+            if (storedNeverAsk !== null) setNeverAskReminderState(storedNeverAsk === 'true');
+
             // NOTE: Logic moved to separate useEffect
             // Trigger sync if user is already present (rare case on pure mount)
             if (user) {
@@ -447,6 +507,46 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // ── Notification Reminder Setters (local-only, no Supabase sync) ──
+    const setReminderEnabled = async (enabled: boolean) => {
+        setReminderEnabledState(enabled);
+        await AsyncStorage.setItem('opt_reminder_enabled', String(enabled));
+        console.log('[Options] Reminder enabled:', enabled);
+    };
+
+    const setReminderTime = async (time: string) => {
+        setReminderTimeState(time);
+        await AsyncStorage.setItem('opt_reminder_time', time);
+        console.log('[Options] Reminder time:', time);
+    };
+
+    const setHasPromptedStreak2 = async (val: boolean) => {
+        setHasPromptedStreak2State(val);
+        await AsyncStorage.setItem('opt_prompted_streak2', String(val));
+    };
+
+    const setHasPromptedStreak7 = async (val: boolean) => {
+        setHasPromptedStreak7State(val);
+        await AsyncStorage.setItem('opt_prompted_streak7', String(val));
+    };
+
+    const setNeverAskReminder = async (val: boolean) => {
+        setNeverAskReminderState(val);
+        await AsyncStorage.setItem('opt_never_ask_reminder', String(val));
+    };
+
+    const setStreakReminderEnabled = async (enabled: boolean) => {
+        setStreakReminderEnabledState(enabled);
+        await AsyncStorage.setItem('opt_streak_reminder_enabled', String(enabled));
+        console.log('[Options] Streak reminder enabled:', enabled);
+    };
+
+    const setStreakReminderTime = async (time: string) => {
+        setStreakReminderTimeState(time);
+        await AsyncStorage.setItem('opt_streak_reminder_time', time);
+        console.log('[Options] Streak reminder time:', time);
+    };
+
     const setDateLength = (length: DateLength) => {
         setDateLengthState(length);
         persist('opt_date_length', length.toString());
@@ -520,6 +620,13 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             streakSaverActive, toggleStreakSaver,
             holidaySaverActive, toggleHolidaySaver,
             quickMenuEnabled, toggleQuickMenu,
+            reminderEnabled, setReminderEnabled,
+            reminderTime, setReminderTime,
+            streakReminderEnabled, setStreakReminderEnabled,
+            streakReminderTime, setStreakReminderTime,
+            hasPromptedStreak2, setHasPromptedStreak2,
+            hasPromptedStreak7, setHasPromptedStreak7,
+            neverAskReminder, setNeverAskReminder,
             textScale: getTextScale(textSize),
             loading
         }}>
