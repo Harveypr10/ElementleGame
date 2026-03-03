@@ -16,7 +16,8 @@ import {
     FileText,
     LogOut,
     Shield,
-    SlidersHorizontal
+    SlidersHorizontal,
+    Trophy
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -185,6 +186,22 @@ export default function SettingsScreen() {
                             <StyledView className="flex-1 ml-3">
                                 <ThemedText style={{ fontSize: 16 * textScale }} className="font-n-bold">Options</ThemedText>
                                 <ThemedText style={{ fontSize: 14 * textScale, color: colors.secondaryText }}>Display, Sound & Gameplay</ThemedText>
+                            </StyledView>
+                            <ChevronRight size={20} color="#94a3b8" />
+                        </StyledTouchableOpacity>
+
+                        {/* League Tables */}
+                        <StyledTouchableOpacity
+                            onPress={() => router.push('/league/manage')}
+                            className="flex-row items-center py-3 mt-1"
+                            style={{ flexDirection: 'row' }}
+                        >
+                            <StyledView className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 items-center justify-center">
+                                <Trophy size={20} color="#6366f1" />
+                            </StyledView>
+                            <StyledView className="flex-1 ml-3">
+                                <ThemedText style={{ fontSize: 16 * textScale }} className="font-n-bold">League Tables</ThemedText>
+                                <ThemedText style={{ fontSize: 14 * textScale, color: colors.secondaryText }}>Compete with friends</ThemedText>
                             </StyledView>
                             <ChevronRight size={20} color="#94a3b8" />
                         </StyledTouchableOpacity>

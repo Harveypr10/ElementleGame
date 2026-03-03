@@ -148,6 +148,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
         streakSaverActive, toggleStreakSaver,
         holidaySaverActive, toggleHolidaySaver,
         quickMenuEnabled, toggleQuickMenu,
+        leagueTablesEnabled, toggleLeagueTables,
         reminderEnabled, setReminderEnabled,
         reminderTime, setReminderTime,
         streakReminderEnabled, setStreakReminderEnabled,
@@ -381,12 +382,19 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                                 />
                             </StyledView>
 
-                            {/* Quick Menu */}
                             <ToggleRow
                                 label="Quick Menu"
                                 subLabel="Show navigation menu"
                                 value={quickMenuEnabled}
                                 onToggle={toggleQuickMenu}
+                                borderColor={borderColor}
+                            />
+
+                            <ToggleRow
+                                label="League Tables"
+                                subLabel="Show league tab"
+                                value={leagueTablesEnabled}
+                                onToggle={toggleLeagueTables}
                                 borderColor={borderColor}
                             />
                         </StyledView>

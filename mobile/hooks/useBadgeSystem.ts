@@ -146,8 +146,9 @@ export const useBadgeSystem = () => {
             const { error } = await supabase.from('user_badges').insert(inserts);
             if (error) console.error("Error awarding badges:", error);
 
-            // Invalidate cache
+            // Invalidate both caches so pending badges query picks up new inserts
             queryClient.invalidateQueries({ queryKey: ['userBadges'] });
+            queryClient.invalidateQueries({ queryKey: ['pendingBadges'] });
         }
 
         return newBadges; // Return all (including re-awarded) for UI feedback if needed (though UI uses pendingBadges query usually)

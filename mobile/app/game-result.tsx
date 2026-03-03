@@ -29,13 +29,12 @@ import { useThemeColor } from '../hooks/useThemeColor';
 import { ConfettiOverlay } from '../components/game/ConfettiOverlay';
 import { RainOverlay } from '../components/game/RainOverlay';
 import { useStreakCelebration } from '../contexts/StreakCelebrationContext';
-import { BadgeUnlockModal } from '../components/game/BadgeUnlockModal';
-import { useBadgeSystem } from '../hooks/useBadgeSystem';
+
 import { useStreakSaver } from '../contexts/StreakSaverContext';
 import { ReminderPromptModal } from '../components/game/ReminderPromptModal';
 import { ReminderSuccessToast } from '../components/game/ReminderSuccessToast';
 import * as NotificationService from '../lib/NotificationService';
-import { useNotificationData } from '../hooks/useNotificationData';
+import { fetchNotificationData } from '../hooks/useNotificationData';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -58,7 +57,6 @@ export default function GameResultScreen() {
         neverAskReminder, setNeverAskReminder,
         streakReminderEnabled, streakReminderTime,
     } = useOptions();
-    const { hydrate: hydrateNotifs } = useNotificationData();
     const params = useLocalSearchParams();
 
     // Parse params
@@ -84,9 +82,7 @@ export default function GameResultScreen() {
     // [FIX] Parse celebrationShown param to prevent duplicate celebrations
     const celebrationShown = params.celebrationShown === 'true';
 
-    // [FIX] Parse passed badges
-    const passedBadges = params.earnedBadges ? JSON.parse(params.earnedBadges as string) : [];
-    console.log('[GameResult] Params:', { currentStreak, isStreakSaverGame, isWin, passedBadgesCount: passedBadges.length, isToday: isTodayParam });
+    console.log('[GameResult] Params:', { currentStreak, isStreakSaverGame, isWin, isToday: isTodayParam });
 
     // Responsive sizing - only increase on tablet/desktop
     const { width: screenWidth } = useWindowDimensions();
@@ -247,17 +243,9 @@ export default function GameResultScreen() {
     const textColor = useThemeColor({}, 'text');
 
     // Hooks
-    const { pendingBadges, markBadgeAsSeen } = useBadgeSystem();
     const { completeStreakSaverSession } = useStreakSaver();
     const { scheduleCelebration, onCelebrationClosed } = useStreakCelebration();
 
-    // States for sequencing
-    const [badgeModalVisible, setBadgeModalVisible] = useState(false);
-    const [currentBadge, setCurrentBadge] = useState<any>(null); // The badge template for display
-    const [currentUserBadgeId, setCurrentUserBadgeId] = useState<number | null>(null); // The user_badge row ID for marking seen
-    const [queueProcessed, setQueueProcessed] = useState(false);
-    const [visitedBadgeIds, setVisitedBadgeIds] = useState<Set<number>>(new Set());
-    const [celebrationTimerComplete, setCelebrationTimerComplete] = useState(false);
     const celebrationHandledRef = React.useRef(false); // Prevent celebration effect from running multiple times
 
     // Reminder prompt states
@@ -288,13 +276,9 @@ export default function GameResultScreen() {
 
             // Schedule celebration via root-level context — persists across navigation
             scheduleCelebration(currentStreak, 6000);
-
-            // Badge queue can proceed immediately since celebration is handled independently by context
-            setCelebrationTimerComplete(true);
         } else {
-            // No celebration needed, mark as handled and complete
+            // No celebration needed, mark as handled
             celebrationHandledRef.current = true;
-            setCelebrationTimerComplete(true);
             console.log('[GameResult] Skipping Streak Celebration', {
                 isWin,
                 currentStreak,
@@ -330,10 +314,11 @@ export default function GameResultScreen() {
     React.useEffect(() => {
         if (!justFinished || !isWin) return;
         if (!reminderEnabled && !streakReminderEnabled) return;
+        if (!user) return;
 
         (async () => {
             try {
-                const freshData = await hydrateNotifs();
+                const freshData = await fetchNotificationData(user.id);
                 await NotificationService.scheduleAll({
                     reminderEnabled,
                     reminderTime: reminderTime || '09:00',
@@ -346,115 +331,7 @@ export default function GameResultScreen() {
         })();
     }, [justFinished, isWin, reminderEnabled, streakReminderEnabled, reminderTime, streakReminderTime, gameMode]);
 
-    // Badge Queue Logic
-    // We use pendingBadges from the hook which syncs with DB
-    React.useEffect(() => {
-        // Don't process badges until celebration timer completes (even if no celebration shown)
-        if (!celebrationTimerComplete) return;
 
-        // If we haven't started processing queue, start now
-        if (!queueProcessed && isWin) {
-            console.log('[GameResult] Badge queue processing triggered');
-            processNextBadge();
-        }
-    }, [pendingBadges, queueProcessed, isWin, celebrationTimerComplete]);
-
-    // [FIX] Initial load effect for passed badges (Instant Gratification)
-    // If we have passed badges, merge them or use them to trigger immediately without waiting for query
-    React.useEffect(() => {
-        // Don't process badges until celebration timer completes
-        if (!celebrationTimerComplete) return;
-
-        // Only trigger if we aren't showing a badge and not waiting for streak
-        if (!queueProcessed && isWin && passedBadges.length > 0 && !badgeModalVisible && !currentBadge) {
-            // Check if passed badge already visited
-            const firstPassed = passedBadges[0];
-            if (visitedBadgeIds.has(firstPassed.id)) return;
-
-            // We can trigger the passed badges if pending is empty/loading
-            if (!pendingBadges || pendingBadges.length === 0) {
-                console.log(`[GameResult] Using passed badges immediately:`, firstPassed.name);
-                setCurrentBadge(firstPassed);
-                setBadgeModalVisible(true);
-            }
-        }
-    }, [passedBadges, queueProcessed, isWin, badgeModalVisible, pendingBadges, currentBadge, visitedBadgeIds, celebrationTimerComplete]);
-
-    const processNextBadge = () => {
-        // [FIX] Don't lock queue permanently if empty. Just check current state.
-        // We only show one badge at a time.
-        // If we are already showing one, or pending is empty, do nothing.
-
-        console.log(`[GameResult] Processing next badge. Visible: ${badgeModalVisible}, Pending: ${pendingBadges?.length}, Passed: ${passedBadges.length}`);
-
-        if (badgeModalVisible) return; // Already showing one
-
-        // Priority 1: Pending Badges (Server Source of Truth)
-        if (pendingBadges && pendingBadges.length > 0) {
-            console.log(`[GameResult] Showing badge from Pending: ${pendingBadges[0].badge?.name} (user_badge ID: ${pendingBadges[0].id})`);
-            setCurrentBadge(pendingBadges[0].badge);
-            setCurrentUserBadgeId(pendingBadges[0].id); // Store the user_badge row ID
-            setBadgeModalVisible(true);
-        }
-        // Priority 2: Passed Badges (Instant Gratification Fallback)
-        // If server hasn't updated yet, use the badge we calculated locally in ActiveGame
-        else if (passedBadges && passedBadges.length > 0) {
-            // Find first passed badge that hasn't been shown
-            const nextPassed = passedBadges.find((b: any) => !visitedBadgeIds.has(b.id));
-
-            if (nextPassed) {
-                console.log(`[GameResult] Showing badge from Passed Params: ${nextPassed.name} (ID: ${nextPassed.id})`);
-                setCurrentBadge(nextPassed);
-                setBadgeModalVisible(true);
-            } else {
-                console.log('[GameResult] All passed badges visited.');
-            }
-        }
-        else {
-            // Queue is empty (for now). We don't need to "lock" it.
-            // If new badges arrive via invalidation, the effect will run again.
-            console.log('[GameResult] No (more) badges to show.');
-        }
-    };
-
-    const handleBadgeClose = async () => {
-        // Use the user_badge row ID for marking as seen (not the badge template ID)
-        const badgeIdToMark = currentUserBadgeId ?? currentBadge?.id;
-        if (badgeIdToMark) {
-            console.log(`[GameResult] Closing badge and marking as seen: ${currentBadge?.name} (ID: ${badgeIdToMark})`);
-
-            // Add to visited set to prevent looping
-            setVisitedBadgeIds(prev => new Set(prev).add(badgeIdToMark));
-
-            await markBadgeAsSeen(badgeIdToMark);
-        }
-
-        setBadgeModalVisible(false);
-        setCurrentBadge(null);
-        setCurrentUserBadgeId(null);
-
-        // Check if we should show streak-7 reminder prompt after a streak badge closes
-        if (
-            currentBadge?.category === 'Streak' &&
-            currentBadge?.threshold === 7 &&
-            !hasPromptedStreak7 &&
-            !neverAskReminder &&
-            !reminderEnabled &&
-            !reminderPromptHandledRef.current
-        ) {
-            console.log('[GameResult] Streak 7 badge closed — showing reminder prompt');
-            reminderPromptHandledRef.current = true;
-            // Small delay to let badge modal animation finish
-            setTimeout(() => setReminderPromptVisible(true), 400);
-        }
-
-        // If we processed a passed badge, we might need to manually trigger next check or rely on query invalidation
-        // But since we navigate away usually, or query updates, it should be fine.
-        // If there are multiple passed badges, we should shift them? 
-        // Current logic only takes passedBadges[0]. 
-        // If passedBadges > 1, we might miss the second one until pending updates.
-        // For now, this fixes the "double play" issue.
-    };
 
     const handleShare = async () => {
         try {
@@ -471,13 +348,7 @@ export default function GameResultScreen() {
             {!isWin && <RainOverlay />}
 
             {/* StreakCelebration is now rendered at root level via StreakCelebrationProvider */}
-
-            <BadgeUnlockModal
-                visible={badgeModalVisible}
-                badge={currentBadge}
-                gameMode={gameMode as 'REGION' | 'USER'}
-                onClose={handleBadgeClose}
-            />
+            {/* Badges are now shown on Home/Stats screen only — no badge logic here */}
 
             {/* Reminder Prompt Modal (after streak celebration/badge) */}
             <ReminderPromptModal
@@ -487,9 +358,9 @@ export default function GameResultScreen() {
 
                     if (action === 'yes') {
                         const granted = await NotificationService.requestPermissions();
-                        if (granted) {
+                        if (granted && user) {
                             await setReminderEnabled(true);
-                            const freshData = await hydrateNotifs();
+                            const freshData = await fetchNotificationData(user.id);
                             await NotificationService.scheduleAll({
                                 reminderEnabled: true,
                                 reminderTime: reminderTime || '09:00',

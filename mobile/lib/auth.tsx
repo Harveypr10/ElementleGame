@@ -53,6 +53,10 @@ type AuthContextType = {
     consumeDeferredPuzzle: () => { date: string; mode: string } | null;
     /** Store a consumed deep link as deferred for the home screen. */
     setDeferredPuzzle: (puzzle: { date: string; mode: string } | null) => void;
+    /** League join code from a deep link (e.g. elementle://league/join/ABCD1234). */
+    pendingLeagueCode: string | null;
+    /** Consume the pending league code — returns the code and clears state. */
+    consumePendingLeagueCode: () => string | null;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -73,6 +77,8 @@ const AuthContext = createContext<AuthContextType>({
     deferredPuzzle: null,
     consumeDeferredPuzzle: () => null,
     setDeferredPuzzle: () => { },
+    pendingLeagueCode: null,
+    consumePendingLeagueCode: () => null,
 });
 
 // Helper function to sync OAuth provider linkage to database
@@ -157,6 +163,35 @@ function extractPuzzleInfoFromUrl(url: string): { date: string; mode: string } |
     return null;
 }
 
+// ============================================================
+// League deep link helper
+// Extracts join code from URLs like:
+//   elementle://league/join/ABCD1234
+//   https://elementle.tech/league/join/ABCD1234
+// Returns the join code string or null if not a league link.
+// ============================================================
+function extractLeagueJoinCodeFromUrl(url: string): string | null {
+    try {
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.replace(/^\/+/, '').split('/');
+
+        // Case 1: standard path /league/join/CODE
+        if (pathParts[0] === 'league' && pathParts[1] === 'join' && pathParts[2]) {
+            return pathParts[2];
+        }
+
+        // Case 2: scheme URL where host IS the first segment
+        // e.g. elementle://league/join/ABCD1234 → host='league', pathname='/join/ABCD1234'
+        const host = urlObj.hostname;
+        if (host === 'league' && pathParts[0] === 'join' && pathParts[1]) {
+            return pathParts[1];
+        }
+    } catch {
+        // Malformed URL — ignore
+    }
+    return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<Session | null>(null);
     const [user, setUser] = useState<User | null>(null);
@@ -190,6 +225,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [deferredPuzzle, setDeferredPuzzleState] = useState<{ date: string; mode: string } | null>(null);
     const deferredPuzzleRef = useRef<{ date: string; mode: string } | null>(null);
 
+    // Pending league join code from deep link
+    const [pendingLeagueCode, setPendingLeagueCode] = useState<string | null>(null);
+    const pendingLeagueCodeRef = useRef<string | null>(null);
+
     const setDeferredPuzzle = (puzzle: { date: string; mode: string } | null) => {
         deferredPuzzleRef.current = puzzle;
         setDeferredPuzzleState(puzzle);
@@ -214,6 +253,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPendingPuzzleDate(null);
         setPendingPuzzleMode(null);
         return { date, mode };
+    };
+
+    const consumePendingLeagueCode = (): string | null => {
+        const code = pendingLeagueCodeRef.current;
+        if (!code) return null;
+        pendingLeagueCodeRef.current = null;
+        setPendingLeagueCode(null);
+        return code;
     };
 
     // ============================================================
@@ -444,6 +491,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (e) {
             console.warn('[Auth] Error checking puzzle deep link:', e);
+        }
+
+        // --- League join link (elementle://league/join/CODE) ---
+        try {
+            const initialUrl = await Linking.getInitialURL();
+            if (initialUrl) {
+                const leagueCode = extractLeagueJoinCodeFromUrl(initialUrl);
+                if (leagueCode) {
+                    console.log('[Auth] Cold-start league join deep link detected — storing code:', leagueCode);
+                    setPendingLeagueCode(leagueCode);
+                    pendingLeagueCodeRef.current = leagueCode;
+                }
+            }
+        } catch (e) {
+            console.warn('[Auth] Error checking league deep link:', e);
         }
 
         return { handled: false };
@@ -703,6 +765,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setPendingPuzzleMode(puzzleInfo.mode);
                 pendingPuzzleModeRef.current = puzzleInfo.mode;
                 // NavigationGuard will pick this up and navigate
+                return;
+            }
+
+            // --- League join link ---
+            const leagueCode = extractLeagueJoinCodeFromUrl(url);
+            if (leagueCode) {
+                console.log('[Auth] Warm-start league join deep link — storing code:', leagueCode);
+                setPendingLeagueCode(leagueCode);
+                pendingLeagueCodeRef.current = leagueCode;
+                // NavigationGuard will pick this up and navigate
             }
         };
 
@@ -867,6 +939,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 deferredPuzzle,
                 consumeDeferredPuzzle,
                 setDeferredPuzzle,
+                pendingLeagueCode,
+                consumePendingLeagueCode,
             }}
         >
             {children}

@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNetwork } from '../contexts/NetworkContext';
 import { AllBadgesModal } from '../components/stats/AllBadgesModal';
 import { BadgeSlot } from '../components/stats/BadgeSlot';
+import { BadgeUnlockModal } from '../components/game/BadgeUnlockModal';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { styled, useColorScheme } from 'nativewind';
 import { ChevronLeft, BarChart3, TrendingUp, Award, Info, X, Trophy, Flame, Target } from 'lucide-react-native';
@@ -17,6 +18,7 @@ import { hasFeatureAccess } from '../lib/featureGates';
 import { AdBanner } from '../components/AdBanner';
 import { AdBannerContext } from '../contexts/AdBannerContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useBadgeSystem } from '../hooks/useBadgeSystem';
 
 import { ThemedView } from '../components/ThemedView';
 import { ThemedText } from '../components/ThemedText';
@@ -80,6 +82,11 @@ export default function StatsScreen() {
     const borderColor = useThemeColor({}, 'border');
     const iconColor = useThemeColor({}, 'icon');
     const textColor = useThemeColor({}, 'text');
+
+    // Badge display — show pending badges when stats screen is focused
+    const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
+    const [badgeModalVisible, setBadgeModalVisible] = useState(false);
+    const seenBadgeIdsRef = React.useRef<Set<number>>(new Set());
 
     // System Theme Colors
     const systemBackgroundColor = useThemeColor({}, 'background');
@@ -282,9 +289,35 @@ export default function StatsScreen() {
         useCallback(() => {
             if (user) {
                 fetchData();
+                // Force a fresh DB query for pending badges — the cache may be stale
+                // because checkBadgesForWin's invalidateQueries hasn't completed its refetch yet
+                console.log('[Stats] Forcing badge refetch on focus');
+                refetchPending();
             }
-        }, [user, fetchData])
+        }, [user, fetchData, refetchPending])
     );
+
+    // Show pending badges when data arrives (useEffect, not useFocusEffect,
+    // because pendingBadges loads asynchronously after mount)
+    useEffect(() => {
+        const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
+        console.log(`[Stats] Badge check: pendingBadges=${pendingBadges?.length ?? 'null'}, unseen=${unseen.length}, seenIds=${Array.from(seenBadgeIdsRef.current)}`);
+        if (unseen.length > 0) {
+            console.log(`[Stats] Showing badge popup for: ${unseen[0].badge?.name} (ID: ${unseen[0].id})`);
+            setBadgeModalVisible(true);
+        }
+    }, [pendingBadges]);
+
+    const handleBadgeClose = async () => {
+        const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
+        if (unseen.length > 0) {
+            const badgeToMark = unseen[0];
+            seenBadgeIdsRef.current.add(badgeToMark.id);
+            setBadgeModalVisible(false);
+            await markBadgeAsSeen(badgeToMark.id);
+            // If more unseen badges remain, the useFocusEffect will re-trigger
+        }
+    };
 
     if (!user) {
         return (
@@ -848,6 +881,17 @@ export default function StatsScreen() {
                 }}
                 feature="Stats"
                 description="Sign up to view your detailed statistics and achievements!"
+            />
+
+            {/* Badge Inbox Modal: Shows first pending badge if any */}
+            <BadgeUnlockModal
+                visible={badgeModalVisible}
+                badge={(() => {
+                    const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
+                    return unseen.length > 0 ? (unseen[0].badge ?? null) : null;
+                })()}
+                onClose={handleBadgeClose}
+                gameMode={mode}
             />
         </ThemedView >
     );

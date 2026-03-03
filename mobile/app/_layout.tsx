@@ -1,5 +1,12 @@
 import React, { Suspense } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform, AppState, AppStateStatus } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform, AppState, AppStateStatus, LogBox } from 'react-native';
+
+// Suppress known simulator-only errors that don't affect production
+LogBox.ignoreLogs([
+    'Cannot find native module \'ExpoPushTokenManager\'',  // Push notifications unavailable in simulator
+    'Consent flow error',                                   // AdMob not configured for dev/simulator
+    'Failed to read publisher\'s account configuration',    // Same AdMob issue, alternate message
+]);
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
 import * as NotificationService from '../lib/NotificationService';
@@ -65,6 +72,7 @@ import { ConversionPromptModal } from '../components/ConversionPromptModal';
 import { initializeRevenueCat } from '../lib/RevenueCat';
 import { SplashScreen } from '../components/SplashScreen';
 import { StreakCelebrationProvider } from '../contexts/StreakCelebrationContext';
+import { LeagueProvider, useLeague } from '../contexts/LeagueContext';
 // Lazy-loaded to avoid adding to _layout.tsx's initial module graph,
 // which has fragile pre-existing require cycles through guestMigration → auth
 const SubscriptionLifecycleManager = React.lazy(
@@ -100,7 +108,8 @@ export const queryClient = new QueryClient({
   Handles redirection based on auth state and "First Login Setup"
 */
 function NavigationGuard({ children }: { children: React.ReactNode }) {
-    const { session, authPhase, hasCompletedFirstLogin, isGuest, user, pendingPuzzleDate, pendingPuzzleMode, consumePendingPuzzle, setDeferredPuzzle, deferredPuzzle } = useAuth();
+    const { session, authPhase, hasCompletedFirstLogin, isGuest, user, pendingPuzzleDate, pendingPuzzleMode, consumePendingPuzzle, setDeferredPuzzle, deferredPuzzle, pendingLeagueCode, consumePendingLeagueCode } = useAuth();
+    const { setPendingJoinCode } = useLeague();
     const segments = useSegments();
     const router = useRouter();
     const { toast } = useToast();
@@ -236,7 +245,14 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             return; // Native module not available
         }
 
-        const subscription = Notifications!.addNotificationResponseReceivedListener(response => {
+        // Guard: the JS module may load but underlying native module can be missing
+        // (e.g. Expo Go / iOS simulator without dev client build)
+        if (!Notifications?.addNotificationResponseReceivedListener) {
+            console.warn('[NavGuard] expo-notifications native module not available — skipping listener');
+            return;
+        }
+
+        const subscription = Notifications.addNotificationResponseReceivedListener(response => {
             const screen = response.notification.request.content.data?.screen as string | undefined;
             console.log('[NavGuard] Notification tapped, screen:', screen);
             if (screen && screen !== 'home') {
@@ -429,6 +445,39 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             }
         }
 
+        // ============================================================
+        // STEP 0.5: Consume any pending league join code
+        // Similar to puzzle deep links — store and route appropriately.
+        // ============================================================
+        if (pendingLeagueCode) {
+            const code = consumePendingLeagueCode();
+            if (code) {
+                console.log(`[NavGuard] Consuming pending league join code: ${code}`);
+                setPendingJoinCode(code);
+
+                if (session && hasCompletedFirstLogin()) {
+                    // Signed in: go to join screen
+                    safeReplace('/league/join');
+                    return;
+                } else if (!session || isGuest) {
+                    // Not signed in: skip onboarding, go straight to login
+                    if (!inAuthGroup) {
+                        safeReplace('/(auth)/login?intent=signup');
+                    }
+                    setTimeout(() => {
+                        toast({
+                            title: 'League invitation!',
+                            description: 'Sign in or create an account to join the league',
+                            variant: 'share',
+                            position: 'bottom',
+                            duration: 5000,
+                        });
+                    }, 500);
+                    return;
+                }
+            }
+        }
+
         // Guests should NOT access tabs/home
         if (isGuest && inTabsGroup) {
             console.log('[NavGuard] Guest tried to access tabs -> Redirecting to onboarding');
@@ -532,7 +581,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 }
             }
         }
-    }, [session, isGuest, showSplash, authPhase, segments, hasCompletedFirstLogin, pendingPuzzleDate]);
+    }, [session, isGuest, showSplash, authPhase, segments, hasCompletedFirstLogin, pendingPuzzleDate, pendingLeagueCode]);
 
     // 4. Wrap children in Readiness Context so screens know when to trigger modals
     return (
@@ -578,33 +627,42 @@ function UserScopedProviders() {
                         <StreakSaverProvider>
                             <OptionsProvider>
                                 <StreakCelebrationProvider>
-                                    <WebContainer>
-                                        <ThemedView className="flex-1">
-                                            <NavigationGuard>
-                                                <Stack screenOptions={{ headerShown: false }}>
-                                                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                                                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-                                                    <Stack.Screen name="game" options={{ headerShown: false }} />
-                                                    <Stack.Screen
-                                                        name="archive"
-                                                        options={{
-                                                            headerShown: false,
-                                                            presentation: 'card'
-                                                        }}
-                                                    />
-                                                    <Stack.Screen
-                                                        name="stats"
-                                                        options={{
-                                                            headerShown: false,
-                                                            presentation: 'card'
-                                                        }}
-                                                    />
-                                                    <Stack.Screen name="index" options={{ headerShown: false }} />
+                                    <LeagueProvider>
+                                        <WebContainer>
+                                            <ThemedView className="flex-1">
+                                                <NavigationGuard>
+                                                    <Stack screenOptions={{ headerShown: false }}>
+                                                        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                                                        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                                                        <Stack.Screen name="game" options={{ headerShown: false }} />
+                                                        <Stack.Screen
+                                                            name="archive"
+                                                            options={{
+                                                                headerShown: false,
+                                                                presentation: 'card'
+                                                            }}
+                                                        />
+                                                        <Stack.Screen
+                                                            name="stats"
+                                                            options={{
+                                                                headerShown: false,
+                                                                presentation: 'card'
+                                                            }}
+                                                        />
+                                                        <Stack.Screen
+                                                            name="league"
+                                                            options={{
+                                                                headerShown: false,
+                                                                presentation: 'card'
+                                                            }}
+                                                        />
+                                                        <Stack.Screen name="index" options={{ headerShown: false }} />
 
-                                                </Stack>
-                                            </NavigationGuard>
-                                        </ThemedView>
-                                    </WebContainer>
+                                                    </Stack>
+                                                </NavigationGuard>
+                                            </ThemedView>
+                                        </WebContainer>
+                                    </LeagueProvider>
                                 </StreakCelebrationProvider>
                                 <ConversionPromptModal />
                                 <Suspense fallback={null}>

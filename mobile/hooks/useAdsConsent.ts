@@ -65,7 +65,7 @@ export function useAdsConsent() {
                     consentInfo.privacyOptionsRequirementStatus === AdsConsentPrivacyOptionsRequirementStatus.REQUIRED
                 );
             } catch (error) {
-                console.error('[AdsConsent] Consent flow error:', error);
+                console.warn('[AdsConsent] Consent flow error (expected in simulator):', error);
             }
         }
 

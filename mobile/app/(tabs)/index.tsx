@@ -36,6 +36,11 @@ import { getTodaysPuzzleDate } from '../../lib/dateUtils';
 import { useToast } from '../../contexts/ToastContext';
 import { usePuzzleReadiness } from '../../hooks/usePuzzleReadiness';
 import { useAdsConsent } from '../../hooks/useAdsConsent';
+import { ReminderPromptModal } from '../../components/game/ReminderPromptModal';
+import { ReminderSuccessToast } from '../../components/game/ReminderSuccessToast';
+import * as NotificationService from '../../lib/NotificationService';
+import { fetchNotificationData } from '../../hooks/useNotificationData';
+import { useMyLeagues, useLeagueStandings, League, GameMode } from '../../hooks/useLeagueData';
 
 // Import hamster images - trying UI folder versions which appear to be transparent
 const HistorianHamsterBlue = require('../../assets/ui/webp_assets/Historian-Hamster.webp');
@@ -73,6 +78,8 @@ const GameModePage = React.memo(({
     todaysPuzzleDate,
     userPuzzleReady,
     isCheckingPuzzle,
+    leagueTablesEnabled,
+    quickMenuEnabled,
 }: {
     isRegion: boolean,
     todayStatus: 'not-played' | 'solved' | 'failed',
@@ -90,6 +97,8 @@ const GameModePage = React.memo(({
     todaysPuzzleDate: string, // CRITICAL: Today's puzzle date from parent
     userPuzzleReady?: boolean, // Whether today's personal puzzle is available
     isCheckingPuzzle?: boolean, // Whether the readiness check is in progress
+    leagueTablesEnabled?: boolean, // Whether league tables feature is enabled
+    quickMenuEnabled?: boolean, // Whether quick menu is active (hides league card)
 }) => {
     // Colors from Web App
     const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
@@ -101,6 +110,24 @@ const GameModePage = React.memo(({
     const { width: screenWidth } = useWindowDimensions();
     const scale = screenWidth >= 768 ? 1.25 : 1;
     const cardHeightScale = screenWidth >= 768 ? 1.06 : 1; // 15% smaller buttons on iPad (1.25 * 0.85 ≈ 1.06)
+
+    // ── League Rankings for home button ──
+    const leagueGameMode: GameMode = isRegion ? 'region' : 'user';
+    const { data: myLeagues } = useMyLeagues(leagueGameMode);
+    const globalLeagueId = useMemo(() => {
+        if (!myLeagues) return null;
+        const global = (myLeagues as League[]).find(l => l.is_system_league && l.system_region === 'GLOBAL');
+        return global?.id ?? null;
+    }, [myLeagues]);
+    const regionLeagueId = useMemo(() => {
+        if (!myLeagues) return null;
+        const region = (myLeagues as League[]).find(l => l.is_system_league && l.system_region !== 'GLOBAL');
+        return region?.id ?? null;
+    }, [myLeagues]);
+    const { data: globalStandings } = useLeagueStandings(globalLeagueId, 'mtd', leagueGameMode);
+    const { data: regionStandings } = useLeagueStandings(regionLeagueId, 'mtd', leagueGameMode);
+    const globalRank = globalStandings?.my_rank ?? null;
+    const regionRank = regionStandings?.my_rank ?? null;
 
     // Helper: Calculate Total Guesses
     const calculateTotalGuesses = (distribution: any, gamesWon: number, gamesPlayed: number) => {
@@ -157,7 +184,7 @@ const GameModePage = React.memo(({
             showsVerticalScrollIndicator={false}
             style={width ? { width: width } : { flex: 1 }}
         >
-            <View className="space-y-4">
+            <View>
                 {/* PERCENTILE TEXT (Dynamic & Above Play Button) */}
                 {percentileMessage && (
                     <ThemedText className="text-slate-500 font-n-medium text-center" baseSize={16 * scale} style={{ marginBottom: screenWidth >= 768 ? 8 : 16 }}>
@@ -234,31 +261,100 @@ const GameModePage = React.memo(({
                     </View>
                 </HomeCard>
 
-                {/* 3. STATS BUTTON */}
-                <HomeCard
-                    testID="home-card-stats"
-                    title={isRegion ? "UK Stats" : "Personal Stats"}
-                    icon={statsIcon}
-                    backgroundColor={statsColor}
-                    onPress={() => {
-                        incrementInteraction();
-                        router.push(`/stats?mode=${isRegion ? 'REGION' : 'USER'}`);
-                    }}
-                    height={120}
-                    iconStyle={{ width: 78, height: 78 }}
-                    scale={cardHeightScale}
-                >
-                    <View className="flex-row gap-2 w-full" style={{ flexDirection: 'row' }}>
-                        <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
-                            <ThemedText className="text-slate-700 font-n-medium text-sm">% Won</ThemedText>
-                            <ThemedText className="text-slate-700 font-n-bold text-xl">{winRate}%</ThemedText>
-                        </View>
-                        <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
-                            <ThemedText className="text-slate-700 font-n-medium text-sm">Guess avg</ThemedText>
-                            <ThemedText className="text-slate-700 font-n-bold text-xl">{avgGuesses}</ThemedText>
-                        </View>
+                {/* 3. STATS + LEAGUE — 50/50 row when leagues enabled, full-width stats otherwise */}
+                {leagueTablesEnabled && !quickMenuEnabled ? (
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 0 }}>
+                        {/* Half-width Stats */}
+                        <TouchableOpacity
+                            testID="home-card-stats-half"
+                            activeOpacity={0.9}
+                            onPress={() => {
+                                incrementInteraction();
+                                router.push(`/stats?mode=${isRegion ? 'REGION' : 'USER'}`);
+                            }}
+                            style={{
+                                flex: 1, backgroundColor: statsColor, borderRadius: 24,
+                                paddingLeft: 20, paddingRight: 14, paddingTop: 18, paddingBottom: 18,
+                                height: 120 * cardHeightScale, overflow: 'hidden',
+                                shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
+                            }}
+                        >
+                            <Image source={statsIcon} style={{ position: 'absolute', top: screenWidth >= 768 ? 16 : 8, right: screenWidth >= 768 ? 16 : 8, width: screenWidth >= 768 ? 74 : 46, height: screenWidth >= 768 ? 74 : 46, opacity: 0.9 }} resizeMode="contain" />
+                            <View style={{ flex: 1 }}>
+                                <ThemedText className="font-n-bold text-slate-900" size="lg">Stats</ThemedText>
+                                <View style={{ marginTop: 10, gap: 1 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>Won</ThemedText>
+                                        <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{winRate}%</ThemedText>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>Avg</ThemedText>
+                                        <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{avgGuesses}</ThemedText>
+                                    </View>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* Half-width Leagues */}
+                        <TouchableOpacity
+                            testID="home-card-league-half"
+                            activeOpacity={0.9}
+                            onPress={() => {
+                                incrementInteraction();
+                                router.push(isRegion ? '/league/region' : '/league/user');
+                            }}
+                            style={{
+                                flex: 1, backgroundColor: isRegion ? '#CDCFD1' : '#BABFB8',
+                                borderRadius: 24, paddingLeft: 20, paddingRight: 14,
+                                paddingTop: 18, paddingBottom: 18,
+                                height: 120 * cardHeightScale, overflow: 'hidden',
+                                shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
+                            }}
+                        >
+                            <Image source={WinHamsterBlue} style={{ position: 'absolute', top: screenWidth >= 768 ? 16 : 8, right: screenWidth >= 768 ? 16 : 8, width: screenWidth >= 768 ? 74 : 46, height: screenWidth >= 768 ? 74 : 46, opacity: 0.9 }} resizeMode="contain" />
+                            <View style={{ flex: 1 }}>
+                                <ThemedText className="font-n-bold text-slate-900" size="lg" style={{ color: '#1e293b' }}>Leagues</ThemedText>
+                                <View style={{ marginTop: 10, gap: 1 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>Global</ThemedText>
+                                        <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{globalRank ?? '—'}</ThemedText>
+                                    </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>UK</ThemedText>
+                                        <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{regionRank ?? '—'}</ThemedText>
+                                    </View>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
                     </View>
-                </HomeCard>
+                ) : (
+                    <HomeCard
+                        testID="home-card-stats"
+                        title={isRegion ? "UK Stats" : "Personal Stats"}
+                        icon={statsIcon}
+                        backgroundColor={statsColor}
+                        onPress={() => {
+                            incrementInteraction();
+                            router.push(`/stats?mode=${isRegion ? 'REGION' : 'USER'}`);
+                        }}
+                        height={120}
+                        iconStyle={{ width: 78, height: 78 }}
+                        scale={cardHeightScale}
+                    >
+                        <View className="flex-row gap-2 w-full" style={{ flexDirection: 'row' }}>
+                            <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                                <ThemedText className="text-slate-700 font-n-medium text-sm">% Won</ThemedText>
+                                <ThemedText className="text-slate-700 font-n-bold text-xl">{winRate}%</ThemedText>
+                            </View>
+                            <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
+                                <ThemedText className="text-slate-700 font-n-medium text-sm">Guess avg</ThemedText>
+                                <ThemedText className="text-slate-700 font-n-bold text-xl">{avgGuesses}</ThemedText>
+                            </View>
+                        </View>
+                    </HomeCard>
+                )}
             </View>
         </ScrollView>
     );
@@ -277,7 +373,15 @@ export default function HomeScreen() {
     const params = useLocalSearchParams(); // Use params for initialMode
     const { user, deferredPuzzle, consumeDeferredPuzzle } = useAuth();
     const { toast } = useToast();
-    const { gameMode, setGameMode, streakSaverActive, holidaySaverActive, syncDarkModeWithDevice } = useOptions();
+    const {
+        gameMode, setGameMode, streakSaverActive, holidaySaverActive, syncDarkModeWithDevice,
+        reminderEnabled, setReminderEnabled, reminderTime,
+        hasPromptedStreak7, setHasPromptedStreak7,
+        neverAskReminder, setNeverAskReminder,
+        streakReminderEnabled, streakReminderTime,
+        leagueTablesEnabled,
+        quickMenuEnabled,
+    } = useOptions();
     const { profile } = useProfile();
     const userRegion = profile?.region || 'UK';
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
@@ -412,6 +516,10 @@ export default function HomeScreen() {
     // to prevent double-popup when query refetch briefly returns stale data
     const seenBadgeIdsRef = React.useRef<Set<number>>(new Set());
 
+    // Streak-7 notification prompt (moved from game-result.tsx)
+    const [reminderPromptVisible, setReminderPromptVisible] = useState(false);
+    const [reminderSuccessVisible, setReminderSuccessVisible] = useState(false);
+
     // Streak Saver Popup State
     const [streakSaverVisible, setStreakSaverVisible] = useState(false);
     // [FIX] Track when the popup check effect has completed at least once,
@@ -435,14 +543,17 @@ export default function HomeScreen() {
     // Sync modal visibility with pending badges
     useEffect(() => {
         // [FIX] Only show badges when App is fully ready (Splash gone)
+        // AND when the home screen is actually focused (not when user is on game-result).
+        // Without isFocused check, both home screen AND game-result would race to show
+        // the same badge since both subscribe to pendingBadges via useBadgeSystem().
         // Filter out badges we've already seen/dismissed this session
         const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
-        if (isAppReady && unseen.length > 0) {
+        if (isAppReady && isFocused && unseen.length > 0) {
             setBadgeModalVisible(true);
         } else {
             setBadgeModalVisible(false);
         }
-    }, [pendingBadges, isAppReady]);
+    }, [pendingBadges, isAppReady, isFocused]);
 
     // Track which mode triggered the popup (Region or User)
     const [popupMode, setPopupMode] = useState<'REGION' | 'USER'>('REGION');
@@ -718,17 +829,27 @@ export default function HomeScreen() {
         const unseen = pendingBadges?.filter(b => !seenBadgeIdsRef.current.has(b.id)) ?? [];
         if (unseen.length > 0) {
             const badgeToMark = unseen[0];
+            // Capture the badge info BEFORE marking as seen (for streak-7 check)
+            const closedBadge = badgeToMark.badge;
+
             // [FIX] Add to local seen set BEFORE closing / marking in DB
-            // This prevents the useEffect from re-opening the modal when
-            // the query refetch briefly returns stale data
             seenBadgeIdsRef.current.add(badgeToMark.id);
-            // Optimistically close to prep for next or end
             setBadgeModalVisible(false);
 
             // Mark as seen, triggering query update
-            // [FIX] Use the ROW ID (id) not the badge definition ID (badge_id)
             await markBadgeAsSeen(badgeToMark.id);
-            // The useEffect will make it visible again if there are more unseen badges
+
+            // Check if we should show streak-7 reminder prompt after badge closes
+            if (
+                closedBadge?.category === 'Streak' &&
+                closedBadge?.threshold === 7 &&
+                !hasPromptedStreak7 &&
+                !neverAskReminder &&
+                !reminderEnabled
+            ) {
+                console.log('[Home] Streak 7 badge closed — showing reminder prompt');
+                setTimeout(() => setReminderPromptVisible(true), 400);
+            }
         }
     };
 
@@ -1093,7 +1214,8 @@ export default function HomeScreen() {
                                     todaysPuzzleDate={todaysPuzzleDate}
                                     userPuzzleReady={true}
                                     isCheckingPuzzle={false}
-
+                                    leagueTablesEnabled={leagueTablesEnabled}
+                                    quickMenuEnabled={quickMenuEnabled}
                                 />
                             </StyledView>
 
@@ -1122,7 +1244,8 @@ export default function HomeScreen() {
                                     todaysPuzzleDate={todaysPuzzleDate}
                                     userPuzzleReady={userPuzzleReady}
                                     isCheckingPuzzle={isCheckingPuzzle}
-
+                                    leagueTablesEnabled={leagueTablesEnabled}
+                                    quickMenuEnabled={quickMenuEnabled}
                                 />
                             </StyledView>
                         </StyledView>
@@ -1159,7 +1282,8 @@ export default function HomeScreen() {
                             todaysPuzzleDate={todaysPuzzleDate}
                             userPuzzleReady={true}
                             isCheckingPuzzle={false}
-
+                            leagueTablesEnabled={leagueTablesEnabled}
+                            quickMenuEnabled={quickMenuEnabled}
                         />
 
                         {/* User Page */}
@@ -1180,7 +1304,8 @@ export default function HomeScreen() {
                             todaysPuzzleDate={todaysPuzzleDate}
                             userPuzzleReady={userPuzzleReady}
                             isCheckingPuzzle={isCheckingPuzzle}
-
+                            leagueTablesEnabled={leagueTablesEnabled}
+                            quickMenuEnabled={quickMenuEnabled}
                         />
                     </Animated.ScrollView>
                 )}
@@ -1197,6 +1322,40 @@ export default function HomeScreen() {
                     })()}
                     onClose={handleBadgeClose}
                     gameMode={gameMode}
+                />
+
+                {/* Streak-7 Notification Prompt (moved from game-result.tsx) */}
+                <ReminderPromptModal
+                    visible={reminderPromptVisible}
+                    onClose={async (action) => {
+                        setReminderPromptVisible(false);
+
+                        if (action === 'yes') {
+                            const granted = await NotificationService.requestPermissions();
+                            if (granted && user) {
+                                await setReminderEnabled(true);
+                                const freshData = await fetchNotificationData(user.id);
+                                await NotificationService.scheduleAll({
+                                    reminderEnabled: true,
+                                    reminderTime: reminderTime || '09:00',
+                                    streakReminderEnabled: true,
+                                    streakReminderTime: streakReminderTime || '20:00',
+                                }, freshData);
+                                setTimeout(() => setReminderSuccessVisible(true), 300);
+                            }
+                        } else if (action === 'not_now') {
+                            await setHasPromptedStreak7(true);
+                        } else if (action === 'never') {
+                            await setNeverAskReminder(true);
+                        }
+                    }}
+                />
+
+                {/* Reminder Success Toast */}
+                <ReminderSuccessToast
+                    visible={reminderSuccessVisible}
+                    reminderTime={reminderTime || '11:00'}
+                    onDismiss={() => setReminderSuccessVisible(false)}
                 />
 
                 <StreakSaverPopup

@@ -196,6 +196,7 @@ export default function PersonalisePage() {
                 postcode: postcode.trim() || null,
                 accepted_terms: true,
                 signup_method: 'password',
+                global_display_name: firstName.trim(),
             };
 
             // Only add tier_id if we found one

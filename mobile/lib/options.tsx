@@ -52,6 +52,8 @@ type OptionsContextType = {
     // Display settings
     quickMenuEnabled: boolean;
     toggleQuickMenu: () => void;
+    leagueTablesEnabled: boolean;
+    toggleLeagueTables: () => void;
 
     // Notification Reminders (local-only, no Supabase sync)
     reminderEnabled: boolean;
@@ -102,6 +104,8 @@ const OptionsContext = createContext<OptionsContextType>({
 
     quickMenuEnabled: true,
     toggleQuickMenu: () => { },
+    leagueTablesEnabled: true,
+    toggleLeagueTables: () => { },
 
     reminderEnabled: false,
     setReminderEnabled: () => { },
@@ -133,6 +137,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [useDeviceDisplay, setUseDeviceDisplay] = useState(false);
     const [cluesEnabled, setCluesEnabled] = useState(true);
     const [quickMenuEnabled, setQuickMenuEnabled] = useState(true); // Default true (Shown)
+    const [leagueTablesEnabled, setLeagueTablesEnabled] = useState(true); // Default true (Shown)
 
     const [dateLength, setDateLengthState] = useState<DateLength>(8);
     const [dateFormatOrder, setDateFormatOrderState] = useState<DateFormatOrder>('ddmmyy');
@@ -336,6 +341,9 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             const storedQuickMenu = await AsyncStorage.getItem('opt_quick_menu');
             if (storedQuickMenu !== null) setQuickMenuEnabled(storedQuickMenu === 'true');
 
+            const storedLeagueTables = await AsyncStorage.getItem('opt_league_tables');
+            if (storedLeagueTables !== null) setLeagueTablesEnabled(storedLeagueTables === 'true');
+
             // Load Reminder Settings
             const storedReminderEnabled = await AsyncStorage.getItem('opt_reminder_enabled');
             if (storedReminderEnabled !== null) setReminderEnabledState(storedReminderEnabled === 'true');
@@ -507,6 +515,12 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const toggleLeagueTables = async () => {
+        const newValue = !leagueTablesEnabled;
+        setLeagueTablesEnabled(newValue);
+        await AsyncStorage.setItem('opt_league_tables', newValue.toString());
+    };
+
     // ── Notification Reminder Setters (local-only, no Supabase sync) ──
     const setReminderEnabled = async (enabled: boolean) => {
         setReminderEnabledState(enabled);
@@ -620,6 +634,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             streakSaverActive, toggleStreakSaver,
             holidaySaverActive, toggleHolidaySaver,
             quickMenuEnabled, toggleQuickMenu,
+            leagueTablesEnabled, toggleLeagueTables,
             reminderEnabled, setReminderEnabled,
             reminderTime, setReminderTime,
             streakReminderEnabled, setStreakReminderEnabled,

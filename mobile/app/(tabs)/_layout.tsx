@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { useColorScheme } from 'nativewind';
-import { Home, Settings as SettingsIcon, SlidersHorizontal, Shield } from 'lucide-react-native';
+import { Home, Settings as SettingsIcon, SlidersHorizontal, Shield, Trophy } from 'lucide-react-native';
 import { useProfile } from '../../hooks/useProfile';
 import { useOptions } from '../../lib/options';
 import { useWindowDimensions, Platform } from 'react-native';
@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function TabLayout() {
     const { colorScheme } = useColorScheme();
     const { isAdmin } = useProfile();
-    const { quickMenuEnabled } = useOptions();
+    const { quickMenuEnabled, leagueTablesEnabled } = useOptions();
     const isDark = colorScheme === 'dark';
     const { width: screenWidth } = useWindowDimensions();
     const isLargeScreen = screenWidth >= 768;
@@ -66,6 +66,17 @@ export default function TabLayout() {
                     tabBarLabel: 'Settings',
                     tabBarIcon: ({ color, size }) => (
                         <SettingsIcon size={isLargeScreen ? 32 : 26} color={color} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
+                name="league"
+                options={{
+                    title: 'League',
+                    tabBarLabel: 'League',
+                    href: leagueTablesEnabled ? '/(tabs)/league' : null,
+                    tabBarIcon: ({ color, size }) => (
+                        <Trophy size={isLargeScreen ? 32 : 26} color={color} />
                     ),
                 }}
             />
