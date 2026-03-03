@@ -22,17 +22,25 @@ export function StreakCelebration({ visible, streak, onClose, showCloseButton = 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const [isClosing, setIsClosing] = useState(false);
     const [showModal, setShowModal] = useState(false);
+    const hasBeenShownRef = useRef(false); // Prevent re-opening after close
 
     // Handle visibility changes
     useEffect(() => {
-        if (visible && !isClosing) {
+        if (visible && !isClosing && !hasBeenShownRef.current) {
             // Opening: show modal and fade in
+            hasBeenShownRef.current = true;
             setShowModal(true);
             Animated.timing(fadeAnim, {
                 toValue: 1,
                 duration: 400,
                 useNativeDriver: true,
             }).start();
+        }
+        // When visible goes false, reset the guard for next celebration
+        if (!visible) {
+            hasBeenShownRef.current = false;
+            // Defensive: ensure modal is hidden
+            setShowModal(false);
         }
     }, [visible, isClosing]);
 

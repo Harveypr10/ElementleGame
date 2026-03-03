@@ -153,13 +153,7 @@ export function useGameEngine({
 
             console.log(`[GameEngine] Recalculating from ${filteredAttempts.length} attempts`);
 
-            // DEBUG: Log attempt details to confirm we have the holidays
-            console.log('[GameEngine] Attempt Details:', filteredAttempts.map((a: any) => ({
-                id: a.id,
-                result: a.result,
-                date: mode === 'REGION' ? a.questions_allocated_region?.puzzle_date : a.questions_allocated_user?.puzzle_date,
-                status: a.streak_day_status
-            })));
+            // Attempt count logged above; full details omitted to reduce log noise
 
             // Calculate stats from attempts that have a RESULT (actual played games)
             const playedGames = filteredAttempts.filter((a: any) => a.result !== null);
@@ -229,7 +223,7 @@ export function useGameEngine({
                 const dateStr = checkDate.toISOString().split('T')[0];
                 const dayData = dateMap.get(dateStr);
 
-                console.log(`[GameEngine] Checking Date: ${dateStr}, Found: ${!!dayData}, Status: ${dayData?.streakDayStatus}`);
+                // Per-date log omitted to reduce noise (streak length can be 80+)
 
                 if (!dayData) break; // No row - streak broken
 
