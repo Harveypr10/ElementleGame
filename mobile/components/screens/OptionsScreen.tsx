@@ -146,6 +146,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
         cluesEnabled, toggleClues,
         dateLength, setDateLength,
         dateFormatOrder, setDateFormatOrder,
+        streaksEnabled, setStreaksEnabled,
         streakSaverActive, toggleStreakSaver,
         holidaySaverActive, toggleHolidaySaver,
         quickMenuEnabled, toggleQuickMenu,
@@ -472,30 +473,6 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                             />
                         </StyledView>
 
-                        {/* Gameplay Card */}
-                        <StyledView
-                            className="rounded-2xl p-4 mb-3 border"
-                            style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
-                        >
-                            <ThemedText className="font-n-bold uppercase tracking-wide mb-3 opacity-60" size="sm">Gameplay</ThemedText>
-
-                            <ToggleRow
-                                label="Sounds"
-                                subLabel="Play sound effects"
-                                value={soundsEnabled}
-                                onToggle={toggleSounds}
-                                borderColor={borderColor}
-                            />
-
-                            <ToggleRow
-                                label="Clues"
-                                subLabel="Show event titles"
-                                value={cluesEnabled}
-                                onToggle={toggleClues}
-                                borderColor={borderColor}
-                            />
-                        </StyledView>
-
                         {/* Date Format Card */}
                         <StyledView
                             className="rounded-2xl p-4 mb-3 border"
@@ -530,10 +507,61 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                             />
                         </StyledView>
 
+                        {/* Gameplay Card */}
+                        <StyledView
+                            className="rounded-2xl p-4 mb-3 border"
+                            style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        >
+                            <ThemedText className="font-n-bold uppercase tracking-wide mb-3 opacity-60" size="sm">Gameplay</ThemedText>
+
+                            <ToggleRow
+                                label="Sounds"
+                                subLabel="Play sound effects"
+                                value={soundsEnabled}
+                                onToggle={toggleSounds}
+                                borderColor={borderColor}
+                            />
+
+                            <ToggleRow
+                                label="Clues"
+                                subLabel="Show event titles"
+                                value={cluesEnabled}
+                                onToggle={toggleClues}
+                                borderColor={borderColor}
+                            />
+
+                            <ToggleRow
+                                label="Disable Streaks"
+                                subLabel="Turn off streaks"
+                                value={!streaksEnabled}
+                                onToggle={() => {
+                                    if (streaksEnabled) {
+                                        // Turning streaks OFF — confirm first
+                                        Alert.alert(
+                                            'Disable Streaks?',
+                                            "Turning off streaks will mean that you don't build a streak as you win the daily puzzles and you don't get awarded the Streak badges when you hit the streak milestones. Are you sure you want to disable streaks?",
+                                            [
+                                                { text: 'Continue', onPress: () => setStreaksEnabled(false) },
+                                                { text: 'Cancel', style: 'default' },
+                                            ]
+                                        );
+                                    } else {
+                                        // Turning streaks back ON — also re-enable streak protection toggles
+                                        setStreaksEnabled(true);
+                                    }
+                                }}
+                                borderColor={borderColor}
+                            />
+                        </StyledView>
+
                         {/* Streak Protection Card */}
                         <StyledView
                             className="rounded-2xl p-4 mb-3 border border-orange-200 dark:border-orange-800"
-                            style={{ backgroundColor: darkMode ? 'rgba(255, 247, 237, 0.1)' : '#fff7ed' }}
+                            style={{
+                                backgroundColor: darkMode ? 'rgba(255, 247, 237, 0.1)' : '#fff7ed',
+                                opacity: streaksEnabled ? 1 : 0.4
+                            }}
+                            pointerEvents={streaksEnabled ? 'auto' : 'none'}
                         >
                             <StyledView className="flex-row items-center mb-3">
                                 <StyledView className="w-8 h-8 rounded-full items-center justify-center mr-2" style={{ backgroundColor: '#f97316' }}>

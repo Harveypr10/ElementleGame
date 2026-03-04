@@ -71,7 +71,7 @@ export function useGameEngine({
 
 
 
-    const { dateFormatOrder, dateLength } = useOptions();
+    const { dateFormatOrder, dateLength, streaksEnabled } = useOptions();
     // State to hold and lock the digit count for this specific game
     // Initialize with current preference, but override when loading existing game
     const [gameDigits, setGameDigits] = useState<number>(dateLength);
@@ -836,10 +836,10 @@ export function useGameEngine({
 
                     if (mode === 'REGION') {
                         insertData.allocated_region_id = puzzleId;
-                        insertData.streak_day_status = 1; // Default to played
+                        insertData.streak_day_status = streaksEnabled ? 1 : null; // No streak credit when streaks disabled
                     } else {
                         insertData.allocated_user_id = puzzleId;
-                        insertData.streak_day_status = 1;
+                        insertData.streak_day_status = streaksEnabled ? 1 : null;
                     }
 
                     // Add digits from current state so it's locked in DB
@@ -941,11 +941,13 @@ export function useGameEngine({
                 }
                 // NORMAL PLAY (Real Streak Impact)
                 else {
+                    // If streaks are disabled globally, always null — no streak credit
+                    if (!streaksEnabled) {
+                        console.log('[GameEngine] Streaks disabled globally -> Status = NULL');
+                        newStreakDayStatus = null;
+                    }
                     // [FIX] If this game was already set to holiday (status 0), ALWAYS preserve it.
-                    // This covers: replaying an old holiday game when no longer in holiday mode.
-                    // The only exception (resetting today's puzzle on exit holiday) is handled
-                    // at the Home/Archive screen level, not in the game engine.
-                    if (streakDayStatus === 0) {
+                    else if (streakDayStatus === 0) {
                         console.log('[GameEngine] Normal Mode but game has holiday status (0) - preserving');
                         newStreakDayStatus = 0;
                     }

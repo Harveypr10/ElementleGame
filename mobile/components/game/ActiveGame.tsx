@@ -58,7 +58,7 @@ interface ActiveGameProps {
 export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGameStateChange, isStreakSaverGame, onStreakSaverExit, introVisible, onIntroChange, contentOpacity, isTodayPuzzle }: ActiveGameProps) {
     const router = useRouter();
     const { mode, id, skipIntro, preserveStreakStatus: preserveParam, guestReplay: guestReplayParam } = useLocalSearchParams();
-    const { dateLength, cluesEnabled, dateFormatOrder } = useOptions();
+    const { dateLength, cluesEnabled, dateFormatOrder, streaksEnabled } = useOptions();
     const { user } = useAuth();
     const isGuest = !user;
     const isGuestReplay = guestReplayParam === 'true';
@@ -630,6 +630,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     // AND if it's Today's puzzle OR a Streak Saver game.
                     // Archive games should show standard intro.
                     isStreakGame={
+                        streaksEnabled &&
                         effectiveStreak > 0 &&
                         !isRestored &&
                         gameState === 'playing' &&

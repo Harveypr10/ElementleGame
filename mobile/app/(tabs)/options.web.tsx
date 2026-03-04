@@ -23,6 +23,7 @@ export default function OptionsWeb() {
         cluesEnabled, toggleClues,
         dateLength, setDateLength,
         dateFormatOrder, setDateFormatOrder,
+        streaksEnabled, setStreaksEnabled,
         streakSaverActive, toggleStreakSaver,
         holidaySaverActive, toggleHolidaySaver,
         quickMenuEnabled, toggleQuickMenu
@@ -94,28 +95,6 @@ export default function OptionsWeb() {
                     />
                 </View>
 
-                {/* Gameplay Card */}
-                <View style={styles.card}>
-                    <View style={styles.cardHeader}>
-                        <GamepadIcon size={18} color="#22c55e" />
-                        <Text style={styles.cardTitle}>Gameplay</Text>
-                    </View>
-
-                    <ToggleRow
-                        label="Sound Effects"
-                        subLabel="Play sounds during game"
-                        value={soundsEnabled}
-                        onToggle={toggleSounds}
-                    />
-
-                    <ToggleRow
-                        label="Clues"
-                        subLabel="Show event titles on cards"
-                        value={cluesEnabled}
-                        onToggle={toggleClues}
-                    />
-                </View>
-
                 {/* Date Format Card */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
@@ -148,8 +127,45 @@ export default function OptionsWeb() {
                     </View>
                 </View>
 
+                {/* Gameplay Card */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <GamepadIcon size={18} color="#22c55e" />
+                        <Text style={styles.cardTitle}>Gameplay</Text>
+                    </View>
+
+                    <ToggleRow
+                        label="Sound Effects"
+                        subLabel="Play sounds during game"
+                        value={soundsEnabled}
+                        onToggle={toggleSounds}
+                    />
+
+                    <ToggleRow
+                        label="Clues"
+                        subLabel="Show event titles on cards"
+                        value={cluesEnabled}
+                        onToggle={toggleClues}
+                    />
+
+                    <ToggleRow
+                        label="Disable Streaks"
+                        subLabel="Turn off streaks"
+                        value={!streaksEnabled}
+                        onToggle={() => {
+                            if (streaksEnabled) {
+                                if (confirm("Turning off streaks will mean that you don't build a streak as you win the daily puzzles and you don't get awarded the Streak badges when you hit the streak milestones. Are you sure you want to disable streaks?")) {
+                                    setStreaksEnabled(false);
+                                }
+                            } else {
+                                setStreaksEnabled(true);
+                            }
+                        }}
+                    />
+                </View>
+
                 {/* Streak Protection Card */}
-                <View style={styles.streakCard}>
+                <View style={[styles.streakCard, !streaksEnabled && { opacity: 0.4 }]} pointerEvents={streaksEnabled ? 'auto' : 'none'}>
                     <View style={styles.cardHeader}>
                         <View style={styles.streakIcon}>
                             <Flame size={16} color="#ffffff" />

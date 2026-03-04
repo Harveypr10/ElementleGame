@@ -25,7 +25,7 @@ export default function ManageSubscriptionScreen() {
     const { subscription, isPro, tierType, streakSavers, holidaySavers, holidayDurationDays } = useSubscription();
     const { status, holidayActive, holidayStartDate, holidayEndDate, endHoliday, startHoliday, hasAnyValidStreakForHoliday } = useStreakSaverStatus();
     const { profile } = useProfile();
-    const { textScale } = useOptions();
+    const { textScale, streaksEnabled } = useOptions();
     const { stats: userStats } = useUserStats('USER');
 
     // [FIX] Separate animation states for Region and User modals
@@ -126,7 +126,7 @@ export default function ManageSubscriptionScreen() {
                         <StyledTouchableOpacity
                             onPress={() => router.back()}
                             className="w-10 h-10 items-center justify-center"
-                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         >
                             <ChevronLeft size={28} color={iconColor} />
                         </StyledTouchableOpacity>
@@ -166,7 +166,7 @@ export default function ManageSubscriptionScreen() {
                                     <Flame size={20} color="#f59e0b" />
                                 </StyledView>
                                 <StyledView className="flex-1">
-                                    <ThemedText baseSize={16} className="font-n-bold mb-1">Streak Savers</ThemedText>
+                                    <ThemedText baseSize={16} className="font-n-bold mb-1">Streak Savers - Monthly</ThemedText>
                                     <ThemedText baseSize={14} className="opacity-80 mb-1">
                                         {regionLabel}: <ThemedText className="font-n-semibold">{Math.max(0, effectiveStreakSavers - regionUsed)} of {effectiveStreakSavers} remaining</ThemedText>
                                     </ThemedText>
@@ -182,7 +182,7 @@ export default function ManageSubscriptionScreen() {
                                     <Umbrella size={20} color="#3b82f6" />
                                 </StyledView>
                                 <StyledView className="flex-1">
-                                    <ThemedText baseSize={16} className="font-n-bold opacity-50 mb-1">Holiday Mode</ThemedText>
+                                    <ThemedText baseSize={16} className="font-n-bold opacity-50 mb-1">Holiday Mode - Annual</ThemedText>
                                     <ThemedText baseSize={14} className="opacity-60">{holidayDurationDays}-day protection: Locked</ThemedText>
                                     <ThemedText baseSize={12} className="opacity-50 mt-1">Pro members can pause their streak</ThemedText>
                                 </StyledView>
@@ -263,7 +263,11 @@ export default function ManageSubscriptionScreen() {
                     {/* Allowances Card */}
                     <StyledView
                         className="rounded-2xl p-4 mb-3 border"
-                        style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                        style={{
+                            backgroundColor: surfaceColor,
+                            borderColor: borderColor,
+                            opacity: streaksEnabled ? 1 : 0.4
+                        }}
                     >
                         <ThemedText size="sm" className="font-n-bold uppercase tracking-wide mb-3 opacity-60">Your Allowances</ThemedText>
 
@@ -273,7 +277,7 @@ export default function ManageSubscriptionScreen() {
                                 <Flame size={20} color="#f59e0b" />
                             </StyledView>
                             <StyledView className="flex-1">
-                                <ThemedText size="base" className="font-n-bold mb-1">Streak Savers</ThemedText>
+                                <ThemedText size="base" className="font-n-bold mb-1">Streak Savers - Monthly</ThemedText>
                                 <ThemedText size="sm" className="opacity-80 mb-1">
                                     {regionLabel}: <ThemedText className="font-n-semibold">{Math.max(0, effectiveStreakSavers - regionUsed)} of {effectiveStreakSavers} remaining</ThemedText>
                                 </ThemedText>
@@ -289,7 +293,7 @@ export default function ManageSubscriptionScreen() {
                                 <Umbrella size={20} color="#3b82f6" />
                             </StyledView>
                             <StyledView className="flex-1">
-                                <ThemedText size="base" className="font-n-bold mb-1">Holiday Mode</ThemedText>
+                                <ThemedText size="base" className="font-n-bold mb-1">Holiday Mode - Annual</ThemedText>
                                 <ThemedText size="sm" className="opacity-80">
                                     {holidayDurationDays}-day protection: <ThemedText className="font-n-semibold">{holidaysRemaining} of {holidaysTotal} remaining</ThemedText>
                                 </ThemedText>
@@ -300,7 +304,12 @@ export default function ManageSubscriptionScreen() {
                     {/* Holiday Mode Control */}
                     <StyledView
                         className="rounded-2xl p-4 border"
-                        style={{ backgroundColor: useThemeColor({ dark: '#1e3a8a20', light: '#eff6ff' }, 'background'), borderColor: useThemeColor({ dark: '#1e3a8a', light: '#bfdbfe' }, 'border') }}
+                        style={{
+                            backgroundColor: useThemeColor({ dark: '#1e3a8a20', light: '#eff6ff' }, 'background'),
+                            borderColor: useThemeColor({ dark: '#1e3a8a', light: '#bfdbfe' }, 'border'),
+                            opacity: streaksEnabled ? 1 : 0.4
+                        }}
+                        pointerEvents={streaksEnabled ? 'auto' : 'none'}
                     >
                         <StyledView className="flex-row items-center mb-2">
                             <Umbrella size={20} color="#2563eb" style={{ marginRight: 8 }} />

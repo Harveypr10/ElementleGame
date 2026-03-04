@@ -38,11 +38,11 @@ export function useStreakSaverStatus(todaysPuzzleDate?: string) {
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const { streakSavers, holidaySavers, holidayDurationDays, isPro } = useSubscription();
-    const { streakSaverActive, holidaySaverActive } = useOptions();
+    const { streakSaverActive, holidaySaverActive, streaksEnabled } = useOptions();
 
     // Fetch streak saver status from database
     const { data: status, isLoading, isFetching, refetch } = useQuery({
-        queryKey: ['streak-saver-status', user?.id, todaysPuzzleDate, streakSaverActive, holidaySaverActive],
+        queryKey: ['streak-saver-status', user?.id, todaysPuzzleDate, streakSaverActive, holidaySaverActive, streaksEnabled],
         queryFn: async () => {
             if (!user) return null;
 
@@ -281,7 +281,7 @@ export function useStreakSaverStatus(todaysPuzzleDate?: string) {
                 return null;
             }
         },
-        enabled: !!user,
+        enabled: !!user && streaksEnabled, // Disable all streak saver logic when streaks are off
         staleTime: 0, // Always fetch fresh data to avoid stale popups
     });
 

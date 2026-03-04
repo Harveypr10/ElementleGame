@@ -43,6 +43,9 @@ type OptionsContextType = {
     setGameMode: (mode: GameMode) => void;
 
     // Streak Protection
+    streaksEnabled: boolean;
+    setStreaksEnabled: (enabled: boolean) => void;
+
     streakSaverActive: boolean;
     toggleStreakSaver: () => void;
 
@@ -97,6 +100,8 @@ const OptionsContext = createContext<OptionsContextType>({
     gameMode: 'REGION',
     setGameMode: () => { },
 
+    streaksEnabled: true,
+    setStreaksEnabled: () => { },
     streakSaverActive: true,
     toggleStreakSaver: () => { },
     holidaySaverActive: true,
@@ -143,6 +148,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [dateFormatOrder, setDateFormatOrderState] = useState<DateFormatOrder>('ddmmyy');
     const [streakSaverActive, setStreakSaverActive] = useState(true);
     const [holidaySaverActive, setHolidaySaverActive] = useState(true);
+    const [streaksEnabled, setStreaksEnabledState] = useState(true);
 
     // Notification Reminder States (local-only)
     const [reminderEnabled, setReminderEnabledState] = useState(false);
@@ -358,6 +364,9 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
             const storedHolidaySaver = await AsyncStorage.getItem('opt_holiday_saver_active');
             if (storedHolidaySaver !== null) setHolidaySaverActive(storedHolidaySaver === 'true');
+
+            const storedStreaksEnabled = await AsyncStorage.getItem('opt_streaks_enabled');
+            if (storedStreaksEnabled !== null) setStreaksEnabledState(storedStreaksEnabled === 'true');
 
             const storedQuickMenu = await AsyncStorage.getItem('opt_quick_menu');
             if (storedQuickMenu !== null) setQuickMenuEnabled(storedQuickMenu === 'true');
@@ -643,6 +652,43 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // Set streaks enabled/disabled
+    const setStreaksEnabled = async (enabled: boolean) => {
+        console.log('[Options] setStreaksEnabled:', enabled);
+        setStreaksEnabledState(enabled);
+        await AsyncStorage.setItem('opt_streaks_enabled', String(enabled));
+
+        // When disabling streaks, also disable streak saver and holiday saver
+        if (!enabled) {
+            if (streakSaverActive) {
+                setStreakSaverActive(false);
+                await AsyncStorage.setItem('opt_streak_saver_active', 'false');
+            }
+            if (holidaySaverActive) {
+                setHolidaySaverActive(false);
+                await AsyncStorage.setItem('opt_holiday_saver_active', 'false');
+            }
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ streaks_enabled: false, streak_saver_active: false, holiday_saver_active: false } as any)
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error disabling streaks:', error) });
+            }
+        } else {
+            // Re-enable streak saver and holiday saver when streaks are turned back on
+            setStreakSaverActive(true);
+            await AsyncStorage.setItem('opt_streak_saver_active', 'true');
+            setHolidaySaverActive(true);
+            await AsyncStorage.setItem('opt_holiday_saver_active', 'true');
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ streaks_enabled: true, streak_saver_active: true, holiday_saver_active: true } as any)
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error enabling streaks:', error) });
+            }
+        }
+    };
+
     return (
         <OptionsContext.Provider value={{
             textSize, setTextSize,
@@ -653,6 +699,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             dateLength, setDateLength,
             dateFormatOrder, setDateFormatOrder,
             gameMode: gameModeState, setGameMode,
+            streaksEnabled, setStreaksEnabled,
             streakSaverActive, toggleStreakSaver,
             holidaySaverActive, toggleHolidaySaver,
             quickMenuEnabled, toggleQuickMenu,
