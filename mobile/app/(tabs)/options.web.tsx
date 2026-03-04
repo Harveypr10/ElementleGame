@@ -139,8 +139,8 @@ export default function OptionsWeb() {
                         <Text style={styles.settingLabel}>Format Order</Text>
                         <SegmentControl
                             options={[
-                                { label: 'DD/MM/YY', value: 'ddmmyy' as DateFormatOrder },
-                                { label: 'MM/DD/YY', value: 'mmddyy' as DateFormatOrder },
+                                { label: dateLength === 8 ? 'DD/MM/YYYY' : 'DD/MM/YY', value: 'ddmmyy' as DateFormatOrder },
+                                { label: dateLength === 8 ? 'MM/DD/YYYY' : 'MM/DD/YY', value: 'mmddyy' as DateFormatOrder },
                             ]}
                             selected={dateFormatOrder}
                             onSelect={setDateFormatOrder}

@@ -68,6 +68,7 @@ export default function LoginPage() {
     const subscribeFirst = params.subscribeFirst === '1';
     const fromGuest = params.fromGuest === '1';
     const intent = params.intent as string | undefined;
+    const fromLeague = params.fromLeague === '1';
 
     const { darkMode: isDarkMode } = useOptions();
     const { signInWithEmail, signUpWithEmail, markSigningIn } = useAuth();
@@ -86,6 +87,8 @@ export default function LoginPage() {
 
     // Promo banner for guests coming from game-result
     const [showPromoBanner, setShowPromoBanner] = useState(false);
+    const [showLeagueBanner, setShowLeagueBanner] = useState(false);
+    const leagueBannerAnim = useRef(new Animated.Value(250)).current;
     const insets = useSafeAreaInsets();
     const promoBannerAnim = useRef(new Animated.Value(250)).current; // starts off-screen (below)
 
@@ -117,6 +120,34 @@ export default function LoginPage() {
             };
         }
     }, [fromGuest, step]);
+
+    // League invitation banner (similar to guest promo banner)
+    useEffect(() => {
+        if (fromLeague && step === 'email') {
+            const showTimer = setTimeout(() => {
+                setShowLeagueBanner(true);
+                Animated.spring(leagueBannerAnim, {
+                    toValue: 0,
+                    damping: 18,
+                    stiffness: 120,
+                    useNativeDriver: true,
+                }).start();
+            }, 400);
+
+            const hideTimer = setTimeout(() => {
+                Animated.timing(leagueBannerAnim, {
+                    toValue: 250,
+                    duration: 300,
+                    useNativeDriver: true,
+                }).start(() => setShowLeagueBanner(false));
+            }, 8400);
+
+            return () => {
+                clearTimeout(showTimer);
+                clearTimeout(hideTimer);
+            };
+        }
+    }, [fromLeague, step]);
 
     // Check Apple Sign-In availability on mount
     useEffect(() => {
@@ -564,7 +595,7 @@ export default function LoginPage() {
                         <ChevronLeft size={28} color={textColor} />
                     </TouchableOpacity>
                     <ThemedText size="2xl" className="font-n-bold" style={{ textAlign: 'center', lineHeight: 28 }}>
-                        {fromGuest ? 'Create a Free Account\nor Log in' : intent === 'signup' ? 'Create Account' : 'Log in'}
+                        {(fromGuest || fromLeague) ? 'Create a Free Account\nor Log in' : intent === 'signup' ? 'Create Account' : 'Log in'}
                     </ThemedText>
                     <View style={styles.headerSpacer} />
                 </View>
@@ -996,6 +1027,68 @@ export default function LoginPage() {
                         maxWidth: 320,
                     }}>
                         Create a free account or log in to save game data, explore the archive and play personalised puzzles
+                    </Text>
+                </Animated.View>
+            )}
+
+            {/* League Invitation Banner — slides up from bottom */}
+            {showLeagueBanner && (
+                <Animated.View style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    transform: [{ translateY: leagueBannerAnim }],
+                    backgroundColor: '#8E57DB',
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    paddingHorizontal: 24,
+                    paddingTop: 20,
+                    paddingBottom: Platform.OS === 'android' ? Math.max(36, insets.bottom + 16) : 36,
+                    alignItems: 'center',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: -4 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 12,
+                    elevation: 10,
+                }}>
+                    <TouchableOpacity
+                        onPress={() => {
+                            Animated.timing(leagueBannerAnim, {
+                                toValue: 250,
+                                duration: 300,
+                                useNativeDriver: true,
+                            }).start(() => setShowLeagueBanner(false));
+                        }}
+                        style={{ position: 'absolute', top: 12, right: 16, padding: 4 }}
+                    >
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
+                    </TouchableOpacity>
+                    <Image
+                        source={require('../../assets/ui/webp_assets/Login-Hamster-White.webp')}
+                        style={{ width: 80, height: 80, marginBottom: 12 }}
+                        contentFit="contain"
+                    />
+                    <Text style={{
+                        color: '#FFFFFF',
+                        fontSize: 20,
+                        fontFamily: 'Nunito_700Bold',
+                        fontWeight: '700',
+                        textAlign: 'center',
+                        marginBottom: 6,
+                    }}>
+                        League invitation!
+                    </Text>
+                    <Text style={{
+                        color: '#FFFFFF',
+                        fontSize: 16,
+                        fontFamily: 'Nunito_500Medium',
+                        fontWeight: '500',
+                        textAlign: 'center',
+                        lineHeight: 22,
+                        maxWidth: 320,
+                    }}>
+                        Sign in or create an account to join the league
                     </Text>
                 </Animated.View>
             )}

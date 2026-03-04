@@ -43,6 +43,8 @@ export type LeagueWithMembership = League & {
     is_active_user: boolean;
     has_region_board: boolean;
     has_user_board: boolean;
+    admin_display_name?: string;
+    admin_tag?: string;
 };
 
 export type LeagueMember = {

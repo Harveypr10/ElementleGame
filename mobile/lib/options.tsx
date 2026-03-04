@@ -192,12 +192,33 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     }, []); // Empty deps = run once on mount
 
     // Sync with Supabase when User becomes available
+    // When user signs OUT, revert to device display settings
     useEffect(() => {
         if (user) {
             console.log('[Options] User available, syncing settings...');
             syncWithSupabase();
+        } else {
+            // Signed out: always follow device's light/dark setting
+            const deviceScheme = Appearance.getColorScheme();
+            const deviceIsDark = deviceScheme === 'dark';
+            console.log('[Options] No user — defaulting to device scheme:', deviceScheme);
+            setDarkModeState(deviceIsDark);
+            setColorScheme(deviceIsDark ? 'dark' : 'light');
         }
     }, [user]);
+
+    // Listen for device appearance changes — apply when signed out or useDeviceDisplay is on
+    useEffect(() => {
+        const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+            if (!user || useDeviceDisplay) {
+                const deviceIsDark = colorScheme === 'dark';
+                console.log('[Options] Device appearance changed:', { colorScheme, applyReason: !user ? 'signed-out' : 'useDeviceDisplay' });
+                setDarkModeState(deviceIsDark);
+                setColorScheme(deviceIsDark ? 'dark' : 'light');
+            }
+        });
+        return () => subscription.remove();
+    }, [user, useDeviceDisplay, setColorScheme]);
 
     const syncWithSupabase = async () => {
         if (!user) return;
@@ -479,12 +500,13 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
     // Sync dark mode with device (called from Home screen on focus)
     const syncDarkModeWithDevice = () => {
-        if (!useDeviceDisplay) return;
+        // Always sync when signed out, or when useDeviceDisplay is enabled
+        if (!useDeviceDisplay && user) return;
         const deviceScheme = Appearance.getColorScheme();
         if (!deviceScheme) return;
         const deviceIsDark = deviceScheme === 'dark';
         if (deviceIsDark !== darkMode) {
-            console.log('[Options] Device display changed, syncing dark mode:', { deviceIsDark, wasDark: darkMode });
+            console.log('[Options] Device display changed, syncing dark mode:', { deviceIsDark, wasDark: darkMode, signedOut: !user });
             setDarkModeState(deviceIsDark);
             setColorScheme(deviceIsDark ? 'dark' : 'light');
             AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));

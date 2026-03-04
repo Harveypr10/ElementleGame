@@ -11,19 +11,20 @@
  * - Create + Join league buttons
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     View,
     Text,
-    TextInput,
     TouchableOpacity,
     ScrollView,
-    ActivityIndicator,
     Alert,
+    TextInput,
+    ActivityIndicator,
+    Platform,
+    Dimensions,
     Switch,
     Share,
-    Dimensions,
-    Platform,
 } from 'react-native';
 import { styled } from 'nativewind';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,7 +33,7 @@ import * as Clipboard from 'expo-clipboard';
 import {
     ChevronLeft, ChevronDown, ChevronUp, Trophy, Plus, Users,
     Pencil, Check, X, LogOut, Trash2, RotateCcw, Shield, Copy, Share2,
-    UserX,
+    UserX, ArrowUp, ArrowDown, GripVertical,
 } from 'lucide-react-native';
 import { useAuth } from '../../lib/auth';
 import { useProfile } from '../../hooks/useProfile';
@@ -60,6 +61,8 @@ import {
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { ThemedView } from '../../components/ThemedView';
 import { ThemedText } from '../../components/ThemedText';
+import { useOptions } from '../../lib/options';
+import { useLeague } from '../../contexts/LeagueContext';
 
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
@@ -194,7 +197,14 @@ function AdminMemberRow({
 
 // ─── Per-League Card ────────────────────────────────────────────────────
 
-function LeagueManageCard({ league }: { league: LeagueWithMembership }) {
+function LeagueManageCard({ league, reorderMode, onMoveUp, onMoveDown, isFirst, isLast }: {
+    league: LeagueWithMembership;
+    reorderMode?: boolean;
+    onMoveUp?: () => void;
+    onMoveDown?: () => void;
+    isFirst?: boolean;
+    isLast?: boolean;
+}) {
     const { user } = useAuth();
     const { profile } = useProfile();
     const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
@@ -214,6 +224,13 @@ function LeagueManageCard({ league }: { league: LeagueWithMembership }) {
     const [expanded, setExpanded] = useState(false);
     const [editing, setEditing] = useState(false);
     const [nickname, setNickname] = useState(league.league_nickname || '');
+
+    // Helper: reset League screen saved state so it shows first league / current month
+    const clearLeagueScreenState = useCallback(() => {
+        if (user?.id) {
+            AsyncStorage.removeItem(`league_screen_state_${user.id}`).catch(() => { });
+        }
+    }, [user?.id]);
     const [copied, setCopied] = useState(false);
 
     const isAdmin = league.admin_user_id === user?.id;
@@ -225,7 +242,9 @@ function LeagueManageCard({ league }: { league: LeagueWithMembership }) {
     );
 
     const joinLink = league.join_code ? `https://elementle.tech/league/join/${league.join_code}` : '';
-    const shareMessage = `Join my Elementle league "${league.name}"! 🧩🏆\n\nElementle is a daily puzzle game where you guess historical dates.\n\nJoin code: ${league.join_code}\n\nOr tap this link to join:\n${joinLink}`;
+    const shareMessage = isAdmin
+        ? `Join my Elementle league "${league.name}"! 🧩🏆\n\nElementle is a daily puzzle game where you guess historical dates.\n\nJoin code: ${league.join_code}\n\nOr tap this link to join:\n${joinLink}`
+        : `Join the Elementle league I'm in - "${league.name}"! 🧩🏆\n\nElementle is a daily puzzle game where you guess historical dates.\n\nJoin code: ${league.join_code}\n\nOr tap this link to join:\n${joinLink}`;
 
     // Independent "All" toggle state — only changes on explicit "All" toggle click,
     // NOT when individual member toggles change.
@@ -278,7 +297,10 @@ function LeagueManageCard({ league }: { league: LeagueWithMembership }) {
                     text: 'Leave',
                     style: 'destructive',
                     onPress: async () => {
-                        try { await leaveLeague.mutateAsync(league.id); }
+                        try {
+                            await leaveLeague.mutateAsync(league.id);
+                            clearLeagueScreenState();
+                        }
                         catch (e: any) { Alert.alert('Error', e?.message || 'Failed to leave league'); }
                     },
                 },
@@ -292,7 +314,10 @@ function LeagueManageCard({ league }: { league: LeagueWithMembership }) {
     };
 
     const handleLeaveMode = async (mode: GameMode) => {
-        try { await leaveMode.mutateAsync({ leagueId: league.id, gameMode: mode }); }
+        try {
+            await leaveMode.mutateAsync({ leagueId: league.id, gameMode: mode });
+            clearLeagueScreenState();
+        }
         catch (e: any) { Alert.alert('Error', e?.message || `Failed to leave ${mode} board`); }
     };
 
@@ -311,8 +336,14 @@ function LeagueManageCard({ league }: { league: LeagueWithMembership }) {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: async () => {
-                        try { await deleteMembership.mutateAsync(league.id); }
-                        catch (e: any) { Alert.alert('Error', e?.message || 'Failed to delete'); }
+                        try {
+                            // Ensure is_active is false before deleting (RPC requires it)
+                            if (league.is_active) {
+                                await leaveLeague.mutateAsync(league.id);
+                            }
+                            await deleteMembership.mutateAsync(league.id);
+                            clearLeagueScreenState();
+                        } catch (e: any) { Alert.alert('Error', e?.message || 'Failed to delete'); }
                     },
                 },
             ]
@@ -356,37 +387,38 @@ function LeagueManageCard({ league }: { league: LeagueWithMembership }) {
             {/* Header row */}
             <TouchableOpacity
                 style={{ flexDirection: 'row', alignItems: 'center', padding: 16, gap: 10 }}
-                onPress={() => setExpanded(!expanded)}
+                onPress={reorderMode ? undefined : () => setExpanded(!expanded)}
+                activeOpacity={reorderMode ? 1 : 0.7}
             >
                 <Trophy size={20} color="#b45309" />
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <Text style={{ fontSize: 16, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>
                         {league.name}
                     </Text>
-                    {isAdmin && (
+                    {!reorderMode && isAdmin && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#b45309', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
                             <Shield size={10} color="#fff" />
                             <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>Admin</Text>
                         </View>
                     )}
-                    {isAdminDeleted && (
+                    {!reorderMode && isAdminDeleted && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#ef4444', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
                             <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>Deleted by Admin</Text>
                         </View>
                     )}
                 </View>
-                {league.is_system_league && (
+                {!reorderMode && league.is_system_league && (
                     <View style={{ backgroundColor: '#1d4ed8', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
                         <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>System</Text>
                     </View>
                 )}
-                {!league.is_active && (
+                {!reorderMode && !league.is_active && (
                     <View style={{ backgroundColor: '#94a3b8', borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
                         <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>Left</Text>
                     </View>
                 )}
                 {/* Delete button for non-admin who left both boards, or Remove button for admin-deleted leagues */}
-                {!league.is_system_league && !isAdmin && (leftAllBoards || isAdminDeleted) && (
+                {!reorderMode && !league.is_system_league && !isAdmin && (leftAllBoards || isAdminDeleted) && (
                     <TouchableOpacity
                         onPress={isAdminDeleted ? handleDelete : handleDelete}
                         disabled={deleteMembership.isPending}
@@ -402,11 +434,34 @@ function LeagueManageCard({ league }: { league: LeagueWithMembership }) {
                         </Text>
                     </TouchableOpacity>
                 )}
-                {expanded ? <ChevronUp size={20} color={iconColor} /> : <ChevronDown size={20} color={iconColor} />}
+                {/* Reorder mode: show up/down arrows inline */}
+                {reorderMode ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <TouchableOpacity
+                            onPress={onMoveUp}
+                            disabled={isFirst}
+                            style={{ opacity: isFirst ? 0.3 : 1, padding: 6 }}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <ArrowUp size={20} color={iconColor} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={onMoveDown}
+                            disabled={isLast}
+                            style={{ opacity: isLast ? 0.3 : 1, padding: 6 }}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <ArrowDown size={20} color={iconColor} />
+                        </TouchableOpacity>
+                        <GripVertical size={20} color={iconColor} style={{ opacity: 0.4 }} />
+                    </View>
+                ) : !reorderMode ? (
+                    expanded ? <ChevronUp size={20} color={iconColor} /> : <ChevronDown size={20} color={iconColor} />
+                ) : null}
             </TouchableOpacity>
 
-            {/* Expanded content */}
-            {expanded && (
+            {/* Expanded content — hidden in reorder mode */}
+            {expanded && !reorderMode && (
                 <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 14 }}>
                     {/* Nickname section */}
                     <View>
@@ -453,6 +508,16 @@ function LeagueManageCard({ league }: { league: LeagueWithMembership }) {
                             {league.member_count ?? '—'} active members
                         </Text>
                     </View>
+
+                    {/* Admin info — show to non-admins */}
+                    {!isAdmin && league.admin_display_name && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Shield size={14} color="#b45309" />
+                            <Text style={{ fontSize: 12, fontFamily: 'Nunito_400Regular', color: iconColor }}>
+                                Admin: {league.admin_display_name}{league.admin_tag ? ` ${league.admin_tag}` : ''}
+                            </Text>
+                        </View>
+                    )}
 
                     {/* ── Admin Panel: Member List ── */}
                     {isAdmin && league.is_active && (
@@ -696,15 +761,181 @@ export default function ManageLeaguesScreen() {
     const { data: leagues, isLoading } = useMyLeaguesAll();
     const { data: globalIdentity } = useGlobalIdentity();
     const setGlobalIdentity = useSetGlobalIdentity();
+    const { pendingLeagueInviteRegion, pendingLeagueInviteUser } = useLeague();
+    const { profile } = useProfile();
+    const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
 
     const [editingGlobal, setEditingGlobal] = useState(false);
     const [globalName, setGlobalName] = useState('');
+    const [reorderMode, setReorderMode] = useState(false);
+    const [orderedLeagueIds, setOrderedLeagueIds] = useState<string[]>([]);
+    const orderInitialisedRef = useRef(false);
+
+    // Load saved league order from AsyncStorage
+    useEffect(() => {
+        if (!user?.id) return;
+        AsyncStorage.getItem(`league_order_${user.id}`).then(saved => {
+            if (saved) {
+                try { setOrderedLeagueIds(JSON.parse(saved)); } catch { }
+            }
+        });
+    }, [user?.id]);
+
+    // When leagues load, merge with saved order
+    useEffect(() => {
+        if (!leagues || leagues.length === 0 || orderInitialisedRef.current) return;
+        orderInitialisedRef.current = true;
+        const allIds = (leagues as LeagueWithMembership[]).map(l => l.id);
+        setOrderedLeagueIds(prev => {
+            if (prev.length === 0) return allIds;
+            // Keep saved order for existing leagues, append new ones at end
+            const ordered = prev.filter(id => allIds.includes(id));
+            const newIds = allIds.filter(id => !ordered.includes(id));
+            return [...ordered, ...newIds];
+        });
+    }, [leagues]);
+
+    // Sort leagues by saved order
+    const sortedLeagues = React.useMemo(() => {
+        if (!leagues) return [];
+        const leagueArr = leagues as LeagueWithMembership[];
+        // System leagues always first, in their original order
+        // Sort ALL leagues by saved order
+        const sorted = [...(leagueArr as LeagueWithMembership[])].sort((a, b) => {
+            const idxA = orderedLeagueIds.indexOf(a.id);
+            const idxB = orderedLeagueIds.indexOf(b.id);
+            return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+        });
+        return sorted;
+    }, [leagues, orderedLeagueIds]);
+
+    // Save order to AsyncStorage
+    const saveOrder = useCallback(async (ids: string[]) => {
+        if (!user?.id) return;
+        setOrderedLeagueIds(ids);
+        await AsyncStorage.setItem(`league_order_${user.id}`, JSON.stringify(ids));
+    }, [user?.id]);
+
+    const handleMoveUp = useCallback((leagueId: string) => {
+        const ids = sortedLeagues.map(l => l.id);
+        const idx = ids.indexOf(leagueId);
+        if (idx <= 0) return;
+        [ids[idx - 1], ids[idx]] = [ids[idx], ids[idx - 1]];
+        saveOrder(ids);
+    }, [sortedLeagues, saveOrder]);
+
+    const handleMoveDown = useCallback((leagueId: string) => {
+        const ids = sortedLeagues.map(l => l.id);
+        const idx = ids.indexOf(leagueId);
+        if (idx === -1 || idx >= ids.length - 1) return;
+        [ids[idx], ids[idx + 1]] = [ids[idx + 1], ids[idx]];
+        saveOrder(ids);
+    }, [sortedLeagues, saveOrder]);
+
+    // ── Leave All Leagues toggle ──
+    const { leagueTablesEnabled, toggleLeagueTables } = useOptions();
+    const leaveLeague = useLeaveLeague();
+    const rejoinLeague = useRejoinLeague();
+    const [leavingAll, setLeavingAll] = useState(false);
+
+    // Independent toggle state — only changes when user explicitly toggles it
+    const [removeAllToggle, setRemoveAllToggle] = useState(false);
+
+    // Computed: are all leagues fully left? (for Options auto-disable only, NOT for the toggle)
+    const allLeaguesFullyLeft = React.useMemo(() => {
+        if (!leagues || leagues.length === 0) return false;
+        return (leagues as LeagueWithMembership[]).every(l => {
+            if (!l.is_active) return true;
+            const regionLeft = !l.has_region_board || !l.is_active_region;
+            const userLeft = !l.has_user_board || !l.is_active_user;
+            return regionLeft && userLeft;
+        });
+    }, [leagues]);
+
+    const handleBackPress = useCallback(() => {
+        if (reorderMode) {
+            setReorderMode(false);
+        }
+        // If all leagues are left, redirect to Settings instead of back to Leagues screen
+        if (removeAllToggle || allLeaguesFullyLeft) {
+            router.replace('/(tabs)/settings');
+        } else {
+            router.back();
+        }
+    }, [reorderMode, router, removeAllToggle, allLeaguesFullyLeft]);
+
+    const handleToggleRemoveAll = useCallback(async () => {
+        if (removeAllToggle) {
+            // Turning OFF — rejoin all, no confirmation needed
+            setLeavingAll(true);
+            try {
+                const leagueArr = leagues as LeagueWithMembership[];
+                for (const league of leagueArr) {
+                    if (!league.is_active) {
+                        await rejoinLeague.mutateAsync(league.id);
+                    }
+                }
+                // Turn league tables back on
+                if (!leagueTablesEnabled) toggleLeagueTables();
+                setRemoveAllToggle(false);
+            } catch (e: any) {
+                Alert.alert('Error', e?.message || 'Failed to rejoin leagues');
+            } finally {
+                setLeavingAll(false);
+            }
+        } else {
+            // Turning ON — leave all, confirmation required
+            Alert.alert(
+                'Are you sure?',
+                'Are you sure you want to leave all leagues?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Continue',
+                        style: 'destructive',
+                        onPress: async () => {
+                            setLeavingAll(true);
+                            try {
+                                const leagueArr = leagues as LeagueWithMembership[];
+                                for (const league of leagueArr) {
+                                    if (league.is_active) {
+                                        await leaveLeague.mutateAsync(league.id);
+                                    }
+                                }
+                                // Turn off league tables on home screen
+                                if (leagueTablesEnabled) toggleLeagueTables();
+                                setRemoveAllToggle(true);
+                                // Reset Leagues screen state
+                                if (user?.id) AsyncStorage.removeItem(`league_screen_state_${user.id}`).catch(() => { });
+                            } catch (e: any) {
+                                Alert.alert('Error', e?.message || 'Failed to leave leagues');
+                            } finally {
+                                setLeavingAll(false);
+                            }
+                        },
+                    },
+                ]
+            );
+        }
+    }, [removeAllToggle, leagues, leaveLeague, rejoinLeague, leagueTablesEnabled, toggleLeagueTables]);
 
     useEffect(() => {
         if (globalIdentity?.global_display_name && !globalName) {
             setGlobalName(globalIdentity.global_display_name);
         }
     }, [globalIdentity]);
+
+    // Auto-sync League Tables toggle when all leagues become fully left (e.g. manual leave-all)
+    const prevFullyLeftRef = useRef(allLeaguesFullyLeft);
+    useEffect(() => {
+        if (prevFullyLeftRef.current === allLeaguesFullyLeft) return;
+        prevFullyLeftRef.current = allLeaguesFullyLeft;
+        if (allLeaguesFullyLeft && leagueTablesEnabled) {
+            toggleLeagueTables();
+        } else if (!allLeaguesFullyLeft && !leagueTablesEnabled) {
+            toggleLeagueTables();
+        }
+    }, [allLeaguesFullyLeft]);
 
     const handleSaveGlobalName = async () => {
         if (!globalName.trim()) return;
@@ -722,7 +953,7 @@ export default function ManageLeaguesScreen() {
                 {/* Header */}
                 <StyledView className="flex-row items-center justify-center relative px-4 py-3" style={{ flexDirection: 'row' }}>
                     <StyledTouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={handleBackPress}
                         style={{ position: 'absolute', left: 16, zIndex: 10, padding: 8 }}
                         hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                     >
@@ -738,7 +969,9 @@ export default function ManageLeaguesScreen() {
                     style={{
                         backgroundColor: surfaceColor, borderRadius: 12, borderWidth: 1,
                         borderColor, padding: 16, gap: 8,
+                        opacity: removeAllToggle ? 0.35 : 1,
                     }}
+                    pointerEvents={removeAllToggle ? 'none' : 'auto'}
                 >
                     <Text style={{ fontSize: 11, fontFamily: 'Nunito_700Bold', color: iconColor, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                         Your identity
@@ -794,16 +1027,46 @@ export default function ManageLeaguesScreen() {
                         </ThemedText>
                     </StyledView>
                 ) : (
-                    <>
-                        {(leagues as LeagueWithMembership[]).map((league) => (
-                            <LeagueManageCard key={league.id} league={league} />
-                        ))}
-                    </>
+                    <View style={{ opacity: removeAllToggle ? 0.35 : 1 }} pointerEvents={removeAllToggle ? 'none' : 'auto'}>
+                        {sortedLeagues.map((league, index) => {
+                            return (
+                                <LeagueManageCard
+                                    key={league.id}
+                                    league={league}
+                                    reorderMode={reorderMode}
+                                    onMoveUp={() => handleMoveUp(league.id)}
+                                    onMoveDown={() => handleMoveDown(league.id)}
+                                    isFirst={index === 0}
+                                    isLast={index === sortedLeagues.length - 1}
+                                />
+                            );
+                        })}
+                    </View>
                 )}
 
                 {/* Action Buttons */}
                 {!isLoading && (
-                    <StyledView style={{ marginTop: 8, gap: 10 }}>
+                    <StyledView style={{ marginTop: 8, gap: 10, opacity: removeAllToggle ? 0.35 : 1 }} pointerEvents={removeAllToggle ? 'none' : 'auto'}>
+                        {/* Re-order button — show when there are 2+ leagues */}
+                        {sortedLeagues.length > 1 && (
+                            <TouchableOpacity
+                                style={{
+                                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                                    paddingVertical: 14, borderRadius: 12, borderWidth: 1,
+                                    backgroundColor: reorderMode ? '#22c55e' : surfaceColor,
+                                    borderColor: reorderMode ? '#22c55e' : borderColor,
+                                }}
+                                onPress={() => setReorderMode(!reorderMode)}
+                            >
+                                <GripVertical size={18} color={reorderMode ? '#ffffff' : iconColor} />
+                                <Text style={{
+                                    color: reorderMode ? '#ffffff' : textColor,
+                                    fontSize: 15, fontWeight: '600', fontFamily: 'Nunito_600SemiBold',
+                                }}>
+                                    {reorderMode ? 'Done' : 'Re-order'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity
                             style={{
                                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
@@ -820,14 +1083,51 @@ export default function ManageLeaguesScreen() {
                             style={{
                                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
                                 paddingVertical: 14, borderRadius: 12, borderWidth: 1,
-                                backgroundColor: surfaceColor, borderColor,
+                                backgroundColor: '#e2e8f0', borderColor: '#e2e8f0',
                             }}
-                            onPress={() => router.push('/league/join')}
+                            onPress={() => {
+                                // Block manual join while per-mode invitations are pending
+                                if (pendingLeagueInviteRegion || pendingLeagueInviteUser) {
+                                    const editions: string[] = [];
+                                    if (pendingLeagueInviteRegion) editions.push(regionLabel);
+                                    if (pendingLeagueInviteUser) editions.push('Personal Edition');
+                                    const editionText = editions.join(' and ');
+                                    Alert.alert(
+                                        'Invitation Pending',
+                                        `You have a ${editionText} invitation waiting for you. Click the Leagues button on the home screen to join the league.`
+                                    );
+                                    return;
+                                }
+                                router.push('/league/join');
+                            }}
                         >
-                            <Users size={18} color={iconColor} />
-                            <Text style={{ color: textColor, fontSize: 15, fontWeight: '600', fontFamily: 'Nunito_600SemiBold' }}>Join a league</Text>
+                            <Users size={18} color="#475569" />
+                            <Text style={{ color: '#475569', fontSize: 15, fontWeight: '600', fontFamily: 'Nunito_600SemiBold' }}>Join a league</Text>
                         </TouchableOpacity>
                     </StyledView>
+                )}
+
+                {/* Remove myself from all leagues toggle */}
+                {!isLoading && leagues && leagues.length > 0 && (
+                    <View style={{ marginTop: 28, paddingBottom: 20 }}>
+                        <View style={{
+                            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                            backgroundColor: surfaceColor, borderRadius: 12, borderWidth: 1,
+                            borderColor, paddingHorizontal: 16, paddingVertical: 14,
+                        }}>
+                            <View style={{ flex: 1, paddingRight: 12 }}>
+                                <Text style={{ fontSize: 15, fontWeight: '600', fontFamily: 'Nunito_600SemiBold', color: '#ef4444' }}>
+                                    Remove myself from all leagues?
+                                </Text>
+                            </View>
+                            <Switch
+                                value={removeAllToggle}
+                                onValueChange={handleToggleRemoveAll}
+                                trackColor={{ false: '#cbd5e1', true: '#ef4444' }}
+                                thumbColor="#ffffff"
+                            />
+                        </View>
+                    </View>
                 )}
             </StyledScrollView>
         </ThemedView>

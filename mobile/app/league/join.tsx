@@ -14,8 +14,10 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     ActivityIndicator,
     KeyboardAvoidingView,
+    Keyboard,
     Platform,
     Alert,
     Animated,
@@ -70,7 +72,7 @@ export default function JoinLeagueScreen() {
     const iconColor = useThemeColor({}, 'icon');
     const highlightSurface = useThemeColor({ light: '#dbeafe', dark: '#1e3a5f' }, 'surface');
 
-    const { consumePendingJoinCode } = useLeague();
+    const { pendingJoinCode: ctxJoinCode, setNewlyJoinedLeagueId, setPendingJoinCode, pendingLeagueInviteRegion, pendingLeagueInviteUser } = useLeague();
     const joinLeague = useJoinLeague();
     const setGlobalIdentity = useSetGlobalIdentity();
     const { data: globalIdentity } = useGlobalIdentity();
@@ -86,12 +88,12 @@ export default function JoinLeagueScreen() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const confettiScale = useRef(new Animated.Value(0)).current;
 
-    // Auto-fill from deep link
+    // Auto-fill from deep link — read without consuming so the code remains
+    // available for the other game mode's invitation check in index.tsx
     useEffect(() => {
-        const code = consumePendingJoinCode();
-        if (code) {
-            console.log('[JoinLeague] Auto-filling join code from deep link:', code);
-            setJoinCode(code);
+        if (ctxJoinCode) {
+            console.log('[JoinLeague] Auto-filling join code from deep link:', ctxJoinCode);
+            setJoinCode(ctxJoinCode);
             setStep('name'); // Skip code entry
         }
     }, []);
@@ -144,6 +146,18 @@ export default function JoinLeagueScreen() {
                 displayName: displayName.trim(),
             });
 
+            // Success — store league ID for glow effect on league screen
+            if (result?.league_id) {
+                setNewlyJoinedLeagueId(result.league_id);
+            }
+
+            // Clear the pending join code ONLY if there are no remaining per-mode
+            // invite flags — otherwise keep it for the second mode's invite button
+            // on the home screen to match the league and skip to the league screen.
+            if (!pendingLeagueInviteRegion && !pendingLeagueInviteUser) {
+                setPendingJoinCode(null);
+            }
+
             // Success — show entry animation
             setStep('success');
 
@@ -194,143 +208,147 @@ export default function JoinLeagueScreen() {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
-                <StyledView className="flex-1 px-6 pt-10 items-center" style={{ maxWidth: 768, alignSelf: 'center', width: '100%' }}>
-                    {/* Hamster icon */}
-                    <View style={{ marginBottom: 24 }}>
-                        <Image source={WelcomeHamster} style={{ width: 80, height: 80 }} contentFit="contain" />
-                    </View>
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                    <StyledView className="flex-1 px-6 pt-10 items-center" style={{ maxWidth: 768, alignSelf: 'center', width: '100%' }}>
+                        {/* Hamster icon — hidden during success (success has its own animated hamster) */}
+                        {step !== 'success' && (
+                            <View style={{ marginBottom: 24 }}>
+                                <Image source={WelcomeHamster} style={{ width: 80, height: 80 }} contentFit="contain" />
+                            </View>
+                        )}
 
-                    {step === 'success' ? (
-                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-                                <Image source={WelcomeHamster} style={{ width: 100, height: 100 }} contentFit="contain" />
-                            </Animated.View>
+                        {step === 'success' ? (
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                                    <Image source={WelcomeHamster} style={{ width: 100, height: 100 }} contentFit="contain" />
+                                </Animated.View>
 
-                            <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], alignItems: 'center', marginTop: 24 }}>
-                                <ThemedText size="xl" className="font-n-extrabold text-center">You're in! 🎉</ThemedText>
-                                <ThemedText className="font-n-regular text-center" style={{ color: iconColor, marginBottom: 16 }}>
-                                    Welcome to the leaderboard
+                                <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }], alignItems: 'center', marginTop: 24 }}>
+                                    <ThemedText size="xl" className="font-n-extrabold text-center">You're in! 🎉</ThemedText>
+                                    <ThemedText className="font-n-regular text-center" style={{ color: iconColor, marginBottom: 16 }}>
+                                        Welcome to the leaderboard
+                                    </ThemedText>
+
+                                    {/* Mock rank card */}
+                                    <View style={{
+                                        flexDirection: 'row', alignItems: 'center',
+                                        paddingHorizontal: 20, paddingVertical: 14,
+                                        borderRadius: 12, width: '100%', gap: 12,
+                                        backgroundColor: highlightSurface,
+                                    }}>
+                                        <Text style={{ fontSize: 18, fontWeight: '700', fontFamily: 'Nunito_700Bold', width: 30, textAlign: 'center', color: '#1d4ed8' }}>—</Text>
+                                        <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>
+                                            {displayName} ★
+                                        </Text>
+                                        <Text style={{ fontSize: 16, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>—</Text>
+                                    </View>
+                                </Animated.View>
+
+                                <Animated.View style={{ transform: [{ scale: confettiScale }], marginTop: 20 }}>
+                                    <Text style={{ fontSize: 32 }}>🏆</Text>
+                                </Animated.View>
+                            </View>
+                        ) : step === 'code' ? (
+                            <>
+                                <ThemedText size="xl" className="font-n-extrabold text-center" style={{ marginBottom: 8 }}>
+                                    Enter join code
+                                </ThemedText>
+                                <ThemedText className="font-n-regular text-center" style={{ color: iconColor, marginBottom: 32, lineHeight: 20 }}>
+                                    Ask the league admin for the 8-character join code
                                 </ThemedText>
 
-                                {/* Mock rank card */}
-                                <View style={{
-                                    flexDirection: 'row', alignItems: 'center',
-                                    paddingHorizontal: 20, paddingVertical: 14,
-                                    borderRadius: 12, width: '100%', gap: 12,
-                                    backgroundColor: highlightSurface,
-                                }}>
-                                    <Text style={{ fontSize: 18, fontWeight: '700', fontFamily: 'Nunito_700Bold', width: 30, textAlign: 'center', color: '#1d4ed8' }}>—</Text>
-                                    <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>
-                                        {displayName} ★
-                                    </Text>
-                                    <Text style={{ fontSize: 16, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>—</Text>
-                                </View>
-                            </Animated.View>
+                                <StyledView
+                                    className="flex-row items-center border rounded-xl w-full"
+                                    style={{ backgroundColor: surfaceColor, borderColor, paddingHorizontal: 16, paddingVertical: 14, gap: 12, flexDirection: 'row' }}
+                                >
+                                    <KeyRound size={20} color={iconColor} />
+                                    <TextInput
+                                        style={{ flex: 1, fontSize: 16, fontFamily: 'Nunito_600SemiBold', color: textColor }}
+                                        value={joinCode}
+                                        onChangeText={(text) => { setJoinCode(text.toUpperCase()); setError(null); }}
+                                        placeholder="e.g. ABCD1234"
+                                        placeholderTextColor="#94a3b8"
+                                        autoCapitalize="characters"
+                                        autoCorrect={false}
+                                        maxLength={8}
+                                    />
+                                </StyledView>
 
-                            <Animated.View style={{ transform: [{ scale: confettiScale }], marginTop: 20 }}>
-                                <Text style={{ fontSize: 32 }}>🏆</Text>
-                            </Animated.View>
-                        </View>
-                    ) : step === 'code' ? (
-                        <>
-                            <ThemedText size="xl" className="font-n-extrabold text-center" style={{ marginBottom: 8 }}>
-                                Enter join code
-                            </ThemedText>
-                            <ThemedText className="font-n-regular text-center" style={{ color: iconColor, marginBottom: 32, lineHeight: 20 }}>
-                                Ask the league admin for the 8-character join code
-                            </ThemedText>
-
-                            <StyledView
-                                className="flex-row items-center border rounded-xl w-full"
-                                style={{ backgroundColor: surfaceColor, borderColor, paddingHorizontal: 16, paddingVertical: 14, gap: 12, flexDirection: 'row' }}
-                            >
-                                <KeyRound size={20} color={iconColor} />
-                                <TextInput
-                                    style={{ flex: 1, fontSize: 16, fontFamily: 'Nunito_600SemiBold', color: textColor }}
-                                    value={joinCode}
-                                    onChangeText={(text) => { setJoinCode(text.toUpperCase()); setError(null); }}
-                                    placeholder="e.g. ABCD1234"
-                                    placeholderTextColor="#94a3b8"
-                                    autoCapitalize="characters"
-                                    autoCorrect={false}
-                                    maxLength={8}
-                                />
-                            </StyledView>
-
-                            {error && (
-                                <Text style={{ color: '#ef4444', fontSize: 13, fontFamily: 'Nunito_500Medium', textAlign: 'center', marginTop: 12 }}>{error}</Text>
-                            )}
-
-                            <TouchableOpacity
-                                style={{
-                                    width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 16,
-                                    backgroundColor: joinCode.trim().length >= 4 ? '#1d4ed8' : borderColor,
-                                }}
-                                onPress={handleCodeSubmit}
-                                disabled={joinCode.trim().length < 4}
-                            >
-                                <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>Continue</Text>
-                            </TouchableOpacity>
-                        </>
-                    ) : (
-                        <>
-                            <ThemedText size="xl" className="font-n-extrabold text-center" style={{ marginBottom: 8 }}>
-                                Choose display name
-                            </ThemedText>
-                            <ThemedText className="font-n-regular text-center" style={{ color: iconColor, marginBottom: 32, lineHeight: 20 }}>
-                                This is how other players will see you on the leaderboard
-                            </ThemedText>
-
-                            <StyledView
-                                className="flex-row items-center border rounded-xl w-full"
-                                style={{ backgroundColor: surfaceColor, borderColor, paddingHorizontal: 16, paddingVertical: 14, gap: 12, flexDirection: 'row' }}
-                            >
-                                <UserCircle size={20} color={iconColor} />
-                                <TextInput
-                                    style={{ flex: 1, fontSize: 16, fontFamily: 'Nunito_600SemiBold', color: textColor }}
-                                    value={displayName}
-                                    onChangeText={(text) => {
-                                        // Only allow alphanumeric + spaces, max 15 chars
-                                        const filtered = text.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 15);
-                                        setDisplayName(filtered);
-                                        setError(null);
-                                    }}
-                                    placeholder="Your display name"
-                                    placeholderTextColor="#94a3b8"
-                                    autoCorrect={false}
-                                    maxLength={15}
-                                />
-                            </StyledView>
-
-                            <Text style={{ fontSize: 12, fontFamily: 'Nunito_400Regular', color: '#94a3b8', textAlign: 'center', marginTop: 8 }}>
-                                You can amend your display name within the Manage Leagues menu at any time.
-                            </Text>
-
-                            {error && (
-                                <Text style={{ color: '#ef4444', fontSize: 13, fontFamily: 'Nunito_500Medium', textAlign: 'center', marginTop: 12 }}>{error}</Text>
-                            )}
-
-                            <TouchableOpacity
-                                style={{
-                                    width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 16,
-                                    backgroundColor: displayName.trim().length > 0 ? '#1d4ed8' : borderColor,
-                                }}
-                                onPress={handleJoin}
-                                disabled={isJoining || !displayName.trim()}
-                            >
-                                {isJoining ? (
-                                    <ActivityIndicator color="#ffffff" />
-                                ) : (
-                                    <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>Join League</Text>
+                                {error && (
+                                    <Text style={{ color: '#ef4444', fontSize: 13, fontFamily: 'Nunito_500Medium', textAlign: 'center', marginTop: 12 }}>{error}</Text>
                                 )}
-                            </TouchableOpacity>
 
-                            <TouchableOpacity style={{ marginTop: 16, paddingVertical: 8 }} onPress={() => setStep('code')}>
-                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_500Medium', color: iconColor }}>← Back to code entry</Text>
-                            </TouchableOpacity>
-                        </>
-                    )}
-                </StyledView>
+                                <TouchableOpacity
+                                    style={{
+                                        width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 16,
+                                        backgroundColor: joinCode.trim().length >= 4 ? '#1d4ed8' : borderColor,
+                                    }}
+                                    onPress={handleCodeSubmit}
+                                    disabled={joinCode.trim().length < 4}
+                                >
+                                    <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>Continue</Text>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                <ThemedText size="xl" className="font-n-extrabold text-center" style={{ marginBottom: 8 }}>
+                                    Choose display name
+                                </ThemedText>
+                                <ThemedText className="font-n-regular text-center" style={{ color: iconColor, marginBottom: 32, lineHeight: 20 }}>
+                                    This is how other players will see you on the leaderboard
+                                </ThemedText>
+
+                                <StyledView
+                                    className="flex-row items-center border rounded-xl w-full"
+                                    style={{ backgroundColor: surfaceColor, borderColor, paddingHorizontal: 16, paddingVertical: 14, gap: 12, flexDirection: 'row' }}
+                                >
+                                    <UserCircle size={20} color={iconColor} />
+                                    <TextInput
+                                        style={{ flex: 1, fontSize: 16, fontFamily: 'Nunito_600SemiBold', color: textColor }}
+                                        value={displayName}
+                                        onChangeText={(text) => {
+                                            // Only allow alphanumeric + spaces, max 15 chars
+                                            const filtered = text.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 15);
+                                            setDisplayName(filtered);
+                                            setError(null);
+                                        }}
+                                        placeholder="Your display name"
+                                        placeholderTextColor="#94a3b8"
+                                        autoCorrect={false}
+                                        maxLength={15}
+                                    />
+                                </StyledView>
+
+                                <Text style={{ fontSize: 12, fontFamily: 'Nunito_400Regular', color: '#94a3b8', textAlign: 'center', marginTop: 8 }}>
+                                    You can amend your display name within the Manage Leagues menu at any time.
+                                </Text>
+
+                                {error && (
+                                    <Text style={{ color: '#ef4444', fontSize: 13, fontFamily: 'Nunito_500Medium', textAlign: 'center', marginTop: 12 }}>{error}</Text>
+                                )}
+
+                                <TouchableOpacity
+                                    style={{
+                                        width: '100%', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 16,
+                                        backgroundColor: displayName.trim().length > 0 ? '#1d4ed8' : borderColor,
+                                    }}
+                                    onPress={handleJoin}
+                                    disabled={isJoining || !displayName.trim()}
+                                >
+                                    {isJoining ? (
+                                        <ActivityIndicator color="#ffffff" />
+                                    ) : (
+                                        <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>Join League</Text>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={{ marginTop: 16, paddingVertical: 8 }} onPress={() => setStep('code')}>
+                                    <Text style={{ fontSize: 14, fontFamily: 'Nunito_500Medium', color: iconColor }}>← Back to code entry</Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </StyledView>
+                </TouchableWithoutFeedback>
             </KeyboardAvoidingView>
         </ThemedView>
     );

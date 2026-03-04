@@ -173,6 +173,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     const previousAdClosedRef = React.useRef(false);
     const [earnedBadgesState, setEarnedBadgesState] = React.useState<any[]>([]);
     const proNavigationTimerRef = React.useRef<NodeJS.Timeout | null>(null); // Store Pro user timer to cancel on manual Continue
+    const hasNavigatedRef = React.useRef(false); // Guard: prevents Pro timer from navigating if user already clicked Continue
     const wasInitiallyCompleteRef = React.useRef(wasInitiallyComplete); // Track latest value for async timer checks
 
     // Calculate effective streak to show in Intro
@@ -204,7 +205,9 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             // AND only if NOT in Holiday Mode (Holiday Modal takes precedence)
             if (gameState === 'playing' && guesses.length === 0 && !isRestored && skipIntro !== 'true') {
                 // Check if Holiday Mode (streakDayStatus === 0)
-                if (streakDayStatus !== 0) {
+                // Exception: streak saver games should ALWAYS show intro even though
+                // the safety net holiday row sets status to 0
+                if (streakDayStatus !== 0 || isStreakSaverGame) {
                     setIntroPhase('visible');
                 } else {
                     console.log('[ActiveGame] In Holiday Mode (Status 0) - Suppressing Intro to show Holiday Modal');
@@ -329,6 +332,11 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                     const capturedBadges = earnedBadges;
                     // Store timer ID so it can be cancelled if Continue is clicked
                     proNavigationTimerRef.current = setTimeout(() => {
+                        // Guard: if user manually clicked Continue before this fires, abort
+                        if (hasNavigatedRef.current) {
+                            console.log('[ActiveGame] Pro auto-nav timer fired but user already navigated — aborting');
+                            return;
+                        }
                         // Pass captured values directly to avoid stale state
                         navigateToResult(capturedStreak, capturedBadges);
                     }, 5000);
@@ -580,6 +588,8 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                                             clearTimeout(proNavigationTimerRef.current);
                                             proNavigationTimerRef.current = null;
                                         }
+                                        // Guard: mark that we've already navigated
+                                        hasNavigatedRef.current = true;
 
                                         setEarnedBadgesState(earnedBadges);
                                         setStreakToDisplay(displayStreak);

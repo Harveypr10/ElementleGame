@@ -8,6 +8,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useStreakSaverStatus } from '../../hooks/useStreakSaverStatus';
 import { useStreakSaver } from '../../contexts/StreakSaverContext';
 import { useToast } from '../../contexts/ToastContext';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../lib/auth';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useProfile } from '../../hooks/useProfile';
 import { useOptions } from '../../lib/options';
@@ -41,6 +43,7 @@ export function StreakSaverPopup({
     const router = useRouter();
     const { toast } = useToast();
     const { startStreakSaverSession } = useStreakSaver();
+    const { user } = useAuth();
     const { isPro } = useSubscription(); // Direct sub check
     const { holidaySaverActive } = useOptions();
     const {
@@ -215,10 +218,86 @@ export function StreakSaverPopup({
             hapticsManager.warning();
             return;
         }
+        if (!user) return;
 
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        // === SAFETY NET: Insert holiday row immediately ===
+        // This protects the streak before the user even starts playing.
+        // If they exit without playing, streak stays safe (holiday day).
+        // If they play, the game engine will convert it from holiday → played.
+        try {
+            const isRegion = gameType === 'REGION';
+            const attemptsTable = isRegion ? 'game_attempts_region' : 'game_attempts_user';
+            const allocTable = isRegion ? 'questions_allocated_region' : 'questions_allocated_user';
+            const allocIdCol = isRegion ? 'allocated_region_id' : 'allocated_user_id';
+            const statsTable = isRegion ? 'user_stats_region' : 'user_stats_user';
+            const missedFlagCol = isRegion ? 'missed_yesterday_flag_region' : 'missed_yesterday_flag_user';
+
+            // 1. Find yesterday's allocation
+            let allocQuery = supabase.from(allocTable).select('id').eq('puzzle_date', yesterdayStr);
+            if (isRegion) {
+                const userRegionVal = profile?.region || 'UK';
+                allocQuery = allocQuery.eq('region', userRegionVal);
+            } else {
+                allocQuery = allocQuery.eq('user_id', user.id);
+            }
+            const { data: allocation } = await allocQuery.maybeSingle();
+
+            if (allocation) {
+                // 2. Check if an attempt row already exists
+                const { data: existing } = await supabase
+                    .from(attemptsTable)
+                    .select('id, streak_day_status, result')
+                    .eq('user_id', user.id)
+                    .eq(allocIdCol, allocation.id)
+                    .maybeSingle();
+
+                if (existing) {
+                    if (existing.streak_day_status === null && existing.result === null) {
+                        // Partial row (started but not played) → set to holiday
+                        await supabase.from(attemptsTable)
+                            .update({ streak_day_status: 0, num_guesses: 0, completed_at: new Date().toISOString() })
+                            .eq('id', existing.id);
+                        console.log('[StreakSaver] Safety net: updated partial row to holiday');
+                    } else {
+                        console.log('[StreakSaver] Safety net: row already exists with status', existing.streak_day_status);
+                    }
+                } else {
+                    // No row exists → insert holiday row
+                    await supabase.from(attemptsTable).insert({
+                        user_id: user.id,
+                        [allocIdCol]: allocation.id,
+                        streak_day_status: 0,
+                        num_guesses: 0,
+                        result: null,
+                        completed_at: new Date().toISOString()
+                    });
+                    console.log('[StreakSaver] Safety net: inserted new holiday row');
+                }
+            } else {
+                console.warn('[StreakSaver] Safety net: no allocation found for', yesterdayStr);
+            }
+
+            // 3. Increment streak_savers_used_month and clear missed flag
+            const { data: statsData } = await supabase
+                .from(statsTable)
+                .select('streak_savers_used_month')
+                .eq('user_id', user.id)
+                .single();
+
+            await supabase.from(statsTable).update({
+                streak_savers_used_month: (statsData?.streak_savers_used_month || 0) + 1,
+                [missedFlagCol]: false,
+            }).eq('user_id', user.id);
+
+            console.log('[StreakSaver] Safety net: incremented streak_savers_used_month, cleared missed flag');
+        } catch (e) {
+            console.error('[StreakSaver] Safety net insertion error:', e);
+            // Don't block the flow — the user can still play
+        }
 
         await startStreakSaverSession(gameType, yesterdayStr, currentStreak);
 

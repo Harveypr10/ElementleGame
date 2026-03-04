@@ -501,7 +501,7 @@ export default function AccountInfoPage() {
                         {/* Delete Account Section */}
                         <StyledView
                             className="rounded-2xl p-4 mb-4 border"
-                            style={{ backgroundColor: surfaceColor, borderColor: borderColor }}
+                            style={{ backgroundColor: surfaceColor, borderColor: borderColor, marginBottom: 60 }}
                         >
                             <StyledTouchableOpacity
                                 onPress={() => setDeleteModalVisible(true)}

@@ -40,7 +40,8 @@ import { ReminderPromptModal } from '../../components/game/ReminderPromptModal';
 import { ReminderSuccessToast } from '../../components/game/ReminderSuccessToast';
 import * as NotificationService from '../../lib/NotificationService';
 import { fetchNotificationData } from '../../hooks/useNotificationData';
-import { useMyLeagues, useLeagueStandings, League, GameMode } from '../../hooks/useLeagueData';
+import { useMyLeagues, useMyLeaguesAll, useLeagueStandings, League, GameMode } from '../../hooks/useLeagueData';
+import { useLeague } from '../../contexts/LeagueContext';
 
 // Import hamster images - trying UI folder versions which appear to be transparent
 const HistorianHamsterBlue = require('../../assets/ui/webp_assets/Historian-Hamster.webp');
@@ -80,6 +81,8 @@ const GameModePage = React.memo(({
     isCheckingPuzzle,
     leagueTablesEnabled,
     quickMenuEnabled,
+    pendingLeagueInvite,
+    onLeagueInviteClicked,
 }: {
     isRegion: boolean,
     todayStatus: 'not-played' | 'solved' | 'failed',
@@ -98,7 +101,9 @@ const GameModePage = React.memo(({
     userPuzzleReady?: boolean, // Whether today's personal puzzle is available
     isCheckingPuzzle?: boolean, // Whether the readiness check is in progress
     leagueTablesEnabled?: boolean, // Whether league tables feature is enabled
-    quickMenuEnabled?: boolean, // Whether quick menu is active (hides league card)
+    quickMenuEnabled?: boolean, // Whether quick menu is active (legacy, ignored)
+    pendingLeagueInvite?: boolean, // Whether there's a pending league invitation for this mode
+    onLeagueInviteClicked?: () => void, // Called when invitation button is clicked
 }) => {
     // Colors from Web App
     const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
@@ -262,7 +267,7 @@ const GameModePage = React.memo(({
                 </HomeCard>
 
                 {/* 3. STATS + LEAGUE — 50/50 row when leagues enabled, full-width stats otherwise */}
-                {leagueTablesEnabled && !quickMenuEnabled ? (
+                {leagueTablesEnabled ? (
                     <View style={{ flexDirection: 'row', gap: 10, marginBottom: 0 }}>
                         {/* Half-width Stats */}
                         <TouchableOpacity
@@ -280,7 +285,7 @@ const GameModePage = React.memo(({
                                 shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
                             }}
                         >
-                            <Image source={statsIcon} style={{ position: 'absolute', top: screenWidth >= 768 ? 16 : 8, right: screenWidth >= 768 ? 16 : 8, width: screenWidth >= 768 ? 74 : 46, height: screenWidth >= 768 ? 74 : 46, opacity: 0.9 }} resizeMode="contain" />
+                            <Image source={statsIcon} style={{ position: 'absolute', top: screenWidth >= 768 ? 27 : 8, right: screenWidth >= 768 ? 16 : 8, width: screenWidth >= 768 ? 74 : 46, height: screenWidth >= 768 ? 74 : 46, opacity: 0.9 }} resizeMode="contain" />
                             <View style={{ flex: 1 }}>
                                 <ThemedText className="font-n-bold text-slate-900" size="lg">Stats</ThemedText>
                                 <View style={{ marginTop: 10, gap: 1 }}>
@@ -302,30 +307,43 @@ const GameModePage = React.memo(({
                             activeOpacity={0.9}
                             onPress={() => {
                                 incrementInteraction();
-                                router.push(isRegion ? '/league/region' : '/league/user');
+                                if (pendingLeagueInvite && onLeagueInviteClicked) {
+                                    onLeagueInviteClicked();
+                                } else {
+                                    router.push(isRegion ? '/league/region' : '/league/user');
+                                }
                             }}
                             style={{
-                                flex: 1, backgroundColor: isRegion ? '#CDCFD1' : '#BABFB8',
+                                flex: 1, backgroundColor: pendingLeagueInvite ? '#8E57DB' : (isRegion ? '#CDCFD1' : '#BABFB8'),
                                 borderRadius: 24, paddingLeft: 20, paddingRight: 14,
                                 paddingTop: 18, paddingBottom: 18,
                                 height: 120 * cardHeightScale, overflow: 'hidden',
                                 shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
                                 shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
+
                             }}
                         >
-                            <Image source={WinHamsterBlue} style={{ position: 'absolute', top: screenWidth >= 768 ? 16 : 8, right: screenWidth >= 768 ? 16 : 8, width: screenWidth >= 768 ? 74 : 46, height: screenWidth >= 768 ? 74 : 46, opacity: 0.9 }} resizeMode="contain" />
+                            <Image source={WinHamsterBlue} style={{ position: 'absolute', top: screenWidth >= 768 ? 27 : 8, right: screenWidth >= 768 ? 16 : 8, width: screenWidth >= 768 ? 74 : 46, height: screenWidth >= 768 ? 74 : 46, opacity: 0.9 }} resizeMode="contain" />
                             <View style={{ flex: 1 }}>
-                                <ThemedText className="font-n-bold text-slate-900" size="lg" style={{ color: '#1e293b' }}>Leagues</ThemedText>
-                                <View style={{ marginTop: 10, gap: 1 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                        <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>Global</ThemedText>
-                                        <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{globalRank ?? '—'}</ThemedText>
+                                <ThemedText className="font-n-bold text-slate-900" size="lg" style={{ color: pendingLeagueInvite ? '#FFFFFF' : '#1e293b' }}>Leagues</ThemedText>
+                                {pendingLeagueInvite ? (
+                                    <View style={{ marginTop: 12 }}>
+                                        <ThemedText className="font-n-semibold" style={{ fontSize: 13, color: '#FFFFFF', lineHeight: 17 }}>
+                                            Invitation waiting{"\n"}- click to join
+                                        </ThemedText>
                                     </View>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                        <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>UK</ThemedText>
-                                        <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{regionRank ?? '—'}</ThemedText>
+                                ) : (
+                                    <View style={{ marginTop: 10, gap: 1 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                            <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>Global</ThemedText>
+                                            <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{globalRank ?? '—'}</ThemedText>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                            <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>UK</ThemedText>
+                                            <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{regionRank ?? '—'}</ThemedText>
+                                        </View>
                                     </View>
-                                </View>
+                                )}
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -380,13 +398,67 @@ export default function HomeScreen() {
         neverAskReminder, setNeverAskReminder,
         streakReminderEnabled, streakReminderTime,
         leagueTablesEnabled,
+        toggleLeagueTables,
         quickMenuEnabled,
     } = useOptions();
+    const {
+        pendingJoinCode,
+        setPendingJoinCode,
+        pendingLeagueInviteRegion,
+        pendingLeagueInviteUser,
+        setPendingLeagueInviteRegion,
+        setPendingLeagueInviteUser,
+        setNewlyJoinedLeagueId,
+    } = useLeague();
+    const { data: allLeagues } = useMyLeaguesAll();
     const { profile } = useProfile();
     const userRegion = profile?.region || 'UK';
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
     const [showHolidayModal, setShowHolidayModal] = useState(false);
     // dismissedHolidayModal removed — holiday check is now reactive on every press
+
+    // Auto-enable league tables when a league invitation is pending
+    useEffect(() => {
+        if ((pendingLeagueInviteRegion || pendingLeagueInviteUser) && !leagueTablesEnabled) {
+            console.log('[Home] Auto-enabling league tables for pending invitation');
+            toggleLeagueTables();
+        }
+    }, [pendingLeagueInviteRegion, pendingLeagueInviteUser, leagueTablesEnabled]);
+
+    // Handle league invite button press: check membership first, skip join screen if already member
+    const handleLeagueInvitePress = useCallback((mode: 'region' | 'user') => {
+        // Clear the per-mode invitation flag
+        const otherModeStillPending = mode === 'region'
+            ? pendingLeagueInviteUser
+            : pendingLeagueInviteRegion;
+        if (mode === 'region') {
+            setPendingLeagueInviteRegion(false);
+        } else {
+            setPendingLeagueInviteUser(false);
+        }
+
+        // If this is the last pending mode, clear the join code so it doesn't
+        // auto-fill when manually navigating to Join League later
+        if (!otherModeStillPending && pendingJoinCode) {
+            console.log('[Home] Both mode invitations handled — clearing pendingJoinCode');
+            setPendingJoinCode(null);
+        }
+
+        // Check if the user is already a member of the league matching the join code
+        const matchedLeague = pendingJoinCode && allLeagues
+            ? allLeagues.find(l => l.join_code?.toUpperCase() === pendingJoinCode.toUpperCase())
+            : null;
+
+        if (matchedLeague) {
+            // Already a member — skip join screen, trigger glow animation on league screen
+            console.log(`[Home] User already a member of league ${matchedLeague.id}, skipping join screen`);
+            setNewlyJoinedLeagueId(matchedLeague.id);
+            router.push(mode === 'region' ? '/league/region' : '/league/user');
+        } else {
+            // Not a member — go to join screen
+            router.push('/league/join');
+        }
+    }, [pendingJoinCode, allLeagues, setNewlyJoinedLeagueId, setPendingLeagueInviteRegion, setPendingLeagueInviteUser, setPendingJoinCode, pendingLeagueInviteRegion, pendingLeagueInviteUser, router]);
 
     // CRITICAL: Single source of truth for "today's puzzle date"
     // This is calculated ONCE when the component mounts and when it refocuses
@@ -1216,6 +1288,8 @@ export default function HomeScreen() {
                                     isCheckingPuzzle={false}
                                     leagueTablesEnabled={leagueTablesEnabled}
                                     quickMenuEnabled={quickMenuEnabled}
+                                    pendingLeagueInvite={pendingLeagueInviteRegion}
+                                    onLeagueInviteClicked={() => handleLeagueInvitePress('region')}
                                 />
                             </StyledView>
 
@@ -1246,6 +1320,8 @@ export default function HomeScreen() {
                                     isCheckingPuzzle={isCheckingPuzzle}
                                     leagueTablesEnabled={leagueTablesEnabled}
                                     quickMenuEnabled={quickMenuEnabled}
+                                    pendingLeagueInvite={pendingLeagueInviteUser}
+                                    onLeagueInviteClicked={() => handleLeagueInvitePress('user')}
                                 />
                             </StyledView>
                         </StyledView>
@@ -1284,6 +1360,8 @@ export default function HomeScreen() {
                             isCheckingPuzzle={false}
                             leagueTablesEnabled={leagueTablesEnabled}
                             quickMenuEnabled={quickMenuEnabled}
+                            pendingLeagueInvite={pendingLeagueInviteRegion}
+                            onLeagueInviteClicked={() => handleLeagueInvitePress('region')}
                         />
 
                         {/* User Page */}
@@ -1306,6 +1384,8 @@ export default function HomeScreen() {
                             isCheckingPuzzle={isCheckingPuzzle}
                             leagueTablesEnabled={leagueTablesEnabled}
                             quickMenuEnabled={quickMenuEnabled}
+                            pendingLeagueInvite={pendingLeagueInviteUser}
+                            onLeagueInviteClicked={() => handleLeagueInvitePress('user')}
                         />
                     </Animated.ScrollView>
                 )}

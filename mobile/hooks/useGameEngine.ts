@@ -500,6 +500,21 @@ export function useGameEngine({
                             setStreakDayStatus(attempts.streak_day_status);
                         }
 
+                        // STREAK SAVER: Convert safety-net holiday (0) back to WIP (null)
+                        // When user activated streak saver, we inserted a holiday row to protect their streak.
+                        // Now they're actually playing, so remove the holiday protection — game result will decide the status.
+                        if (streakSaverSession &&
+                            streakSaverSession.puzzleDate === puzzleDate &&
+                            streakSaverSession.gameType === mode &&
+                            attempts.streak_day_status === 0 &&
+                            !attempts.result) {
+                            console.log('[useGameEngine] Streak saver game: converting holiday row (0) to WIP (null)');
+                            setStreakDayStatus(null);
+                            await supabase.from(ATTEMPTS_TABLE)
+                                .update({ streak_day_status: null, completed_at: null, num_guesses: null })
+                                .eq('id', attempts.id);
+                        }
+
                         // Load guesses
                         const { data: dbGuesses, error: guessError } = await supabase
                             .from(GUESSES_TABLE)
@@ -1022,7 +1037,7 @@ export function useGameEngine({
                 }
 
                 // Award badges if user won
-                if (isWin && user && newCurrentStreak > 0) {
+                if (isWin && user) {
                     try {
                         const GAME_TYPE = mode === 'REGION' ? 'REGION' : 'USER';
                         // Get user's region for badge context
@@ -1037,14 +1052,19 @@ export function useGameEngine({
                         }
                         const REGION = mode === 'REGION' ? userRegion : 'GLOBAL';
 
-                        const streakBadge = await checkAndAwardStreakBadge(user.id, newCurrentStreak, GAME_TYPE, REGION);
-                        if (streakBadge && !streakBadge.is_awarded) console.log('Badge:', streakBadge.badge_name);
+                        // Streak badges require an active streak
+                        if (newCurrentStreak > 0) {
+                            const streakBadge = await checkAndAwardStreakBadge(user.id, newCurrentStreak, GAME_TYPE, REGION);
+                            if (streakBadge && !streakBadge.is_awarded) console.log('Badge:', streakBadge.badge_name);
+                        }
 
+                        // Elementle (in-1 / in-2) badges — awarded for ANY win regardless of streak
                         if (newGuesses.length === 1 || newGuesses.length === 2) {
                             const elementleBadge = await checkAndAwardElementleBadge(user.id, newGuesses.length, GAME_TYPE, REGION);
                             if (elementleBadge && !elementleBadge.is_awarded) console.log('Badge:', elementleBadge.badge_name);
                         }
 
+                        // Percentile badges — awarded for ANY win regardless of streak
                         const percentileBadge: any = await checkAndAwardPercentileBadge(user.id, GAME_TYPE, REGION);
                         if (percentileBadge && !percentileBadge.is_awarded) console.log('Badge:', percentileBadge.badge_name);
 

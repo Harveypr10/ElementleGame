@@ -264,6 +264,9 @@ export function AllBadgesModal({ visible, onClose, gameType = 'REGION', region =
             <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
                 <View style={{
                     height: '80%',
+                    width: '100%',
+                    maxWidth: 896,
+                    alignSelf: 'center',
                     backgroundColor: brandColor,
                     borderTopLeftRadius: 24,
                     borderTopRightRadius: 24,

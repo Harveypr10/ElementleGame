@@ -17,7 +17,6 @@ import { ThemedView } from '../../../components/ThemedView';
 import { ThemedText } from '../../../components/ThemedText';
 import { useThemeColor } from '../../../hooks/useThemeColor';
 import { useStreakSaver } from '../../../contexts/StreakSaverContext';
-import { useStreakSaverStatus } from '../../../hooks/useStreakSaverStatus';
 import { StreakSaverExitWarning } from '../../../components/StreakSaverExitWarning';
 import { HelpModal } from '../../../components/HelpModal';
 import { useNetwork } from '../../../contexts/NetworkContext';
@@ -66,8 +65,7 @@ export default function GameScreen() {
     const isGuest = !user;
 
     // Streak Saver Integration
-    const { isInStreakSaverMode, streakSaverSession } = useStreakSaver();
-    const { declineStreakSaver } = useStreakSaverStatus();
+    const { isInStreakSaverMode, streakSaverSession, completeStreakSaverSession } = useStreakSaver();
     const [showExitWarning, setShowExitWarning] = useState(false);
     const [helpVisible, setHelpVisible] = useState(false);
 
@@ -120,18 +118,11 @@ export default function GameScreen() {
     };
 
     const handleConfirmExit = async () => {
-        // User chose to exit and lose streak
+        // User chose to exit — streak is already protected by holiday row
+        // Just clear the session and navigate back
         setShowExitWarning(false);
-        try {
-            // Decline/Cancel the streak saver for this mode
-            // We need to know which mode we are in (REGION or USER)
-            const gameType = mode === 'REGION' ? 'REGION' : 'USER';
-            await declineStreakSaver(gameType);
-        } catch (e) {
-            console.error('[GameScreen] Error declining streak saver:', e);
-        } finally {
-            performBackNavigation();
-        }
+        completeStreakSaverSession(false);
+        performBackNavigation();
     };
     // -------------------------------------
 
@@ -466,7 +457,7 @@ export default function GameScreen() {
                     visible={showExitWarning}
                     onClose={() => setShowExitWarning(false)}
                     onContinuePlaying={() => setShowExitWarning(false)}
-                    onCancelAndLoseStreak={handleConfirmExit}
+                    onExit={handleConfirmExit}
                 />
 
                 {/* Help Modal */}

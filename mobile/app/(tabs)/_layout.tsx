@@ -73,8 +73,7 @@ export default function TabLayout() {
                 name="league"
                 options={{
                     title: 'League',
-                    tabBarLabel: 'League',
-                    href: leagueTablesEnabled ? '/(tabs)/league' : null,
+                    href: null, // Always hidden from tab bar — accessed via Home screen buttons
                     tabBarIcon: ({ color, size }) => (
                         <Trophy size={isLargeScreen ? 32 : 26} color={color} />
                     ),

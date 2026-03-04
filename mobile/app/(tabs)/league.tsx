@@ -25,18 +25,22 @@ import {
     ViewToken,
     PanResponder,
     useWindowDimensions,
+    Share,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styled } from 'nativewind';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Minus, Settings, Lock } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Minus, Settings, Lock, Share2 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import {
     useMyLeagues,
+    useMyLeaguesAll,
     useLeagueStandings,
     useRecordLeagueView,
     useHistoricalStandings,
+    useMyMembership,
     getAvailablePeriods,
     getCurrentPeriodLabel,
     formatPeriodLabel,
@@ -57,6 +61,13 @@ const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
 
 const WelcomeHamster = require('../../assets/ui/webp_assets/Win-Hamster-Blue.webp');
+
+// Ordinal helper: 1 → "1st", 2 → "2nd", 3 → "3rd", etc.
+function getOrdinal(n: number): string {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
 
 // ─── RankArrow ─────────────────────────────────────────────────────────
 
@@ -161,13 +172,17 @@ function TimeframeToggle({
                 <TouchableOpacity
                     key={tf}
                     style={{
-                        paddingHorizontal: 12, paddingVertical: 5,
+                        minWidth: tabWidth > 0 ? tabWidth : undefined,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingHorizontal: 12,
+                        paddingVertical: 5,
                         borderRadius: 18,
                         zIndex: 1,
                     }}
                     onPress={() => onSelect(tf)}
                 >
-                    <Text style={{
+                    <Text numberOfLines={1} style={{
                         color: selectedTimeframe === tf ? activeTextColor : inactiveTextColor,
                         fontWeight: selectedTimeframe === tf ? '700' : '500',
                         fontSize: 13,
@@ -218,16 +233,35 @@ function GhostRow({ row, position }: { row: StandingRow; position: 'top' | 'bott
 
 // ─── LeagueTableRow ────────────────────────────────────────────────────
 
-function LeagueTableRow({ row, isEven }: { row: StandingRow; isEven: boolean }) {
+function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode }: { row: StandingRow; isEven: boolean; isGlowing?: boolean; glowAnim?: Animated.Value; gameMode?: string }) {
     const textColor = useThemeColor({}, 'text');
     const secondaryText = useThemeColor({}, 'icon');
     const bgEven = useThemeColor({ light: '#f8fafc', dark: '#1e293b' }, 'surface');
     const bgOdd = useThemeColor({ light: '#ffffff', dark: '#0f172a' }, 'background');
 
+    // Light purple highlight for the user's own row (both called unconditionally to satisfy Rules of Hooks)
+    const myRowBgUser = useThemeColor({ light: '#f3e8f9', dark: '#2d1f3d' }, 'surface');   // lighter shade of #B278CD
+    const myRowBgRegion = useThemeColor({ light: '#ede5f7', dark: '#261e3d' }, 'surface');  // lighter shade of #8E57DB
+    const myRowBg = gameMode === 'user' ? myRowBgUser : myRowBgRegion;
+
+    const rowBg = row.is_me ? myRowBg : (isEven ? bgEven : bgOdd);
+
     return (
-        <StyledView
-            className="flex-row items-center px-3 py-2.5"
-            style={{ backgroundColor: isEven ? bgEven : bgOdd }}
+        <Animated.View
+            style={[
+                { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
+                { backgroundColor: rowBg },
+                isGlowing && glowAnim ? {
+                    borderWidth: 2,
+                    borderColor: '#f59e0b',
+                    borderRadius: 8,
+                    shadowColor: '#f59e0b',
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowRadius: 8,
+                    elevation: 6,
+                    shadowOpacity: glowAnim as any,
+                } : {},
+            ]}
         >
             <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>
                 {row.rank}
@@ -255,7 +289,7 @@ function LeagueTableRow({ row, isEven }: { row: StandingRow; isEven: boolean }) 
             <Text style={{ width: 48, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>
                 {row.elementle_rating}
             </Text>
-        </StyledView>
+        </Animated.View>
     );
 }
 
@@ -309,7 +343,55 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     const iconColor = useThemeColor({}, 'icon');
 
     const { darkMode } = useOptions();
-    const { selectedLeagueId, setSelectedLeagueId, selectedTimeframe, setSelectedTimeframe } = useLeague();
+    const { selectedLeagueId, setSelectedLeagueId, selectedTimeframe, setSelectedTimeframe, consumeNewlyJoinedLeagueId } = useLeague();
+
+    // ── Glow animation for newly joined league ──
+    const [glowLeagueId, setGlowLeagueId] = useState<string | null>(null);
+    const glowAnim = useRef(new Animated.Value(0)).current;
+    const leaguePillsScrollRef = useRef<ScrollView>(null);
+    const leagueFlatListRef = useRef<FlatList>(null);
+    const shouldScrollToUserRef = useRef(false);
+    const ESTIMATED_ROW_HEIGHT = 52; // paddingVertical:10 * 2 + name text + subtitle
+
+    useEffect(() => {
+        const newLeagueId = consumeNewlyJoinedLeagueId();
+        if (newLeagueId) {
+            console.log('[League] Newly joined league detected, activating glow:', newLeagueId);
+            setGlowLeagueId(newLeagueId);
+            setSelectedLeagueId(newLeagueId);
+            shouldScrollToUserRef.current = true;
+
+            // Auto-scroll league pills to show the new league (likely at the end)
+            setTimeout(() => {
+                leaguePillsScrollRef.current?.scrollToEnd({ animated: true });
+            }, 300);
+
+            // Pulsing glow animation: 0 → 1 → 0 repeated for 4 seconds
+            const pulse = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(glowAnim, { toValue: 1, duration: 600, useNativeDriver: false }),
+                    Animated.timing(glowAnim, { toValue: 0.2, duration: 600, useNativeDriver: false }),
+                ])
+            );
+            pulse.start();
+
+            // Stop glow after 4 seconds, then scroll to top of the league
+            const timer = setTimeout(() => {
+                pulse.stop();
+                Animated.timing(glowAnim, { toValue: 0, duration: 300, useNativeDriver: false }).start(() => {
+                    setGlowLeagueId(null);
+
+                    // Animate scroll to top of the league list
+                    leagueFlatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+                });
+            }, 4000);
+
+            return () => {
+                clearTimeout(timer);
+                pulse.stop();
+            };
+        }
+    }, []);
 
     const { data: leagues, isLoading: leaguesLoading, refetch: refetchLeagues } = useMyLeagues(gameMode);
     const { data: standings, isLoading: standingsLoading, refetch: refetchStandings } = useLeagueStandings(
@@ -318,6 +400,115 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         gameMode
     );
     const recordView = useRecordLeagueView();
+    const { data: membership } = useMyMembership(selectedLeagueId);
+    const { data: allLeaguesData } = useMyLeaguesAll();
+
+    // ── League tab ordering from AsyncStorage ──
+    const [savedLeagueOrder, setSavedLeagueOrder] = useState<string[]>([]);
+    const orderLoadedRef = useRef(false);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (!user?.id) return;
+            AsyncStorage.getItem(`league_order_${user.id}`).then(saved => {
+                if (saved) {
+                    try { setSavedLeagueOrder(JSON.parse(saved)); } catch { }
+                }
+                orderLoadedRef.current = true;
+            }).catch(() => { orderLoadedRef.current = true; });
+        }, [user?.id])
+    );
+
+    // Sort league tabs by saved order
+    const sortedLeagues = useMemo(() => {
+        if (!leagues || leagues.length === 0) return leagues;
+        if (savedLeagueOrder.length === 0) return leagues;
+        return [...(leagues as League[])].sort((a, b) => {
+            const idxA = savedLeagueOrder.indexOf(a.id);
+            const idxB = savedLeagueOrder.indexOf(b.id);
+            return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+        });
+    }, [leagues, savedLeagueOrder]);
+
+    // ── State persistence (save on blur, restore on focus) ──
+    const stateRestoredRef = useRef(false);
+    const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null); // null = current/live
+
+    // Save state when screen loses focus, refetch + validate on focus
+    useFocusEffect(
+        useCallback(() => {
+            // Screen gained focus — refresh league list (picks up reordering from Manage Leagues)
+            refetchLeagues();
+
+            // Check if the saved state was cleared (e.g. user left a league in Manage Leagues)
+            // If so, reset to first league / current month
+            if (user?.id) {
+                AsyncStorage.getItem(`league_screen_state_${user.id}`).then(saved => {
+                    if (!saved) {
+                        // State was cleared — reset to defaults
+                        setSelectedLeagueId(null);
+                        setSelectedPeriod(null);
+                        setSelectedTimeframe('mtd');
+                    }
+                }).catch(() => { });
+            }
+
+            return () => {
+                // Cleanup = screen blurred
+                if (user?.id && selectedLeagueId) {
+                    const state = {
+                        selectedLeagueId,
+                        selectedTimeframe,
+                        selectedPeriod,
+                        timestamp: Date.now(),
+                    };
+                    AsyncStorage.setItem(`league_screen_state_${user.id}`, JSON.stringify(state)).catch(() => { });
+                }
+            };
+        }, [user?.id, selectedLeagueId, selectedTimeframe, selectedPeriod])
+    );
+
+    // Restore state on mount (or reset if >30 min)
+    useEffect(() => {
+        if (!user?.id || stateRestoredRef.current || !orderLoadedRef.current) return;
+        stateRestoredRef.current = true;
+        AsyncStorage.getItem(`league_screen_state_${user.id}`).then(saved => {
+            if (!saved) return;
+            try {
+                const state = JSON.parse(saved);
+                const elapsed = Date.now() - (state.timestamp || 0);
+                const THIRTY_MINUTES = 30 * 60 * 1000;
+                if (elapsed < THIRTY_MINUTES) {
+                    // Restore previous view
+                    if (state.selectedLeagueId) setSelectedLeagueId(state.selectedLeagueId);
+                    if (state.selectedTimeframe) setSelectedTimeframe(state.selectedTimeframe);
+                    if (state.selectedPeriod !== undefined) setSelectedPeriod(state.selectedPeriod);
+                } else {
+                    // Reset: first league in saved order, current month
+                    setSelectedTimeframe('mtd');
+                    setSelectedPeriod(null);
+                }
+            } catch { }
+        }).catch(() => { });
+    }, [user?.id, orderLoadedRef.current]);
+
+    // Determine the currently selected league object
+    const selectedLeague = useMemo(() => {
+        if (!leagues || !selectedLeagueId) return null;
+        return (leagues as League[]).find(l => l.id === selectedLeagueId) ?? null;
+    }, [leagues, selectedLeagueId]);
+
+    // Share permission: system leagues always shareable, user leagues need can_share
+    // Check both useMyMembership AND useMyLeaguesAll as fallback sources for can_share
+    const canShare = useMemo(() => {
+        if (!selectedLeague) return false;
+        if (selectedLeague.is_system_league) return true;
+        // Primary: from dedicated membership query
+        if (membership?.can_share === true) return true;
+        // Fallback: from the all-leagues query (LeagueWithMembership includes can_share)
+        const allLeagueMatch = allLeaguesData?.find(l => l.id === selectedLeagueId);
+        return allLeagueMatch?.can_share === true;
+    }, [selectedLeague, membership, allLeaguesData, selectedLeagueId]);
 
     const [refreshing, setRefreshing] = useState(false);
     const [showRatingTooltip, setShowRatingTooltip] = useState(false);
@@ -332,7 +523,6 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     const brandColor = gameMode === 'region' ? '#8E57DB' : '#B278CD';
 
     // ── Date Picker / Historical Mode state ──
-    const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null); // null = current/live
     const availablePeriods = useMemo(() => getAvailablePeriods(selectedTimeframe), [selectedTimeframe]);
     const currentPeriodLabel = useMemo(() => getCurrentPeriodLabel(selectedTimeframe), [selectedTimeframe]);
 
@@ -439,12 +629,13 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     // Track the range of visible item indices to determine ghost position
     const visibleRangeRef = useRef<{ first: number; last: number }>({ first: 0, last: 0 });
 
-    // Auto-select first league
+
+    // Auto-select first league (using sorted order)
     useEffect(() => {
-        if (leagues && leagues.length > 0 && !selectedLeagueId) {
-            setSelectedLeagueId(leagues[0].id);
+        if (sortedLeagues && sortedLeagues.length > 0 && !selectedLeagueId) {
+            setSelectedLeagueId(sortedLeagues[0].id);
         }
-    }, [leagues, selectedLeagueId]);
+    }, [sortedLeagues, selectedLeagueId]);
 
     // Record league view
     useFocusEffect(
@@ -461,9 +652,83 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         setRefreshing(false);
     };
 
+    // ── Share handler ──
+    const handleShare = useCallback(async () => {
+        if (!selectedLeague || !effectiveStandings) return;
+        try {
+            let shareText = '';
+
+            if (selectedLeague.is_system_league) {
+                // System league: share ranking
+                const rank = effectiveStandings.my_rank;
+                const total = effectiveStandings.total_members;
+                const leagueName = selectedLeague.system_region === 'GLOBAL' ? 'Global' : 'UK';
+                const periodType = selectedTimeframe === 'mtd' ? 'month' : 'year';
+
+                if (rank && total) {
+                    const ordinal = getOrdinal(rank);
+                    if (isViewingPast) {
+                        // Past period
+                        const periodStr = formatPeriodLabel(displayPeriodLabel, selectedTimeframe);
+                        shareText = `I was ${ordinal} of ${total.toLocaleString()} players in ${periodStr} in the ${leagueName} game!`;
+                    } else {
+                        // Current period
+                        shareText = `I'm currently ${ordinal} of ${total.toLocaleString()} players this ${periodType} in the ${leagueName} game!`;
+                    }
+                } else {
+                    shareText = `Check out my ${leagueName} league standings on Elementle!`;
+                }
+
+                shareText += '\n\nElementle is a free daily puzzle game where you guess historical dates.';
+                shareText += '\n\nTap this link to join: https://elementle.tech';
+            } else {
+                // User-created league: share join link
+                const isAdmin = selectedLeague.admin_user_id === user?.id;
+                const leagueName = selectedLeague.name;
+
+                if (isAdmin) {
+                    shareText = `Join my Elementle league - "${leagueName}"!`;
+                } else {
+                    shareText = `Join the Elementle league I'm in - "${leagueName}"!`;
+                }
+
+                shareText += '\n\nElementle is a free daily puzzle game where you guess historical dates.';
+
+                if (selectedLeague.join_code) {
+                    shareText += `\n\nJoin code: ${selectedLeague.join_code}`;
+                    shareText += `\n\nOr tap this link to join:\nhttps://elementle.tech/league/join/${selectedLeague.join_code}`;
+                }
+            }
+
+            await Share.share({ message: shareText });
+        } catch (e) {
+            console.error('[League] Share error:', e);
+        }
+    }, [selectedLeague, effectiveStandings, selectedTimeframe, isViewingPast, displayPeriodLabel, user]);
+
     const myRow = effectiveStandings?.standings?.find((s: StandingRow) => s.is_me);
     const allRows = effectiveStandings?.standings ?? [];
     const listFitsOnScreen = listContentHeight > 0 && listContentHeight <= listContainerHeight;
+
+    // Scroll to user's row when data loads after joining a league
+    useEffect(() => {
+        if (shouldScrollToUserRef.current && allRows.length > 0 && leagueFlatListRef.current) {
+            const userIndex = allRows.findIndex((r: StandingRow) => r.is_me);
+            if (userIndex >= 0) {
+                shouldScrollToUserRef.current = false;
+                // Use scrollToOffset to avoid "scrollToIndex out of range" crash
+                // when FlatList hasn't rendered the target item yet
+                const listHeight = listContainerHeight || 400;
+                const targetOffset = Math.max(0, (userIndex * ESTIMATED_ROW_HEIGHT) - (listHeight / 2) + (ESTIMATED_ROW_HEIGHT / 2));
+                setTimeout(() => {
+                    leagueFlatListRef.current?.scrollToOffset({
+                        offset: targetOffset,
+                        animated: true,
+                    });
+                }, 300);
+            }
+        }
+    }, [allRows]);
 
     // Determine my row's index for viewability tracking
     const myRowIndex = useMemo(() => {
@@ -566,13 +831,40 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                         </View>
                     )}
 
-                    <StyledTouchableOpacity
-                        onPress={() => router.push({ pathname: '/league/manage', params: { mode: gameMode } })}
-                        style={{ position: 'absolute', right: 16, top: 8, zIndex: 10, padding: 8 }}
-                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                    >
-                        <Settings size={28} color="#FFFFFF" />
-                    </StyledTouchableOpacity>
+                    <View style={{ position: 'absolute', right: 10, top: 4, zIndex: 10, alignItems: 'center', gap: 6 }}>
+                        <StyledTouchableOpacity
+                            onPress={() => router.push({ pathname: '/league/manage', params: { mode: gameMode } })}
+                            style={{ padding: 8 }}
+                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                        >
+                            <Settings size={28} color="#FFFFFF" />
+                        </StyledTouchableOpacity>
+
+                        {canShare && (
+                            <TouchableOpacity
+                                onPress={handleShare}
+                                activeOpacity={0.85}
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: '#FFFFFF',
+                                    paddingHorizontal: 14,
+                                    paddingVertical: 8,
+                                    borderRadius: 9999,
+                                    gap: 6,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 2 },
+                                    shadowOpacity: 0.1,
+                                    shadowRadius: 4,
+                                    elevation: 2,
+                                }}
+                            >
+                                <Text style={{ color: brandColor, fontSize: 13, fontFamily: 'Nunito_700Bold', fontWeight: '700' }}>Share</Text>
+                                <Share2 size={14} color={brandColor} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
             </View>
 
@@ -673,25 +965,37 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                     {/* League pills - scroll behind the toggle */}
                     {leaguesLoading ? (
                         <ActivityIndicator style={{ marginLeft: 8 }} color="#3b82f6" />
-                    ) : (leagues && leagues.length > 0) && (
+                    ) : (sortedLeagues && sortedLeagues.length > 0) && (
                         <ScrollView
+                            ref={leaguePillsScrollRef}
                             horizontal
                             showsHorizontalScrollIndicator={false}
                             style={{ flex: 1 }}
                             contentContainerStyle={{ gap: 8, alignItems: 'center', paddingRight: 8 }}
                         >
-                            {leagues.map((league: League) => {
+                            {sortedLeagues.map((league: League) => {
                                 const isActive = league.id === selectedLeagueId;
                                 return (
                                     <TouchableOpacity
                                         key={league.id}
-                                        style={{
-                                            paddingHorizontal: 16, paddingVertical: 7,
-                                            borderRadius: 9999,
-                                            backgroundColor: isActive ? brandColor : surfaceColor,
-                                            borderWidth: isActive ? 0 : 1,
-                                            borderColor: isActive ? 'transparent' : borderColor,
-                                        }}
+                                        style={[
+                                            {
+                                                paddingHorizontal: 16, paddingVertical: 7,
+                                                borderRadius: 9999,
+                                                backgroundColor: isActive ? brandColor : surfaceColor,
+                                                borderWidth: isActive ? 0 : 1,
+                                                borderColor: isActive ? 'transparent' : borderColor,
+                                            },
+                                            glowLeagueId === league.id ? {
+                                                borderWidth: 2,
+                                                borderColor: '#f59e0b',
+                                                shadowColor: '#f59e0b',
+                                                shadowOffset: { width: 0, height: 0 },
+                                                shadowRadius: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [4, 14] }) as any,
+                                                shadowOpacity: glowAnim as any,
+                                                elevation: 8,
+                                            } : {},
+                                        ]}
                                         onPress={() => setSelectedLeagueId(league.id)}
                                     >
                                         <Text style={{
@@ -752,11 +1056,23 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                 ) : (
                     <View style={{ flex: 1, backgroundColor: tableContainerBg, width: '100%', maxWidth: 768, alignSelf: 'center' }} {...swipePanResponder.panHandlers}>
                         <FlatList
+                            ref={leagueFlatListRef}
                             data={allRows}
                             keyExtractor={(item) => item.user_id}
                             renderItem={({ item, index }) => (
-                                <LeagueTableRow row={item} isEven={index % 2 === 0} />
+                                <LeagueTableRow
+                                    row={item}
+                                    isEven={index % 2 === 0}
+                                    isGlowing={!!glowLeagueId && item.is_me}
+                                    glowAnim={glowAnim}
+                                    gameMode={gameMode}
+                                />
                             )}
+                            getItemLayout={(_, index) => ({
+                                length: ESTIMATED_ROW_HEIGHT,
+                                offset: ESTIMATED_ROW_HEIGHT * index,
+                                index,
+                            })}
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                             contentContainerStyle={{ paddingBottom: 20 }}
                             showsVerticalScrollIndicator={false}

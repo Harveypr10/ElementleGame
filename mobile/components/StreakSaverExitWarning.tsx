@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Modal, TouchableOpacity } from 'react-native';
 import { styled } from 'nativewind';
-import { AlertTriangle, X } from 'lucide-react-native';
+import { ShieldCheck } from 'lucide-react-native';
 import { useThemeColor } from '../hooks/useThemeColor';
 
 const StyledView = styled(View);
@@ -11,14 +11,14 @@ const StyledTouchableOpacity = styled(TouchableOpacity);
 interface StreakSaverExitWarningProps {
     visible: boolean;
     onClose: () => void;
-    onCancelAndLoseStreak: () => void;
+    onExit: () => void;
     onContinuePlaying: () => void;
 }
 
 export function StreakSaverExitWarning({
     visible,
     onClose,
-    onCancelAndLoseStreak,
+    onExit,
     onContinuePlaying,
 }: StreakSaverExitWarningProps) {
     const iconColor = useThemeColor({}, 'icon');
@@ -35,15 +35,15 @@ export function StreakSaverExitWarning({
 
                     {/* Header */}
                     <StyledView className="items-center mb-4">
-                        <AlertTriangle size={48} color="#ef4444" className="mb-2" />
+                        <ShieldCheck size={48} color="#22c55e" className="mb-2" />
                         <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white text-center">
-                            Are you sure?
+                            Your streak is safe!
                         </StyledText>
                     </StyledView>
 
                     {/* Description */}
-                    <StyledText className="text-center text-slate-600 dark:text-slate-300 font-n-medium mb-8 text-base">
-                        If you don't complete and win yesterday's game right now, you will lose your streak.
+                    <StyledText className="text-center text-slate-600 dark:text-slate-300 font-n-medium mb-8 text-base leading-6">
+                        No worries if you don't want to play yesterday's question now, you will still keep your existing streak 👍{'\n\n'}However, if you later visit the archive to play yesterday's puzzle, winning it won't add to your streak...
                     </StyledText>
 
                     {/* Actions */}
@@ -58,11 +58,11 @@ export function StreakSaverExitWarning({
                         </StyledTouchableOpacity>
 
                         <StyledTouchableOpacity
-                            onPress={onCancelAndLoseStreak}
+                            onPress={onExit}
                             className="bg-transparent py-4 rounded-xl w-full"
                         >
                             <StyledText className="text-slate-500 dark:text-slate-400 font-n-medium text-center text-base">
-                                Cancel & Lose Streak
+                                Exit
                             </StyledText>
                         </StyledTouchableOpacity>
                     </StyledView>
@@ -71,3 +71,4 @@ export function StreakSaverExitWarning({
         </Modal>
     );
 }
+

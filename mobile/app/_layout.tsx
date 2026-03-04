@@ -109,7 +109,7 @@ export const queryClient = new QueryClient({
 */
 function NavigationGuard({ children }: { children: React.ReactNode }) {
     const { session, authPhase, hasCompletedFirstLogin, isGuest, user, pendingPuzzleDate, pendingPuzzleMode, consumePendingPuzzle, setDeferredPuzzle, deferredPuzzle, pendingLeagueCode, consumePendingLeagueCode } = useAuth();
-    const { setPendingJoinCode } = useLeague();
+    const { setPendingJoinCode, setPendingLeagueInviteRegion, setPendingLeagueInviteUser } = useLeague();
     const segments = useSegments();
     const router = useRouter();
     const { toast } = useToast();
@@ -455,24 +455,19 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 console.log(`[NavGuard] Consuming pending league join code: ${code}`);
                 setPendingJoinCode(code);
 
+                // Set both mode invitation flags — home screen will clear per-mode when clicked
+                setPendingLeagueInviteRegion(true);
+                setPendingLeagueInviteUser(true);
+
                 if (session && hasCompletedFirstLogin()) {
-                    // Signed in: go to join screen
-                    safeReplace('/league/join');
+                    // Signed in: go to home — deferred join will show invitation on Leagues button
+                    safeReplace('/(tabs)');
                     return;
                 } else if (!session || isGuest) {
-                    // Not signed in: skip onboarding, go straight to login
-                    if (!inAuthGroup) {
-                        safeReplace('/(auth)/login?intent=signup');
-                    }
-                    setTimeout(() => {
-                        toast({
-                            title: 'League invitation!',
-                            description: 'Sign in or create an account to join the league',
-                            variant: 'share',
-                            position: 'bottom',
-                            duration: 5000,
-                        });
-                    }, 500);
+                    // Not signed in: skip onboarding, go straight to login with league banner
+                    // Always navigate (even if already in auth group, e.g. on onboarding)
+                    safeReplace('/(auth)/login?intent=signup&fromLeague=1');
+                    // No toast needed — login screen shows the league invitation banner
                     return;
                 }
             }
@@ -541,6 +536,18 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                     }, 500);
                 }
             } else if (!inRootIndex && !inGameFlow) {
+                // [FIX] Skip redirect when segments contain "+not-found" or "[...unmatched]" —
+                // this is a transient state caused by expo-router resolving a deep link URL
+                // (e.g. /league/join/CODE) to a non-existent route (or our catch-all).
+                // The warm-start deep link handler is still propagating the pending
+                // code/puzzle state. If we redirect now, we lose the deep link context.
+                // Instead, wait for the next NavGuard cycle when pendingLeagueCode/pendingPuzzleDate
+                // state has propagated and the session has had time to recover.
+                const isDeepLinkTransient = segments.includes('+not-found' as never) || segments.includes('[...unmatched]' as never);
+                if (isDeepLinkTransient) {
+                    console.log('[NavGuard] Deep link transient state — deferring redirect to let auth recover');
+                    return;
+                }
                 // Redirect unknown routes to onboarding, but let /game routes through
                 // for guest play (onboarding → age verification → ad → game)
                 console.log('[NavGuard] Unauthorized access -> Redirecting to onboarding');

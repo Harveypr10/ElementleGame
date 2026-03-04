@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useThemeColor } from '../../hooks/useThemeColor';
-import { View, Text, Modal, TouchableOpacity, Animated, Alert, Platform } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Animated, Alert, Platform, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { styled } from 'nativewind';
@@ -108,20 +108,27 @@ export function IntroScreen({
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
                     <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
                         {/* Mascot */}
-                        <StyledView className="mb-8 items-center justify-center h-48 w-48 relative">
-                            {isStreakGame ? (
-                                <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-                                    <StreakBadge streak={currentStreak || 0} size={180} />
-                                </View>
-                            ) : (
-                                <Image
-                                    source={require('../../assets/ui/webp_assets/Sherlock-Hamster.webp')}
-                                    style={{ width: 160, height: 160 }}
-                                    contentFit="contain"
-                                    cachePolicy="disk"
-                                />
-                            )}
-                        </StyledView>
+                        {(() => {
+                            const screenWidth = Dimensions.get('window').width;
+                            const mascotSize = screenWidth > 500 ? 128 : 160;
+                            const containerSize = screenWidth > 500 ? 154 : 192;
+                            return (
+                                <StyledView className="mb-8 items-center justify-center relative" style={{ height: containerSize, width: containerSize }}>
+                                    {isStreakGame ? (
+                                        <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                                            <StreakBadge streak={currentStreak || 0} size={mascotSize * 1.125} />
+                                        </View>
+                                    ) : (
+                                        <Image
+                                            source={require('../../assets/ui/webp_assets/Sherlock-Hamster.webp')}
+                                            style={{ width: mascotSize, height: mascotSize }}
+                                            contentFit="contain"
+                                            cachePolicy="disk"
+                                        />
+                                    )}
+                                </StyledView>
+                            );
+                        })()}
 
                         {/* Text Content */}
                         <StyledView className="items-center space-y-4 px-4 w-full">

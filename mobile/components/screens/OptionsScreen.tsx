@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOptions, TextSize, DateLength, DateFormatOrder } from '../../lib/options';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useAuth } from '../../lib/auth';
+import { useMyLeaguesAll, LeagueWithMembership } from '../../hooks/useLeagueData';
 import { AdBanner } from '../../components/AdBanner';
 import { AdBannerContext } from '../../contexts/AdBannerContext';
 
@@ -155,10 +156,27 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
         streakReminderTime, setStreakReminderTime,
     } = useOptions();
 
+    // Check if all leagues are inactive (for disabling the League Tables toggle)
+    const { data: allLeaguesData } = useMyLeaguesAll();
+    const allLeaguesInactive = React.useMemo(() => {
+        if (!allLeaguesData || allLeaguesData.length === 0) return false;
+        return (allLeaguesData as LeagueWithMembership[]).every(l => {
+            if (!l.is_active) return true;
+            // Check if user has left all enabled boards
+            const regionLeft = !l.has_region_board || !l.is_active_region;
+            const userLeft = !l.has_user_board || !l.is_active_user;
+            return regionLeft && userLeft;
+        });
+    }, [allLeaguesData]);
+
     const { data: notifData, hydrate: hydrateNotifs } = useNotificationData();
 
     const [showDailyTimePicker, setShowDailyTimePicker] = useState(false);
     const [showStreakTimePicker, setShowStreakTimePicker] = useState(false);
+
+    // Pending time values for iOS confirm/cancel pattern
+    const [pendingDailyTime, setPendingDailyTime] = useState<Date | null>(null);
+    const [pendingStreakTime, setPendingStreakTime] = useState<Date | null>(null);
 
     // Parse time strings to Dates for pickers
     const dailyTimeAsDate = (() => {
@@ -253,29 +271,76 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
     };
 
     const handleDailyTimeChange = async (_event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') setShowDailyTimePicker(false);
-        if (selectedDate) {
-            const h = selectedDate.getHours().toString().padStart(2, '0');
-            const m = selectedDate.getMinutes().toString().padStart(2, '0');
-            const newTime = `${h}:${m}`;
-            await setReminderTime(newTime);
-            if (reminderEnabled || streakReminderEnabled) {
-                await reschedule({ rTime: newTime });
+        if (Platform.OS === 'android') {
+            setShowDailyTimePicker(false);
+            if (selectedDate) {
+                const h = selectedDate.getHours().toString().padStart(2, '0');
+                const m = selectedDate.getMinutes().toString().padStart(2, '0');
+                const newTime = `${h}:${m}`;
+                await setReminderTime(newTime);
+                if (reminderEnabled || streakReminderEnabled) {
+                    await reschedule({ rTime: newTime });
+                }
             }
+        } else {
+            // iOS: just update pending value (don't commit until confirm)
+            if (selectedDate) setPendingDailyTime(selectedDate);
         }
     };
 
     const handleStreakTimeChange = async (_event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') setShowStreakTimePicker(false);
-        if (selectedDate) {
-            const h = selectedDate.getHours().toString().padStart(2, '0');
-            const m = selectedDate.getMinutes().toString().padStart(2, '0');
-            const newTime = `${h}:${m}`;
-            await setStreakReminderTime(newTime);
-            if (reminderEnabled || streakReminderEnabled) {
-                await reschedule({ sTime: newTime });
+        if (Platform.OS === 'android') {
+            setShowStreakTimePicker(false);
+            if (selectedDate) {
+                const h = selectedDate.getHours().toString().padStart(2, '0');
+                const m = selectedDate.getMinutes().toString().padStart(2, '0');
+                const newTime = `${h}:${m}`;
+                await setStreakReminderTime(newTime);
+                if (reminderEnabled || streakReminderEnabled) {
+                    await reschedule({ sTime: newTime });
+                }
             }
+        } else {
+            // iOS: just update pending value (don't commit until confirm)
+            if (selectedDate) setPendingStreakTime(selectedDate);
         }
+    };
+
+    // iOS confirm/cancel handlers for time pickers
+    const confirmDailyTime = async () => {
+        const date = pendingDailyTime || dailyTimeAsDate;
+        const h = date.getHours().toString().padStart(2, '0');
+        const m = date.getMinutes().toString().padStart(2, '0');
+        const newTime = `${h}:${m}`;
+        await setReminderTime(newTime);
+        if (reminderEnabled || streakReminderEnabled) {
+            await reschedule({ rTime: newTime });
+        }
+        setPendingDailyTime(null);
+        setShowDailyTimePicker(false);
+    };
+
+    const cancelDailyTime = () => {
+        setPendingDailyTime(null);
+        setShowDailyTimePicker(false);
+    };
+
+    const confirmStreakTime = async () => {
+        const date = pendingStreakTime || streakTimeAsDate;
+        const h = date.getHours().toString().padStart(2, '0');
+        const m = date.getMinutes().toString().padStart(2, '0');
+        const newTime = `${h}:${m}`;
+        await setStreakReminderTime(newTime);
+        if (reminderEnabled || streakReminderEnabled) {
+            await reschedule({ sTime: newTime });
+        }
+        setPendingStreakTime(null);
+        setShowStreakTimePicker(false);
+    };
+
+    const cancelStreakTime = () => {
+        setPendingStreakTime(null);
+        setShowStreakTimePicker(false);
     };
 
     const iconColor = useThemeColor({}, 'icon');
@@ -392,9 +457,17 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
 
                             <ToggleRow
                                 label="League Tables"
-                                subLabel="Show league tab"
+                                subLabel="Show buttons on home screen"
                                 value={leagueTablesEnabled}
                                 onToggle={toggleLeagueTables}
+                                disabled={allLeaguesInactive}
+                                onDisabledPress={() => {
+                                    Alert.alert(
+                                        'Leagues Inactive',
+                                        'You have removed yourself from all leagues. Rejoin at least one league to enable the Leagues screen.',
+                                        [{ text: 'OK' }]
+                                    );
+                                }}
                                 borderColor={borderColor}
                             />
                         </StyledView>
@@ -448,8 +521,8 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                                 selected={dateFormatOrder}
                                 onSelect={setDateFormatOrder}
                                 options={[
-                                    { label: 'DD/MM/YY', value: 'ddmmyy' },
-                                    { label: 'MM/DD/YY', value: 'mmddyy' },
+                                    { label: dateLength === 8 ? 'DD/MM/YYYY' : 'DD/MM/YY', value: 'ddmmyy' },
+                                    { label: dateLength === 8 ? 'MM/DD/YYYY' : 'MM/DD/YY', value: 'mmddyy' },
                                 ]}
                                 surfaceColor={surfaceColor}
                                 borderColor={borderColor}
@@ -562,13 +635,32 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                                         </StyledTouchableOpacity>
 
                                         {showDailyTimePicker && DateTimePicker && (
-                                            <DateTimePicker
-                                                value={dailyTimeAsDate}
-                                                mode="time"
-                                                is24Hour={false}
-                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                                onChange={handleDailyTimeChange}
-                                            />
+                                            <View>
+                                                {/* Confirm / Cancel buttons (iOS spinner has no built-in dismiss) */}
+                                                {Platform.OS === 'ios' && (
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>
+                                                        <TouchableOpacity
+                                                            onPress={cancelDailyTime}
+                                                            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#d1d5db', alignItems: 'center', justifyContent: 'center' }}
+                                                        >
+                                                            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>✕</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            onPress={confirmDailyTime}
+                                                            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#7DAAE8', alignItems: 'center', justifyContent: 'center' }}
+                                                        >
+                                                            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>✓</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                )}
+                                                <DateTimePicker
+                                                    value={pendingDailyTime || dailyTimeAsDate}
+                                                    mode="time"
+                                                    is24Hour={false}
+                                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                    onChange={handleDailyTimeChange}
+                                                />
+                                            </View>
                                         )}
                                     </>
                                 )}
@@ -602,13 +694,32 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                                         </StyledTouchableOpacity>
 
                                         {showStreakTimePicker && DateTimePicker && (
-                                            <DateTimePicker
-                                                value={streakTimeAsDate}
-                                                mode="time"
-                                                is24Hour={false}
-                                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                                onChange={handleStreakTimeChange}
-                                            />
+                                            <View>
+                                                {/* Confirm / Cancel buttons (iOS spinner has no built-in dismiss) */}
+                                                {Platform.OS === 'ios' && (
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>
+                                                        <TouchableOpacity
+                                                            onPress={cancelStreakTime}
+                                                            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#d1d5db', alignItems: 'center', justifyContent: 'center' }}
+                                                        >
+                                                            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>✕</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            onPress={confirmStreakTime}
+                                                            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#f97316', alignItems: 'center', justifyContent: 'center' }}
+                                                        >
+                                                            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', fontFamily: 'Nunito_700Bold' }}>✓</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                )}
+                                                <DateTimePicker
+                                                    value={pendingStreakTime || streakTimeAsDate}
+                                                    mode="time"
+                                                    is24Hour={false}
+                                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                    onChange={handleStreakTimeChange}
+                                                />
+                                            </View>
                                         )}
                                     </>
                                 )}

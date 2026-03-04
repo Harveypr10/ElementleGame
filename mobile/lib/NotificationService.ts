@@ -140,6 +140,12 @@ async function scheduleOne(
     console.log(`[NotificationService] Scheduled "${label}" for ${date.toISOString()}: "${title}" — "${body.replace(/\n/g, ' | ')}" (→ ${screen})`);
 }
 
+// ─── Scheduling Mutex ───────────────────────────────────────────────────────
+// Prevents concurrent scheduleAll calls from interleaving (cancel→schedule race).
+// If a call arrives while one is in-progress, queue it and run after current finishes.
+let schedulingInProgress = false;
+let pendingScheduleArgs: { options: ScheduleAllOptions; ctx: NotificationHydratedData | null } | null = null;
+
 // ─── Main Scheduling Engine ─────────────────────────────────────────────────
 // This function builds notifications from pre-hydrated local data — NO network calls.
 export async function scheduleAll(
@@ -147,6 +153,34 @@ export async function scheduleAll(
     ctx: NotificationHydratedData | null,
 ): Promise<void> {
     if (!requireNative()) return;
+
+    // If already scheduling, queue this request (latest wins) and return
+    if (schedulingInProgress) {
+        console.log('[NotificationService] scheduleAll already in progress — queuing latest request');
+        pendingScheduleArgs = { options, ctx };
+        return;
+    }
+
+    schedulingInProgress = true;
+    try {
+        await doScheduleAll(options, ctx);
+    } finally {
+        schedulingInProgress = false;
+
+        // If a request was queued while we were busy, run it now
+        if (pendingScheduleArgs) {
+            const { options: qOpts, ctx: qCtx } = pendingScheduleArgs;
+            pendingScheduleArgs = null;
+            console.log('[NotificationService] Running queued scheduleAll request');
+            await scheduleAll(qOpts, qCtx);
+        }
+    }
+}
+
+async function doScheduleAll(
+    options: ScheduleAllOptions,
+    ctx: NotificationHydratedData | null,
+): Promise<void> {
 
     // Always cancel first
     await cancelAll();
@@ -313,7 +347,7 @@ export async function scheduleAll(
         await scheduleDripCampaign(todayStr, reminderTime, ctx);
     }
 
-    console.log('[NotificationService] scheduleAll complete');
+    console.log('[NotificationService] doScheduleAll complete');
 }
 
 // ─── Drip Campaign Scheduler ────────────────────────────────────────────────
