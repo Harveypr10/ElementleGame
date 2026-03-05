@@ -838,8 +838,16 @@ export default function ManageLeaguesScreen() {
     const rejoinLeague = useRejoinLeague();
     const [leavingAll, setLeavingAll] = useState(false);
 
-    // Independent toggle state — only changes when user explicitly toggles it
+    // Toggle state — initialized from actual league data so it survives remounts
     const [removeAllToggle, setRemoveAllToggle] = useState(false);
+    const toggleInitRef = useRef(false);
+
+    useEffect(() => {
+        if (toggleInitRef.current || !leagues || leagues.length === 0) return;
+        toggleInitRef.current = true;
+        const allLeft = (leagues as LeagueWithMembership[]).every(l => !l.is_active);
+        if (allLeft) setRemoveAllToggle(true);
+    }, [leagues]);
 
     // Computed: are all leagues fully left? (for Options auto-disable only, NOT for the toggle)
     const allLeaguesFullyLeft = React.useMemo(() => {
@@ -925,17 +933,6 @@ export default function ManageLeaguesScreen() {
         }
     }, [globalIdentity]);
 
-    // Auto-sync League Tables toggle when all leagues become fully left (e.g. manual leave-all)
-    const prevFullyLeftRef = useRef(allLeaguesFullyLeft);
-    useEffect(() => {
-        if (prevFullyLeftRef.current === allLeaguesFullyLeft) return;
-        prevFullyLeftRef.current = allLeaguesFullyLeft;
-        if (allLeaguesFullyLeft && leagueTablesEnabled) {
-            toggleLeagueTables();
-        } else if (!allLeaguesFullyLeft && !leagueTablesEnabled) {
-            toggleLeagueTables();
-        }
-    }, [allLeaguesFullyLeft]);
 
     const handleSaveGlobalName = async () => {
         if (!globalName.trim()) return;

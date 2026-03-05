@@ -7,14 +7,16 @@ import { useSubscription } from '../hooks/useSubscription';
 import { useOptions } from '../lib/options';
 import { useRestrictions } from '../hooks/useRestrictions';
 import { useThemeColor } from '../hooks/useThemeColor';
+import { useMyLeaguesAll, LeagueWithMembership } from '../hooks/useLeagueData';
 
 export function useSettingsScreenLogic() {
     const router = useRouter();
     const { user, isAuthenticated, signOut } = useAuth();
     const { profile, isAdmin } = useProfile();
     const { isPro, tierName, tierType } = useSubscription();
-    const { textScale } = useOptions();
+    const { textScale, leagueTablesEnabled, toggleLeagueTables } = useOptions();
     const { checkCategories } = useRestrictions();
+    const { data: allLeagues } = useMyLeaguesAll();
 
     const [signingOut, setSigningOut] = useState(false);
 
@@ -160,6 +162,9 @@ export function useSettingsScreenLogic() {
         tierName,
         tierType,
         textScale,
+        leagueTablesEnabled,
+        toggleLeagueTables,
+        allLeagues: allLeagues as LeagueWithMembership[] | undefined,
         signingOut,
 
         // Actions

@@ -60,19 +60,20 @@ export type LeagueMember = {
 };
 
 export type StandingRow = {
-    rank: number;
+    rank: number | null;
     user_id: string;
     league_nickname: string;
     global_display_name: string;
     global_tag: string;
-    elementle_rating: number;
-    current_streak: number;
+    elementle_rating: number | null;
+    current_streak: number | null;
     games_played: number;
-    games_won: number;
-    win_rate: number;
-    avg_guesses: number;
+    games_won: number | null;
+    win_rate: number | null;
+    avg_guesses: number | null;
     is_me: boolean;
     yesterdays_rank: number | null;
+    is_unranked?: boolean;
 };
 
 export type StandingsResponse = {
@@ -81,6 +82,7 @@ export type StandingsResponse = {
     total_members: number;
     is_historical?: boolean;
     period_label?: string;
+    min_games_threshold?: number;
 };
 
 export type Medal = {

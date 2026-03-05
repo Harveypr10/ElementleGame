@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
@@ -142,7 +142,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [useDeviceDisplay, setUseDeviceDisplay] = useState(false);
     const [cluesEnabled, setCluesEnabled] = useState(true);
     const [quickMenuEnabled, setQuickMenuEnabled] = useState(true); // Default true (Shown)
-    const [leagueTablesEnabled, setLeagueTablesEnabled] = useState(true); // Default true (Shown)
+    const [leagueTablesEnabled, setLeagueTablesEnabled] = useState(false); // Default false — hidden until unlocked
 
     const [dateLength, setDateLengthState] = useState<DateLength>(8);
     const [dateFormatOrder, setDateFormatOrderState] = useState<DateFormatOrder>('ddmmyy');
@@ -163,10 +163,10 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [gameModeState, setGameModeState] = useState<GameMode>('REGION');
     const [loading, setLoading] = useState(true);
 
-    const setGameMode = async (mode: GameMode) => {
+    const setGameMode = useCallback(async (mode: GameMode) => {
         setGameModeState(mode);
         await AsyncStorage.setItem('app_game_mode', mode);
-    };
+    }, []);
 
     // Apply dark mode when it changes
     useEffect(() => {
@@ -421,8 +421,13 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // Setters
-    const setTextSize = async (size: TextSize) => {
+    // ========================================================================
+    // STABLE SETTERS — wrapped in useCallback to prevent context re-renders.
+    // Toggle functions use the functional updater pattern (prev => !prev) so
+    // they don't close over the state value and remain referentially stable.
+    // ========================================================================
+
+    const setTextSize = useCallback(async (size: TextSize) => {
         console.log('[Options] setTextSize called:', size);
         setTextSizeState(size);
         await AsyncStorage.setItem('opt_text_size', size);
@@ -432,167 +437,188 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                 .eq('user_id', user.id)
                 .then(({ error }) => { if (error) console.log('[Options] Error updating text_size:', error) });
         }
-    };
+    }, [user]);
 
-    const toggleSounds = async () => {
-        const newValue = !soundsEnabled;
-        console.log('[Options] toggleSounds called:', { old: soundsEnabled, new: newValue });
-        setSoundsEnabled(newValue);
-        await AsyncStorage.setItem('opt_sounds_enabled', newValue.toString());
-        if (user) {
-            supabase.from('user_settings')
-                .update({ sounds_enabled: newValue })
-                .eq('user_id', user.id)
-                .then(({ error }) => { if (error) console.log('[Options] Error updating sounds:', error) });
-        }
-    };
+    const toggleSounds = useCallback(async () => {
+        setSoundsEnabled(prev => {
+            const newValue = !prev;
+            console.log('[Options] toggleSounds called:', { old: prev, new: newValue });
+            AsyncStorage.setItem('opt_sounds_enabled', newValue.toString());
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ sounds_enabled: newValue })
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error updating sounds:', error) });
+            }
+            return newValue;
+        });
+    }, [user]);
 
-    const toggleDarkMode = async () => {
-        const newValue = !darkMode;
-        const newScheme = newValue ? 'dark' : 'light';
-        console.log('[Options] toggleDarkMode called (Instant Apply):', { old: darkMode, new: newValue });
+    const toggleDarkMode = useCallback(async () => {
+        setDarkModeState(prev => {
+            const newValue = !prev;
+            const newScheme = newValue ? 'dark' : 'light';
+            console.log('[Options] toggleDarkMode called (Instant Apply):', { old: prev, new: newValue });
 
-        // IMMEDIATE ACTION: Apply theme before React state updates trigger re-renders
-        setColorScheme(newScheme);
+            // IMMEDIATE ACTION: Apply theme before React state updates trigger re-renders
+            setColorScheme(newScheme);
 
-        setDarkModeState(newValue);
-        // The useEffect above will handle ensuring sync, but this makes it feel instant
-        await AsyncStorage.setItem('opt_dark_mode', newValue.toString());
-        if (user) {
-            supabase.from('user_settings')
-                .update({ dark_mode: newValue })
-                .eq('user_id', user.id)
-                .then(({ error }) => { if (error) console.log('[Options] Error updating dark mode:', error) });
-        }
-    };
+            AsyncStorage.setItem('opt_dark_mode', newValue.toString());
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ dark_mode: newValue })
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error updating dark mode:', error) });
+            }
+            return newValue;
+        });
+    }, [user, setColorScheme]);
 
     // Toggle "Use device display settings"
     // Returns true if successfully enabled, false otherwise
-    const toggleUseDeviceDisplay = (): boolean => {
-        const newValue = !useDeviceDisplay;
-        if (newValue) {
-            // Enabling: check if we can read the device scheme
-            const deviceScheme = Appearance.getColorScheme();
-            if (!deviceScheme) {
-                console.log('[Options] Cannot read device display settings');
-                return false; // Signal failure — caller should show error
+    const toggleUseDeviceDisplay = useCallback((): boolean => {
+        // We need to read current useDeviceDisplay synchronously for the return value,
+        // so we use a ref-based approach with the state setter
+        let result = true;
+        setUseDeviceDisplay(prev => {
+            const newValue = !prev;
+            if (newValue) {
+                // Enabling: check if we can read the device scheme
+                const deviceScheme = Appearance.getColorScheme();
+                if (!deviceScheme) {
+                    console.log('[Options] Cannot read device display settings');
+                    result = false;
+                    return prev; // Don't change state
+                }
+                // Successfully read device scheme
+                const deviceIsDark = deviceScheme === 'dark';
+                console.log('[Options] Enabling device display tracking, device is dark:', deviceIsDark);
+                setDarkModeState(deviceIsDark);
+                setColorScheme(deviceIsDark ? 'dark' : 'light');
+                AsyncStorage.setItem('opt_use_device_display', 'true');
+                AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
+                if (user) {
+                    supabase.from('user_settings')
+                        .update({ use_device_display: true, dark_mode: deviceIsDark } as any)
+                        .eq('user_id', user.id)
+                        .then(({ error }) => { if (error) console.log('[Options] Error updating use_device_display:', error) });
+                }
+                return true;
+            } else {
+                // Disabling: just turn off, leave dark mode as-is
+                console.log('[Options] Disabling device display tracking');
+                AsyncStorage.setItem('opt_use_device_display', 'false');
+                if (user) {
+                    supabase.from('user_settings')
+                        .update({ use_device_display: false } as any)
+                        .eq('user_id', user.id)
+                        .then(({ error }) => { if (error) console.log('[Options] Error updating use_device_display:', error) });
+                }
+                return false;
             }
-            // Successfully read device scheme
-            const deviceIsDark = deviceScheme === 'dark';
-            console.log('[Options] Enabling device display tracking, device is dark:', deviceIsDark);
-            setUseDeviceDisplay(true);
-            setDarkModeState(deviceIsDark);
-            setColorScheme(deviceIsDark ? 'dark' : 'light');
-            AsyncStorage.setItem('opt_use_device_display', 'true');
-            AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
-            if (user) {
-                supabase.from('user_settings')
-                    .update({ use_device_display: true, dark_mode: deviceIsDark } as any)
-                    .eq('user_id', user.id)
-                    .then(({ error }) => { if (error) console.log('[Options] Error updating use_device_display:', error) });
-            }
-            return true;
-        } else {
-            // Disabling: just turn off, leave dark mode as-is
-            console.log('[Options] Disabling device display tracking');
-            setUseDeviceDisplay(false);
-            AsyncStorage.setItem('opt_use_device_display', 'false');
-            if (user) {
-                supabase.from('user_settings')
-                    .update({ use_device_display: false } as any)
-                    .eq('user_id', user.id)
-                    .then(({ error }) => { if (error) console.log('[Options] Error updating use_device_display:', error) });
-            }
-            return true;
-        }
-    };
+        });
+        return result;
+    }, [user, setColorScheme]);
 
     // Sync dark mode with device (called from Home screen on focus)
-    const syncDarkModeWithDevice = () => {
-        // Always sync when signed out, or when useDeviceDisplay is enabled
-        if (!useDeviceDisplay && user) return;
-        const deviceScheme = Appearance.getColorScheme();
-        if (!deviceScheme) return;
-        const deviceIsDark = deviceScheme === 'dark';
-        if (deviceIsDark !== darkMode) {
-            console.log('[Options] Device display changed, syncing dark mode:', { deviceIsDark, wasDark: darkMode, signedOut: !user });
-            setDarkModeState(deviceIsDark);
-            setColorScheme(deviceIsDark ? 'dark' : 'light');
-            AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
-        }
-    };
+    const syncDarkModeWithDevice = useCallback(() => {
+        // Read current values via refs or state setter to avoid closures
+        // We need to read both useDeviceDisplay and darkMode, so we chain state setters
+        setUseDeviceDisplay(currentUseDevice => {
+            setDarkModeState(currentDarkMode => {
+                if (!currentUseDevice && user) return currentDarkMode; // No-op
+                const deviceScheme = Appearance.getColorScheme();
+                if (!deviceScheme) return currentDarkMode;
+                const deviceIsDark = deviceScheme === 'dark';
+                if (deviceIsDark !== currentDarkMode) {
+                    console.log('[Options] Device display changed, syncing dark mode:', { deviceIsDark, wasDark: currentDarkMode, signedOut: !user });
+                    setColorScheme(deviceIsDark ? 'dark' : 'light');
+                    AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
+                    return deviceIsDark;
+                }
+                return currentDarkMode;
+            });
+            return currentUseDevice; // Don't change useDeviceDisplay
+        });
+    }, [user, setColorScheme]);
 
-    const toggleClues = async () => {
-        const newValue = !cluesEnabled;
-        setCluesEnabled(newValue);
-        await AsyncStorage.setItem('opt_clues_enabled', newValue.toString());
-        if (user) {
-            supabase.from('user_settings')
-                .update({ clues_enabled: newValue })
-                .eq('user_id', user.id)
-                .then(({ error }) => { if (error) console.log('[Options] Error updating clues:', error) });
-        }
-    };
+    const toggleClues = useCallback(async () => {
+        setCluesEnabled(prev => {
+            const newValue = !prev;
+            AsyncStorage.setItem('opt_clues_enabled', newValue.toString());
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ clues_enabled: newValue })
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error updating clues:', error) });
+            }
+            return newValue;
+        });
+    }, [user]);
 
-    const toggleQuickMenu = async () => {
-        const newValue = !quickMenuEnabled;
-        setQuickMenuEnabled(newValue);
-        await AsyncStorage.setItem('opt_quick_menu', newValue.toString());
-        if (user) {
-            supabase.from('user_settings')
-                .update({ quick_menu_enabled: newValue })
-                .eq('user_id', user.id)
-                .then(({ error }) => { if (error) console.log('[Options] Error updating quick menu:', error) });
-        }
-    };
+    const toggleQuickMenu = useCallback(async () => {
+        setQuickMenuEnabled(prev => {
+            const newValue = !prev;
+            AsyncStorage.setItem('opt_quick_menu', newValue.toString());
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ quick_menu_enabled: newValue })
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error updating quick menu:', error) });
+            }
+            return newValue;
+        });
+    }, [user]);
 
-    const toggleLeagueTables = async () => {
-        const newValue = !leagueTablesEnabled;
-        setLeagueTablesEnabled(newValue);
-        await AsyncStorage.setItem('opt_league_tables', newValue.toString());
-    };
+    const toggleLeagueTables = useCallback(async () => {
+        setLeagueTablesEnabled(prev => {
+            const newValue = !prev;
+            AsyncStorage.setItem('opt_league_tables', newValue.toString());
+            return newValue;
+        });
+    }, []);
 
     // ── Notification Reminder Setters (local-only, no Supabase sync) ──
-    const setReminderEnabled = async (enabled: boolean) => {
+    const setReminderEnabled = useCallback(async (enabled: boolean) => {
         setReminderEnabledState(enabled);
         await AsyncStorage.setItem('opt_reminder_enabled', String(enabled));
         console.log('[Options] Reminder enabled:', enabled);
-    };
+    }, []);
 
-    const setReminderTime = async (time: string) => {
+    const setReminderTime = useCallback(async (time: string) => {
         setReminderTimeState(time);
         await AsyncStorage.setItem('opt_reminder_time', time);
         console.log('[Options] Reminder time:', time);
-    };
+    }, []);
 
-    const setHasPromptedStreak2 = async (val: boolean) => {
+    const setHasPromptedStreak2 = useCallback(async (val: boolean) => {
         setHasPromptedStreak2State(val);
         await AsyncStorage.setItem('opt_prompted_streak2', String(val));
-    };
+    }, []);
 
-    const setHasPromptedStreak7 = async (val: boolean) => {
+    const setHasPromptedStreak7 = useCallback(async (val: boolean) => {
         setHasPromptedStreak7State(val);
         await AsyncStorage.setItem('opt_prompted_streak7', String(val));
-    };
+    }, []);
 
-    const setNeverAskReminder = async (val: boolean) => {
+    const setNeverAskReminder = useCallback(async (val: boolean) => {
         setNeverAskReminderState(val);
         await AsyncStorage.setItem('opt_never_ask_reminder', String(val));
-    };
+    }, []);
 
-    const setStreakReminderEnabled = async (enabled: boolean) => {
+    const setStreakReminderEnabled = useCallback(async (enabled: boolean) => {
         setStreakReminderEnabledState(enabled);
         await AsyncStorage.setItem('opt_streak_reminder_enabled', String(enabled));
         console.log('[Options] Streak reminder enabled:', enabled);
-    };
+    }, []);
 
-    const setStreakReminderTime = async (time: string) => {
+    const setStreakReminderTime = useCallback(async (time: string) => {
         setStreakReminderTimeState(time);
         await AsyncStorage.setItem('opt_streak_reminder_time', time);
         console.log('[Options] Streak reminder time:', time);
-    };
+    }, []);
 
-    const setDateLength = (length: DateLength) => {
+    const setDateLength = useCallback((length: DateLength) => {
         setDateLengthState(length);
         persist('opt_date_length', length.toString());
         if (user) {
@@ -601,9 +627,9 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                 .eq('user_id', user.id)
                 .then(({ error }) => { if (error) console.log('[Options] Error updating date length:', error) });
         }
-    };
+    }, [user]);
 
-    const setDateFormatOrder = (order: DateFormatOrder) => {
+    const setDateFormatOrder = useCallback((order: DateFormatOrder) => {
         setDateFormatOrderState(order);
         persist('opt_date_order', order);
         if (user) {
@@ -612,62 +638,73 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                 .eq('user_id', user.id)
                 .then(({ error }) => { if (error) console.log('[Options] Error updating date order:', error) });
         }
-    };
+    }, [user]);
 
-    const toggleStreakSaver = async () => {
-        const newValue = !streakSaverActive;
-        setStreakSaverActive(newValue);
-        await AsyncStorage.setItem('opt_streak_saver_active', newValue.toString());
+    const toggleStreakSaver = useCallback(async () => {
+        setStreakSaverActive(prev => {
+            const newValue = !prev;
+            AsyncStorage.setItem('opt_streak_saver_active', newValue.toString());
 
-        // [FIX] When turning OFF streak saver, also disable holiday saver
-        if (!newValue && holidaySaverActive) {
-            setHolidaySaverActive(false);
-            await AsyncStorage.setItem('opt_holiday_saver_active', 'false');
-            if (user) {
+            // [FIX] When turning OFF streak saver, also disable holiday saver
+            if (!newValue) {
+                setHolidaySaverActive(prevHoliday => {
+                    if (prevHoliday) {
+                        AsyncStorage.setItem('opt_holiday_saver_active', 'false');
+                    }
+                    if (user) {
+                        supabase.from('user_settings')
+                            .update({ streak_saver_active: false, holiday_saver_active: false })
+                            .eq('user_id', user.id)
+                            .then(({ error }) => { if (error) console.log('[Options] Error updating streak saver:', error) });
+                    }
+                    return false;
+                });
+            } else if (user) {
                 supabase.from('user_settings')
-                    .update({ streak_saver_active: false, holiday_saver_active: false })
+                    .update({ streak_saver_active: newValue })
                     .eq('user_id', user.id)
                     .then(({ error }) => { if (error) console.log('[Options] Error updating streak saver:', error) });
             }
-        } else if (user) {
-            supabase.from('user_settings')
-                .update({ streak_saver_active: newValue })
-                .eq('user_id', user.id)
-                .then(({ error }) => { if (error) console.log('[Options] Error updating streak saver:', error) });
-        }
-    };
+            return newValue;
+        });
+    }, [user]);
 
-    const toggleHolidaySaver = async () => {
-        // [FIX] Can't enable holiday if streak saver is off
-        if (!streakSaverActive) return;
+    const toggleHolidaySaver = useCallback(async () => {
+        // Use functional updater to check streakSaverActive without closing over it
+        setStreakSaverActive(currentStreakSaver => {
+            if (!currentStreakSaver) return currentStreakSaver; // Can't enable holiday if streak saver is off
 
-        const newValue = !holidaySaverActive;
-        setHolidaySaverActive(newValue);
-        await AsyncStorage.setItem('opt_holiday_saver_active', newValue.toString());
-        if (user) {
-            supabase.from('user_settings')
-                .update({ holiday_saver_active: newValue })
-                .eq('user_id', user.id)
-                .then(({ error }) => { if (error) console.log('[Options] Error updating holiday saver:', error) });
-        }
-    };
+            setHolidaySaverActive(prev => {
+                const newValue = !prev;
+                AsyncStorage.setItem('opt_holiday_saver_active', newValue.toString());
+                if (user) {
+                    supabase.from('user_settings')
+                        .update({ holiday_saver_active: newValue })
+                        .eq('user_id', user.id)
+                        .then(({ error }) => { if (error) console.log('[Options] Error updating holiday saver:', error) });
+                }
+                return newValue;
+            });
+            return currentStreakSaver; // Don't change streakSaverActive
+        });
+    }, [user]);
 
     // Set streaks enabled/disabled
-    const setStreaksEnabled = async (enabled: boolean) => {
+    const setStreaksEnabled = useCallback(async (enabled: boolean) => {
         console.log('[Options] setStreaksEnabled:', enabled);
         setStreaksEnabledState(enabled);
         await AsyncStorage.setItem('opt_streaks_enabled', String(enabled));
 
         // When disabling streaks, also disable streak saver and holiday saver
         if (!enabled) {
-            if (streakSaverActive) {
-                setStreakSaverActive(false);
-                await AsyncStorage.setItem('opt_streak_saver_active', 'false');
-            }
-            if (holidaySaverActive) {
-                setHolidaySaverActive(false);
-                await AsyncStorage.setItem('opt_holiday_saver_active', 'false');
-            }
+            setStreakSaverActive(prev => {
+                if (prev) AsyncStorage.setItem('opt_streak_saver_active', 'false');
+                return false;
+            });
+            setHolidaySaverActive(prev => {
+                if (prev) AsyncStorage.setItem('opt_holiday_saver_active', 'false');
+                return false;
+            });
             if (user) {
                 supabase.from('user_settings')
                     .update({ streaks_enabled: false, streak_saver_active: false, holiday_saver_active: false } as any)
@@ -687,36 +724,59 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                     .then(({ error }) => { if (error) console.log('[Options] Error enabling streaks:', error) });
             }
         }
-    };
+    }, [user]);
+
+    // ========================================================================
+    // MEMOIZED CONTEXT VALUE
+    // All functions above are wrapped in useCallback, so the useMemo only
+    // recalculates when an actual state value changes — NOT on every render.
+    // ========================================================================
+    const contextValue = useMemo(() => ({
+        textSize, setTextSize,
+        soundsEnabled, toggleSounds,
+        darkMode, toggleDarkMode,
+        useDeviceDisplay, toggleUseDeviceDisplay, syncDarkModeWithDevice,
+        cluesEnabled, toggleClues,
+        dateLength, setDateLength,
+        dateFormatOrder, setDateFormatOrder,
+        gameMode: gameModeState, setGameMode,
+        streaksEnabled, setStreaksEnabled,
+        streakSaverActive, toggleStreakSaver,
+        holidaySaverActive, toggleHolidaySaver,
+        quickMenuEnabled, toggleQuickMenu,
+        leagueTablesEnabled, toggleLeagueTables,
+        reminderEnabled, setReminderEnabled,
+        reminderTime, setReminderTime,
+        streakReminderEnabled, setStreakReminderEnabled,
+        streakReminderTime, setStreakReminderTime,
+        hasPromptedStreak2, setHasPromptedStreak2,
+        hasPromptedStreak7, setHasPromptedStreak7,
+        neverAskReminder, setNeverAskReminder,
+        textScale: getTextScale(textSize),
+        loading
+    }), [
+        // State values (trigger recalculation when they change):
+        textSize, soundsEnabled, darkMode, useDeviceDisplay, cluesEnabled,
+        dateLength, dateFormatOrder, gameModeState, streaksEnabled,
+        streakSaverActive, holidaySaverActive, quickMenuEnabled,
+        leagueTablesEnabled, reminderEnabled, reminderTime,
+        streakReminderEnabled, streakReminderTime,
+        hasPromptedStreak2, hasPromptedStreak7, neverAskReminder, loading,
+        // Stable useCallback refs (only change when `user` changes):
+        setTextSize, toggleSounds, toggleDarkMode, toggleUseDeviceDisplay,
+        syncDarkModeWithDevice, toggleClues, setDateLength, setDateFormatOrder,
+        setGameMode, setStreaksEnabled, toggleStreakSaver, toggleHolidaySaver,
+        toggleQuickMenu, toggleLeagueTables, setReminderEnabled, setReminderTime,
+        setStreakReminderEnabled, setStreakReminderTime,
+        setHasPromptedStreak2, setHasPromptedStreak7, setNeverAskReminder,
+    ]);
 
     return (
-        <OptionsContext.Provider value={{
-            textSize, setTextSize,
-            soundsEnabled, toggleSounds,
-            darkMode, toggleDarkMode,
-            useDeviceDisplay, toggleUseDeviceDisplay, syncDarkModeWithDevice,
-            cluesEnabled, toggleClues,
-            dateLength, setDateLength,
-            dateFormatOrder, setDateFormatOrder,
-            gameMode: gameModeState, setGameMode,
-            streaksEnabled, setStreaksEnabled,
-            streakSaverActive, toggleStreakSaver,
-            holidaySaverActive, toggleHolidaySaver,
-            quickMenuEnabled, toggleQuickMenu,
-            leagueTablesEnabled, toggleLeagueTables,
-            reminderEnabled, setReminderEnabled,
-            reminderTime, setReminderTime,
-            streakReminderEnabled, setStreakReminderEnabled,
-            streakReminderTime, setStreakReminderTime,
-            hasPromptedStreak2, setHasPromptedStreak2,
-            hasPromptedStreak7, setHasPromptedStreak7,
-            neverAskReminder, setNeverAskReminder,
-            textScale: getTextScale(textSize),
-            loading
-        }}>
+        <OptionsContext.Provider value={contextValue}>
             {children}
         </OptionsContext.Provider>
     );
 }
 
 export const useOptions = () => useContext(OptionsContext);
+

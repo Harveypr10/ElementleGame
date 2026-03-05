@@ -71,13 +71,9 @@ function getOrdinal(n: number): string {
 
 // ─── RankArrow ─────────────────────────────────────────────────────────
 
-function RankArrow({ yesterdaysRank, currentRank }: { yesterdaysRank: number | null; currentRank: number }) {
-    if (yesterdaysRank === null || yesterdaysRank === undefined) {
-        return (
-            <StyledView className="w-9 flex-row items-center justify-center" style={{ gap: 2 }}>
-                <Minus size={14} color="#94a3b8" />
-            </StyledView>
-        );
+function RankArrow({ yesterdaysRank, currentRank }: { yesterdaysRank: number | null; currentRank: number | null }) {
+    if (currentRank == null || yesterdaysRank == null) {
+        return <View style={{ width: 36 }} />;
     }
     const change = yesterdaysRank - currentRank;
     if (change > 0) {
@@ -206,12 +202,14 @@ function GhostRow({ row, position }: { row: StandingRow; position: 'top' | 'bott
         ? { borderBottomWidth: 2, borderBottomColor: '#3b82f6' }
         : { borderTopWidth: 2, borderTopColor: '#3b82f6' };
 
+    const isUnranked = row.is_unranked === true;
+
     return (
         <StyledView
             className="flex-row items-center px-3 py-3"
             style={{ ...borderStyle, backgroundColor: ghostBg }}
         >
-            <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>{row.rank}</Text>
+            <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>{isUnranked ? '-' : row.rank}</Text>
             <RankArrow yesterdaysRank={row.yesterdays_rank} currentRank={row.rank} />
             <StyledView className="flex-1 px-1">
                 <Text style={{ fontSize: 14, fontFamily: 'Nunito_700Bold', fontWeight: '700', color: '#1d4ed8' }}>
@@ -222,10 +220,10 @@ function GhostRow({ row, position }: { row: StandingRow; position: 'top' | 'bott
                 </Text>
             </StyledView>
             <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{row.games_played}</Text>
-            <Text style={{ width: 42, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{row.win_rate}%</Text>
-            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{row.avg_guesses}</Text>
+            <Text style={{ width: 42, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{isUnranked ? '-' : `${row.win_rate}%`}</Text>
+            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{isUnranked ? '-' : row.avg_guesses}</Text>
             <Text style={{ width: 48, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>
-                {row.elementle_rating}
+                {isUnranked ? '-' : row.elementle_rating}
             </Text>
         </StyledView>
     );
@@ -245,12 +243,13 @@ function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode }: { row: S
     const myRowBg = gameMode === 'user' ? myRowBgUser : myRowBgRegion;
 
     const rowBg = row.is_me ? myRowBg : (isEven ? bgEven : bgOdd);
+    const isUnranked = row.is_unranked === true;
 
     return (
         <Animated.View
             style={[
                 { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
-                { backgroundColor: rowBg },
+                { backgroundColor: rowBg, opacity: isUnranked ? 0.6 : 1 },
                 isGlowing && glowAnim ? {
                     borderWidth: 2,
                     borderColor: '#f59e0b',
@@ -264,7 +263,7 @@ function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode }: { row: S
             ]}
         >
             <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>
-                {row.rank}
+                {isUnranked ? '-' : row.rank}
             </Text>
             <RankArrow yesterdaysRank={row.yesterdays_rank} currentRank={row.rank} />
             <StyledView className="flex-1 px-1">
@@ -284,10 +283,10 @@ function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode }: { row: S
                 </Text>
             </StyledView>
             <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{row.games_played}</Text>
-            <Text style={{ width: 42, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{row.win_rate}%</Text>
-            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{row.avg_guesses}</Text>
+            <Text style={{ width: 42, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{isUnranked ? '-' : `${row.win_rate}%`}</Text>
+            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{isUnranked ? '-' : row.avg_guesses}</Text>
             <Text style={{ width: 48, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>
-                {row.elementle_rating}
+                {isUnranked ? '-' : row.elementle_rating}
             </Text>
         </Animated.View>
     );
@@ -707,13 +706,32 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     }, [selectedLeague, effectiveStandings, selectedTimeframe, isViewingPast, displayPeriodLabel, user]);
 
     const myRow = effectiveStandings?.standings?.find((s: StandingRow) => s.is_me);
-    const allRows = effectiveStandings?.standings ?? [];
+    const minGamesThreshold = effectiveStandings?.min_games_threshold ?? 5;
+
+    // Build display rows: insert a divider between ranked and unranked sections
+    type DividerItem = { _type: 'divider'; user_id: string; threshold: number };
+    type ListItem = StandingRow | DividerItem;
+
+    const allRows: ListItem[] = useMemo(() => {
+        const standings = effectiveStandings?.standings ?? [];
+        if (standings.length === 0) return [];
+
+        const ranked = standings.filter(r => !r.is_unranked);
+        const unranked = standings.filter(r => r.is_unranked);
+
+        if (unranked.length === 0) return ranked;
+
+        const result: ListItem[] = [...ranked];
+        result.push({ _type: 'divider', user_id: '__divider__', threshold: minGamesThreshold });
+        result.push(...unranked);
+        return result;
+    }, [effectiveStandings, minGamesThreshold]);
     const listFitsOnScreen = listContentHeight > 0 && listContentHeight <= listContainerHeight;
 
     // Scroll to user's row when data loads after joining a league
     useEffect(() => {
         if (shouldScrollToUserRef.current && allRows.length > 0 && leagueFlatListRef.current) {
-            const userIndex = allRows.findIndex((r: StandingRow) => r.is_me);
+            const userIndex = allRows.findIndex((r) => !('_type' in r) && r.is_me);
             if (userIndex >= 0) {
                 shouldScrollToUserRef.current = false;
                 // Use scrollToOffset to avoid "scrollToIndex out of range" crash
@@ -733,7 +751,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     // Determine my row's index for viewability tracking
     const myRowIndex = useMemo(() => {
         if (!myRow) return -1;
-        return allRows.findIndex((r: StandingRow) => r.user_id === myRow.user_id);
+        return allRows.findIndex((r) => !('_type' in r) && r.user_id === myRow.user_id);
     }, [allRows, myRow]);
 
     // onViewableItemsChanged callback — tracks visibility AND visible index range
@@ -1055,19 +1073,40 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                     </StyledView>
                 ) : (
                     <View style={{ flex: 1, backgroundColor: tableContainerBg, width: '100%', maxWidth: 768, alignSelf: 'center' }} {...swipePanResponder.panHandlers}>
-                        <FlatList
-                            ref={leagueFlatListRef}
+                        <FlatList<ListItem>
+                            ref={leagueFlatListRef as any}
                             data={allRows}
                             keyExtractor={(item) => item.user_id}
-                            renderItem={({ item, index }) => (
-                                <LeagueTableRow
-                                    row={item}
-                                    isEven={index % 2 === 0}
-                                    isGlowing={!!glowLeagueId && item.is_me}
-                                    glowAnim={glowAnim}
-                                    gameMode={gameMode}
-                                />
-                            )}
+                            renderItem={({ item, index }) => {
+                                if ('_type' in item && item._type === 'divider') {
+                                    return (
+                                        <View style={{
+                                            paddingVertical: 10,
+                                            paddingHorizontal: 16,
+                                            backgroundColor: borderColor,
+                                            alignItems: 'center',
+                                        }}>
+                                            <Text style={{
+                                                fontSize: 11,
+                                                fontFamily: 'Nunito_600SemiBold',
+                                                color: iconColor,
+                                                textAlign: 'center',
+                                            }}>
+                                                Players must play a minimum of {item.threshold} games to compete
+                                            </Text>
+                                        </View>
+                                    );
+                                }
+                                return (
+                                    <LeagueTableRow
+                                        row={item as StandingRow}
+                                        isEven={index % 2 === 0}
+                                        isGlowing={!!glowLeagueId && (item as StandingRow).is_me}
+                                        glowAnim={glowAnim}
+                                        gameMode={gameMode}
+                                    />
+                                );
+                            }}
                             getItemLayout={(_, index) => ({
                                 length: ESTIMATED_ROW_HEIGHT,
                                 offset: ESTIMATED_ROW_HEIGHT * index,

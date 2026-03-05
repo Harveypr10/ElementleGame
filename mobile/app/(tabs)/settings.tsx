@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { styled } from 'nativewind';
 import {
     ChevronLeft,
@@ -51,7 +51,10 @@ export default function SettingsScreen() {
         handleTerms,
         handleAdmin,
         router,
-        colors
+        colors,
+        leagueTablesEnabled,
+        toggleLeagueTables,
+        allLeagues,
     } = useSettingsScreenLogic();
 
     return (
@@ -192,7 +195,38 @@ export default function SettingsScreen() {
 
                         {/* League Tables */}
                         <StyledTouchableOpacity
-                            onPress={() => router.push('/league/manage')}
+                            onPress={() => {
+                                if (!leagueTablesEnabled) {
+                                    // If user has deliberately left all leagues, skip the popup
+                                    const allLeft = allLeagues && allLeagues.length > 0 &&
+                                        allLeagues.every(l => !l.is_active);
+                                    if (allLeft) {
+                                        router.push('/league/manage');
+                                        return;
+                                    }
+                                    // Otherwise show the enable prompt for new users
+                                    Alert.alert(
+                                        'League Tables',
+                                        'Do you want to show the Leagues on your Home screen? You can change this in Options at any time.',
+                                        [
+                                            {
+                                                text: 'No',
+                                                style: 'cancel',
+                                                onPress: () => router.push('/league/manage'),
+                                            },
+                                            {
+                                                text: 'Yes',
+                                                onPress: () => {
+                                                    toggleLeagueTables();
+                                                    router.push('/league/manage');
+                                                },
+                                            },
+                                        ]
+                                    );
+                                } else {
+                                    router.push('/league/manage');
+                                }
+                            }}
                             className="flex-row items-center py-3 mt-1"
                             style={{ flexDirection: 'row' }}
                         >

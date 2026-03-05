@@ -43,6 +43,8 @@ export default function GeneratingQuestionsScreen() {
     const containerRef = useRef<View>(null);
     const sequenceStartedRef = useRef(false);
     const mountedRef = useRef(true);
+    const animIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const spawnIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Animation constants
     const SCREEN_DURATION = 10000; // 10 seconds
@@ -70,6 +72,8 @@ export default function GeneratingQuestionsScreen() {
 
         return () => {
             mountedRef.current = false;
+            if (animIntervalRef.current) clearInterval(animIntervalRef.current);
+            if (spawnIntervalRef.current) clearInterval(spawnIntervalRef.current);
         };
     }, []);
 
@@ -117,6 +121,7 @@ export default function GeneratingQuestionsScreen() {
                     .filter((b): b is TextBlock => b !== null)
             );
         }, 100);
+        animIntervalRef.current = animInterval;
 
         try {
             // Step 1: Fetch event titles
@@ -297,6 +302,7 @@ export default function GeneratingQuestionsScreen() {
                     const text = popNextText() || 'Event...';
                     if (text) spawnIntoCell(next, text);
                 }, INTERVAL_MS);
+                spawnIntervalRef.current = spawnInterval;
             };
 
             const intervalTimeout = setTimeout(() => {

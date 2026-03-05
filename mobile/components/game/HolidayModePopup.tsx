@@ -34,8 +34,9 @@ export function HolidayModePopup({ visible, onClose, currentStreak, gameType, sh
     const textColor = useThemeColor({}, 'text');
 
     useEffect(() => {
+        let animation: Animated.CompositeAnimation | null = null;
         if (visible) {
-            Animated.loop(
+            animation = Animated.loop(
                 Animated.sequence([
                     Animated.timing(glowAnim, {
                         toValue: 1,
@@ -50,10 +51,14 @@ export function HolidayModePopup({ visible, onClose, currentStreak, gameType, sh
                         useNativeDriver: true,
                     }),
                 ])
-            ).start();
+            );
+            animation.start();
         } else {
             glowAnim.setValue(0);
         }
+        return () => {
+            animation?.stop();
+        };
     }, [visible]);
 
     const handleActivate = async () => {

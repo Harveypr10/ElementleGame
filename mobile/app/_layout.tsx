@@ -231,7 +231,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             }
         });
         return () => subscription.remove();
-    }, []);
+    }, [reminderEnabled, streakReminderEnabled, reminderTime, streakReminderTime, hydrateNotifs]);
 
 
     // [Notification Deep Link] Handle notification tap → navigate to the correct screen

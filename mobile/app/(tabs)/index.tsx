@@ -40,8 +40,9 @@ import { ReminderPromptModal } from '../../components/game/ReminderPromptModal';
 import { ReminderSuccessToast } from '../../components/game/ReminderSuccessToast';
 import * as NotificationService from '../../lib/NotificationService';
 import { fetchNotificationData } from '../../hooks/useNotificationData';
-import { useMyLeagues, useMyLeaguesAll, useLeagueStandings, League, GameMode } from '../../hooks/useLeagueData';
+import { useMyLeagues, useMyLeaguesAll, useLeagueStandings, useRejoinLeague, invalidateAllLeagueQueries, League, GameMode } from '../../hooks/useLeagueData';
 import { useLeague } from '../../contexts/LeagueContext';
+import LeagueUnlockPopup from '../../components/LeagueUnlockPopup';
 
 // Import hamster images - trying UI folder versions which appear to be transparent
 const HistorianHamsterBlue = require('../../assets/ui/webp_assets/Historian-Hamster.webp');
@@ -415,18 +416,24 @@ export default function HomeScreen() {
     const userRegion = profile?.region || 'UK';
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
     const [showHolidayModal, setShowHolidayModal] = useState(false);
+    const [showLeagueUnlockPopup, setShowLeagueUnlockPopup] = useState(false);
     // dismissedHolidayModal removed — holiday check is now reactive on every press
 
-    // Auto-enable league tables when a league invitation is pending
+    // Auto-enable league tables when a league invitation is pending (once per session)
+    const hasAutoEnabledRef = useRef(false);
     useEffect(() => {
+        if (hasAutoEnabledRef.current) return;
         if ((pendingLeagueInviteRegion || pendingLeagueInviteUser) && !leagueTablesEnabled) {
             console.log('[Home] Auto-enabling league tables for pending invitation');
+            hasAutoEnabledRef.current = true;
             toggleLeagueTables();
         }
     }, [pendingLeagueInviteRegion, pendingLeagueInviteUser, leagueTablesEnabled]);
 
+    const rejoinLeague = useRejoinLeague();
+
     // Handle league invite button press: check membership first, skip join screen if already member
-    const handleLeagueInvitePress = useCallback((mode: 'region' | 'user') => {
+    const handleLeagueInvitePress = useCallback(async (mode: 'region' | 'user') => {
         // Clear the per-mode invitation flag
         const otherModeStillPending = mode === 'region'
             ? pendingLeagueInviteUser
@@ -450,15 +457,25 @@ export default function HomeScreen() {
             : null;
 
         if (matchedLeague) {
-            // Already a member — skip join screen, trigger glow animation on league screen
-            console.log(`[Home] User already a member of league ${matchedLeague.id}, skipping join screen`);
+            // If user has left this league, rejoin them first
+            if (!matchedLeague.is_active) {
+                try {
+                    console.log(`[Home] User has left league ${matchedLeague.id}, rejoining...`);
+                    await rejoinLeague.mutateAsync(matchedLeague.id);
+                    console.log(`[Home] Successfully rejoined league ${matchedLeague.id}`);
+                } catch (err) {
+                    console.error('[Home] Error rejoining league:', err);
+                }
+            } else {
+                console.log(`[Home] User already active in league ${matchedLeague.id}, skipping join screen`);
+            }
             setNewlyJoinedLeagueId(matchedLeague.id);
             router.push(mode === 'region' ? '/league/region' : '/league/user');
         } else {
             // Not a member — go to join screen
             router.push('/league/join');
         }
-    }, [pendingJoinCode, allLeagues, setNewlyJoinedLeagueId, setPendingLeagueInviteRegion, setPendingLeagueInviteUser, setPendingJoinCode, pendingLeagueInviteRegion, pendingLeagueInviteUser, router]);
+    }, [pendingJoinCode, allLeagues, setNewlyJoinedLeagueId, setPendingLeagueInviteRegion, setPendingLeagueInviteUser, setPendingJoinCode, pendingLeagueInviteRegion, pendingLeagueInviteUser, router, rejoinLeague]);
 
     // CRITICAL: Single source of truth for "today's puzzle date"
     // This is calculated ONCE when the component mounts and when it refocuses
@@ -491,6 +508,52 @@ export default function HomeScreen() {
     const defaultStats = { current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {}, cumulative_monthly_percentile: null };
     const regionStats = regionHookStats || defaultStats;
     const userStats = userHookStats || defaultStats;
+
+    // Auto-unlock leagues for new users who qualify in their first full month
+    const hasCheckedAutoUnlockRef = useRef(false);
+    useEffect(() => {
+        // Only check once per app session, and only if leagues are currently disabled
+        if (hasCheckedAutoUnlockRef.current || leagueTablesEnabled || !user?.created_at) return;
+        if (!regionHookStats) return; // Wait for stats to load
+
+        hasCheckedAutoUnlockRef.current = true;
+
+        const checkAutoUnlock = async () => {
+            try {
+                // Check if user signed up in a previous calendar month
+                const createdDate = new Date(user.created_at);
+                const now = new Date();
+                const isNewMonth = now.getFullYear() > createdDate.getFullYear()
+                    || (now.getFullYear() === createdDate.getFullYear() && now.getMonth() > createdDate.getMonth());
+
+                if (!isNewMonth) {
+                    console.log('[Home] Auto-unlock: user is still in signup month, skipping');
+                    return;
+                }
+
+                // Fetch min games threshold from admin_settings
+                const { data: settingRow } = await supabase
+                    .from('admin_settings')
+                    .select('value')
+                    .eq('key', 'min_games_for_cumulative_percentile')
+                    .maybeSingle();
+                const minGames = settingRow?.value ? parseInt(settingRow.value, 10) : 5;
+
+                const monthlyGames = (regionHookStats as any)?.games_played_month ?? 0;
+                console.log(`[Home] Auto-unlock check: monthlyGames=${monthlyGames}, minGames=${minGames}`);
+
+                if (monthlyGames >= minGames) {
+                    console.log('[Home] Auto-unlock: user qualifies! Enabling league tables.');
+                    toggleLeagueTables();
+                    setShowLeagueUnlockPopup(true);
+                }
+            } catch (err) {
+                console.error('[Home] Auto-unlock check error:', err);
+            }
+        };
+
+        checkAutoUnlock();
+    }, [leagueTablesEnabled, user?.created_at, regionHookStats]);
 
     // Load Cached Data on Mount to prevent FOUC
     useEffect(() => {
@@ -1571,6 +1634,11 @@ export default function HomeScreen() {
                         });
                     }
                 }}
+            />
+
+            <LeagueUnlockPopup
+                visible={showLeagueUnlockPopup}
+                onDismiss={() => setShowLeagueUnlockPopup(false)}
             />
 
         </AdBannerContext.Provider>

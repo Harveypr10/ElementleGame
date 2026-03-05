@@ -458,7 +458,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
 
                             <ToggleRow
                                 label="League Tables"
-                                subLabel="Show buttons on home screen"
+                                subLabel="Show on Home screen"
                                 value={leagueTablesEnabled}
                                 onToggle={toggleLeagueTables}
                                 disabled={allLeaguesInactive}
