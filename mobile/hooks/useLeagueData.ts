@@ -86,12 +86,19 @@ export type StandingsResponse = {
 };
 
 export type Medal = {
+    id: number;
     league_id: string;
     league_name: string;
     timeframe: string;
     period_label: string;
     medal: 'gold' | 'silver' | 'bronze';
     elementle_rating: number;
+    is_awarded: boolean;
+    game_mode?: string;
+    games_played?: number;
+    games_won?: number;
+    win_rate?: number;
+    avg_guesses?: number;
     awarded_at: string;
 };
 
@@ -131,6 +138,7 @@ const leagueKeys = {
         ['leagues', 'member', leagueId, userId] as const,
     globalIdentity: (userId: string) => ['leagues', 'global-identity', userId] as const,
     myAwards: (userId: string) => ['leagues', 'my-awards', userId] as const,
+    pendingTrophies: (userId: string) => ['leagues', 'pending-trophies', userId] as const,
 };
 
 // ─── Fetch Functions ────────────────────────────────────────────────────
@@ -788,4 +796,48 @@ export function formatPeriodLabel(label: string, timeframe: Timeframe): string {
         'July', 'August', 'September', 'October', 'November', 'December',
     ];
     return `${months[parseInt(month, 10) - 1]} ${year}`;
+}
+
+// ─── Pending Trophies (Award Celebration) ────────────────────────────────
+
+/**
+ * Fetch un-seen trophy awards (is_awarded = false) for the celebration popup.
+ * Uses get_my_awards RPC and filters client-side.
+ */
+export function usePendingTrophies() {
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
+
+    const { data: pendingTrophies, refetch: refetchPendingTrophies } = useQuery({
+        queryKey: leagueKeys.pendingTrophies(user?.id || ''),
+        queryFn: async () => {
+            const { data, error } = await supabase.rpc('get_my_awards' as any);
+            if (error) throw error;
+            const awards = data as MyAwards;
+            return awards.medals.filter(m => !m.is_awarded);
+        },
+        enabled: !!user,
+        staleTime: 30_000,
+        refetchOnWindowFocus: true,
+    });
+
+    const markTrophyAsSeen = async (awardId: number) => {
+        if (!user) return;
+        console.log(`[TrophySystem] Marking trophy ${awardId} as seen...`);
+
+        const { error } = await (supabase as any)
+            .from('league_awards')
+            .update({ is_awarded: true })
+            .eq('id', awardId);
+
+        if (error) {
+            console.error('[TrophySystem] Failed to mark trophy seen:', error);
+        } else {
+            console.log('[TrophySystem] Successfully marked trophy seen.');
+            queryClient.invalidateQueries({ queryKey: leagueKeys.pendingTrophies(user.id) });
+            queryClient.invalidateQueries({ queryKey: leagueKeys.myAwards(user.id) });
+        }
+    };
+
+    return { pendingTrophies, refetchPendingTrophies, markTrophyAsSeen };
 }

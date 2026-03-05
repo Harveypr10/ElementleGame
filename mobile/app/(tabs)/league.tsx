@@ -31,7 +31,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styled } from 'nativewind';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Minus, Settings, Lock, Share2 } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Minus, Settings, Lock, Share2, Trophy } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import {
@@ -41,6 +41,7 @@ import {
     useRecordLeagueView,
     useHistoricalStandings,
     useMyMembership,
+    useMyAwards,
     getAvailablePeriods,
     getCurrentPeriodLabel,
     formatPeriodLabel,
@@ -55,6 +56,7 @@ import { ThemedText } from '../../components/ThemedText';
 import { RapidScrollBar } from '../../components/league/RapidScrollBar';
 import { MonthSelectModal } from '../../components/archive/MonthSelectModal';
 import type { StandingRow, Timeframe, League } from '../../hooks/useLeagueData';
+import { TrophyPopup } from '../../components/league/TrophyPopup';
 
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
@@ -194,7 +196,7 @@ function TimeframeToggle({
 
 // ─── GhostRow (smart pinned "my" row) ───────────────────────────────────
 
-function GhostRow({ row, position }: { row: StandingRow; position: 'top' | 'bottom' }) {
+function GhostRow({ row, position, isHistorical }: { row: StandingRow; position: 'top' | 'bottom'; isHistorical?: boolean }) {
     const textColor = useThemeColor({}, 'text');
     const ghostBg = useThemeColor({ light: '#dbeafe', dark: '#1e3a5f' }, 'surface');
 
@@ -209,7 +211,7 @@ function GhostRow({ row, position }: { row: StandingRow; position: 'top' | 'bott
             className="flex-row items-center px-3 py-3"
             style={{ ...borderStyle, backgroundColor: ghostBg }}
         >
-            <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>{isUnranked ? '-' : row.rank}</Text>
+            <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>{isUnranked ? '-' : isHistorical && row.rank === 1 ? '🥇' : isHistorical && row.rank === 2 ? '🥈' : isHistorical && row.rank === 3 ? '🥉' : row.rank}</Text>
             <RankArrow yesterdaysRank={row.yesterdays_rank} currentRank={row.rank} />
             <StyledView className="flex-1 px-1">
                 <Text style={{ fontSize: 14, fontFamily: 'Nunito_700Bold', fontWeight: '700', color: '#1d4ed8' }}>
@@ -231,7 +233,7 @@ function GhostRow({ row, position }: { row: StandingRow; position: 'top' | 'bott
 
 // ─── LeagueTableRow ────────────────────────────────────────────────────
 
-function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode }: { row: StandingRow; isEven: boolean; isGlowing?: boolean; glowAnim?: Animated.Value; gameMode?: string }) {
+function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode, isHistorical }: { row: StandingRow; isEven: boolean; isGlowing?: boolean; glowAnim?: Animated.Value; gameMode?: string; isHistorical?: boolean }) {
     const textColor = useThemeColor({}, 'text');
     const secondaryText = useThemeColor({}, 'icon');
     const bgEven = useThemeColor({ light: '#f8fafc', dark: '#1e293b' }, 'surface');
@@ -263,7 +265,7 @@ function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode }: { row: S
             ]}
         >
             <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>
-                {isUnranked ? '-' : row.rank}
+                {isUnranked ? '-' : isHistorical && row.rank === 1 ? '🥇' : isHistorical && row.rank === 2 ? '🥈' : isHistorical && row.rank === 3 ? '🥉' : row.rank}
             </Text>
             <RankArrow yesterdaysRank={row.yesterdays_rank} currentRank={row.rank} />
             <StyledView className="flex-1 px-1">
@@ -513,6 +515,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     const [showRatingTooltip, setShowRatingTooltip] = useState(false);
     const [statTooltipType, setStatTooltipType] = useState<string | null>(null);
     const [monthPickerVisible, setMonthPickerVisible] = useState(false);
+    const [showTrophyPopup, setShowTrophyPopup] = useState(false);
     const scrollY = useRef(new Animated.Value(0)).current;
     const [listContainerHeight, setListContainerHeight] = useState(0);
     const [listContentHeight, setListContentHeight] = useState(0);
@@ -520,6 +523,13 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
 
     // Brand color for header
     const brandColor = gameMode === 'region' ? '#8E57DB' : '#B278CD';
+
+    // ── Awards / Trophies ──
+    const { data: myAwards } = useMyAwards();
+    const hasTrophiesForLeague = useMemo(() => {
+        if (!myAwards?.medals || !selectedLeagueId) return false;
+        return myAwards.medals.some(m => m.league_id === selectedLeagueId && m.timeframe === selectedTimeframe && m.game_mode === gameMode);
+    }, [myAwards, selectedLeagueId, selectedTimeframe, gameMode]);
 
     // ── Date Picker / Historical Mode state ──
     const availablePeriods = useMemo(() => getAvailablePeriods(selectedTimeframe), [selectedTimeframe]);
@@ -834,6 +844,36 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                         <ChevronLeft size={28} color="#FFFFFF" />
                     </StyledTouchableOpacity>
 
+                    {/* Trophies pill (only if user has medals for this league) */}
+                    {hasTrophiesForLeague && (
+                        <TouchableOpacity
+                            onPress={() => setShowTrophyPopup(true)}
+                            activeOpacity={0.85}
+                            style={{
+                                position: 'absolute',
+                                left: 16,
+                                top: 54,
+                                zIndex: 10,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#FFFFFF',
+                                paddingHorizontal: 12,
+                                paddingVertical: 8,
+                                borderRadius: 9999,
+                                gap: 5,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.1,
+                                shadowRadius: 4,
+                                elevation: 2,
+                            }}
+                        >
+                            <Trophy size={14} color={brandColor} />
+                            <Text style={{ color: brandColor, fontSize: 13, fontFamily: 'Nunito_700Bold', fontWeight: '700' }}>Trophies</Text>
+                        </TouchableOpacity>
+                    )}
+
                     {screenWidth >= 768 ? (
                         <ThemedText className="font-n-bold text-white" size="3xl" style={{ color: '#FFFFFF' }}>
                             {gameMode === 'region' ? 'UK Edition Leagues' : 'Personal Edition Leagues'}
@@ -1104,6 +1144,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                         isGlowing={!!glowLeagueId && (item as StandingRow).is_me}
                                         glowAnim={glowAnim}
                                         gameMode={gameMode}
+                                        isHistorical={isHistoricalMode}
                                     />
                                 );
                             }}
@@ -1144,7 +1185,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                     ...(ghostPosition === 'top' ? { top: 0 } : { bottom: 0 }),
                                 }}
                             >
-                                <GhostRow row={myRow} position={ghostPosition} />
+                                <GhostRow row={myRow} position={ghostPosition} isHistorical={isHistoricalMode} />
                             </View>
                         )}
                     </View>
@@ -1190,6 +1231,18 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                 onSelectDate={handleMonthSelect}
                 mode={selectedTimeframe === 'ytd' ? 'year' : 'month'}
             />
+
+            {/* ── Trophy Popup ── */}
+            {myAwards?.medals && selectedLeagueId && (
+                <TrophyPopup
+                    visible={showTrophyPopup}
+                    onClose={() => setShowTrophyPopup(false)}
+                    medals={myAwards.medals.filter(m => m.game_mode === gameMode)}
+                    leagueId={selectedLeagueId}
+                    brandColor={brandColor}
+                    initialTimeframe={selectedTimeframe}
+                />
+            )}
         </ThemedView >
     );
 }

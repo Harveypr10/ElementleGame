@@ -73,6 +73,7 @@ import { initializeRevenueCat } from '../lib/RevenueCat';
 import { SplashScreen } from '../components/SplashScreen';
 import { StreakCelebrationProvider } from '../contexts/StreakCelebrationContext';
 import { LeagueProvider, useLeague } from '../contexts/LeagueContext';
+import { usePushToken } from '../hooks/usePushToken';
 // Lazy-loaded to avoid adding to _layout.tsx's initial module graph,
 // which has fragile pre-existing require cycles through guestMigration → auth
 const SubscriptionLifecycleManager = React.lazy(
@@ -616,6 +617,9 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
  */
 function UserScopedProviders() {
     const { user } = useAuth();
+
+    // Register Expo Push Token for remote award notifications
+    usePushToken();
 
     // NOTE: No query cache clearing needed here.
     // All query hooks already include user?.id in their keys (e.g. ['userStats', user?.id, mode]),

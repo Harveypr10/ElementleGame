@@ -161,7 +161,7 @@ export default function CreateLeagueScreen() {
                                     placeholder="e.g. The History Buffs"
                                     placeholderTextColor="#94a3b8"
                                     autoCorrect={false}
-                                    maxLength={40}
+                                    maxLength={25}
                                     autoFocus
                                 />
                             </StyledView>

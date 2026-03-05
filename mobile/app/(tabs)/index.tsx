@@ -40,7 +40,8 @@ import { ReminderPromptModal } from '../../components/game/ReminderPromptModal';
 import { ReminderSuccessToast } from '../../components/game/ReminderSuccessToast';
 import * as NotificationService from '../../lib/NotificationService';
 import { fetchNotificationData } from '../../hooks/useNotificationData';
-import { useMyLeagues, useMyLeaguesAll, useLeagueStandings, useRejoinLeague, invalidateAllLeagueQueries, League, GameMode } from '../../hooks/useLeagueData';
+import { useMyLeagues, useMyLeaguesAll, useLeagueStandings, useRejoinLeague, invalidateAllLeagueQueries, usePendingTrophies, League, GameMode } from '../../hooks/useLeagueData';
+import { TrophyUnlockModal } from '../../components/game/TrophyUnlockModal';
 import { useLeague } from '../../contexts/LeagueContext';
 import LeagueUnlockPopup from '../../components/LeagueUnlockPopup';
 
@@ -415,6 +416,7 @@ export default function HomeScreen() {
     const { profile } = useProfile();
     const userRegion = profile?.region || 'UK';
     const { pendingBadges, markBadgeAsSeen, refetchPending } = useBadgeSystem();
+    const { pendingTrophies, markTrophyAsSeen, refetchPendingTrophies } = usePendingTrophies();
     const [showHolidayModal, setShowHolidayModal] = useState(false);
     const [showLeagueUnlockPopup, setShowLeagueUnlockPopup] = useState(false);
     // dismissedHolidayModal removed — holiday check is now reactive on every press
@@ -651,6 +653,10 @@ export default function HomeScreen() {
     // to prevent double-popup when query refetch briefly returns stale data
     const seenBadgeIdsRef = React.useRef<Set<number>>(new Set());
 
+    // Trophy Display State
+    const [trophyModalVisible, setTrophyModalVisible] = useState(false);
+    const seenTrophyIdsRef = React.useRef<Set<number>>(new Set());
+
     // Streak-7 notification prompt (moved from game-result.tsx)
     const [reminderPromptVisible, setReminderPromptVisible] = useState(false);
     const [reminderSuccessVisible, setReminderSuccessVisible] = useState(false);
@@ -689,6 +695,17 @@ export default function HomeScreen() {
             setBadgeModalVisible(false);
         }
     }, [pendingBadges, isAppReady, isFocused]);
+
+    // Sync trophy modal visibility with pending trophies
+    // Show AFTER badge modal is dismissed to avoid overlap
+    useEffect(() => {
+        const unseenTrophies = pendingTrophies?.filter(t => !seenTrophyIdsRef.current.has(t.id)) ?? [];
+        if (isAppReady && isFocused && !badgeModalVisible && unseenTrophies.length > 0) {
+            setTrophyModalVisible(true);
+        } else {
+            setTrophyModalVisible(false);
+        }
+    }, [pendingTrophies, isAppReady, isFocused, badgeModalVisible]);
 
     // Track which mode triggered the popup (Region or User)
     const [popupMode, setPopupMode] = useState<'REGION' | 'USER'>('REGION');
@@ -985,6 +1002,16 @@ export default function HomeScreen() {
                 console.log('[Home] Streak 7 badge closed — showing reminder prompt');
                 setTimeout(() => setReminderPromptVisible(true), 400);
             }
+        }
+    };
+
+    const handleTrophyClose = async () => {
+        const unseenTrophies = pendingTrophies?.filter(t => !seenTrophyIdsRef.current.has(t.id)) ?? [];
+        if (unseenTrophies.length > 0) {
+            const trophyToMark = unseenTrophies[0];
+            seenTrophyIdsRef.current.add(trophyToMark.id);
+            setTrophyModalVisible(false);
+            await markTrophyAsSeen(trophyToMark.id);
         }
     };
 
@@ -1465,6 +1492,16 @@ export default function HomeScreen() {
                     })()}
                     onClose={handleBadgeClose}
                     gameMode={gameMode}
+                />
+
+                {/* Trophy Celebration Modal: Shows first pending trophy if any */}
+                <TrophyUnlockModal
+                    visible={trophyModalVisible}
+                    trophy={(() => {
+                        const unseen = pendingTrophies?.filter(t => !seenTrophyIdsRef.current.has(t.id)) ?? [];
+                        return unseen.length > 0 ? unseen[0] : null;
+                    })()}
+                    onClose={handleTrophyClose}
                 />
 
                 {/* Streak-7 Notification Prompt (moved from game-result.tsx) */}
