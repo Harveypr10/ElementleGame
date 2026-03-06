@@ -8,6 +8,7 @@ import { useOptions } from '../lib/options';
 import { useRestrictions } from '../hooks/useRestrictions';
 import { useThemeColor } from '../hooks/useThemeColor';
 import { useMyLeaguesAll, LeagueWithMembership } from '../hooks/useLeagueData';
+import { useAdsConsent } from '../hooks/useAdsConsent';
 
 export function useSettingsScreenLogic() {
     const router = useRouter();
@@ -17,6 +18,7 @@ export function useSettingsScreenLogic() {
     const { textScale, leagueTablesEnabled, toggleLeagueTables } = useOptions();
     const { checkCategories } = useRestrictions();
     const { data: allLeagues } = useMyLeaguesAll();
+    const { privacyOptionsRequired, showPrivacyOptions } = useAdsConsent();
 
     const [signingOut, setSigningOut] = useState(false);
 
@@ -181,6 +183,8 @@ export function useSettingsScreenLogic() {
         handlePrivacy,
         handleTerms,
         handleAdmin,
+        privacyOptionsRequired,
+        showPrivacyOptions,
         router,
 
         // Styles

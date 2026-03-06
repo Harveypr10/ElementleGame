@@ -497,6 +497,16 @@ async function recalculateStatsForMode(userId: string, mode: 'REGION' | 'USER') 
             prevDate = currentDate;
         }
 
+        // Calculate games played this calendar month (using puzzle_date)
+        const nowForMonth = new Date();
+        const currentMonthPrefix = `${nowForMonth.getFullYear()}-${String(nowForMonth.getMonth() + 1).padStart(2, '0')}`;
+        const gamesPlayedMonth = playedGames.filter((a: any) => {
+            const pd = mode === 'REGION'
+                ? a.questions_allocated_region?.puzzle_date
+                : a.questions_allocated_user?.puzzle_date;
+            return pd && pd.startsWith(currentMonthPrefix);
+        }).length;
+
         // Upsert Stats
         const statsData: any = {
             user_id: userId,
@@ -504,7 +514,8 @@ async function recalculateStatsForMode(userId: string, mode: 'REGION' | 'USER') 
             games_won: gamesWon,
             current_streak: currentStreak,
             max_streak: maxStreak,
-            guess_distribution: guessDistribution
+            guess_distribution: guessDistribution,
+            games_played_month: gamesPlayedMonth
         };
         if (mode === 'REGION') statsData.region = userRegion;
 

@@ -450,7 +450,7 @@ export default function GeneratingQuestionsScreen() {
                         // Warm the puzzle readiness cache so Home screen Play button is immediately enabled
                         try {
                             const today = new Date().toISOString().split('T')[0];
-                            await AsyncStorage.setItem('puzzle_readiness_cache', JSON.stringify({ date: today, userReady: true }));
+                            await AsyncStorage.setItem(`puzzle_readiness_cache_${user?.id ?? 'guest'}`, JSON.stringify({ date: today, userReady: true }));
                         } catch (e) {
                             console.warn('[GeneratingQuestions] Failed to warm readiness cache:', e);
                         }

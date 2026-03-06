@@ -370,6 +370,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (newProfile) {
                 getQueryClient().setQueryData(['user_profile', userId], newProfile);
             }
+
+            // Generate global_tag via set_global_identity RPC
+            try {
+                const displayName = nameParts[0] || 'Player';
+                await supabase.rpc('set_global_identity', { p_display_name: displayName });
+                console.log('[Auth] Global identity set for fallback profile');
+            } catch (identityErr) {
+                console.warn('[Auth] set_global_identity warning:', identityErr);
+            }
+
             return true;
         } catch (e) {
             console.error('[Auth] Fallback profile creation error:', e);
@@ -854,28 +864,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Clears cached data only — does NOT touch auth state (session/user/isGuest).
     // Auth state transitions are driven by onAuthStateChange events.
     const clearUserCaches = async () => {
-        console.log('[Auth] Clearing user caches...');
+        console.log('[Auth] Clearing transient caches on sign-out...');
         try {
-            // Query cache is invalidated by onAuthStateChange SIGNED_IN handler
-            // (not here — clearing here breaks observers and prevents refetch)
-
+            // Only clear truly GLOBAL / transient keys.
+            // User-scoped keys (e.g. cached_first_name_<userId>) stay
+            // cached so the same user's preferences load instantly on re-login.
+            // In-memory preference state is reset in options.tsx's sign-out useEffect.
             const keysToRemove = [
-                'cached_first_name',
-                'cached_game_status_region',
-                'cached_game_status_user',
-                'cached_subscription_status',
-                'puzzle_readiness_cache',
                 'is_guest',
             ];
             await AsyncStorage.multiRemove(keysToRemove);
 
+            // Clear shared puzzle data caches (these are keyed by mode+date, not user)
             const allKeys = await AsyncStorage.getAllKeys();
             const puzzleCacheKeys = allKeys.filter(k => k.startsWith('puzzle_data_'));
             if (puzzleCacheKeys.length > 0) {
                 await AsyncStorage.multiRemove(puzzleCacheKeys);
             }
 
-            console.log('[Auth] All caches cleared successfully');
+            console.log('[Auth] Transient caches cleared (user-scoped keys preserved)');
         } catch (e) {
             console.error('[Auth] Error clearing caches:', e);
         }

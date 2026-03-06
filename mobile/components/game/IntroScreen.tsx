@@ -89,6 +89,15 @@ export function IntroScreen({
 
     const formattedDate = puzzleDate ? format(new Date(puzzleDate), 'MMM d, yyyy') : '';
 
+    // Streak saver background matches the StreakSaverPopup colors
+    const streakSaverBgColor = gameMode === 'REGION' ? '#FFD429' : '#fdab58';
+
+    const resolvedBgColor = isStreakSaverGame
+        ? streakSaverBgColor
+        : isStreakGame
+            ? '#000000'
+            : backgroundColor;
+
     return (
         /* Replaced Modal with Absolute View to prevent navigation flash and allow smoother transitions */
         <StyledView
@@ -99,7 +108,7 @@ export function IntroScreen({
                 left: 0,
                 right: 0,
                 zIndex: 50,
-                backgroundColor: isStreakGame ? '#000000' : backgroundColor,
+                backgroundColor: resolvedBgColor,
             }}
         >
             <Animated.View style={{ opacity: fadeAnim, flex: 1 }}>
@@ -107,6 +116,17 @@ export function IntroScreen({
                 {/* Center Content Area — mascot + text centered in the upper portion */}
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
                     <View style={{ maxWidth: 400, width: '100%', alignItems: 'center' }}>
+                        {/* Streak Saver Title */}
+                        {isStreakSaverGame && (
+                            <ThemedText
+                                className="font-display font-bold text-center"
+                                size="2xl"
+                                style={{ color: '#000000', marginBottom: 8 }}
+                            >
+                                Play Now to Get Back on Track!
+                            </ThemedText>
+                        )}
+
                         {/* Mascot */}
                         {(() => {
                             const screenWidth = Dimensions.get('window').width;
@@ -114,7 +134,7 @@ export function IntroScreen({
                             const containerSize = screenWidth > 500 ? 154 : 192;
                             return (
                                 <StyledView className="mb-8 items-center justify-center relative" style={{ height: containerSize, width: containerSize }}>
-                                    {isStreakGame ? (
+                                    {(isStreakGame || isStreakSaverGame) ? (
                                         <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
                                             <StreakBadge streak={currentStreak || 0} size={mascotSize * 1.125} />
                                         </View>
@@ -132,8 +152,12 @@ export function IntroScreen({
 
                         {/* Text Content */}
                         <StyledView className="items-center space-y-4 px-4 w-full">
-                            <StyledView className="max-w-[270px]">
-                                {isStreakGame ? (
+                            <StyledView className="max-w-[300px]">
+                                {isStreakSaverGame ? (
+                                    <Text style={{ color: '#dc2626', fontSize: 18, fontWeight: '700', textAlign: 'center' }}>
+                                        Play yesterday's puzzle now to add to your streak
+                                    </Text>
+                                ) : isStreakGame ? (
                                     <Text className="text-center font-body text-red-500 text-lg font-bold">
                                         Continue your streak!
                                     </Text>
@@ -151,7 +175,7 @@ export function IntroScreen({
                             {cluesEnabled && (
                                 <>
                                     {category && (
-                                        <Text className={`text-center font-display font-bold text-xl mt-2 ${isStreakGame ? 'text-yellow-400' : 'text-blue-900'}`}>
+                                        <Text className={`text-center font-display font-bold text-xl mt-2 ${isStreakSaverGame ? 'text-black' : isStreakGame ? 'text-yellow-400' : 'text-blue-900'}`}>
                                             {category}
                                         </Text>
                                     )}
@@ -159,7 +183,7 @@ export function IntroScreen({
                                         <ThemedText
                                             className="text-center font-display font-bold mt-2 text-slate-500"
                                             size="xl"
-                                            style={isStreakGame ? { color: '#ffffff' } : undefined}
+                                            style={(isStreakGame || isStreakSaverGame) ? { color: isStreakSaverGame ? '#4b5563' : '#ffffff' } : undefined}
                                         >
                                             {eventTitle}
                                         </ThemedText>
@@ -177,7 +201,7 @@ export function IntroScreen({
                         <View className="w-full items-center space-y-3">
                             <StyledTouchableOpacity
                                 onPress={onStart}
-                                className={`w-3/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center ${gameMode === 'USER' ? 'bg-[#66becb]' : 'bg-[#7DAAE8]'
+                                className={`w-3/5 py-4 rounded-full shadow-lg active:scale-95 transform transition-transform items-center ${isStreakSaverGame ? 'bg-black' : gameMode === 'USER' ? 'bg-[#66becb]' : 'bg-[#7DAAE8]'
                                     }`}
                             >
                                 <ThemedText className="text-white font-display font-bold uppercase tracking-wider" size="xl">

@@ -401,7 +401,10 @@ export default function HomeScreen() {
         streakReminderEnabled, streakReminderTime,
         leagueTablesEnabled,
         toggleLeagueTables,
+        leagueAutoUnlockDone,
+        setLeagueAutoUnlockDone,
         quickMenuEnabled,
+        userSettingsLoaded,
     } = useOptions();
     const {
         pendingJoinCode,
@@ -514,9 +517,19 @@ export default function HomeScreen() {
     // Auto-unlock leagues for new users who qualify in their first full month
     const hasCheckedAutoUnlockRef = useRef(false);
     useEffect(() => {
-        // Only check once per app session, and only if leagues are currently disabled
-        if (hasCheckedAutoUnlockRef.current || leagueTablesEnabled || !user?.created_at) return;
+        // Only check once per app session, and only after user settings are hydrated
+        if (hasCheckedAutoUnlockRef.current || leagueAutoUnlockDone || !user?.created_at) return;
         if (!regionHookStats) return; // Wait for stats to load
+        if (!userSettingsLoaded) return; // Wait for user-scoped settings to load from AsyncStorage
+
+        // If leagues are ALREADY enabled, this user doesn't need the auto-unlock popup.
+        // Just mark the flag as done so we never re-check, and bail out.
+        if (leagueTablesEnabled) {
+            console.log('[Home] Auto-unlock: leagues already enabled, marking done');
+            hasCheckedAutoUnlockRef.current = true;
+            setLeagueAutoUnlockDone(true);
+            return;
+        }
 
         hasCheckedAutoUnlockRef.current = true;
 
@@ -546,7 +559,13 @@ export default function HomeScreen() {
 
                 if (monthlyGames >= minGames) {
                     console.log('[Home] Auto-unlock: user qualifies! Enabling league tables.');
-                    toggleLeagueTables();
+                    // Enable leagues (toggleLeagueTables also sets leagueAutoUnlockDone = true)
+                    if (!leagueTablesEnabled) {
+                        toggleLeagueTables();
+                    } else {
+                        // Already enabled (e.g. user turned them on manually but flag wasn't set)
+                        setLeagueAutoUnlockDone(true);
+                    }
                     setShowLeagueUnlockPopup(true);
                 }
             } catch (err) {
@@ -555,7 +574,7 @@ export default function HomeScreen() {
         };
 
         checkAutoUnlock();
-    }, [leagueTablesEnabled, user?.created_at, regionHookStats]);
+    }, [leagueAutoUnlockDone, leagueTablesEnabled, userSettingsLoaded, user?.created_at, regionHookStats]);
 
     // Load Cached Data on Mount to prevent FOUC
     useEffect(() => {
@@ -565,11 +584,11 @@ export default function HomeScreen() {
                 const todayStr = todaysPuzzleDate;
 
                 // 1. Name
-                const cachedName = await AsyncStorage.getItem('cached_first_name');
+                const cachedName = await AsyncStorage.getItem(`cached_first_name_${user?.id ?? 'guest'}`);
                 if (cachedName) setFirstName(cachedName);
 
                 // 2. Region Status
-                const cachedRegion = await AsyncStorage.getItem('cached_game_status_region');
+                const cachedRegion = await AsyncStorage.getItem(`cached_game_status_region_${user?.id ?? 'guest'}`);
                 if (cachedRegion) {
                     const parsed = JSON.parse(cachedRegion);
                     if (parsed.date === todayStr) {
@@ -579,7 +598,7 @@ export default function HomeScreen() {
                 }
 
                 // 3. User Status
-                const cachedUser = await AsyncStorage.getItem('cached_game_status_user');
+                const cachedUser = await AsyncStorage.getItem(`cached_game_status_user_${user?.id ?? 'guest'}`);
                 if (cachedUser) {
                     const parsed = JSON.parse(cachedUser);
                     if (parsed.date === todayStr) {
@@ -1094,7 +1113,7 @@ export default function HomeScreen() {
                     if (todayAttempt.result === 'won') setGuessesRegion(guesses);
 
                     // Cache Region Status
-                    AsyncStorage.setItem('cached_game_status_region', JSON.stringify({
+                    AsyncStorage.setItem(`cached_game_status_region_${user.id}`, JSON.stringify({
                         date: todayStr,
                         status: status,
                         guesses: guesses
@@ -1103,7 +1122,7 @@ export default function HomeScreen() {
                     setTodayStatusRegion('not-played');
                     // Cache Region Status (Not Played) - Clear or set default?
                     // Better to overwrite with current state
-                    AsyncStorage.setItem('cached_game_status_region', JSON.stringify({
+                    AsyncStorage.setItem(`cached_game_status_region_${user.id}`, JSON.stringify({
                         date: todayStr,
                         status: 'not-played',
                         guesses: 0
@@ -1134,14 +1153,14 @@ export default function HomeScreen() {
                     if (todayAttempt.result === 'won') setGuessesUser(guesses);
 
                     // Cache User Status
-                    AsyncStorage.setItem('cached_game_status_user', JSON.stringify({
+                    AsyncStorage.setItem(`cached_game_status_user_${user.id}`, JSON.stringify({
                         date: todayStr,
                         status: status,
                         guesses: guesses
                     }));
                 } else {
                     setTodayStatusUser('not-played');
-                    AsyncStorage.setItem('cached_game_status_user', JSON.stringify({
+                    AsyncStorage.setItem(`cached_game_status_user_${user.id}`, JSON.stringify({
                         date: todayStr,
                         status: 'not-played',
                         guesses: 0
@@ -1159,7 +1178,7 @@ export default function HomeScreen() {
                 .single();
             if (profile?.first_name) {
                 setFirstName(profile.first_name);
-                AsyncStorage.setItem('cached_first_name', profile.first_name);
+                AsyncStorage.setItem(`cached_first_name_${user.id}`, profile.first_name);
             }
 
         } catch (e) {
@@ -1182,7 +1201,7 @@ export default function HomeScreen() {
             if (hasMissedRegion || hasMissedUser) return;
 
             try {
-                const pending = await AsyncStorage.getItem('streak_saver_upgrade_pending');
+                const pending = await AsyncStorage.getItem(`streak_saver_upgrade_pending_${user?.id ?? 'guest'}`);
                 if (pending === 'true') {
                     router.replace('/category-selection');
                 }

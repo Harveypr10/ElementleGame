@@ -114,12 +114,12 @@ export function useSubscription() {
     const effectiveSubscription = subscription || FREE_SUBSCRIPTION;
     const isPro = effectiveSubscription.tier === 'pro' && effectiveSubscription.isActive;
 
-    // Cache Pro Status for UI Polish
+    // Cache Pro Status for UI Polish (user-scoped)
     useEffect(() => {
-        if (subscription) {
-            AsyncStorage.setItem('cached_is_pro', (subscription.tier === 'pro' && subscription.isActive) ? 'true' : 'false');
+        if (subscription && user?.id) {
+            AsyncStorage.setItem(`cached_is_pro_${user.id}`, (subscription.tier === 'pro' && subscription.isActive) ? 'true' : 'false');
         }
-    }, [subscription]);
+    }, [subscription, user?.id]);
 
     return {
         subscription: effectiveSubscription,

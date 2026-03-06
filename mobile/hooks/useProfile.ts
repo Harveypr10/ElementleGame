@@ -107,7 +107,7 @@ export function useProfile() {
         error,
         isAdmin: profile?.is_admin === true,
         fullName: profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : null,
-        adsConsent: profile?.ads_consent ?? false,
+        // ads_consent removed — relying on Google UMP for consent management
         updateProfile: updateProfileMutation.mutateAsync,
         isUpdating: updateProfileMutation.isPending,
     };

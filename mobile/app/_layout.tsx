@@ -280,7 +280,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
         const checkReadiness = async () => {
             try {
                 // 1. Try cache first
-                const cached = await AsyncStorage.getItem('puzzle_readiness_cache');
+                const cached = await AsyncStorage.getItem(`puzzle_readiness_cache_${user.id}`);
                 if (cached) {
                     const parsed = JSON.parse(cached);
                     const today = new Date().toISOString().split('T')[0];
@@ -301,7 +301,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 
                 if (data?.question_id != null) {
                     setUserPuzzleReady(true);
-                    await AsyncStorage.setItem('puzzle_readiness_cache', JSON.stringify({ date: today, userReady: true }));
+                    await AsyncStorage.setItem(`puzzle_readiness_cache_${user.id}`, JSON.stringify({ date: today, userReady: true }));
                 }
             } catch (e) {
                 console.warn('[NavGuard] Puzzle readiness check failed:', e);
@@ -561,7 +561,12 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
                 console.log('[NavGuard] User needs to complete profile setup');
                 safeReplace('/(auth)/personalise');
             } else if (completedFirstLogin) {
-                if (inAuthGroup && !inPersonaliseFlow) {
+                // [FIX] If user is on onboarding (e.g. after magic link login completes),
+                // redirect straight to Home. Previously, 'onboarding' being in
+                // inPersonaliseFlow blocked this redirect.
+                const isOnOnboarding = segments.includes('onboarding' as never);
+
+                if (isOnOnboarding || (inAuthGroup && !inPersonaliseFlow)) {
                     console.log('[NavGuard] Redirecting authenticated user to app');
                     safeReplace('/(tabs)');
                 } else if (inGameFlow && (segments[0] === 'play')) {

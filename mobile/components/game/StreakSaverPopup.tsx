@@ -133,7 +133,7 @@ export function StreakSaverPopup({
     // Helper to handle post-interaction navigation and upgrade check
     const completeInteraction = async (action?: StreakSaverCloseAction) => {
         try {
-            const pendingUpgrade = await AsyncStorage.getItem('streak_saver_upgrade_pending');
+            const pendingUpgrade = await AsyncStorage.getItem(`streak_saver_upgrade_pending_${user?.id ?? 'guest'}`);
             if (pendingUpgrade === 'true') {
                 if (action !== 'use_streak_saver') {
                     // Signal parent we are done

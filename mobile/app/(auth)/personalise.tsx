@@ -224,6 +224,21 @@ export default function PersonalisePage() {
 
             console.log('[Profile] Profile saved successfully');
 
+            // Generate global_tag via set_global_identity RPC
+            // (The AFTER INSERT trigger on user_profiles can't modify NEW, so we do it here)
+            try {
+                const { data: identityResult, error: identityError } = await supabase.rpc('set_global_identity', {
+                    p_display_name: firstName.trim(),
+                });
+                if (identityError) {
+                    console.warn('[Profile] set_global_identity warning:', identityError.message);
+                } else {
+                    console.log('[Profile] Global identity set:', identityResult);
+                }
+            } catch (e) {
+                console.warn('[Profile] set_global_identity error:', e);
+            }
+
             // Create initial user_settings
             const { error: settingsError } = await supabase
                 .from('user_settings')

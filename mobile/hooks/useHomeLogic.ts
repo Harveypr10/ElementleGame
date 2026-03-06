@@ -133,11 +133,11 @@ export const useHomeLogic = () => {
                 const todayStr = todaysPuzzleDate;
 
                 // 1. Name
-                const cachedName = await AsyncStorage.getItem('cached_first_name');
+                const cachedName = await AsyncStorage.getItem(`cached_first_name_${user?.id ?? 'guest'}`);
                 if (cachedName) setFirstName(cachedName);
 
                 // 2. Region Status
-                const cachedRegion = await AsyncStorage.getItem('cached_game_status_region');
+                const cachedRegion = await AsyncStorage.getItem(`cached_game_status_region_${user?.id ?? 'guest'}`);
                 if (cachedRegion) {
                     const parsed = JSON.parse(cachedRegion);
                     if (parsed.date === todayStr) {
@@ -147,7 +147,7 @@ export const useHomeLogic = () => {
                 }
 
                 // 3. User Status
-                const cachedUser = await AsyncStorage.getItem('cached_game_status_user');
+                const cachedUser = await AsyncStorage.getItem(`cached_game_status_user_${user?.id ?? 'guest'}`);
                 if (cachedUser) {
                     const parsed = JSON.parse(cachedUser);
                     if (parsed.date === todayStr) {
@@ -207,7 +207,7 @@ export const useHomeLogic = () => {
                     const status = todayAttempt.result === 'won' ? 'solved' : (todayAttempt.result === 'lost' ? 'failed' : 'not-played');
                     setTodayStatusRegion(status);
                     if (todayAttempt.result === 'won') setGuessesRegion(todayAttempt.num_guesses || 0);
-                    AsyncStorage.setItem('cached_game_status_region', JSON.stringify({
+                    AsyncStorage.setItem(`cached_game_status_region_${user.id}`, JSON.stringify({
                         date: todayStr,
                         status,
                         guesses: todayAttempt.num_guesses || 0
@@ -228,7 +228,7 @@ export const useHomeLogic = () => {
                     const status = todayAttempt.result === 'won' ? 'solved' : (todayAttempt.result === 'lost' ? 'failed' : 'not-played');
                     setTodayStatusUser(status);
                     if (todayAttempt.result === 'won') setGuessesUser(todayAttempt.num_guesses || 0);
-                    AsyncStorage.setItem('cached_game_status_user', JSON.stringify({
+                    AsyncStorage.setItem(`cached_game_status_user_${user.id}`, JSON.stringify({
                         date: todayStr,
                         status,
                         guesses: todayAttempt.num_guesses || 0
@@ -244,7 +244,7 @@ export const useHomeLogic = () => {
                 .single();
             if (profileData?.first_name) {
                 setFirstName(profileData.first_name);
-                AsyncStorage.setItem('cached_first_name', profileData.first_name);
+                AsyncStorage.setItem(`cached_first_name_${user.id}`, profileData.first_name);
             }
 
         } catch (e) {

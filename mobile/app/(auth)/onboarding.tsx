@@ -123,8 +123,13 @@ export default function OnboardingPage() {
 
     const handlePlay = async () => {
         // Trigger UMP/ATT consent flow before playing as guest
-        // (SDK handles de-duplication — only shows prompts if not yet answered)
-        await triggerConsentFlow();
+        // Timeout after 3s so slow network doesn't block the user from playing
+        try {
+            const timeout = new Promise<void>((resolve) => setTimeout(resolve, 3000));
+            await Promise.race([triggerConsentFlow(), timeout]);
+        } catch (err) {
+            console.warn('[Onboarding] Consent flow failed/timed out, proceeding:', err);
+        }
 
         // Show interstitial if loaded, otherwise proceed directly
         if (isLoaded) {

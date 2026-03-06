@@ -23,7 +23,7 @@ import {
     Modal,
     LayoutChangeEvent,
     ViewToken,
-    PanResponder,
+
     useWindowDimensions,
     Share,
 } from 'react-native';
@@ -49,6 +49,7 @@ import {
 import type { GameMode } from '../../hooks/useLeagueData';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
 import { useThemeColor } from '../../hooks/useThemeColor';
 import { useOptions } from '../../lib/options';
 import { ThemedView } from '../../components/ThemedView';
@@ -196,7 +197,7 @@ function TimeframeToggle({
 
 // ─── GhostRow (smart pinned "my" row) ───────────────────────────────────
 
-function GhostRow({ row, position, isHistorical }: { row: StandingRow; position: 'top' | 'bottom'; isHistorical?: boolean }) {
+function GhostRow({ row, position, isHistorical, isPerfectStreak, brandColor }: { row: StandingRow; position: 'top' | 'bottom'; isHistorical?: boolean; isPerfectStreak?: boolean; brandColor?: string }) {
     const textColor = useThemeColor({}, 'text');
     const ghostBg = useThemeColor({ light: '#dbeafe', dark: '#1e3a5f' }, 'surface');
 
@@ -221,7 +222,7 @@ function GhostRow({ row, position, isHistorical }: { row: StandingRow; position:
                     {row.global_display_name} {row.global_tag}
                 </Text>
             </StyledView>
-            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{row.games_played}</Text>
+            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: isPerfectStreak ? 'Nunito_700Bold' : 'Nunito_600SemiBold', fontWeight: isPerfectStreak ? '700' : undefined, color: isPerfectStreak ? (brandColor || '#8E57DB') : textColor }}>{row.games_played}</Text>
             <Text style={{ width: 42, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{isUnranked ? '-' : `${row.win_rate}%`}</Text>
             <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{isUnranked ? '-' : row.avg_guesses}</Text>
             <Text style={{ width: 48, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>
@@ -233,7 +234,7 @@ function GhostRow({ row, position, isHistorical }: { row: StandingRow; position:
 
 // ─── LeagueTableRow ────────────────────────────────────────────────────
 
-function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode, isHistorical }: { row: StandingRow; isEven: boolean; isGlowing?: boolean; glowAnim?: Animated.Value; gameMode?: string; isHistorical?: boolean }) {
+function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode, isHistorical, isPerfectStreak, brandColor }: { row: StandingRow; isEven: boolean; isGlowing?: boolean; glowAnim?: Animated.Value; gameMode?: string; isHistorical?: boolean; isPerfectStreak?: boolean; brandColor?: string }) {
     const textColor = useThemeColor({}, 'text');
     const secondaryText = useThemeColor({}, 'icon');
     const bgEven = useThemeColor({ light: '#f8fafc', dark: '#1e293b' }, 'surface');
@@ -284,7 +285,7 @@ function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode, isHistoric
                     {row.global_display_name} {row.global_tag}
                 </Text>
             </StyledView>
-            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{row.games_played}</Text>
+            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: isPerfectStreak ? 'Nunito_700Bold' : 'Nunito_600SemiBold', fontWeight: isPerfectStreak ? '700' : undefined, color: isPerfectStreak ? (brandColor || '#8E57DB') : secondaryText }}>{row.games_played}</Text>
             <Text style={{ width: 42, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{isUnranked ? '-' : `${row.win_rate}%`}</Text>
             <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{isUnranked ? '-' : row.avg_guesses}</Text>
             <Text style={{ width: 48, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>
@@ -411,12 +412,25 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     useFocusEffect(
         useCallback(() => {
             if (!user?.id) return;
+            // Local cache first
             AsyncStorage.getItem(`league_order_${user.id}`).then(saved => {
                 if (saved) {
                     try { setSavedLeagueOrder(JSON.parse(saved)); } catch { }
                 }
                 orderLoadedRef.current = true;
             }).catch(() => { orderLoadedRef.current = true; });
+            // Cloud sync
+            supabase.from('user_settings')
+                .select('league_order')
+                .eq('user_id', user.id)
+                .maybeSingle()
+                .then(({ data }) => {
+                    if ((data as any)?.league_order) {
+                        const cloudOrder = (data as any).league_order as string[];
+                        setSavedLeagueOrder(cloudOrder);
+                        AsyncStorage.setItem(`league_order_${user.id}`, JSON.stringify(cloudOrder)).catch(() => { });
+                    }
+                });
         }, [user?.id])
     );
 
@@ -585,23 +599,6 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         }
     };
 
-    // Swipe gesture on data area to change period
-    const swipePanResponder = useRef(
-        PanResponder.create({
-            onMoveShouldSetPanResponder: (_, gestureState) => {
-                return Math.abs(gestureState.dx) > 30 && Math.abs(gestureState.dy) < 30;
-            },
-            onPanResponderRelease: (_, gestureState) => {
-                if (gestureState.dx < -50 && canGoNewer) {
-                    // Swipe left → go newer (forward)
-                    handlePeriodNext();
-                } else if (gestureState.dx > 50 && canGoOlder) {
-                    // Swipe right → go older (backward)
-                    handlePeriodPrev();
-                }
-            },
-        })
-    ).current;
 
     // MonthSelectModal date helpers
     const periodToDate = (period: string | null): Date => {
@@ -628,10 +625,30 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     };
 
     // Stat tooltip descriptions
-    const statDescriptions: Record<string, { title: string; body: string }> = {
-        stats: { title: 'Game Statistics', body: 'P — Games Played: total games played this period.\n\nWin% — Win Rate: percentage of games won.\n\nAvg — Average Guesses: average number of guesses per game.' },
+    const statDescriptions: Record<string, { title: string; body: string | null }> = {
+        stats: { title: 'Game Statistics', body: null }, // Uses custom JSX render
         rating: { title: 'Elementle Rating', body: 'A comprehensive measure of your puzzle-solving skill, factoring in your win rate, average guesses, and consistency.' },
     };
+
+    // Compute day-of-period for perfect streak detection
+    const dayOfPeriod = useMemo(() => {
+        const now = new Date();
+        if (selectedTimeframe === 'mtd') {
+            return now.getDate(); // day of month (1-31)
+        } else {
+            // day of year
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = now.getTime() - start.getTime();
+            return Math.floor(diff / (1000 * 60 * 60 * 24));
+        }
+    }, [selectedTimeframe]);
+
+    // Helper to check if a row has a perfect streak
+    const isPerfectStreak = useCallback((row: StandingRow): boolean => {
+        if (row.is_unranked || row.current_streak == null || row.games_played == null) return false;
+        // Perfect if streak covers all days so far (including today not yet played)
+        return row.current_streak >= dayOfPeriod || (row.current_streak >= dayOfPeriod - 1 && row.games_played >= dayOfPeriod - 1);
+    }, [dayOfPeriod]);
 
     // ── Smart Ghost Row state ──
     const [myRowVisible, setMyRowVisible] = useState(false);
@@ -646,13 +663,27 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         }
     }, [sortedLeagues, selectedLeagueId]);
 
-    // Record league view
+    // Record league view — refetch standings after so rank arrows reflect updated yesterdays_rank
+    const recordViewCalledRef = useRef<string | null>(null);
     useFocusEffect(
         useCallback(() => {
-            if (standings?.my_rank && selectedLeagueId) {
-                recordView.mutate({ leagueId: selectedLeagueId, currentRank: standings.my_rank });
+            if (standings?.my_rank && selectedLeagueId && selectedLeague) {
+                // Avoid duplicate calls for the same league+rank combo within this focus
+                const key = `${selectedLeagueId}_${standings.my_rank}`;
+                if (recordViewCalledRef.current === key) return;
+                recordViewCalledRef.current = key;
+                recordView.mutateAsync({ leagueId: selectedLeagueId, currentRank: standings.my_rank })
+                    .catch((err) => console.warn('[League] record_league_view warning:', err?.message ?? err))
+                    .finally(() => {
+                        // Always refetch standings so the rank arrows render with updated yesterdays_rank
+                        refetchStandings();
+                    });
             }
-        }, [standings?.my_rank, selectedLeagueId])
+            return () => {
+                // Reset when screen loses focus so next visit records again
+                recordViewCalledRef.current = null;
+            };
+        }, [standings?.my_rank, selectedLeagueId, selectedLeague])
     );
 
     const onRefresh = async () => {
@@ -1112,7 +1143,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                         )}
                     </StyledView>
                 ) : (
-                    <View style={{ flex: 1, backgroundColor: tableContainerBg, width: '100%', maxWidth: 768, alignSelf: 'center' }} {...swipePanResponder.panHandlers}>
+                    <View style={{ flex: 1, backgroundColor: tableContainerBg, width: '100%', maxWidth: 768, alignSelf: 'center' }}>
                         <FlatList<ListItem>
                             ref={leagueFlatListRef as any}
                             data={allRows}
@@ -1145,6 +1176,8 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                         glowAnim={glowAnim}
                                         gameMode={gameMode}
                                         isHistorical={isHistoricalMode}
+                                        isPerfectStreak={isPerfectStreak(item as StandingRow)}
+                                        brandColor={brandColor}
                                     />
                                 );
                             }}
@@ -1185,7 +1218,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                     ...(ghostPosition === 'top' ? { top: 0 } : { bottom: 0 }),
                                 }}
                             >
-                                <GhostRow row={myRow} position={ghostPosition} isHistorical={isHistoricalMode} />
+                                <GhostRow row={myRow} position={ghostPosition} isHistorical={isHistoricalMode} isPerfectStreak={isPerfectStreak(myRow)} brandColor={brandColor} />
                             </View>
                         )}
                     </View>
@@ -1208,9 +1241,26 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                         <Text style={{ fontSize: 18, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: statTooltipType === 'rating' ? '#b45309' : brandColor, marginBottom: 12 }}>
                             {statTooltipType ? statDescriptions[statTooltipType]?.title : ''}
                         </Text>
-                        <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, marginBottom: 20, color: textColor }}>
-                            {statTooltipType ? statDescriptions[statTooltipType]?.body : ''}
-                        </Text>
+                        {statTooltipType === 'stats' ? (
+                            <View style={{ marginBottom: 20 }}>
+                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor }}>
+                                    <Text style={{ fontFamily: 'Nunito_700Bold', fontWeight: '700' }}>P — Games Played:</Text> total games played this period.
+                                </Text>
+                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor, marginTop: 8 }}>
+                                    <Text style={{ fontFamily: 'Nunito_700Bold', fontWeight: '700' }}>Win% — Win Rate:</Text> percentage of games won.
+                                </Text>
+                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor, marginTop: 8 }}>
+                                    <Text style={{ fontFamily: 'Nunito_700Bold', fontWeight: '700' }}>Avg — Average Guesses:</Text> average number of guesses per game.
+                                </Text>
+                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor, marginTop: 12 }}>
+                                    *When a player is on a perfect streak their <Text style={{ fontFamily: 'Nunito_700Bold', fontWeight: '700', color: brandColor }}>Games Played</Text> is shown in <Text style={{ fontFamily: 'Nunito_700Bold', fontWeight: '700', color: brandColor }}>bold</Text>
+                                </Text>
+                            </View>
+                        ) : (
+                            <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, marginBottom: 20, color: textColor }}>
+                                {statTooltipType ? statDescriptions[statTooltipType]?.body : ''}
+                            </Text>
+                        )}
                         <TouchableOpacity
                             style={{ paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: brandColor }}
                             onPress={() => setStatTooltipType(null)}

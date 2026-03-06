@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { styled } from 'nativewind';
-import { ChevronLeft, Square, CheckSquare } from 'lucide-react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOptions } from '../lib/options';
 import { useProfile } from '../hooks/useProfile';
@@ -19,8 +19,7 @@ const StyledScrollView = styled(ScrollView);
 export default function PrivacyScreen() {
     const router = useRouter();
     const { textScale } = useOptions();
-    const { profile, adsConsent, updateProfile, isUpdating } = useProfile();
-    const [toggling, setToggling] = useState(false);
+    const { profile } = useProfile();
 
     // Dynamic privacy content state
     const [legislationName, setLegislationName] = useState('Data Protection Laws');
@@ -30,8 +29,6 @@ export default function PrivacyScreen() {
     const borderColor = useThemeColor({}, 'border');
     const iconColor = useThemeColor({}, 'icon');
     const secondaryTextColor = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'text');
-    const tintColor = useThemeColor({}, 'tint');
-
     useEffect(() => {
         const fetchPrivacyContent = async () => {
             const regionCode = profile?.region || 'UK'; // Default to UK
@@ -48,18 +45,6 @@ export default function PrivacyScreen() {
         };
         fetchPrivacyContent();
     }, [profile?.region]);
-
-    const handleToggleConsent = async () => {
-        setToggling(true);
-        try {
-            await updateProfile({ ads_consent: !adsConsent });
-        } catch (error) {
-            console.error('Failed to update ads consent', error);
-            Alert.alert('Error', 'Failed to update settings. Please try again.');
-        } finally {
-            setToggling(false);
-        }
-    };
 
     const sections = [
         {
@@ -146,28 +131,6 @@ export default function PrivacyScreen() {
                             </StyledView>
                         ))}
                     </StyledView>
-
-                    {/* Consent Checkbox (only show when logged in) */}
-                    {profile && (
-                        <StyledTouchableOpacity
-                            onPress={handleToggleConsent}
-                            disabled={toggling || isUpdating}
-                            className="flex-row items-start px-2 mb-8 opacity-80 active:opacity-100"
-                        >
-                            <StyledView className="mr-3 mt-1">
-                                {adsConsent ? (
-                                    <CheckSquare size={24} color={tintColor} />
-                                ) : (
-                                    <Square size={24} color={secondaryTextColor} />
-                                )}
-                            </StyledView>
-                            <StyledView className="flex-1">
-                                <ThemedText size="sm" style={{ color: secondaryTextColor }} className="leading-5">
-                                    I consent to my data being used to tailor ads. <ThemedText className="font-n-bold" size="sm">If you do not consent, your ads will not be tailored.</ThemedText>
-                                </ThemedText>
-                            </StyledView>
-                        </StyledTouchableOpacity>
-                    )}
 
                 </StyledView>
 

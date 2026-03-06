@@ -17,7 +17,8 @@ import {
     LogOut,
     Shield,
     SlidersHorizontal,
-    Trophy
+    Trophy,
+    Eye
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -50,6 +51,8 @@ export default function SettingsScreen() {
         handlePrivacy,
         handleTerms,
         handleAdmin,
+        privacyOptionsRequired,
+        showPrivacyOptions,
         router,
         colors,
         leagueTablesEnabled,
@@ -82,7 +85,7 @@ export default function SettingsScreen() {
 
             <StyledScrollView
                 className="flex-1"
-                contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16, alignItems: 'center' }}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 100, alignItems: 'center' }}
             >
                 <StyledView className="w-full" style={{ maxWidth: 768, alignSelf: 'center' }}>
                     {/* Group 1: Account, Subscription & Options */}
@@ -279,6 +282,18 @@ export default function SettingsScreen() {
                             <ThemedText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium">Terms</ThemedText>
                             <ChevronRight size={18} color="#94a3b8" />
                         </StyledTouchableOpacity>
+
+                        {/* Manage Ad Privacy — only show for non-Pro users when UMP requires it (GDPR) */}
+                        {!isPro && privacyOptionsRequired && (
+                            <>
+                                <StyledView className="h-px my-1" style={{ backgroundColor: colors.border }} />
+                                <StyledTouchableOpacity onPress={showPrivacyOptions} className="flex-row items-center py-2.5" style={{ flexDirection: 'row' }}>
+                                    <Eye size={18} color="#64748b" />
+                                    <ThemedText style={{ fontSize: 16 * textScale }} className="flex-1 ml-3 font-n-medium">Manage Ad Privacy</ThemedText>
+                                    <ChevronRight size={18} color="#94a3b8" />
+                                </StyledTouchableOpacity>
+                            </>
+                        )}
                     </StyledView>
 
                     {/* Group 4: Admin (Conditional) */}

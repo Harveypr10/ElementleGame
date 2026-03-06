@@ -118,7 +118,7 @@ export default function SubscriptionPage() {
 
                         // After successful purchase, navigate accordingly
                         if (from === 'streakSaver') {
-                            await AsyncStorage.setItem('streak_saver_upgrade_pending', 'true');
+                            await AsyncStorage.setItem(`streak_saver_upgrade_pending_${user?.id ?? 'guest'}`, 'true');
                             router.back();
                         } else {
                             router.replace('/category-selection');

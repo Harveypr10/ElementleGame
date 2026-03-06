@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, Modal, TouchableOpacity } from 'react-native';
 import { styled } from 'nativewind';
 import { ShieldCheck } from 'lucide-react-native';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 const StyledView = styled(View);
 const StyledText = styled(Text);
@@ -13,6 +12,7 @@ interface StreakSaverExitWarningProps {
     onClose: () => void;
     onExit: () => void;
     onContinuePlaying: () => void;
+    gameType?: 'REGION' | 'USER';
 }
 
 export function StreakSaverExitWarning({
@@ -20,8 +20,10 @@ export function StreakSaverExitWarning({
     onClose,
     onExit,
     onContinuePlaying,
+    gameType = 'REGION',
 }: StreakSaverExitWarningProps) {
-    const iconColor = useThemeColor({}, 'icon');
+    // Match StreakSaverPopup colors per game type
+    const bgColor = gameType === 'REGION' ? '#FFD429' : '#fdab58';
 
     return (
         <Modal
@@ -31,37 +33,42 @@ export function StreakSaverExitWarning({
             onRequestClose={onClose}
         >
             <StyledView className="flex-1 bg-black/70 items-center justify-center p-6">
-                <StyledView className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-sm shadow-xl">
+                <StyledView
+                    className="rounded-2xl p-6 w-full max-w-sm shadow-2xl"
+                    style={{ backgroundColor: bgColor }}
+                >
 
                     {/* Header */}
                     <StyledView className="items-center mb-4">
                         <ShieldCheck size={48} color="#22c55e" className="mb-2" />
-                        <StyledText className="text-2xl font-n-bold text-slate-900 dark:text-white text-center">
+                        <StyledText className="text-2xl font-n-bold text-slate-900 text-center">
                             Your streak is safe!
                         </StyledText>
                     </StyledView>
 
                     {/* Description */}
-                    <StyledText className="text-center text-slate-600 dark:text-slate-300 font-n-medium mb-8 text-base leading-6">
-                        No worries if you don't want to play yesterday's question now, you will still keep your existing streak 👍{'\n\n'}However, if you later visit the archive to play yesterday's puzzle, winning it won't add to your streak...
+                    <StyledText className="text-center text-slate-700 font-n-medium mb-8 text-base leading-6">
+                        No worries if you don't want to play yesterday's question now, you will still keep your existing streak.{'\n\n'}However, if you later play and win yesterday's puzzle from the Archive, it won't add to your streak...
                     </StyledText>
 
-                    {/* Actions */}
+                    {/* Actions — styled to match StreakSaverPopup buttons */}
                     <StyledView className="gap-3 w-full">
+                        {/* Continue Playing — matches "Go on holiday" blue button style */}
                         <StyledTouchableOpacity
                             onPress={onContinuePlaying}
-                            className="bg-orange-500 active:bg-orange-600 py-4 rounded-xl w-full"
+                            className="bg-blue-400 active:bg-blue-500 py-3 rounded-2xl w-full"
                         >
                             <StyledText className="text-white font-n-bold text-center text-lg">
                                 Continue Playing
                             </StyledText>
                         </StyledTouchableOpacity>
 
+                        {/* Exit — matches "Let streak reset" white button style */}
                         <StyledTouchableOpacity
                             onPress={onExit}
-                            className="bg-transparent py-4 rounded-xl w-full"
+                            className="bg-white active:bg-slate-100 py-3 rounded-2xl w-full"
                         >
-                            <StyledText className="text-slate-500 dark:text-slate-400 font-n-medium text-center text-base">
+                            <StyledText className="text-slate-700 font-n-bold text-center text-lg">
                                 Exit
                             </StyledText>
                         </StyledTouchableOpacity>
@@ -71,4 +78,3 @@ export function StreakSaverExitWarning({
         </Modal>
     );
 }
-

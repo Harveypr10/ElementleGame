@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
 import { useSubscription } from '../hooks/useSubscription';
+import { useAuth } from '../lib/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface GoProButtonProps {
@@ -16,15 +17,16 @@ interface GoProButtonProps {
 
 export function GoProButton({ onPress, scale = 1 }: GoProButtonProps) {
     const { isPro, isLoading } = useSubscription();
+    const { user } = useAuth();
     const [cachedPro, setCachedPro] = useState(false);
     const [cacheChecked, setCacheChecked] = useState(false);
 
     useEffect(() => {
-        AsyncStorage.getItem('cached_is_pro').then(val => {
+        AsyncStorage.getItem(`cached_is_pro_${user?.id ?? 'guest'}`).then(val => {
             if (val === 'true') setCachedPro(true);
             setCacheChecked(true);
         });
-    }, []);
+    }, [user?.id]);
 
     if (!cacheChecked) return null;
 

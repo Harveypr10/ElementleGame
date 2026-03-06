@@ -24,6 +24,7 @@ export interface UserStats {
     guess_distribution?: any;
     cumulative_monthly_percentile?: number | null;
     next_holiday_reset_date?: string;
+    games_played_month?: number | null;
 }
 
 export const useUserStats = (mode: 'REGION' | 'USER' = 'REGION') => {

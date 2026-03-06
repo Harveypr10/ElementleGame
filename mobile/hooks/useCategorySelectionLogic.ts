@@ -51,7 +51,7 @@ export const useCategorySelectionLogic = () => {
     useEffect(() => {
         const checkWelcome = async () => {
             try {
-                const pending = await AsyncStorage.getItem('streak_saver_upgrade_pending');
+                const pending = await AsyncStorage.getItem(`streak_saver_upgrade_pending_${user?.id ?? 'guest'}`);
                 if (pending === 'true') {
                     setWelcomeVisible(true);
                 }
@@ -65,7 +65,7 @@ export const useCategorySelectionLogic = () => {
     const handleCloseWelcome = async () => {
         setWelcomeVisible(false);
         try {
-            await AsyncStorage.removeItem('streak_saver_upgrade_pending');
+            await AsyncStorage.removeItem(`streak_saver_upgrade_pending_${user?.id ?? 'guest'}`);
         } catch (e) {
             console.error('[CategorySelection] Error clearing welcome flag:', e);
         }
@@ -261,7 +261,7 @@ export const useCategorySelectionLogic = () => {
     // Handle exit/back navigation
     const handleExit = useCallback(async () => {
         try {
-            await AsyncStorage.removeItem('streak_saver_upgrade_pending');
+            await AsyncStorage.removeItem(`streak_saver_upgrade_pending_${user?.id ?? 'guest'}`);
         } catch (e) {
             console.error('[CategorySelection] Error clearing welcome flag:', e);
         }

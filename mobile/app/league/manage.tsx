@@ -36,6 +36,7 @@ import {
     UserX, ArrowUp, ArrowDown, GripVertical,
 } from 'lucide-react-native';
 import { useAuth } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
 import { useProfile } from '../../hooks/useProfile';
 import {
     useMyLeaguesAll,
@@ -469,6 +470,7 @@ function LeagueManageCard({ league, reorderMode, onMoveUp, onMoveDown, isFirst, 
                             League nickname
                         </Text>
                         {editing ? (
+                            <>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                 <TextInput
                                     style={{
@@ -487,6 +489,10 @@ function LeagueManageCard({ league, reorderMode, onMoveUp, onMoveDown, isFirst, 
                                     <X size={20} color="#ef4444" />
                                 </TouchableOpacity>
                             </View>
+                            <Text style={{ fontSize: 11, fontFamily: 'Nunito_500Medium', color: nickname.length >= 15 ? '#ef4444' : '#94a3b8', alignSelf: 'flex-end', marginTop: 2 }}>
+                                {15 - nickname.length} characters remaining
+                            </Text>
+                            </>
                         ) : (
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                 <Text style={{ fontSize: 15, fontFamily: 'Nunito_600SemiBold', color: textColor }}>
@@ -771,14 +777,27 @@ export default function ManageLeaguesScreen() {
     const [orderedLeagueIds, setOrderedLeagueIds] = useState<string[]>([]);
     const orderInitialisedRef = useRef(false);
 
-    // Load saved league order from AsyncStorage
+    // Load saved league order from AsyncStorage, then sync from Supabase
     useEffect(() => {
         if (!user?.id) return;
+        // First try local cache
         AsyncStorage.getItem(`league_order_${user.id}`).then(saved => {
             if (saved) {
                 try { setOrderedLeagueIds(JSON.parse(saved)); } catch { }
             }
         });
+        // Then sync from Supabase (cloud source of truth)
+        supabase.from('user_settings')
+            .select('league_order')
+            .eq('user_id', user.id)
+            .maybeSingle()
+            .then(({ data }) => {
+                if ((data as any)?.league_order) {
+                    const cloudOrder = (data as any).league_order as string[];
+                    setOrderedLeagueIds(cloudOrder);
+                    AsyncStorage.setItem(`league_order_${user.id}`, JSON.stringify(cloudOrder)).catch(() => { });
+                }
+            });
     }, [user?.id]);
 
     // When leagues load, merge with saved order
@@ -809,11 +828,15 @@ export default function ManageLeaguesScreen() {
         return sorted;
     }, [leagues, orderedLeagueIds]);
 
-    // Save order to AsyncStorage
+    // Save order to AsyncStorage + Supabase
     const saveOrder = useCallback(async (ids: string[]) => {
         if (!user?.id) return;
         setOrderedLeagueIds(ids);
         await AsyncStorage.setItem(`league_order_${user.id}`, JSON.stringify(ids));
+        supabase.from('user_settings')
+            .update({ league_order: ids } as any)
+            .eq('user_id', user.id)
+            .then(({ error }) => { if (error) console.log('[ManageLeagues] Error syncing league order:', error) });
     }, [user?.id]);
 
     const handleMoveUp = useCallback((leagueId: string) => {
@@ -975,6 +998,7 @@ export default function ManageLeaguesScreen() {
                     </Text>
 
                     {editingGlobal ? (
+                        <>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                             <TextInput
                                 style={{
@@ -993,6 +1017,10 @@ export default function ManageLeaguesScreen() {
                                 <X size={22} color="#ef4444" />
                             </TouchableOpacity>
                         </View>
+                        <Text style={{ fontSize: 11, fontFamily: 'Nunito_500Medium', color: globalName.length >= 15 ? '#ef4444' : '#94a3b8', alignSelf: 'flex-end', marginTop: 2 }}>
+                            {15 - globalName.length} characters remaining
+                        </Text>
+                        </>
                     ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
                             <Text style={{ fontSize: 20, fontFamily: 'Nunito_800ExtraBold', color: textColor }}>

@@ -83,7 +83,7 @@ export default function CategorySelectionScreen() {
     useEffect(() => {
         const checkWelcome = async () => {
             try {
-                const pending = await AsyncStorage.getItem('streak_saver_upgrade_pending');
+                const pending = await AsyncStorage.getItem(`streak_saver_upgrade_pending_${user?.id ?? 'guest'}`);
                 if (pending === 'true') {
                     setWelcomeVisible(true);
                 }
@@ -97,7 +97,7 @@ export default function CategorySelectionScreen() {
     const handleCloseWelcome = async () => {
         setWelcomeVisible(false);
         try {
-            await AsyncStorage.removeItem('streak_saver_upgrade_pending');
+            await AsyncStorage.removeItem(`streak_saver_upgrade_pending_${user?.id ?? 'guest'}`);
         } catch (e) {
             console.error(e);
         }
@@ -280,7 +280,7 @@ export default function CategorySelectionScreen() {
 
     const handleExit = async () => {
         try {
-            await AsyncStorage.removeItem('streak_saver_upgrade_pending');
+            await AsyncStorage.removeItem(`streak_saver_upgrade_pending_${user?.id ?? 'guest'}`);
         } catch (e) {
             console.error(e);
         }

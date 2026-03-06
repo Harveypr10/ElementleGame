@@ -2,34 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Linking } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { useProfile } from '../hooks/useProfile';
 import { useAuth } from '../lib/auth';
-import { Switch } from 'react-native';
 
 export default function PrivacyWeb() {
     const router = useRouter();
     const { user } = useAuth();
     const [backHover, setBackHover] = useState(false);
 
-    // Ads Consent Logic
-    const { profile, updateProfile } = useProfile();
-    const [saving, setSaving] = useState(false);
 
-    const adsConsent = profile?.ads_consent ?? false; // Note: check profile key. Legacy uses adsConsent, hook usually uses snake_case keys from Supabase or camelCase if transformed.
-    // verify useProfile hook structure? Usually it returns snake_case from DB or normalized.
-    // I'll assume snake_case `ads_consent` or check `useProfile` definition if unsure.
-    // Legacy Web uses `adsConsent`. Mobile typically uses snake_case.
-    // Let's assume `ads_consent` for safety or check.
-    // Actually, let's look at `useProfile` briefly or try accessing both.
-
-    const handleAdsToggle = async (value: boolean) => {
-        setSaving(true);
-        try {
-            await updateProfile({ ads_consent: value });
-        } finally {
-            setSaving(false);
-        }
-    };
 
     return (
         <View style={styles.container}>
@@ -167,26 +147,6 @@ export default function PrivacyWeb() {
                             </Text>
                         </View>
 
-                        {/* Ads Consent - only for logged-in users */}
-                        {user && (
-                            <View style={[styles.section, styles.consentSection]}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <View style={{ flex: 1, paddingRight: 16 }}>
-                                        <Text style={styles.paragraph}>
-                                            I consent to my data being used to tailor ads. <Text style={styles.bold}>If you do not consent, your ads will not be tailored.</Text>
-                                        </Text>
-                                    </View>
-                                    <Switch
-                                        value={adsConsent}
-                                        onValueChange={handleAdsToggle}
-                                        disabled={saving}
-                                        trackColor={{ false: '#cbd5e1', true: '#3b82f6' }}
-                                        thumbColor={'#ffffff'}
-                                    />
-                                </View>
-                            </View>
-                        )}
-
                     </ScrollView>
                 </View>
             </View>
@@ -288,11 +248,5 @@ const styles = StyleSheet.create({
     bold: {
         fontFamily: 'Nunito_700Bold',
         color: '#0f172a',
-    },
-    consentSection: {
-        marginTop: 32,
-        paddingTop: 16,
-        borderTopWidth: 1,
-        borderTopColor: '#e2e8f0',
     },
 });

@@ -57,6 +57,10 @@ type OptionsContextType = {
     toggleQuickMenu: () => void;
     leagueTablesEnabled: boolean;
     toggleLeagueTables: () => void;
+    leagueAutoUnlockDone: boolean;
+    setLeagueAutoUnlockDone: (val: boolean) => void;
+    hasSeenHowToPlay: boolean;
+    setHasSeenHowToPlay: (val: boolean) => void;
 
     // Notification Reminders (local-only, no Supabase sync)
     reminderEnabled: boolean;
@@ -77,6 +81,7 @@ type OptionsContextType = {
     // Computed from textSize
     textScale: number;
     loading: boolean;
+    userSettingsLoaded: boolean;
 };
 
 const OptionsContext = createContext<OptionsContextType>({
@@ -109,8 +114,12 @@ const OptionsContext = createContext<OptionsContextType>({
 
     quickMenuEnabled: true,
     toggleQuickMenu: () => { },
-    leagueTablesEnabled: true,
+    leagueTablesEnabled: false,
     toggleLeagueTables: () => { },
+    leagueAutoUnlockDone: false,
+    setLeagueAutoUnlockDone: () => { },
+    hasSeenHowToPlay: false,
+    setHasSeenHowToPlay: () => { },
 
     reminderEnabled: false,
     setReminderEnabled: () => { },
@@ -129,11 +138,18 @@ const OptionsContext = createContext<OptionsContextType>({
 
     textScale: 1.0,
     loading: true,
+    userSettingsLoaded: false,
 });
 
 export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const { setColorScheme } = useColorScheme();
+
+    // ── User-scoped AsyncStorage key helper ──
+    // Appends _${userId} or _guest so each user gets isolated local storage.
+    const scopeKey = useCallback((key: string) => {
+        return `${key}_${user?.id ?? 'guest'}`;
+    }, [user?.id]);
 
     // Default States
     const [textSize, setTextSizeState] = useState<TextSize>('medium');
@@ -143,6 +159,8 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [cluesEnabled, setCluesEnabled] = useState(true);
     const [quickMenuEnabled, setQuickMenuEnabled] = useState(true); // Default true (Shown)
     const [leagueTablesEnabled, setLeagueTablesEnabled] = useState(false); // Default false — hidden until unlocked
+    const [leagueAutoUnlockDone, setLeagueAutoUnlockDoneState] = useState(false); // Persistent flag: once true, auto-unlock popup never re-fires
+    const [hasSeenHowToPlay, setHasSeenHowToPlayState] = useState(false);
 
     const [dateLength, setDateLengthState] = useState<DateLength>(8);
     const [dateFormatOrder, setDateFormatOrderState] = useState<DateFormatOrder>('ddmmyy');
@@ -150,7 +168,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [holidaySaverActive, setHolidaySaverActive] = useState(true);
     const [streaksEnabled, setStreaksEnabledState] = useState(true);
 
-    // Notification Reminder States (local-only)
+    // Notification Reminder States (synced to Supabase for cross-device persistence)
     const [reminderEnabled, setReminderEnabledState] = useState(false);
     const [reminderTime, setReminderTimeState] = useState('09:00');
     const [streakReminderEnabled, setStreakReminderEnabledState] = useState(false);
@@ -159,9 +177,10 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [hasPromptedStreak7, setHasPromptedStreak7State] = useState(false);
     const [neverAskReminder, setNeverAskReminderState] = useState(false);
 
-    // App State (Local Only usually)
+    // App State (Global — not user-scoped)
     const [gameModeState, setGameModeState] = useState<GameMode>('REGION');
     const [loading, setLoading] = useState(true);
+    const [userSettingsLoaded, setUserSettingsLoaded] = useState(false);
 
     const setGameMode = useCallback(async (mode: GameMode) => {
         setGameModeState(mode);
@@ -201,15 +220,136 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     // When user signs OUT, revert to device display settings
     useEffect(() => {
         if (user) {
-            console.log('[Options] User available, syncing settings...');
-            syncWithSupabase();
+            console.log('[Options] User available, loading user-scoped settings...');
+
+            // Load ALL user-scoped preferences from AsyncStorage (fast local cache)
+            const loadUserScopedSettings = async () => {
+                const uid = user.id;
+                const sk = (key: string) => `${key}_${uid}`;
+
+                // UI Preferences (also synced from Supabase, but load cache first for instant display)
+                const storedTextSize = await AsyncStorage.getItem(sk('opt_text_size'));
+                if (storedTextSize) setTextSizeState(storedTextSize as TextSize);
+
+                const storedSounds = await AsyncStorage.getItem(sk('opt_sounds_enabled'));
+                if (storedSounds !== null) setSoundsEnabled(storedSounds === 'true');
+
+                const storedDarkMode = await AsyncStorage.getItem(sk('opt_dark_mode'));
+                const storedUseDeviceDisplay = await AsyncStorage.getItem(sk('opt_use_device_display'));
+
+                if (storedUseDeviceDisplay !== null) {
+                    const useDevice = storedUseDeviceDisplay === 'true';
+                    setUseDeviceDisplay(useDevice);
+                    if (useDevice) {
+                        const deviceScheme = Appearance.getColorScheme();
+                        const deviceIsDark = deviceScheme === 'dark';
+                        setDarkModeState(deviceIsDark);
+                        setColorScheme(deviceIsDark ? 'dark' : 'light');
+                    } else if (storedDarkMode !== null) {
+                        setDarkModeState(storedDarkMode === 'true');
+                    }
+                } else if (storedDarkMode !== null) {
+                    setDarkModeState(storedDarkMode === 'true');
+                }
+
+                const storedClues = await AsyncStorage.getItem(sk('opt_clues_enabled'));
+                if (storedClues !== null) setCluesEnabled(storedClues === 'true');
+
+                const storedDateLength = await AsyncStorage.getItem(sk('opt_date_length'));
+                if (storedDateLength) setDateLengthState(parseInt(storedDateLength) as DateLength);
+
+                const storedDateOrder = await AsyncStorage.getItem(sk('opt_date_order'));
+                if (storedDateOrder) setDateFormatOrderState(storedDateOrder as DateFormatOrder);
+
+                const storedStreakSaver = await AsyncStorage.getItem(sk('opt_streak_saver_active'));
+                if (storedStreakSaver !== null) setStreakSaverActive(storedStreakSaver === 'true');
+
+                const storedHolidaySaver = await AsyncStorage.getItem(sk('opt_holiday_saver_active'));
+                if (storedHolidaySaver !== null) setHolidaySaverActive(storedHolidaySaver === 'true');
+
+                const storedStreaksEnabled = await AsyncStorage.getItem(sk('opt_streaks_enabled'));
+                if (storedStreaksEnabled !== null) setStreaksEnabledState(storedStreaksEnabled === 'true');
+
+                const storedQuickMenu = await AsyncStorage.getItem(sk('opt_quick_menu'));
+                if (storedQuickMenu !== null) setQuickMenuEnabled(storedQuickMenu === 'true');
+
+                // League flags
+                const storedLeagueTables = await AsyncStorage.getItem(sk('opt_league_tables'));
+                if (storedLeagueTables !== null) {
+                    setLeagueTablesEnabled(storedLeagueTables === 'true');
+                } else {
+                    setLeagueTablesEnabled(false);
+                }
+                const storedAutoUnlockDone = await AsyncStorage.getItem(sk('opt_league_auto_unlock_done'));
+                if (storedAutoUnlockDone !== null) {
+                    setLeagueAutoUnlockDoneState(storedAutoUnlockDone === 'true');
+                } else {
+                    setLeagueAutoUnlockDoneState(false);
+                }
+
+                const storedHowToPlay = await AsyncStorage.getItem(sk('opt_has_seen_how_to_play'));
+                if (storedHowToPlay !== null) {
+                    setHasSeenHowToPlayState(storedHowToPlay === 'true');
+                }
+
+                // Notification/prompt flags (also synced to Supabase for cross-device)
+                const storedReminderEnabled = await AsyncStorage.getItem(sk('opt_reminder_enabled'));
+                if (storedReminderEnabled !== null) setReminderEnabledState(storedReminderEnabled === 'true');
+
+                const storedReminderTime = await AsyncStorage.getItem(sk('opt_reminder_time'));
+                if (storedReminderTime !== null) setReminderTimeState(storedReminderTime);
+
+                const storedStreakReminderEnabled = await AsyncStorage.getItem(sk('opt_streak_reminder_enabled'));
+                if (storedStreakReminderEnabled !== null) setStreakReminderEnabledState(storedStreakReminderEnabled === 'true');
+
+                const storedStreakReminderTime = await AsyncStorage.getItem(sk('opt_streak_reminder_time'));
+                if (storedStreakReminderTime !== null) setStreakReminderTimeState(storedStreakReminderTime);
+
+                const storedPrompted2 = await AsyncStorage.getItem(sk('opt_prompted_streak2'));
+                if (storedPrompted2 !== null) setHasPromptedStreak2State(storedPrompted2 === 'true');
+
+                const storedPrompted7 = await AsyncStorage.getItem(sk('opt_prompted_streak7'));
+                if (storedPrompted7 !== null) setHasPromptedStreak7State(storedPrompted7 === 'true');
+
+                const storedNeverAsk = await AsyncStorage.getItem(sk('opt_never_ask_reminder'));
+                if (storedNeverAsk !== null) setNeverAskReminderState(storedNeverAsk === 'true');
+            };
+
+            loadUserScopedSettings().then(() => {
+                setUserSettingsLoaded(true);
+                // After local cache, sync from Supabase (cloud source of truth overwrites)
+                syncWithSupabase();
+            });
         } else {
-            // Signed out: always follow device's light/dark setting
+            // Signed out: force device theme, reset all user-specific state to safe defaults
             const deviceScheme = Appearance.getColorScheme();
             const deviceIsDark = deviceScheme === 'dark';
             console.log('[Options] No user — defaulting to device scheme:', deviceScheme);
             setDarkModeState(deviceIsDark);
+            setUseDeviceDisplay(true);
             setColorScheme(deviceIsDark ? 'dark' : 'light');
+
+            // Reset all preference states to defaults
+            setTextSizeState('medium');
+            setSoundsEnabled(false);
+            setCluesEnabled(true);
+            setDateLengthState(8);
+            setDateFormatOrderState('ddmmyy');
+            setStreakSaverActive(true);
+            setHolidaySaverActive(true);
+            setStreaksEnabledState(true);
+            setQuickMenuEnabled(true);
+            setLeagueTablesEnabled(false);
+            setLeagueAutoUnlockDoneState(false);
+            setHasSeenHowToPlayState(false);
+            setReminderEnabledState(false);
+            setReminderTimeState('09:00');
+            setStreakReminderEnabledState(false);
+            setStreakReminderTimeState('20:00');
+            setHasPromptedStreak2State(false);
+            setHasPromptedStreak7State(false);
+            setNeverAskReminderState(false);
+            setUserSettingsLoaded(false);
         }
     }, [user]);
 
@@ -228,6 +368,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
     const syncWithSupabase = async () => {
         if (!user) return;
+        const sk = (key: string) => `${key}_${user.id}`;
         try {
             const { data, error } = await supabase
                 .from('user_settings')
@@ -237,58 +378,109 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
             if (data) {
                 console.log('[Options] Synced settings from Supabase:', data);
-                // Apply DB settings (override AsyncStorage)
+                // Apply DB settings (override local cache)
                 if (data.digit_preference) {
                     setDateLengthState(parseInt(data.digit_preference) as DateLength);
-                    AsyncStorage.setItem('opt_date_length', data.digit_preference);
+                    AsyncStorage.setItem(sk('opt_date_length'), data.digit_preference);
                 }
                 if (data.date_format_preference) {
                     setDateFormatOrderState(data.date_format_preference as DateFormatOrder);
-                    AsyncStorage.setItem('opt_date_order', data.date_format_preference);
+                    AsyncStorage.setItem(sk('opt_date_order'), data.date_format_preference);
                 }
                 if (data.text_size) {
                     setTextSizeState(data.text_size as TextSize);
-                    AsyncStorage.setItem('opt_text_size', data.text_size);
+                    AsyncStorage.setItem(sk('opt_text_size'), data.text_size);
                 }
                 if (data.sounds_enabled !== undefined && data.sounds_enabled !== null) {
                     setSoundsEnabled(data.sounds_enabled);
-                    AsyncStorage.setItem('opt_sounds_enabled', String(data.sounds_enabled));
+                    AsyncStorage.setItem(sk('opt_sounds_enabled'), String(data.sounds_enabled));
                 }
                 if (data.dark_mode !== undefined && data.dark_mode !== null) {
-                    setDarkModeState(data.dark_mode);
-                    AsyncStorage.setItem('opt_dark_mode', String(data.dark_mode));
-                    // Force immediate apply
-                    setColorScheme(data.dark_mode ? 'dark' : 'light');
+                    // If device display is also enabled, device takes priority
+                    if (!(data as any).use_device_display) {
+                        setDarkModeState(data.dark_mode);
+                        setColorScheme(data.dark_mode ? 'dark' : 'light');
+                    }
+                    AsyncStorage.setItem(sk('opt_dark_mode'), String(data.dark_mode));
                 }
                 if ((data as any).use_device_display !== undefined && (data as any).use_device_display !== null) {
                     setUseDeviceDisplay((data as any).use_device_display);
-                    AsyncStorage.setItem('opt_use_device_display', String((data as any).use_device_display));
-                    // If device display is enabled, sync dark mode with device NOW
+                    AsyncStorage.setItem(sk('opt_use_device_display'), String((data as any).use_device_display));
                     if ((data as any).use_device_display) {
                         const deviceScheme = Appearance.getColorScheme();
                         if (deviceScheme) {
                             const deviceIsDark = deviceScheme === 'dark';
                             setDarkModeState(deviceIsDark);
                             setColorScheme(deviceIsDark ? 'dark' : 'light');
-                            AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
+                            AsyncStorage.setItem(sk('opt_dark_mode'), String(deviceIsDark));
                         }
                     }
                 }
                 if (data.clues_enabled !== undefined && data.clues_enabled !== null) {
                     setCluesEnabled(data.clues_enabled);
-                    AsyncStorage.setItem('opt_clues_enabled', String(data.clues_enabled));
+                    AsyncStorage.setItem(sk('opt_clues_enabled'), String(data.clues_enabled));
+                }
+                if ((data as any).streaks_enabled !== undefined) {
+                    setStreaksEnabledState((data as any).streaks_enabled);
+                    AsyncStorage.setItem(sk('opt_streaks_enabled'), String((data as any).streaks_enabled));
                 }
                 if (data.streak_saver_active !== undefined) {
                     setStreakSaverActive(data.streak_saver_active);
-                    AsyncStorage.setItem('opt_streak_saver_active', String(data.streak_saver_active));
+                    AsyncStorage.setItem(sk('opt_streak_saver_active'), String(data.streak_saver_active));
                 }
                 if (data.holiday_saver_active !== undefined) {
                     setHolidaySaverActive(data.holiday_saver_active);
-                    AsyncStorage.setItem('opt_holiday_saver_active', String(data.holiday_saver_active));
+                    AsyncStorage.setItem(sk('opt_holiday_saver_active'), String(data.holiday_saver_active));
                 }
                 if (data.quick_menu_enabled !== undefined) {
                     setQuickMenuEnabled(data.quick_menu_enabled);
-                    AsyncStorage.setItem('opt_quick_menu', String(data.quick_menu_enabled));
+                    AsyncStorage.setItem(sk('opt_quick_menu'), String(data.quick_menu_enabled));
+                }
+
+                // League flags (cross-device)
+                if ((data as any).league_tables_enabled !== undefined) {
+                    setLeagueTablesEnabled((data as any).league_tables_enabled);
+                    AsyncStorage.setItem(sk('opt_league_tables'), String((data as any).league_tables_enabled));
+                }
+                if ((data as any).league_auto_unlock_done !== undefined) {
+                    setLeagueAutoUnlockDoneState((data as any).league_auto_unlock_done);
+                    AsyncStorage.setItem(sk('opt_league_auto_unlock_done'), String((data as any).league_auto_unlock_done));
+                }
+
+                // Tutorial flag
+                if ((data as any).has_seen_how_to_play !== undefined) {
+                    setHasSeenHowToPlayState((data as any).has_seen_how_to_play);
+                    AsyncStorage.setItem(sk('opt_has_seen_how_to_play'), String((data as any).has_seen_how_to_play));
+                }
+
+                // Notification/prompt flags (new Supabase columns)
+                if ((data as any).reminder_enabled !== undefined) {
+                    setReminderEnabledState((data as any).reminder_enabled);
+                    AsyncStorage.setItem(sk('opt_reminder_enabled'), String((data as any).reminder_enabled));
+                }
+                if ((data as any).reminder_time !== undefined) {
+                    setReminderTimeState((data as any).reminder_time);
+                    AsyncStorage.setItem(sk('opt_reminder_time'), (data as any).reminder_time);
+                }
+                if ((data as any).streak_reminder_enabled !== undefined) {
+                    setStreakReminderEnabledState((data as any).streak_reminder_enabled);
+                    AsyncStorage.setItem(sk('opt_streak_reminder_enabled'), String((data as any).streak_reminder_enabled));
+                }
+                if ((data as any).streak_reminder_time !== undefined) {
+                    setStreakReminderTimeState((data as any).streak_reminder_time);
+                    AsyncStorage.setItem(sk('opt_streak_reminder_time'), (data as any).streak_reminder_time);
+                }
+                if ((data as any).prompted_streak2 !== undefined) {
+                    setHasPromptedStreak2State((data as any).prompted_streak2);
+                    AsyncStorage.setItem(sk('opt_prompted_streak2'), String((data as any).prompted_streak2));
+                }
+                if ((data as any).prompted_streak7 !== undefined) {
+                    setHasPromptedStreak7State((data as any).prompted_streak7);
+                    AsyncStorage.setItem(sk('opt_prompted_streak7'), String((data as any).prompted_streak7));
+                }
+                if ((data as any).never_ask_reminder !== undefined) {
+                    setNeverAskReminderState((data as any).never_ask_reminder);
+                    AsyncStorage.setItem(sk('opt_never_ask_reminder'), String((data as any).never_ask_reminder));
                 }
             }
         } catch (e) {
@@ -298,127 +490,31 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
     const loadOptions = async () => {
         try {
-            // 1. Load from AsyncStorage first (fast)
-            const storedDateLength = await AsyncStorage.getItem('opt_date_length');
-            if (storedDateLength) setDateLengthState(parseInt(storedDateLength) as DateLength);
-
-            const storedDateOrder = await AsyncStorage.getItem('opt_date_order');
-            if (storedDateOrder) setDateFormatOrderState(storedDateOrder as DateFormatOrder);
+            // Only load GLOBAL keys here (runs on mount, before user is available)
+            // All user-scoped keys are loaded in the user-available useEffect above.
 
             const storedMode = await AsyncStorage.getItem('app_game_mode');
             if (storedMode) setGameModeState(storedMode as GameMode);
 
-            const storedTextSize = await AsyncStorage.getItem('opt_text_size');
-            if (storedTextSize) setTextSizeState(storedTextSize as TextSize);
-
-            const storedSounds = await AsyncStorage.getItem('opt_sounds_enabled');
-            if (storedSounds !== null) setSoundsEnabled(storedSounds === 'true');
-
-            const storedDarkMode = await AsyncStorage.getItem('opt_dark_mode');
-            const storedUseDeviceDisplay = await AsyncStorage.getItem('opt_use_device_display');
-
-            if (storedUseDeviceDisplay !== null) {
-                const useDevice = storedUseDeviceDisplay === 'true';
-                setUseDeviceDisplay(useDevice);
-                if (useDevice) {
-                    // Device display mode: sync dark mode from device
-                    const deviceScheme = Appearance.getColorScheme();
-                    if (deviceScheme) {
-                        const deviceIsDark = deviceScheme === 'dark';
-                        setDarkModeState(deviceIsDark);
-                        await AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
-                    } else if (storedDarkMode !== null) {
-                        setDarkModeState(storedDarkMode === 'true');
-                    }
-                } else if (storedDarkMode !== null) {
-                    setDarkModeState(storedDarkMode === 'true');
-                }
-            } else if (storedDarkMode !== null) {
-                // Existing user with no device display setting stored — keep manual mode
-                setDarkModeState(storedDarkMode === 'true');
-                setUseDeviceDisplay(false);
-            } else {
-                // First launch: check if we can read device scheme
-                const systemScheme = Appearance.getColorScheme();
-                if (systemScheme) {
-                    // Device scheme readable — default to using device display
-                    const systemIsDark = systemScheme === 'dark';
-                    setUseDeviceDisplay(true);
-                    setDarkModeState(systemIsDark);
-                    await AsyncStorage.setItem('opt_use_device_display', 'true');
-                    await AsyncStorage.setItem('opt_dark_mode', String(systemIsDark));
-                } else {
-                    // Can't read device scheme — default to manual off
-                    setUseDeviceDisplay(false);
-                    setDarkModeState(false);
-                    await AsyncStorage.setItem('opt_use_device_display', 'false');
-                    await AsyncStorage.setItem('opt_dark_mode', 'false');
-                }
-            }
-
-            const storedClues = await AsyncStorage.getItem('opt_clues_enabled');
-            if (storedClues !== null) setCluesEnabled(storedClues === 'true');
-
-            const storedStreakSaver = await AsyncStorage.getItem('opt_streak_saver_active');
-            if (storedStreakSaver !== null) setStreakSaverActive(storedStreakSaver === 'true');
-
-            const storedHolidaySaver = await AsyncStorage.getItem('opt_holiday_saver_active');
-            if (storedHolidaySaver !== null) setHolidaySaverActive(storedHolidaySaver === 'true');
-
-            const storedStreaksEnabled = await AsyncStorage.getItem('opt_streaks_enabled');
-            if (storedStreaksEnabled !== null) setStreaksEnabledState(storedStreaksEnabled === 'true');
-
-            const storedQuickMenu = await AsyncStorage.getItem('opt_quick_menu');
-            if (storedQuickMenu !== null) setQuickMenuEnabled(storedQuickMenu === 'true');
-
-            const storedLeagueTables = await AsyncStorage.getItem('opt_league_tables');
-            if (storedLeagueTables !== null) setLeagueTablesEnabled(storedLeagueTables === 'true');
-
-            // Load Reminder Settings
-            const storedReminderEnabled = await AsyncStorage.getItem('opt_reminder_enabled');
-            if (storedReminderEnabled !== null) setReminderEnabledState(storedReminderEnabled === 'true');
-
-            const storedReminderTime = await AsyncStorage.getItem('opt_reminder_time');
-            if (storedReminderTime !== null) setReminderTimeState(storedReminderTime);
-
-            const storedStreakReminderEnabled = await AsyncStorage.getItem('opt_streak_reminder_enabled');
-            if (storedStreakReminderEnabled !== null) setStreakReminderEnabledState(storedStreakReminderEnabled === 'true');
-
-            const storedStreakReminderTime = await AsyncStorage.getItem('opt_streak_reminder_time');
-            if (storedStreakReminderTime !== null) setStreakReminderTimeState(storedStreakReminderTime);
-
-            const storedPrompted2 = await AsyncStorage.getItem('opt_prompted_streak2');
-            if (storedPrompted2 !== null) setHasPromptedStreak2State(storedPrompted2 === 'true');
-
-            const storedPrompted7 = await AsyncStorage.getItem('opt_prompted_streak7');
-            if (storedPrompted7 !== null) setHasPromptedStreak7State(storedPrompted7 === 'true');
-
-            const storedNeverAsk = await AsyncStorage.getItem('opt_never_ask_reminder');
-            if (storedNeverAsk !== null) setNeverAskReminderState(storedNeverAsk === 'true');
-
-            // NOTE: Logic moved to separate useEffect
-            // Trigger sync if user is already present (rare case on pure mount)
-            if (user) {
-                syncWithSupabase();
-            }
+            // On initial mount (before user is available), apply device theme as safe default
+            const deviceScheme = Appearance.getColorScheme();
+            const deviceIsDark = deviceScheme === 'dark';
+            setUseDeviceDisplay(true);
+            setDarkModeState(deviceIsDark);
+            setColorScheme(deviceIsDark ? 'dark' : 'light');
 
         } catch (e) {
             console.error("Failed to load options", e);
         } finally {
             setLoading(false);
-            console.log('[Options] Loaded local options');
+            console.log('[Options] Loaded global options (user-scoped keys loaded on auth)');
         }
     };
 
     // Helper to persist
+    // Helper to persist a value to user-scoped AsyncStorage
     const persist = async (key: string, value: string) => {
-        await AsyncStorage.setItem(key, value);
-        // Sync to Supabase if logged in
-        if (user) {
-            // Mapping keys to DB columns needs to be precise
-            // Let's assume table exists. If not, this might fail silently or error.
-            // We'll implemented "optimistic" updates in the setters.
-        }
+        await AsyncStorage.setItem(scopeKey(key), value);
     };
 
     // ========================================================================
@@ -430,20 +526,20 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const setTextSize = useCallback(async (size: TextSize) => {
         console.log('[Options] setTextSize called:', size);
         setTextSizeState(size);
-        await AsyncStorage.setItem('opt_text_size', size);
+        await AsyncStorage.setItem(scopeKey('opt_text_size'), size);
         if (user) {
             supabase.from('user_settings')
                 .update({ text_size: size })
                 .eq('user_id', user.id)
                 .then(({ error }) => { if (error) console.log('[Options] Error updating text_size:', error) });
         }
-    }, [user]);
+    }, [user, scopeKey]);
 
     const toggleSounds = useCallback(async () => {
         setSoundsEnabled(prev => {
             const newValue = !prev;
             console.log('[Options] toggleSounds called:', { old: prev, new: newValue });
-            AsyncStorage.setItem('opt_sounds_enabled', newValue.toString());
+            AsyncStorage.setItem(scopeKey('opt_sounds_enabled'), newValue.toString());
             if (user) {
                 supabase.from('user_settings')
                     .update({ sounds_enabled: newValue })
@@ -452,7 +548,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             }
             return newValue;
         });
-    }, [user]);
+    }, [user, scopeKey]);
 
     const toggleDarkMode = useCallback(async () => {
         setDarkModeState(prev => {
@@ -460,10 +556,9 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             const newScheme = newValue ? 'dark' : 'light';
             console.log('[Options] toggleDarkMode called (Instant Apply):', { old: prev, new: newValue });
 
-            // IMMEDIATE ACTION: Apply theme before React state updates trigger re-renders
             setColorScheme(newScheme);
 
-            AsyncStorage.setItem('opt_dark_mode', newValue.toString());
+            AsyncStorage.setItem(scopeKey('opt_dark_mode'), newValue.toString());
             if (user) {
                 supabase.from('user_settings')
                     .update({ dark_mode: newValue })
@@ -472,7 +567,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             }
             return newValue;
         });
-    }, [user, setColorScheme]);
+    }, [user, setColorScheme, scopeKey]);
 
     // Toggle "Use device display settings"
     // Returns true if successfully enabled, false otherwise
@@ -495,8 +590,8 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                 console.log('[Options] Enabling device display tracking, device is dark:', deviceIsDark);
                 setDarkModeState(deviceIsDark);
                 setColorScheme(deviceIsDark ? 'dark' : 'light');
-                AsyncStorage.setItem('opt_use_device_display', 'true');
-                AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
+                AsyncStorage.setItem(scopeKey('opt_use_device_display'), 'true');
+                AsyncStorage.setItem(scopeKey('opt_dark_mode'), String(deviceIsDark));
                 if (user) {
                     supabase.from('user_settings')
                         .update({ use_device_display: true, dark_mode: deviceIsDark } as any)
@@ -507,7 +602,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             } else {
                 // Disabling: just turn off, leave dark mode as-is
                 console.log('[Options] Disabling device display tracking');
-                AsyncStorage.setItem('opt_use_device_display', 'false');
+                AsyncStorage.setItem(scopeKey('opt_use_device_display'), 'false');
                 if (user) {
                     supabase.from('user_settings')
                         .update({ use_device_display: false } as any)
@@ -518,7 +613,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             }
         });
         return result;
-    }, [user, setColorScheme]);
+    }, [user, setColorScheme, scopeKey]);
 
     // Sync dark mode with device (called from Home screen on focus)
     const syncDarkModeWithDevice = useCallback(() => {
@@ -533,19 +628,19 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                 if (deviceIsDark !== currentDarkMode) {
                     console.log('[Options] Device display changed, syncing dark mode:', { deviceIsDark, wasDark: currentDarkMode, signedOut: !user });
                     setColorScheme(deviceIsDark ? 'dark' : 'light');
-                    AsyncStorage.setItem('opt_dark_mode', String(deviceIsDark));
+                    AsyncStorage.setItem(scopeKey('opt_dark_mode'), String(deviceIsDark));
                     return deviceIsDark;
                 }
                 return currentDarkMode;
             });
             return currentUseDevice; // Don't change useDeviceDisplay
         });
-    }, [user, setColorScheme]);
+    }, [user, setColorScheme, scopeKey]);
 
     const toggleClues = useCallback(async () => {
         setCluesEnabled(prev => {
             const newValue = !prev;
-            AsyncStorage.setItem('opt_clues_enabled', newValue.toString());
+            AsyncStorage.setItem(scopeKey('opt_clues_enabled'), newValue.toString());
             if (user) {
                 supabase.from('user_settings')
                     .update({ clues_enabled: newValue })
@@ -554,12 +649,12 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             }
             return newValue;
         });
-    }, [user]);
+    }, [user, scopeKey]);
 
     const toggleQuickMenu = useCallback(async () => {
         setQuickMenuEnabled(prev => {
             const newValue = !prev;
-            AsyncStorage.setItem('opt_quick_menu', newValue.toString());
+            AsyncStorage.setItem(scopeKey('opt_quick_menu'), newValue.toString());
             if (user) {
                 supabase.from('user_settings')
                     .update({ quick_menu_enabled: newValue })
@@ -568,55 +663,135 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             }
             return newValue;
         });
-    }, [user]);
+    }, [user, scopeKey]);
 
     const toggleLeagueTables = useCallback(async () => {
         setLeagueTablesEnabled(prev => {
             const newValue = !prev;
-            AsyncStorage.setItem('opt_league_tables', newValue.toString());
+            AsyncStorage.setItem(scopeKey('opt_league_tables'), newValue.toString());
+            if (newValue) {
+                setLeagueAutoUnlockDoneState(true);
+                AsyncStorage.setItem(scopeKey('opt_league_auto_unlock_done'), 'true');
+                if (user) {
+                    supabase.from('user_settings')
+                        .update({ league_auto_unlock_done: true } as any)
+                        .eq('user_id', user.id)
+                        .then(({ error }) => { if (error) console.log('[Options] Error updating league auto unlock:', error) });
+                }
+            }
+            if (user) {
+                supabase.from('user_settings')
+                    .update({ league_tables_enabled: newValue } as any)
+                    .eq('user_id', user.id)
+                    .then(({ error }) => { if (error) console.log('[Options] Error updating league tables:', error) });
+            }
             return newValue;
         });
-    }, []);
+    }, [user, scopeKey]);
 
-    // ── Notification Reminder Setters (local-only, no Supabase sync) ──
+    const setLeagueAutoUnlockDone = useCallback(async (val: boolean) => {
+        setLeagueAutoUnlockDoneState(val);
+        await AsyncStorage.setItem(scopeKey('opt_league_auto_unlock_done'), String(val));
+        if (user) {
+            supabase.from('user_settings')
+                .update({ league_auto_unlock_done: val } as any)
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating league auto unlock done:', error) });
+        }
+    }, [user, scopeKey]);
+
+    const setHasSeenHowToPlay = useCallback(async (val: boolean) => {
+        setHasSeenHowToPlayState(val);
+        await AsyncStorage.setItem(scopeKey('opt_has_seen_how_to_play'), String(val));
+        if (user) {
+            supabase.from('user_settings')
+                .update({ has_seen_how_to_play: val } as any)
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating has_seen_how_to_play:', error) });
+        }
+    }, [user, scopeKey]);
+
+    // ── Notification/Prompt Setters (user-scoped AsyncStorage + Supabase sync) ──
     const setReminderEnabled = useCallback(async (enabled: boolean) => {
         setReminderEnabledState(enabled);
-        await AsyncStorage.setItem('opt_reminder_enabled', String(enabled));
+        await AsyncStorage.setItem(scopeKey('opt_reminder_enabled'), String(enabled));
+        if (user) {
+            supabase.from('user_settings')
+                .update({ reminder_enabled: enabled } as any)
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating reminder_enabled:', error) });
+        }
         console.log('[Options] Reminder enabled:', enabled);
-    }, []);
+    }, [user, scopeKey]);
 
     const setReminderTime = useCallback(async (time: string) => {
         setReminderTimeState(time);
-        await AsyncStorage.setItem('opt_reminder_time', time);
+        await AsyncStorage.setItem(scopeKey('opt_reminder_time'), time);
+        if (user) {
+            supabase.from('user_settings')
+                .update({ reminder_time: time } as any)
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating reminder_time:', error) });
+        }
         console.log('[Options] Reminder time:', time);
-    }, []);
+    }, [user, scopeKey]);
 
     const setHasPromptedStreak2 = useCallback(async (val: boolean) => {
         setHasPromptedStreak2State(val);
-        await AsyncStorage.setItem('opt_prompted_streak2', String(val));
-    }, []);
+        await AsyncStorage.setItem(scopeKey('opt_prompted_streak2'), String(val));
+        if (user) {
+            supabase.from('user_settings')
+                .update({ prompted_streak2: val } as any)
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating prompted_streak2:', error) });
+        }
+    }, [user, scopeKey]);
 
     const setHasPromptedStreak7 = useCallback(async (val: boolean) => {
         setHasPromptedStreak7State(val);
-        await AsyncStorage.setItem('opt_prompted_streak7', String(val));
-    }, []);
+        await AsyncStorage.setItem(scopeKey('opt_prompted_streak7'), String(val));
+        if (user) {
+            supabase.from('user_settings')
+                .update({ prompted_streak7: val } as any)
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating prompted_streak7:', error) });
+        }
+    }, [user, scopeKey]);
 
     const setNeverAskReminder = useCallback(async (val: boolean) => {
         setNeverAskReminderState(val);
-        await AsyncStorage.setItem('opt_never_ask_reminder', String(val));
-    }, []);
+        await AsyncStorage.setItem(scopeKey('opt_never_ask_reminder'), String(val));
+        if (user) {
+            supabase.from('user_settings')
+                .update({ never_ask_reminder: val } as any)
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating never_ask_reminder:', error) });
+        }
+    }, [user, scopeKey]);
 
     const setStreakReminderEnabled = useCallback(async (enabled: boolean) => {
         setStreakReminderEnabledState(enabled);
-        await AsyncStorage.setItem('opt_streak_reminder_enabled', String(enabled));
+        await AsyncStorage.setItem(scopeKey('opt_streak_reminder_enabled'), String(enabled));
+        if (user) {
+            supabase.from('user_settings')
+                .update({ streak_reminder_enabled: enabled } as any)
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating streak_reminder_enabled:', error) });
+        }
         console.log('[Options] Streak reminder enabled:', enabled);
-    }, []);
+    }, [user, scopeKey]);
 
     const setStreakReminderTime = useCallback(async (time: string) => {
         setStreakReminderTimeState(time);
-        await AsyncStorage.setItem('opt_streak_reminder_time', time);
+        await AsyncStorage.setItem(scopeKey('opt_streak_reminder_time'), time);
+        if (user) {
+            supabase.from('user_settings')
+                .update({ streak_reminder_time: time } as any)
+                .eq('user_id', user.id)
+                .then(({ error }) => { if (error) console.log('[Options] Error updating streak_reminder_time:', error) });
+        }
         console.log('[Options] Streak reminder time:', time);
-    }, []);
+    }, [user, scopeKey]);
 
     const setDateLength = useCallback((length: DateLength) => {
         setDateLengthState(length);
@@ -643,13 +818,13 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const toggleStreakSaver = useCallback(async () => {
         setStreakSaverActive(prev => {
             const newValue = !prev;
-            AsyncStorage.setItem('opt_streak_saver_active', newValue.toString());
+            AsyncStorage.setItem(scopeKey('opt_streak_saver_active'), newValue.toString());
 
             // [FIX] When turning OFF streak saver, also disable holiday saver
             if (!newValue) {
                 setHolidaySaverActive(prevHoliday => {
                     if (prevHoliday) {
-                        AsyncStorage.setItem('opt_holiday_saver_active', 'false');
+                        AsyncStorage.setItem(scopeKey('opt_holiday_saver_active'), 'false');
                     }
                     if (user) {
                         supabase.from('user_settings')
@@ -667,7 +842,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             }
             return newValue;
         });
-    }, [user]);
+    }, [user, scopeKey]);
 
     const toggleHolidaySaver = useCallback(async () => {
         // Use functional updater to check streakSaverActive without closing over it
@@ -676,7 +851,7 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
 
             setHolidaySaverActive(prev => {
                 const newValue = !prev;
-                AsyncStorage.setItem('opt_holiday_saver_active', newValue.toString());
+                AsyncStorage.setItem(scopeKey('opt_holiday_saver_active'), newValue.toString());
                 if (user) {
                     supabase.from('user_settings')
                         .update({ holiday_saver_active: newValue })
@@ -687,44 +862,44 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
             });
             return currentStreakSaver; // Don't change streakSaverActive
         });
-    }, [user]);
+    }, [user, scopeKey]);
 
     // Set streaks enabled/disabled
     const setStreaksEnabled = useCallback(async (enabled: boolean) => {
         console.log('[Options] setStreaksEnabled:', enabled);
         setStreaksEnabledState(enabled);
-        await AsyncStorage.setItem('opt_streaks_enabled', String(enabled));
+        await AsyncStorage.setItem(scopeKey('opt_streaks_enabled'), String(enabled));
 
         // When disabling streaks, also disable streak saver and holiday saver
         if (!enabled) {
             setStreakSaverActive(prev => {
-                if (prev) AsyncStorage.setItem('opt_streak_saver_active', 'false');
+                if (prev) AsyncStorage.setItem(scopeKey('opt_streak_saver_active'), 'false');
                 return false;
             });
             setHolidaySaverActive(prev => {
-                if (prev) AsyncStorage.setItem('opt_holiday_saver_active', 'false');
+                if (prev) AsyncStorage.setItem(scopeKey('opt_holiday_saver_active'), 'false');
                 return false;
             });
             if (user) {
                 supabase.from('user_settings')
-                    .update({ streaks_enabled: false, streak_saver_active: false, holiday_saver_active: false } as any)
+                    .update({ streaks_enabled: false, streak_saver_active: false, holiday_saver_active: false })
                     .eq('user_id', user.id)
                     .then(({ error }) => { if (error) console.log('[Options] Error disabling streaks:', error) });
             }
         } else {
             // Re-enable streak saver and holiday saver when streaks are turned back on
             setStreakSaverActive(true);
-            await AsyncStorage.setItem('opt_streak_saver_active', 'true');
+            await AsyncStorage.setItem(scopeKey('opt_streak_saver_active'), 'true');
             setHolidaySaverActive(true);
-            await AsyncStorage.setItem('opt_holiday_saver_active', 'true');
+            await AsyncStorage.setItem(scopeKey('opt_holiday_saver_active'), 'true');
             if (user) {
                 supabase.from('user_settings')
-                    .update({ streaks_enabled: true, streak_saver_active: true, holiday_saver_active: true } as any)
+                    .update({ streaks_enabled: true, streak_saver_active: true, holiday_saver_active: true })
                     .eq('user_id', user.id)
                     .then(({ error }) => { if (error) console.log('[Options] Error enabling streaks:', error) });
             }
         }
-    }, [user]);
+    }, [user, scopeKey]);
 
     // ========================================================================
     // MEMOIZED CONTEXT VALUE
@@ -745,6 +920,8 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         holidaySaverActive, toggleHolidaySaver,
         quickMenuEnabled, toggleQuickMenu,
         leagueTablesEnabled, toggleLeagueTables,
+        leagueAutoUnlockDone, setLeagueAutoUnlockDone,
+        hasSeenHowToPlay, setHasSeenHowToPlay,
         reminderEnabled, setReminderEnabled,
         reminderTime, setReminderTime,
         streakReminderEnabled, setStreakReminderEnabled,
@@ -753,20 +930,22 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         hasPromptedStreak7, setHasPromptedStreak7,
         neverAskReminder, setNeverAskReminder,
         textScale: getTextScale(textSize),
-        loading
+        loading,
+        userSettingsLoaded
     }), [
         // State values (trigger recalculation when they change):
         textSize, soundsEnabled, darkMode, useDeviceDisplay, cluesEnabled,
         dateLength, dateFormatOrder, gameModeState, streaksEnabled,
         streakSaverActive, holidaySaverActive, quickMenuEnabled,
-        leagueTablesEnabled, reminderEnabled, reminderTime,
+        leagueTablesEnabled, leagueAutoUnlockDone, hasSeenHowToPlay, reminderEnabled, reminderTime,
         streakReminderEnabled, streakReminderTime,
-        hasPromptedStreak2, hasPromptedStreak7, neverAskReminder, loading,
+        hasPromptedStreak2, hasPromptedStreak7, neverAskReminder, loading, userSettingsLoaded,
         // Stable useCallback refs (only change when `user` changes):
         setTextSize, toggleSounds, toggleDarkMode, toggleUseDeviceDisplay,
         syncDarkModeWithDevice, toggleClues, setDateLength, setDateFormatOrder,
         setGameMode, setStreaksEnabled, toggleStreakSaver, toggleHolidaySaver,
-        toggleQuickMenu, toggleLeagueTables, setReminderEnabled, setReminderTime,
+        toggleQuickMenu, toggleLeagueTables, setLeagueAutoUnlockDone, setHasSeenHowToPlay,
+        setReminderEnabled, setReminderTime,
         setStreakReminderEnabled, setStreakReminderTime,
         setHasPromptedStreak2, setHasPromptedStreak7, setNeverAskReminder,
     ]);

@@ -165,6 +165,9 @@ export default function CreateLeagueScreen() {
                                     autoFocus
                                 />
                             </StyledView>
+                            <Text style={{ fontSize: 12, fontFamily: 'Nunito_500Medium', color: leagueName.length >= 25 ? '#ef4444' : '#94a3b8', alignSelf: 'flex-end', marginTop: 4 }}>
+                                {25 - leagueName.length} characters remaining
+                            </Text>
 
                             {error && (
                                 <Text style={{ color: '#ef4444', fontSize: 13, fontFamily: 'Nunito_500Medium', textAlign: 'center', marginTop: 12 }}>{error}</Text>

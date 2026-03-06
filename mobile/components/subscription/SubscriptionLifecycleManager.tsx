@@ -9,8 +9,9 @@ import { WinBackModal } from './WinBackModal';
 // ============================================================================
 // AsyncStorage keys for deduplication
 // ============================================================================
-const RETENTION_REMINDER_DATE_KEY = 'last_retention_reminder_date';
-const WINBACK_SHOWN_KEY = 'winback_shown_for';
+// Base keys — will be scoped with userId at point of use
+const RETENTION_REMINDER_BASE = 'last_retention_reminder_date';
+const WINBACK_SHOWN_BASE = 'winback_shown_for';
 
 // Days before expiration that trigger a retention reminder
 const REMINDER_DAYS = [10, 3, 1];
@@ -108,7 +109,8 @@ export function SubscriptionLifecycleManager() {
 
                         if (REMINDER_DAYS.includes(daysUntil)) {
                             // Check deduplication — only show once per day
-                            const lastShown = await AsyncStorage.getItem(RETENTION_REMINDER_DATE_KEY);
+                            const retentionKey = `${RETENTION_REMINDER_BASE}_${userId}`;
+                            const lastShown = await AsyncStorage.getItem(retentionKey);
                             if (lastShown !== today) {
                                 console.log(`[SubscriptionLifecycle] Churn risk — ${daysUntil} days until expiry, showing reminder`);
                                 setState({
@@ -141,7 +143,8 @@ export function SubscriptionLifecycleManager() {
 
                 if (hoursSinceExpiry > 0 && hoursSinceExpiry <= 24) {
                     // Expired within last 24 hours — check deduplication
-                    const shownFor = await AsyncStorage.getItem(WINBACK_SHOWN_KEY);
+                    const winbackKey = `${WINBACK_SHOWN_BASE}_${userId}`;
+                    const shownFor = await AsyncStorage.getItem(winbackKey);
                     const expirationKey = expirationDate.toISOString();
 
                     if (shownFor !== expirationKey) {
@@ -203,23 +206,47 @@ export function SubscriptionLifecycleManager() {
     // ------------------------------------------------------------------
     const handleRenewalReminderDismiss = useCallback(async () => {
         const today = new Date().toISOString().split('T')[0];
-        await AsyncStorage.setItem(RETENTION_REMINDER_DATE_KEY, today);
+        if (userId) {
+            const retentionKey = `${RETENTION_REMINDER_BASE}_${userId}`;
+            await AsyncStorage.setItem(retentionKey, today);
+            // Sync to Supabase for cross-device deduplication
+            supabase.from('user_settings')
+                .update({ last_retention_reminder_date: today } as any)
+                .eq('user_id', userId)
+                .then(({ error }) => { if (error) console.log('[SubscriptionLifecycle] Error syncing retention date:', error) });
+        }
         setState(INITIAL_STATE);
-    }, []);
+    }, [userId]);
 
     const handleWinBackDismiss = useCallback(async () => {
         try {
             const customerInfo = await Purchases.getCustomerInfo();
             const latestExpiration = (customerInfo as any).latestExpirationDate;
+            const winbackKey = userId ? `${WINBACK_SHOWN_BASE}_${userId}` : WINBACK_SHOWN_BASE;
             if (latestExpiration) {
-                await AsyncStorage.setItem(WINBACK_SHOWN_KEY, new Date(latestExpiration).toISOString());
+                const expiryStr = new Date(latestExpiration).toISOString();
+                await AsyncStorage.setItem(winbackKey, expiryStr);
+                if (userId) {
+                    supabase.from('user_settings')
+                        .update({ winback_shown_for: expiryStr } as any)
+                        .eq('user_id', userId)
+                        .then(({ error }) => { if (error) console.log('[SubscriptionLifecycle] Error syncing winback:', error) });
+                }
             }
         } catch {
             // Fallback: store today's date
-            await AsyncStorage.setItem(WINBACK_SHOWN_KEY, new Date().toISOString());
+            const fallback = new Date().toISOString();
+            const winbackKey = userId ? `${WINBACK_SHOWN_BASE}_${userId}` : WINBACK_SHOWN_BASE;
+            await AsyncStorage.setItem(winbackKey, fallback);
+            if (userId) {
+                supabase.from('user_settings')
+                    .update({ winback_shown_for: fallback } as any)
+                    .eq('user_id', userId)
+                    .then(({ error }) => { if (error) console.log('[SubscriptionLifecycle] Error syncing winback fallback:', error) });
+            }
         }
         setState(INITIAL_STATE);
-    }, []);
+    }, [userId]);
 
     const handleResubscribed = useCallback(() => {
         console.log('[SubscriptionLifecycle] User re-subscribed via win-back');

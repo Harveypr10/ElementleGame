@@ -70,22 +70,16 @@ export default function GameScreen() {
     const [helpVisible, setHelpVisible] = useState(false);
 
     // Auto-show How to Play on first ever game load
+    const { cluesEnabled, hasSeenHowToPlay, setHasSeenHowToPlay } = useOptions();
     const helpCheckedRef = useRef(false);
     useEffect(() => {
         if (helpCheckedRef.current) return;
         helpCheckedRef.current = true;
-        (async () => {
-            try {
-                const hasSeen = await AsyncStorage.getItem('has_seen_how_to_play');
-                if (!hasSeen) {
-                    setHelpVisible(true);
-                    await AsyncStorage.setItem('has_seen_how_to_play', 'true');
-                }
-            } catch (e) {
-                console.log('[GameScreen] Error checking how-to-play flag:', e);
-            }
-        })();
-    }, []);
+        if (!hasSeenHowToPlay) {
+            setHelpVisible(true);
+            setHasSeenHowToPlay(true);
+        }
+    }, [hasSeenHowToPlay]);
 
 
     // Intercept back navigation
@@ -134,7 +128,8 @@ export default function GameScreen() {
     const modeStr = isRegion ? 'REGION' : 'USER';
     const puzzleIdParam = id as string;
 
-    const { cluesEnabled } = useOptions();
+
+
 
     // Use a ref to prevent double-firing useEffect
     const hasFetched = useRef(false);
@@ -314,7 +309,7 @@ export default function GameScreen() {
                 } else {
                     // No puzzle data found — clear readiness cache and navigate back
                     console.warn('[GameScreen] No puzzle data returned from network');
-                    await AsyncStorage.removeItem('puzzle_readiness_cache');
+                    await AsyncStorage.removeItem(`puzzle_readiness_cache_${user?.id ?? 'guest'}`);
                     Alert.alert(
                         "Couldn't load the puzzle",
                         "Let's try again.",
@@ -326,7 +321,7 @@ export default function GameScreen() {
                 if (raceError?.message === 'PUZZLE_FETCH_TIMEOUT') {
                     console.error('[GameScreen] Puzzle fetch timed out after 8s');
                     // Clear readiness cache so home screen re-polls
-                    await AsyncStorage.removeItem('puzzle_readiness_cache');
+                    await AsyncStorage.removeItem(`puzzle_readiness_cache_${user?.id ?? 'guest'}`);
                     Alert.alert(
                         "Couldn't load the puzzle",
                         "It's taking longer than expected. Let's try again.",
@@ -343,7 +338,7 @@ export default function GameScreen() {
                 setDebugInfo("You are offline. Connect to the internet to play.");
             } else {
                 // Clear readiness cache for next attempt
-                AsyncStorage.removeItem('puzzle_readiness_cache').catch(() => { });
+                AsyncStorage.removeItem(`puzzle_readiness_cache_${user?.id ?? 'guest'}`).catch(() => { });
                 Alert.alert(
                     "Couldn't load the puzzle",
                     "Let's try again.",
@@ -458,6 +453,7 @@ export default function GameScreen() {
                     onClose={() => setShowExitWarning(false)}
                     onContinuePlaying={() => setShowExitWarning(false)}
                     onExit={handleConfirmExit}
+                    gameType={modeStr as 'REGION' | 'USER'}
                 />
 
                 {/* Help Modal */}
