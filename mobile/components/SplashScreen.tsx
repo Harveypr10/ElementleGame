@@ -54,7 +54,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
                     source={SplashImage}
                     style={styles.image}
                     contentFit="contain"
-                    cachePolicy="disk"
+                    cachePolicy="memory-disk"
+                    transition={0}
+                    priority="high"
                 />
             </Animated.View>
         </View>

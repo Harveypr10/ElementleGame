@@ -1,7 +1,6 @@
 import React, { Suspense } from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform, AppState, AppStateStatus, LogBox } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as NavigationBar from 'expo-navigation-bar';
 
 // Suppress known simulator-only errors that don't affect production
 LogBox.ignoreLogs([
@@ -629,11 +628,17 @@ function UserScopedProviders() {
     const isDark = colorScheme === 'dark';
 
     // Set Android navigation bar color to match theme (edge-to-edge makes it transparent by default)
+    // Dynamic require — top-level import crashes on platforms without the native module
     useEffect(() => {
         if (Platform.OS === 'android') {
-            const bgColor = isDark ? '#0f172a' : '#f1f5f9'; // Match tab bar background
-            NavigationBar.setBackgroundColorAsync(bgColor);
-            NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+            try {
+                const NavigationBar = require('expo-navigation-bar');
+                const bgColor = isDark ? '#0f172a' : '#f1f5f9'; // Match tab bar background
+                NavigationBar.setBackgroundColorAsync(bgColor);
+                NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+            } catch (e) {
+                console.warn('[Layout] expo-navigation-bar not available:', e);
+            }
         }
     }, [isDark]);
 
