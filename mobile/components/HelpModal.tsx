@@ -112,7 +112,7 @@ export function HelpModal({ visible, onClose, isGuest = false, onLoginPress }: H
             <StyledView className="flex-1 justify-end bg-black/50">
                 <StyledView
                     className="rounded-t-3xl w-full flex-col"
-                    style={{ backgroundColor: surfaceColor, height: '89.5%', maxWidth: 768, alignSelf: 'center' }}
+                    style={{ backgroundColor: surfaceColor, height: Platform.OS === 'android' ? '93%' : '89.5%', maxWidth: 768, alignSelf: 'center' }}
                 >
                     {/* Header */}
                     <StyledView
@@ -225,7 +225,7 @@ export function HelpModal({ visible, onClose, isGuest = false, onLoginPress }: H
                     {/* Footer */}
                     <StyledView
                         className="p-6 border-t"
-                        style={{ borderColor: borderColor, paddingBottom: Platform.OS === 'android' ? 24 + insets.bottom : 24 }}
+                        style={{ borderColor: borderColor, paddingBottom: 24 }}
                     >
                         <StyledTouchableOpacity
                             onPress={handleButtonPress}

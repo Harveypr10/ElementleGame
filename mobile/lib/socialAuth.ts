@@ -13,6 +13,8 @@
 import { Platform } from 'react-native';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { supabase, checkLinkedIdentity, linkIdentityToUser } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -155,23 +157,125 @@ export async function signOutGoogle(): Promise<void> {
 
 /**
  * Check if Apple Sign-In is available on this device
+ * iOS: native availability check
+ * Android: always available via web-based OAuth
  */
 export async function isAppleSignInAvailable(): Promise<boolean> {
-    if (Platform.OS !== 'ios') {
-        return false;
+    if (Platform.OS === 'android') {
+        return true; // Web-based OAuth is always available
     }
-    return await AppleAuthentication.isAvailableAsync();
+    if (Platform.OS === 'ios') {
+        return await AppleAuthentication.isAvailableAsync();
+    }
+    return false;
 }
 
 /**
- * Sign in with Apple using native FaceID/TouchID flow
+ * Sign in with Apple — platform-aware
+ * iOS: native FaceID/TouchID flow via expo-apple-authentication
+ * Android: web-based OAuth via Supabase + expo-web-browser
  */
 export async function signInWithApple(): Promise<SocialAuthResult> {
+    if (Platform.OS === 'android') {
+        return signInWithAppleWeb();
+    }
+    return signInWithAppleNative();
+}
+
+/**
+ * Android: Web-based Apple OAuth flow
+ * Opens Apple's sign-in page in a secure in-app browser.
+ * Supabase handles the OAuth flow and redirects back with session tokens.
+ */
+async function signInWithAppleWeb(): Promise<SocialAuthResult> {
     try {
-        if (Platform.OS !== 'ios') {
-            return { success: false, error: 'Apple Sign-In is only available on iOS' };
+        console.log('[SocialAuth] Starting web-based Apple sign-in (Android)');
+
+        const redirectUri = makeRedirectUri({ scheme: 'elementle', path: 'auth/callback' });
+        console.log('[SocialAuth] Redirect URI:', redirectUri);
+
+        // Get the OAuth URL from Supabase (skipBrowserRedirect so we control the browser)
+        const { data: oauthData, error: oauthError } = await supabase.auth.signInWithOAuth({
+            provider: 'apple',
+            options: {
+                redirectTo: redirectUri,
+                skipBrowserRedirect: true, // Don't auto-open — we use WebBrowser
+            },
+        });
+
+        if (oauthError || !oauthData?.url) {
+            console.error('[SocialAuth] Failed to get Apple OAuth URL:', oauthError);
+            return { success: false, error: oauthError?.message || 'Failed to start Apple sign-in' };
         }
 
+        console.log('[SocialAuth] Opening Apple OAuth page...');
+
+        // Open the OAuth URL in a secure in-app browser
+        const result = await WebBrowser.openAuthSessionAsync(
+            oauthData.url,
+            redirectUri,
+        );
+
+        if (result.type !== 'success' || !result.url) {
+            console.log('[SocialAuth] Apple OAuth cancelled or failed:', result.type);
+            return { success: false, error: 'Sign in cancelled' };
+        }
+
+        console.log('[SocialAuth] Apple OAuth redirect received');
+
+        // Extract tokens from the redirect URL hash
+        // Format: elementle://auth/callback#access_token=...&refresh_token=...
+        const url = new URL(result.url);
+        const hashParams = new URLSearchParams(url.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        if (!accessToken || !refreshToken) {
+            console.error('[SocialAuth] No tokens in redirect URL');
+            return { success: false, error: 'Authentication failed — no tokens received' };
+        }
+
+        // Set the Supabase session with the extracted tokens
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+        });
+
+        if (sessionError || !sessionData.user) {
+            console.error('[SocialAuth] Failed to set session:', sessionError);
+            return { success: false, error: sessionError?.message || 'Failed to establish session' };
+        }
+
+        const user = sessionData.user;
+        console.log('[SocialAuth] Apple web sign-in session established for:', user.id);
+
+        // Sync OAuth profile to database
+        await syncOAuthProfileToDatabase(user.id, 'apple');
+
+        // Check if user needs to complete profile setup
+        let needsProfileSetup = true;
+        const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('first_name, region')
+            .eq('id', user.id)
+            .single();
+
+        needsProfileSetup = !profile?.first_name || !profile?.region;
+
+        console.log('[SocialAuth] Apple web authentication complete, needsProfileSetup:', needsProfileSetup);
+        return { success: true, isNewUser: needsProfileSetup };
+
+    } catch (error: any) {
+        console.error('[SocialAuth] Apple web sign-in error:', error);
+        return { success: false, error: error.message || 'Apple sign-in failed' };
+    }
+}
+
+/**
+ * iOS: Native Apple Sign-In via FaceID/TouchID
+ */
+async function signInWithAppleNative(): Promise<SocialAuthResult> {
+    try {
         const isAvailable = await AppleAuthentication.isAvailableAsync();
         if (!isAvailable) {
             return { success: false, error: 'Apple Sign-In is not available on this device' };
@@ -207,12 +311,10 @@ export async function signInWithApple(): Promise<SocialAuthResult> {
             await syncOAuthProfileToDatabase(data.user.id, 'apple');
 
             // Also record in linked_identities table via Edge Function
-            // This enables "Continue with Apple" to find this user on subsequent sign-ins
             console.log('[SocialAuth] Recording Apple link in linked_identities...');
             const linkResult = await linkIdentityToUser('apple', credential.identityToken);
             if (!linkResult.success) {
                 console.warn('[SocialAuth] Failed to record Apple link:', linkResult.error);
-                // Don't fail the whole sign-in, just log the warning
             }
 
             // Apple only provides name on first sign-in, save it if available
@@ -221,7 +323,7 @@ export async function signInWithApple(): Promise<SocialAuthResult> {
             }
         }
 
-        // Check if user needs to complete profile setup (better than last_sign_in_at)
+        // Check if user needs to complete profile setup
         let needsProfileSetup = true;
         if (data.user) {
             const { data: profile } = await supabase
@@ -230,7 +332,6 @@ export async function signInWithApple(): Promise<SocialAuthResult> {
                 .eq('id', data.user.id)
                 .single();
 
-            // User is "new" if they don't have first_name AND region set
             needsProfileSetup = !profile?.first_name || !profile?.region;
         }
 
@@ -319,11 +420,65 @@ export async function linkGoogleAccount(): Promise<SocialAuthResult> {
  * This enables "Continue with Apple" to find the correct user.
  */
 export async function linkAppleAccount(): Promise<SocialAuthResult> {
+    if (Platform.OS === 'android') {
+        return linkAppleAccountWeb();
+    }
+    return linkAppleAccountNative();
+}
+
+/**
+ * Android: Link Apple account via web-based OAuth
+ * Note: On Android we can't get a raw ID token to pass to the Edge Function,
+ * so we use Supabase's linkIdentity which handles the OAuth flow.
+ */
+async function linkAppleAccountWeb(): Promise<SocialAuthResult> {
     try {
-        if (Platform.OS !== 'ios') {
-            return { success: false, error: 'Apple Sign-In is only available on iOS' };
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) {
+            return { success: false, error: 'No user logged in' };
         }
 
+        console.log('[SocialAuth] Starting Apple linking via web for user:', currentUser.id);
+
+        const redirectUri = makeRedirectUri({ scheme: 'elementle', path: 'auth/callback' });
+
+        // Use Supabase's linkIdentity which attaches the Apple identity to the current user
+        const { data: oauthData, error: oauthError } = await supabase.auth.linkIdentity({
+            provider: 'apple',
+            options: {
+                redirectTo: redirectUri,
+                skipBrowserRedirect: true,
+            },
+        });
+
+        if (oauthError || !oauthData?.url) {
+            console.error('[SocialAuth] Failed to get Apple link OAuth URL:', oauthError);
+            return { success: false, error: oauthError?.message || 'Failed to start Apple linking' };
+        }
+
+        const result = await WebBrowser.openAuthSessionAsync(
+            oauthData.url,
+            redirectUri,
+        );
+
+        if (result.type !== 'success') {
+            return { success: false, error: 'Linking cancelled' };
+        }
+
+        console.log('[SocialAuth] Apple account linked successfully via web OAuth');
+        return { success: true };
+
+    } catch (error: any) {
+        console.error('[SocialAuth] Link Apple web error:', error);
+        return { success: false, error: error.message || 'Failed to link Apple account' };
+    }
+}
+
+/**
+ * iOS: Link Apple account via native flow
+ */
+async function linkAppleAccountNative(): Promise<SocialAuthResult> {
+    try {
         // Get current user before starting - we must preserve this session
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (!currentUser) {

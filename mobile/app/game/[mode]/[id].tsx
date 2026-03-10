@@ -408,8 +408,7 @@ export default function GameScreen() {
                 <View style={{ flex: 1, marginTop: -30, zIndex: 5 }}>
                     {loading ? (
                         <View style={{ flex: 1, paddingTop: 30, backgroundColor: backgroundColor }} className="justify-center items-center">
-                            <ActivityIndicator size="large" color="#3b82f6" />
-                            <Text className="text-slate-900 dark:text-white mt-4 font-body">Loading Puzzle...</Text>
+                            <ActivityIndicator size="large" color="#7DAAE8" style={{ transform: [{ scale: 1.3 }] }} />
                         </View>
                     ) : !puzzle ? (
                         <View className="flex-1 justify-center items-center px-6">

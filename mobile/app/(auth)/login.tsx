@@ -456,12 +456,53 @@ export default function LoginPage() {
         // Check if Apple Sign-In is available
         const available = await isAppleSignInAvailable();
         if (!available) {
-            Alert.alert('Not Available', 'Apple Sign-In is only available on iOS devices');
+            Alert.alert('Not Available', 'Apple Sign-In is not available on this device');
             return;
         }
 
         setLoading(true);
         setSocialAuthHelperText(null);
+
+        // ── Android: Web-based OAuth flow ──
+        // On Android we can't get an Apple ID token pre-auth,
+        // so we go directly through the web OAuth flow.
+        if (Platform.OS === 'android') {
+            try {
+                console.log('[Login] Starting web-based Apple sign-in (Android)');
+                markSigningIn();
+                const result = await signInWithApple();
+
+                if (!result.success) {
+                    if (result.error !== 'Sign in cancelled') {
+                        Alert.alert('Error', result.error || 'Failed to sign in with Apple');
+                    }
+                    return;
+                }
+
+                console.log('[Login] Apple web sign-in successful, isNewUser:', result.isNewUser);
+
+                if (result.isNewUser) {
+                    router.replace({
+                        pathname: '/(auth)/personalise',
+                        params: {
+                            ...(subscribeFirst ? { subscribeFirst: '1' } : {}),
+                        }
+                    });
+                } else if (subscribeFirst) {
+                    router.replace('/(auth)/subscription-flow');
+                } else {
+                    router.replace('/');
+                }
+            } catch (error: any) {
+                console.error('[Login] Apple web sign-in error:', error);
+                Alert.alert('Error', error.message || 'Failed to sign in with Apple');
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
+        // ── iOS: Native Apple Sign-In flow ──
         try {
             console.log('[Login] Starting native Apple sign-in');
 

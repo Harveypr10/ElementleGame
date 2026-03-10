@@ -599,6 +599,65 @@ export function useRecordLeagueView() {
     });
 }
 
+// ─── Snapshot Pre-loading ───────────────────────────────────────────────
+
+/**
+ * Pre-load the last 31 days of league snapshot standings into React Query cache.
+ * Runs silently in the background — no UI impact.
+ * Snapshots use staleTime: Infinity so they're cached permanently per session.
+ *
+ * @param queryClient - React Query client instance
+ * @param leagues     - Array of leagues the user is a member of
+ * @param timeframe   - 'mtd' or 'ytd'
+ * @param gameMode    - 'region' or 'user'
+ */
+export async function prefetchLeagueSnapshots(
+    queryClient: QueryClient,
+    leagues: League[],
+    timeframe: Timeframe,
+    gameMode: GameMode
+) {
+    if (!leagues || leagues.length === 0) return;
+
+    // Generate the last 31 dates (yesterday → 31 days ago)
+    // Today is always "live" — no snapshot to prefetch
+    const dates: string[] = [];
+    const now = new Date();
+    for (let i = 1; i <= 31; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        dates.push(d.toISOString().split('T')[0]);
+    }
+
+    // Build all prefetch tasks
+    const tasks: Array<() => Promise<void>> = [];
+    for (const league of leagues) {
+        for (const date of dates) {
+            const queryKey = leagueKeys.standings(league.id, timeframe, gameMode, date);
+            // Skip if already cached
+            if (queryClient.getQueryData(queryKey)) continue;
+            tasks.push(() =>
+                queryClient.prefetchQuery({
+                    queryKey,
+                    queryFn: () => fetchStandings(league.id, timeframe, gameMode, date),
+                    staleTime: Infinity,
+                })
+            );
+        }
+    }
+
+    if (tasks.length === 0) return;
+    console.log(`[LeaguePreload] Prefetching ${tasks.length} snapshots for ${leagues.length} leagues…`);
+
+    // Run in batches of 10 to avoid flooding the server
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+        const batch = tasks.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(fn => fn()));
+    }
+    console.log(`[LeaguePreload] Done — ${tasks.length} snapshots cached.`);
+}
+
 /**
  * Helper: Invalidate all league queries (e.g. after joining a new league).
  */

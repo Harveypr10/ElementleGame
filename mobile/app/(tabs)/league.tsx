@@ -10,7 +10,7 @@
  *   pins to top when user row scrolled off top, bottom when off bottom.
  */
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo, } from 'react';
 import {
     View,
     Text,
@@ -42,10 +42,12 @@ import {
     useLeagueSnapshotRange,
     useMyMembership,
     useMyAwards,
+    prefetchLeagueSnapshots,
 
     getCurrentPeriodLabel,
     formatPeriodLabel,
 } from '../../hooks/useLeagueData';
+import { useQueryClient } from '@tanstack/react-query';
 import type { GameMode, SnapshotRange } from '../../hooks/useLeagueData';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../lib/auth';
@@ -412,10 +414,44 @@ function ColumnHeaders({
     );
 }
 
+// ─── AnimatedEntryRow (per-row mount animation) ───────────────────────
+
+const AnimatedEntryRow = React.memo(({ children, index, startTime }: {
+    children: React.ReactNode;
+    index: number;
+    startTime: number;
+}) => {
+    const anim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        // Calculate remaining delay relative to the global animation start time
+        const elapsed = Date.now() - startTime;
+        const targetDelay = index * 60; // 60ms stagger per row
+        const remainingDelay = Math.max(0, targetDelay - elapsed);
+
+        Animated.timing(anim, {
+            toValue: 1,
+            duration: 300,
+            delay: remainingDelay,
+            useNativeDriver: true,
+        }).start();
+    }, []);
+
+    return (
+        <Animated.View style={{
+            opacity: anim,
+            transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+        }}>
+            {children}
+        </Animated.View>
+    );
+});
+
 // ─── Main League Screen ────────────────────────────────────────────────
 
 export default function LeagueScreen({ gameMode = 'region' as GameMode }: { gameMode?: GameMode }) {
     const { width: screenWidth } = useWindowDimensions();
+    const queryClient = useQueryClient();
     const { user } = useAuth();
     const router = useRouter();
 
@@ -581,12 +617,20 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         }, [user?.id, selectedLeagueId, selectedTimeframe, snapshotDate])
     );
 
-    // Restore state on mount (or reset if >30 min)
+    // ── Fresh-load detection for row animation ──
+    // true = fresh open (animate rows), false = returning within session (instant)
+    const shouldAnimateRowsRef = useRef(true);  // default: yes, animate
+    const animStartTimeRef = useRef(0); // Global start timestamp for stagger calculation
+
+    // Restore state on mount (or reset if > 30 min)
     useEffect(() => {
         if (!user?.id || stateRestoredRef.current || !orderLoadedRef.current) return;
         stateRestoredRef.current = true;
         AsyncStorage.getItem(`league_screen_state_${user.id}_${gameMode}`).then(saved => {
-            if (!saved) return;
+            if (!saved) {
+                shouldAnimateRowsRef.current = true; // No saved state = fresh load
+                return;
+            }
             try {
                 const state = JSON.parse(saved);
                 const elapsed = Date.now() - (state.timestamp || 0);
@@ -594,12 +638,14 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                 const savedDay = state.day || '';
                 const todayDay = new Date().toISOString().split('T')[0];
                 if (elapsed < THIRTY_MINUTES && savedDay === todayDay) {
-                    // Restore previous view
+                    // Returning within session — skip animation
+                    shouldAnimateRowsRef.current = false;
                     if (state.selectedLeagueId) setSelectedLeagueId(state.selectedLeagueId);
                     if (state.selectedTimeframe) setSelectedTimeframe(state.selectedTimeframe);
                     if (state.snapshotDate !== undefined) setSnapshotDate(state.snapshotDate ?? null);
                 } else {
-                    // Reset: first league in saved order, current month
+                    // Expired — treat as fresh load
+                    shouldAnimateRowsRef.current = true;
                     setSelectedTimeframe('mtd');
                     setSnapshotDate(null);
                 }
@@ -923,6 +969,36 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
             }
         }
     }, [allRows]);
+
+    // ── Row entry animation trigger ──
+    useEffect(() => {
+        if (!shouldAnimateRowsRef.current) return;
+        if (allRows.length === 0) return;
+        if (animStartTimeRef.current > 0) return; // Already started
+
+        // Record start time — each AnimatedEntryRow calculates its own delay from this
+        animStartTimeRef.current = Date.now();
+
+        // Auto-disable animation after the window closes (60ms × rows + 300ms duration + buffer)
+        const totalMs = Math.min(allRows.length * 60 + 500, 5000);
+        const timer = setTimeout(() => {
+            shouldAnimateRowsRef.current = false;
+            animStartTimeRef.current = 0;
+        }, totalMs);
+        return () => clearTimeout(timer);
+    }, [allRows]);
+
+    // ── Snapshot preloading ──
+    const prefetchStartedRef = useRef(false);
+    useEffect(() => {
+        if (prefetchStartedRef.current) return;
+        if (!leagues || (leagues as League[]).length === 0) return;
+        prefetchStartedRef.current = true;
+        // Run in background — no UI impact
+        prefetchLeagueSnapshots(queryClient, leagues as League[], selectedTimeframe, gameMode).catch((e) =>
+            console.warn('[LeaguePreload] Error:', e)
+        );
+    }, [leagues]);
 
     // Determine my row's index for viewability tracking
     const myRowIndex = useMemo(() => {
@@ -1332,7 +1408,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                             keyExtractor={(item) => item.user_id}
                             renderItem={({ item, index }) => {
                                 if ('_type' in item && item._type === 'divider') {
-                                    return (
+                                    const dividerContent = (
                                         <View style={{
                                             paddingVertical: 10,
                                             paddingHorizontal: 16,
@@ -1349,8 +1425,16 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                             </Text>
                                         </View>
                                     );
+                                    if (animStartTimeRef.current > 0) {
+                                        return (
+                                            <AnimatedEntryRow index={index} startTime={animStartTimeRef.current}>
+                                                {dividerContent}
+                                            </AnimatedEntryRow>
+                                        );
+                                    }
+                                    return dividerContent;
                                 }
-                                return (
+                                const rowContent = (
                                     <LeagueTableRow
                                         row={item as StandingRow}
                                         isEven={index % 2 === 0}
@@ -1368,6 +1452,14 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                         sizes={leagueSizes}
                                     />
                                 );
+                                if (animStartTimeRef.current > 0) {
+                                    return (
+                                        <AnimatedEntryRow index={index} startTime={animStartTimeRef.current}>
+                                            {rowContent}
+                                        </AnimatedEntryRow>
+                                    );
+                                }
+                                return rowContent;
                             }}
                             getItemLayout={(_, index) => ({
                                 length: ESTIMATED_ROW_HEIGHT,
