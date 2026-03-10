@@ -628,16 +628,19 @@ function UserScopedProviders() {
     const isDark = colorScheme === 'dark';
 
     // Set Android navigation bar color to match theme (edge-to-edge makes it transparent by default)
-    // Dynamic require — top-level import crashes on platforms without the native module
     useEffect(() => {
         if (Platform.OS === 'android') {
+            // Check native module exists before loading the JS wrapper
+            // (avoids crash when native app hasn't been rebuilt with the module)
+            const { NativeModules } = require('react-native');
+            if (!NativeModules.ExpoNavigationBar) return;
             try {
                 const NavigationBar = require('expo-navigation-bar');
                 const bgColor = isDark ? '#0f172a' : '#f1f5f9'; // Match tab bar background
                 NavigationBar.setBackgroundColorAsync(bgColor);
                 NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
             } catch (e) {
-                console.warn('[Layout] expo-navigation-bar not available:', e);
+                // Silently ignore — module not available
             }
         }
     }, [isDark]);

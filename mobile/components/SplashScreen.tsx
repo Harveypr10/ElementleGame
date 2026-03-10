@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Dimensions, Animated } from 'react-native';
 import { Image } from 'expo-image';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 
 /**
@@ -14,6 +13,9 @@ import { StatusBar } from 'expo-status-bar';
  *
  * No text elements are used, so there is zero font-loading flicker.
  * The image uses `contain` fitting to match the native splash's resizeMode.
+ *
+ * Uses React Native's built-in Animated API with useNativeDriver: true
+ * for the smoothest possible fade-in (runs entirely on the native UI thread).
  */
 
 const SplashImage = require('../assets/ui/Welcome-Hamster-Transparent.png');
@@ -28,11 +30,15 @@ interface SplashScreenProps {
 }
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
-    const opacity = useSharedValue(0);
+    const opacity = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        // Fade in the hamster image over 800ms
-        opacity.value = withTiming(1, { duration: 800 });
+        // Fade in the hamster image over 800ms using native driver
+        Animated.timing(opacity, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+        }).start();
 
         // Hold for a moment after fade-in, then trigger completion.
         const timer = setTimeout(() => {
@@ -42,14 +48,10 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         return () => clearTimeout(timer);
     }, []);
 
-    const animatedStyle = useAnimatedStyle(() => ({
-        opacity: opacity.value,
-    }));
-
     return (
         <View style={styles.container}>
             <StatusBar style="light" />
-            <Animated.View style={[styles.content, animatedStyle]}>
+            <Animated.View style={[styles.content, { opacity }]}>
                 <Image
                     source={SplashImage}
                     style={styles.image}
