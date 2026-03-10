@@ -696,7 +696,7 @@ export default function OptionsScreen({ customBackAction }: { customBackAction?:
                                 {/* ── Streak Reminder ── */}
                                 <ToggleRow
                                     label="Streak Reminder"
-                                    subLabel="Get notified when at risk of losing your streak"
+                                    subLabel="Get notified when your streak is at risk"
                                     value={streakReminderEnabled}
                                     onToggle={handleStreakReminderToggle}
                                     borderColor={borderColor}

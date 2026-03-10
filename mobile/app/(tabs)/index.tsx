@@ -1,4 +1,6 @@
 import { View, Text, TouchableOpacity, Image, ScrollView, RefreshControl, Animated, Dimensions, NativeSyntheticEvent, NativeScrollEvent, useWindowDimensions, Platform } from 'react-native';
+import ReAnimated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing as ReEasing, SharedValue } from 'react-native-reanimated';
+import { useHomeCacheSnapshot, HomeCacheSnapshot } from '../../hooks/useHomeCacheSnapshot';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { styled } from 'nativewind';
 import { useAuth } from '../../lib/auth';
@@ -63,6 +65,24 @@ import { useAppReadiness } from '../../contexts/AppReadinessContext';
 
 const { width: STATIC_WIDTH } = Dimensions.get('window');
 
+// ── Cold-start animation guard ──
+// Module-level variable: resets on app kill, survives re-renders and navigation.
+let hasPlayedHomeAnimation = false;
+
+// Lightweight reanimated wrapper — avoids CGBitmapContext warnings
+// that RN core Animated.View triggers when wrapping shadow-bearing views.
+const AnimatedEntry = React.memo(({ opacity, translateY, children }: {
+    opacity: SharedValue<number>;
+    translateY: SharedValue<number>;
+    children: React.ReactNode;
+}) => {
+    const style = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+        transform: [{ translateY: translateY.value }],
+    }));
+    return <ReAnimated.View style={style}>{children}</ReAnimated.View>;
+});
+
 // Memoized Page Component to prevent re-renders during scroll
 const GameModePage = React.memo(({
     isRegion,
@@ -85,6 +105,7 @@ const GameModePage = React.memo(({
     quickMenuEnabled,
     pendingLeagueInvite,
     onLeagueInviteClicked,
+    entryAnims,
 }: {
     isRegion: boolean,
     todayStatus: 'not-played' | 'solved' | 'failed',
@@ -106,6 +127,7 @@ const GameModePage = React.memo(({
     quickMenuEnabled?: boolean, // Whether quick menu is active (legacy, ignored)
     pendingLeagueInvite?: boolean, // Whether there's a pending league invitation for this mode
     onLeagueInviteClicked?: () => void, // Called when invitation button is clicked
+    entryAnims: { opacity: SharedValue<number>; translateY: SharedValue<number> }[], // Entry animation shared values (4 elements)
 }) => {
     // Colors from Web App
     const playColor = isRegion ? '#7DAAE8' : '#66becb'; // Blue (Region) vs Teal (User)
@@ -192,14 +214,17 @@ const GameModePage = React.memo(({
             style={width ? { width: width } : { flex: 1 }}
         >
             <View>
-                {/* PERCENTILE TEXT (Dynamic & Above Play Button) */}
-                {percentileMessage && (
-                    <ThemedText className="text-slate-500 font-n-medium text-center" baseSize={16 * scale} style={{ marginBottom: screenWidth >= 768 ? 8 : 16 }}>
-                        {percentileMessage}
-                    </ThemedText>
-                )}
+                {/* 1. PERCENTILE/STREAK MESSAGE */}
+                <AnimatedEntry opacity={entryAnims[0].opacity} translateY={entryAnims[0].translateY}>
+                    {percentileMessage ? (
+                        <ThemedText className="text-slate-500 font-n-medium text-center" baseSize={16 * scale} style={{ marginBottom: screenWidth >= 768 ? 8 : 16 }}>
+                            {percentileMessage}
+                        </ThemedText>
+                    ) : null}
+                </AnimatedEntry>
 
-                {/* 1. PLAY BUTTON */}
+                {/* 2. PLAY TODAY CARD */}
+                <AnimatedEntry opacity={entryAnims[1].opacity} translateY={entryAnims[1].translateY}>
                 <HomeCard
                     testID="home-card-play"
                     title={
@@ -215,14 +240,10 @@ const GameModePage = React.memo(({
                     onPress={() => {
                         incrementInteraction();
                         console.log(`[Home] Play Today pressed. HolidayActive: ${holidayActive}, Status: ${todayStatus}`);
-
-                        // [FIX] Reactive holiday check - always evaluate on press, no one-shot dismissal flag.
-                        // Show popup if holiday mode is active AND the game hasn't been completed (solved/failed).
                         if (holidayActive && todayStatus !== 'solved' && todayStatus !== 'failed') {
                             setHolidayModalMode(isRegion ? 'REGION' : 'USER');
                             setShowHolidayModal(true);
                         } else {
-                            // Use the centralized today's puzzle date passed from parent
                             router.push(isRegion ? `/game/REGION/${todaysPuzzleDate}` : `/game/USER/${todaysPuzzleDate}`);
                         }
                     }}
@@ -232,12 +253,10 @@ const GameModePage = React.memo(({
                 >
                     {todayStatus === 'solved' && (
                         <View className="flex-row gap-2 mt-0 w-full" style={{ flexDirection: 'row' }}>
-                            {/* Solved In Box */}
                             <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
                                 <ThemedText className="text-slate-700 font-n-medium text-sm">Solved in</ThemedText>
                                 <ThemedText className="text-slate-700 font-n-bold text-xl">{guesses}</ThemedText>
                             </View>
-                            {/* Streak Box */}
                             <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
                                 <ThemedText className="text-slate-700 font-n-medium text-sm">Streak</ThemedText>
                                 <ThemedText className="text-slate-700 font-n-bold text-xl">{stats.current_streak}</ThemedText>
@@ -245,8 +264,10 @@ const GameModePage = React.memo(({
                         </View>
                     )}
                 </HomeCard>
+                </AnimatedEntry>
 
-                {/* 2. ARCHIVE BUTTON */}
+                {/* 3. ARCHIVE BUTTON */}
+                <AnimatedEntry opacity={entryAnims[2].opacity} translateY={entryAnims[2].translateY}>
                 <HomeCard
                     testID="home-card-archive"
                     title={isRegion ? "UK Archive" : "Personal Archive"}
@@ -267,8 +288,10 @@ const GameModePage = React.memo(({
                         </View>
                     </View>
                 </HomeCard>
+                </AnimatedEntry>
 
-                {/* 3. STATS + LEAGUE — 50/50 row when leagues enabled, full-width stats otherwise */}
+                {/* 4. STATS + LEAGUE — 50/50 row when leagues enabled, full-width stats otherwise */}
+                <AnimatedEntry opacity={entryAnims[3].opacity} translateY={entryAnims[3].translateY}>
                 {leagueTablesEnabled ? (
                     <View style={{ flexDirection: 'row', gap: 10, marginBottom: 0 }}>
                         {/* Half-width Stats */}
@@ -302,7 +325,6 @@ const GameModePage = React.memo(({
                                 </View>
                             </View>
                         </TouchableOpacity>
-
                         {/* Half-width Leagues */}
                         <TouchableOpacity
                             testID="home-card-league-half"
@@ -322,7 +344,6 @@ const GameModePage = React.memo(({
                                 height: 120 * cardHeightScale, overflow: 'hidden',
                                 shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
                                 shadowOpacity: 0.1, shadowRadius: 8, elevation: 3,
-
                             }}
                         >
                             <Image source={WinHamsterBlue} style={{ position: 'absolute', top: screenWidth >= 768 ? 27 : 8, right: screenWidth >= 768 ? 16 : 8, width: screenWidth >= 768 ? 74 : 46, height: screenWidth >= 768 ? 74 : 46, opacity: 0.9 }} resizeMode="contain" />
@@ -375,17 +396,13 @@ const GameModePage = React.memo(({
                         </View>
                     </HomeCard>
                 )}
+                </AnimatedEntry>
             </View>
         </ScrollView>
     );
 });
 
-export default function HomeScreen() {
-    // Render web version on web platform
-    if (Platform.OS === 'web') {
-        return <HomeScreenWeb />;
-    }
-
+function HomeScreenInner({ snapshot }: { snapshot: HomeCacheSnapshot }) {
     // [WEB FIX] Use useWindowDimensions hook for reactive width detection on web
     const { width: SCREEN_WIDTH } = useWindowDimensions();
 
@@ -509,10 +526,37 @@ export default function HomeScreen() {
     const { stats: regionHookStats, refetch: refetchRegionStats } = useUserStats('REGION');
     const { stats: userHookStats, refetch: refetchUserStats } = useUserStats('USER');
 
-    // Resolve Stats with Defaults (Available for render and Modals)
+    // Resolve Stats: use snapshot (cached) until React Query delivers live data.
+    // This ensures the first frame shows yesterday's correct numbers instead of zeros.
     const defaultStats = { current_streak: 0, games_played: 0, games_won: 0, guess_distribution: {}, cumulative_monthly_percentile: null };
-    const regionStats = regionHookStats || defaultStats;
-    const userStats = userHookStats || defaultStats;
+    const regionStats = regionHookStats || snapshot.regionStats || defaultStats;
+    const userStats = userHookStats || snapshot.userStats || defaultStats;
+
+    // Cache stats to AsyncStorage whenever React Query delivers fresh data,
+    // so the next cold start has accurate numbers to display immediately.
+    useEffect(() => {
+        if (regionHookStats && user?.id) {
+            AsyncStorage.setItem(`cached_home_stats_region_${user.id}`, JSON.stringify({
+                current_streak: regionHookStats.current_streak ?? 0,
+                games_played: regionHookStats.games_played ?? 0,
+                games_won: regionHookStats.games_won ?? regionHookStats.wins ?? 0,
+                guess_distribution: regionHookStats.guess_distribution ?? {},
+                cumulative_monthly_percentile: regionHookStats.cumulative_monthly_percentile ?? null,
+            }));
+        }
+    }, [regionHookStats, user?.id]);
+
+    useEffect(() => {
+        if (userHookStats && user?.id) {
+            AsyncStorage.setItem(`cached_home_stats_user_${user.id}`, JSON.stringify({
+                current_streak: userHookStats.current_streak ?? 0,
+                games_played: userHookStats.games_played ?? 0,
+                games_won: userHookStats.games_won ?? userHookStats.wins ?? 0,
+                guess_distribution: userHookStats.guess_distribution ?? {},
+                cumulative_monthly_percentile: userHookStats.cumulative_monthly_percentile ?? null,
+            }));
+        }
+    }, [userHookStats, user?.id]);
 
     // Auto-unlock leagues for new users who qualify in their first full month
     const hasCheckedAutoUnlockRef = useRef(false);
@@ -576,42 +620,43 @@ export default function HomeScreen() {
         checkAutoUnlock();
     }, [leagueAutoUnlockDone, leagueTablesEnabled, userSettingsLoaded, user?.created_at, regionHookStats]);
 
-    // Load Cached Data on Mount to prevent FOUC
-    useEffect(() => {
-        const loadCache = async () => {
-            try {
-                // Use the centralized today's puzzle date
+    // Sync game status from cache on every focus event.
+    // When game-result writes updated status to AsyncStorage before dismissAll(),
+    // this reads it instantly (~1-3ms) so the Home screen shows correct state
+    // the moment it becomes visible — no flash of stale data.
+    useFocusEffect(
+        useCallback(() => {
+            const syncFromCache = async () => {
+                const id = user?.id ?? 'guest';
                 const todayStr = todaysPuzzleDate;
-
-                // 1. Name
-                const cachedName = await AsyncStorage.getItem(`cached_first_name_${user?.id ?? 'guest'}`);
-                if (cachedName) setFirstName(cachedName);
-
-                // 2. Region Status
-                const cachedRegion = await AsyncStorage.getItem(`cached_game_status_region_${user?.id ?? 'guest'}`);
-                if (cachedRegion) {
-                    const parsed = JSON.parse(cachedRegion);
-                    if (parsed.date === todayStr) {
-                        setTodayStatusRegion(parsed.status);
-                        setGuessesRegion(parsed.guesses);
+                try {
+                    const [regionRaw, userRaw, nameRaw] = await Promise.all([
+                        AsyncStorage.getItem(`cached_game_status_region_${id}`),
+                        AsyncStorage.getItem(`cached_game_status_user_${id}`),
+                        AsyncStorage.getItem(`cached_first_name_${id}`),
+                    ]);
+                    if (regionRaw) {
+                        const parsed = JSON.parse(regionRaw);
+                        if (parsed.date === todayStr) {
+                            setTodayStatusRegion(parsed.status);
+                            setGuessesRegion(parsed.guesses ?? 0);
+                        }
                     }
-                }
-
-                // 3. User Status
-                const cachedUser = await AsyncStorage.getItem(`cached_game_status_user_${user?.id ?? 'guest'}`);
-                if (cachedUser) {
-                    const parsed = JSON.parse(cachedUser);
-                    if (parsed.date === todayStr) {
-                        setTodayStatusUser(parsed.status);
-                        setGuessesUser(parsed.guesses);
+                    if (userRaw) {
+                        const parsed = JSON.parse(userRaw);
+                        if (parsed.date === todayStr) {
+                            setTodayStatusUser(parsed.status);
+                            setGuessesUser(parsed.guesses ?? 0);
+                        }
                     }
+                    if (nameRaw) setFirstName(nameRaw);
+                } catch (e) {
+                    // Silent — fetchData will correct any issues
                 }
-            } catch (e) {
-                console.log('Error loading cache:', e);
-            }
-        };
-        loadCache();
-    }, [todaysPuzzleDate]);
+            };
+            syncFromCache();
+        }, [todaysPuzzleDate, user?.id])
+    );
 
     // Track which mode triggered the Holiday Modal (to route correctly on Continue/Exit)
     const [holidayModalMode, setHolidayModalMode] = useState<'REGION' | 'USER'>('USER');
@@ -1034,20 +1079,62 @@ export default function HomeScreen() {
         }
     };
 
-    // Region Stats
-    const [todayStatusRegion, setTodayStatusRegion] = useState<'not-played' | 'solved' | 'failed'>('not-played');
-    const [guessesRegion, setGuessesRegion] = useState(0);
+    // Region Stats — initialized from cache snapshot for instant first frame
+    const [todayStatusRegion, setTodayStatusRegion] = useState<'not-played' | 'solved' | 'failed'>(snapshot.todayStatusRegion);
+    const [guessesRegion, setGuessesRegion] = useState(snapshot.guessesRegion);
 
 
-    // User Stats
-    const [todayStatusUser, setTodayStatusUser] = useState<'not-played' | 'solved' | 'failed'>('not-played');
-    const [guessesUser, setGuessesUser] = useState(0);
+    // User Stats — initialized from cache snapshot for instant first frame
+    const [todayStatusUser, setTodayStatusUser] = useState<'not-played' | 'solved' | 'failed'>(snapshot.todayStatusUser);
+    const [guessesUser, setGuessesUser] = useState(snapshot.guessesUser);
 
-    const [firstName, setFirstName] = useState("User");
+    const [firstName, setFirstName] = useState(snapshot.firstName);
 
     // Animation & Scroll Refs
     const scrollX = useRef(new Animated.Value(0)).current;
     const scrollViewRef = useRef<ScrollView>(null);
+
+    // ── Entry animation values (react-native-reanimated) ──
+    // Using reanimated instead of RN core Animated to avoid CGBitmapContext
+    // warnings when wrapping shadow-bearing HomeCard views.
+    const topFadeOpacity = useSharedValue(hasPlayedHomeAnimation ? 1 : 0);
+    const e0Opacity = useSharedValue(hasPlayedHomeAnimation ? 1 : 0);
+    const e0TranslateY = useSharedValue(hasPlayedHomeAnimation ? 0 : 60);
+    const e1Opacity = useSharedValue(hasPlayedHomeAnimation ? 1 : 0);
+    const e1TranslateY = useSharedValue(hasPlayedHomeAnimation ? 0 : 60);
+    const e2Opacity = useSharedValue(hasPlayedHomeAnimation ? 1 : 0);
+    const e2TranslateY = useSharedValue(hasPlayedHomeAnimation ? 0 : 60);
+    const e3Opacity = useSharedValue(hasPlayedHomeAnimation ? 1 : 0);
+    const e3TranslateY = useSharedValue(hasPlayedHomeAnimation ? 0 : 60);
+    const bottomEntryAnims = useRef([
+        { opacity: e0Opacity, translateY: e0TranslateY },
+        { opacity: e1Opacity, translateY: e1TranslateY },
+        { opacity: e2Opacity, translateY: e2TranslateY },
+        { opacity: e3Opacity, translateY: e3TranslateY },
+    ]).current;
+
+    const topFadeStyle = useAnimatedStyle(() => ({
+        opacity: topFadeOpacity.value,
+    }));
+
+    // Trigger entry animations on cold start only — wait for splash screen to dismiss
+    useEffect(() => {
+        if (!isAppReady || hasPlayedHomeAnimation) return;
+        hasPlayedHomeAnimation = true;
+
+        // Top section: simple fade in
+        topFadeOpacity.value = withTiming(1, { duration: 500 });
+
+        // Bottom section: staggered slide-up + fade
+        bottomEntryAnims.forEach((anim, i) => {
+            const d = i * 200; // 200ms stagger
+            anim.opacity.value = withDelay(d, withTiming(1, { duration: 500 }));
+            anim.translateY.value = withDelay(d, withTiming(0, {
+                duration: 500,
+                easing: ReEasing.out(ReEasing.cubic),
+            }));
+        });
+    }, [isAppReady]);
 
     const lastFetchRef = useRef<number>(0);
     const prevUserIdRef = useRef<string | undefined>(undefined);
@@ -1281,9 +1368,13 @@ export default function HomeScreen() {
     // Dynamic ad banner height (measured via onLayout in AdBanner)
     const [adBannerHeight, setAdBannerHeight] = useState(0);
 
+    // Hydration gate removed — HomeScreenInner only mounts after snapshot is loaded
+    // (handled by the HomeScreen wrapper below)
+
     return (
         <AdBannerContext.Provider value={true}>
             <ThemedView className="flex-1">
+                <ReAnimated.View style={topFadeStyle}>
                 <SafeAreaView edges={['top']} className="z-50" style={{ backgroundColor: backgroundColor }}>
                     {/* Header - Fixed & Safe Area Adjusted */}
                     <StyledView
@@ -1353,6 +1444,7 @@ export default function HomeScreen() {
                                         }
                                     }}
                                     scale={SCREEN_WIDTH >= 768 ? 1.25 : 1}
+                                    initialProStatus={snapshot.isPro}
                                 />
                             </StyledView>
                             <ThemedText className="font-n-bold" baseSize={SCREEN_WIDTH >= 768 ? 25 : 20}>
@@ -1361,6 +1453,7 @@ export default function HomeScreen() {
                         </StyledView>
                     </StyledView>
                 </SafeAreaView>
+                </ReAnimated.View>
 
                 {/* Responsive Layout Switch */}
                 {SCREEN_WIDTH >= 768 ? (
@@ -1399,6 +1492,7 @@ export default function HomeScreen() {
                                     quickMenuEnabled={quickMenuEnabled}
                                     pendingLeagueInvite={pendingLeagueInviteRegion}
                                     onLeagueInviteClicked={() => handleLeagueInvitePress('region')}
+                                    entryAnims={bottomEntryAnims}
                                 />
                             </StyledView>
 
@@ -1431,6 +1525,7 @@ export default function HomeScreen() {
                                     quickMenuEnabled={quickMenuEnabled}
                                     pendingLeagueInvite={pendingLeagueInviteUser}
                                     onLeagueInviteClicked={() => handleLeagueInvitePress('user')}
+                                    entryAnims={bottomEntryAnims}
                                 />
                             </StyledView>
                         </StyledView>
@@ -1471,6 +1566,7 @@ export default function HomeScreen() {
                             quickMenuEnabled={quickMenuEnabled}
                             pendingLeagueInvite={pendingLeagueInviteRegion}
                             onLeagueInviteClicked={() => handleLeagueInvitePress('region')}
+                            entryAnims={bottomEntryAnims}
                         />
 
                         {/* User Page */}
@@ -1495,6 +1591,7 @@ export default function HomeScreen() {
                             quickMenuEnabled={quickMenuEnabled}
                             pendingLeagueInvite={pendingLeagueInviteUser}
                             onLeagueInviteClicked={() => handleLeagueInvitePress('user')}
+                            entryAnims={bottomEntryAnims}
                         />
                     </Animated.ScrollView>
                 )}
@@ -1699,4 +1796,27 @@ export default function HomeScreen() {
 
         </AdBannerContext.Provider>
     );
+}
+
+/**
+ * HomeScreen wrapper — loads the cache snapshot BEFORE mounting HomeScreenInner.
+ * This ensures that useState initializers inside HomeScreenInner capture the
+ * LOADED snapshot values (not defaults), eliminating content-popping on every mount.
+ */
+export default function HomeScreen() {
+    const { user } = useAuth();
+    const { snapshot, isLoaded } = useHomeCacheSnapshot(user?.id);
+
+    // Render web version on web platform
+    if (Platform.OS === 'web') {
+        return <HomeScreenWeb />;
+    }
+
+    // Gate: don't mount HomeScreenInner until snapshot is loaded.
+    // multiGet resolves in <15ms, well within the 2.5s splash screen window.
+    if (!isLoaded) {
+        return <View style={{ flex: 1, backgroundColor: '#F1F5F9' }} />;
+    }
+
+    return <HomeScreenInner snapshot={snapshot} />;
 }

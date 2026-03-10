@@ -541,7 +541,7 @@ export default function GeneratingQuestionsScreen() {
             )}
 
             {/* Footer Text */}
-            <View style={[styles.footer, Platform.OS === 'android' ? { paddingBottom: Math.max(24, insets.bottom + 12) } : undefined]}>
+            <View style={[styles.footer, Platform.OS === 'android' ? { paddingBottom: 24 } : undefined]}>
                 <ThemedText style={styles.footerText} size="base">
                     Hold tight, Hammie is cooking up your personalised questions...
                 </ThemedText>

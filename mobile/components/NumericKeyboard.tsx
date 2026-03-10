@@ -98,7 +98,7 @@ export function NumericKeyboard({
     };
 
     return (
-        <View className="w-full px-5 pb-5">
+        <View className="w-full px-5 pb-4">
             <View className="flex-row">
                 {["1", "2", "3", "4", "5"].map(renderKey)}
             </View>

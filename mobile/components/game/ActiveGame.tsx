@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, ActivityIndicator, TouchableOpacity, Animated, Dimensions, Platform } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, Animated, Dimensions, Platform, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { styled } from 'nativewind';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -71,6 +71,9 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
     const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
     const { toast } = useToast();
+
+    // Hidden TextInput ref for hardware keyboard support
+    const hiddenInputRef = React.useRef<TextInput>(null);
 
     // Local State
     const [preserveStreakStatus, setPreserveStreakStatus] = React.useState(false);
@@ -479,13 +482,9 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
 
 
 
-    if (gameState === 'loading') {
-        return (
-            <View className="flex-1 justify-center items-center" style={{ backgroundColor }}>
-                <ActivityIndicator size="large" color="#3b82f6" />
-            </View>
-        );
-    }
+    // gameState === 'loading' no longer shows a separate spinner.
+    // The isLoading state (below) covers the entire loading period with
+    // its 1-second minimum timer, providing a single clean spinner.
 
     // Construct Display Strings
     // Only show location for Local History category (999)
@@ -498,8 +497,7 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
             {/* Loading Spinner - shown while determining game state */}
             {isLoading && (
                 <ThemedView className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#7DAAE8" />
-                    <ThemedText className="opacity-60 mt-4 font-n-medium" size="base">Loading puzzle...</ThemedText>
+                    <ActivityIndicator size="large" color="#7DAAE8" style={{ transform: [{ scale: 1.3 }] }} />
                 </ThemedView>
             )}
 
@@ -551,9 +549,10 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                         />
                     </ThemedView>
 
-                    {/* Keyboard or Continue Button */}
-                    <View style={{ paddingBottom: (Dimensions.get('window').height < 700 ? 8 : 25) + (Platform.OS === 'android' ? insets.bottom : 0), paddingTop: 8, maxWidth: 582, alignSelf: 'center', width: '100%' }}>
+                    {/* Keyboard or Continue Button — wrapped in fixed-height container so grid doesn't resize */}
+                    <View style={{ paddingBottom: (Dimensions.get('window').height < 700 ? 6 : 20), paddingTop: 8, maxWidth: 582, alignSelf: 'center', width: '100%', minHeight: 180 }}>
                         {(gameState === 'playing') ? (
+                            <>
                             <NumericKeyboard
                                 onDigitPress={handleDigitPress}
                                 onDelete={handleDelete}
@@ -562,8 +561,32 @@ export function ActiveGame({ puzzle, gameMode, backgroundColor = '#FAFAFA', onGa
                                 keyStates={keyStates}
                                 canSubmit={isValidGuess}
                             />
+                            {/* Hidden TextInput for hardware keyboard support */}
+                            <TextInput
+                                ref={hiddenInputRef}
+                                autoFocus={false}
+                                style={{ position: 'absolute', width: 1, height: 1, opacity: 0 }}
+                                keyboardType="number-pad"
+                                caretHidden={true}
+                                showSoftInputOnFocus={false}
+                                onKeyPress={({ nativeEvent }) => {
+                                    const { key } = nativeEvent;
+                                    if (key >= '0' && key <= '9') {
+                                        handleDigitPress(key);
+                                    } else if (key === 'Backspace') {
+                                        handleDelete();
+                                    } else if (key === 'Enter') {
+                                        if (isValidGuess) submitGuess();
+                                    }
+                                }}
+                                onChangeText={() => {
+                                    // Clear the hidden input so it doesn't accumulate text
+                                    hiddenInputRef.current?.setNativeProps({ text: '' });
+                                }}
+                            />
+                            </>
                         ) : (
-                            <View style={{ alignItems: 'center', paddingHorizontal: 16 }}>
+                            <View style={{ flex: 1, justifyContent: 'flex-end', paddingHorizontal: 16 }}>
                                 <TouchableOpacity
                                     onPress={async () => {
                                         // Prioritize authoritative finalStreak if available (from local hook state)

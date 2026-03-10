@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Animated } from 'react-native';
+import { View, Animated, Dimensions } from 'react-native';
 import { styled } from 'nativewind';
 import { ArrowUp, ArrowDown } from 'lucide-react-native';
 import { ThemedText } from './ThemedText';
@@ -38,6 +38,7 @@ interface CellProps {
     delay?: number;
     isRestored?: boolean;
     themeColors: any;
+    cellMinHeight: number;
 }
 
 const RESULT_COLORS = {
@@ -56,7 +57,8 @@ function Cell({
     shouldAnimate,
     delay = 0,
     isRestored,
-    themeColors
+    themeColors,
+    cellMinHeight
 }: CellProps) {
     // Animation Values
     const scaleY = useRef(new Animated.Value(1)).current;
@@ -170,7 +172,7 @@ function Cell({
     const showPlaceholder = isPlaceholder && isActiveRow;
 
     return (
-        <View className="flex-1 min-h-[60px] max-w-[54px] mx-0.5 my-1" style={{ height: 60 }}>
+        <View className="flex-1 max-w-[54px] mx-0.5 my-1" style={{ minHeight: cellMinHeight, aspectRatio: 1 }}>
             <StyledAnimatedView
                 className={`flex-1 rounded-md justify-center items-center`}
                 style={[
@@ -273,6 +275,15 @@ export function InputGrid({
 
     const numCells = placeholders.length;
 
+    // Responsive cell height: full size on tall screens, shrinks on short screens
+    // to prevent grid overlapping the keyboard
+    const cellMinHeight = React.useMemo(() => {
+        const h = Dimensions.get('window').height;
+        if (h < 700) return 44;
+        if (h < 800) return 52;
+        return 60;
+    }, []);
+
     // Grid Construction
     const rows = Array.from({ length: maxGuesses }, (_, i) => {
         if (i < guesses.length) return guesses[i]; // Completed
@@ -342,6 +353,7 @@ export function InputGrid({
                                     delay={delay}
                                     isRestored={isRestored}
                                     themeColors={themeColors}
+                                    cellMinHeight={cellMinHeight}
                                 />
                             );
                         })}

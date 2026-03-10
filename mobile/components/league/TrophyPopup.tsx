@@ -10,7 +10,7 @@
  * and single-line stats (P, Win%, Avg, Rating).
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     View,
     Text,
@@ -68,6 +68,7 @@ interface TrophyPopupProps {
     leagueId: string;        // Initially viewed league
     brandColor?: string;
     initialTimeframe?: 'mtd' | 'ytd';
+    currentSnapshotDate?: string | null; // 'YYYY-MM-DD' or null for live
 }
 
 export function TrophyPopup({
@@ -77,6 +78,7 @@ export function TrophyPopup({
     leagueId,
     brandColor = '#8E57DB',
     initialTimeframe = 'mtd',
+    currentSnapshotDate,
 }: TrophyPopupProps) {
     const [containerWidth, setContainerWidth] = useState(Dimensions.get('window').width);
 
@@ -102,7 +104,6 @@ export function TrophyPopup({
             const idx = leaguesWithTrophies.findIndex(l => l.id === leagueId);
             setCurrentLeagueIndex(idx >= 0 ? idx : 0);
             setCurrentRow(initialTimeframe);
-            setFocusedIndex(0);
         }
     }, [visible, leagueId, leaguesWithTrophies, initialTimeframe]);
 
@@ -160,7 +161,7 @@ export function TrophyPopup({
         return medals
             .filter(m => m.league_id === currentLeagueId && m.timeframe === currentRow)
             .sort((a, b) => {
-                const periodCmp = b.period_label.localeCompare(a.period_label);
+                const periodCmp = a.period_label.localeCompare(b.period_label);
                 if (periodCmp !== 0) return periodCmp;
                 return (medalRank[a.medal] ?? 9) - (medalRank[b.medal] ?? 9);
             });
@@ -178,6 +179,44 @@ export function TrophyPopup({
     const ITEM_SIZE = ITEM_WIDTH + SPACING;
     const SPACER_ITEM_SIZE = (containerWidth - ITEM_SIZE) / 2;
 
+    // Compute the best initial trophy index based on current viewed date
+    const computeInitialIndex = useCallback((medalsForRow: Medal[]) => {
+        if (medalsForRow.length === 0) return 0;
+
+        // Determine the target period label from the current snapshot date (or today)
+        const d = currentSnapshotDate ? new Date(currentSnapshotDate + 'T12:00:00') : new Date();
+        const year = d.getFullYear();
+        const month = d.getMonth();
+        // For monthly: '2026-02', for annual: '2026'
+        const targetMonthLabel = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const targetYearLabel = `${year}`;
+        const targetLabel = medalsForRow[0]?.timeframe === 'ytd' ? targetYearLabel : targetMonthLabel;
+
+        // Try exact match first
+        const exactIdx = medalsForRow.findIndex(m => m.period_label === targetLabel);
+        if (exactIdx >= 0) return exactIdx;
+
+        // Find nearest before (largest period_label < targetLabel)
+        let bestBefore = -1;
+        for (let i = medalsForRow.length - 1; i >= 0; i--) {
+            if (medalsForRow[i].period_label < targetLabel) {
+                bestBefore = i;
+                break;
+            }
+        }
+        if (bestBefore >= 0) return bestBefore;
+
+        // Find nearest after (smallest period_label > targetLabel)
+        for (let i = 0; i < medalsForRow.length; i++) {
+            if (medalsForRow[i].period_label > targetLabel) {
+                return i;
+            }
+        }
+
+        // Fallback: last trophy (most recent)
+        return medalsForRow.length - 1;
+    }, [currentSnapshotDate]);
+
     // Fade + reset scroll when row changes
     useEffect(() => {
         fadeOpacity.setValue(0);
@@ -186,9 +225,25 @@ export function TrophyPopup({
             duration: 300,
             useNativeDriver: true,
         }).start();
-        scrollX.setValue(0);
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
-    }, [currentRow, currentLeagueId]);
+        const idx = computeInitialIndex(rowMedals);
+        setFocusedIndex(idx);
+        scrollX.setValue(idx * ITEM_SIZE);
+        setTimeout(() => {
+            flatListRef.current?.scrollToOffset({ offset: idx * ITEM_SIZE, animated: false });
+        }, 50);
+    }, [currentRow, currentLeagueId, rowMedals.length]);
+
+    // Reset to correct trophy when popup opens
+    useEffect(() => {
+        if (visible && rowMedals.length > 0) {
+            const idx = computeInitialIndex(rowMedals);
+            setFocusedIndex(idx);
+            scrollX.setValue(idx * ITEM_SIZE);
+            setTimeout(() => {
+                flatListRef.current?.scrollToOffset({ offset: idx * ITEM_SIZE, animated: false });
+            }, 100);
+        }
+    }, [visible]);
 
     const handlePrevTrophy = () => {
         if (focusedIndex > 0) {

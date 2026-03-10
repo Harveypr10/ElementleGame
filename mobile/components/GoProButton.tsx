@@ -20,22 +20,25 @@ const StyledView = styled(View);
 interface GoProButtonProps {
     onPress: () => void;
     scale?: number; // Scale factor for responsive sizing (default 1)
+    initialProStatus?: boolean; // Pre-loaded from parent's cache snapshot (skips own cache read)
 }
 
-export function GoProButton({ onPress, scale = 1 }: GoProButtonProps) {
+export function GoProButton({ onPress, scale = 1, initialProStatus }: GoProButtonProps) {
     const { isPro, isLoading } = useSubscription();
     const { user } = useAuth();
-    const [cachedPro, setCachedPro] = useState(false);
-    const [cacheChecked, setCacheChecked] = useState(false);
+    const [cachedPro, setCachedPro] = useState(initialProStatus ?? false);
+    const [cacheChecked, setCacheChecked] = useState(initialProStatus !== undefined);
 
     useEffect(() => {
+        // Skip own cache read if parent already provided the snapshot value
+        if (initialProStatus !== undefined) return;
         AsyncStorage.getItem(`cached_is_pro_${user?.id ?? 'guest'}`).then(val => {
             if (val === 'true') setCachedPro(true);
             setCacheChecked(true);
         });
-    }, [user?.id]);
+    }, [user?.id, initialProStatus]);
 
-    // Prevent flash: Don't render until we've checked cache
+    // If parent provided snapshot, render immediately. Otherwise wait for own cache check.
     if (!cacheChecked) return null;
 
     // Use cache while loading, otherwise real source of truth

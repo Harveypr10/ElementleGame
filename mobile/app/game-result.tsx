@@ -10,6 +10,7 @@ import { useOptions } from '../lib/options';
 import { generateShareText } from '../lib/generateShareText';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Platform-specific web component
 import GameResultScreenWeb from './game-result.web';
@@ -513,7 +514,7 @@ export default function GameResultScreen() {
                                         <StyledTouchableOpacity
                                             className="flex-1 rounded-3xl shadow-sm active:opacity-90"
                                             style={{ backgroundColor: homeColor, height: isLargeScreen ? 85 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: isLargeScreen ? 32 : 16 }}
-                                            onPress={() => {
+                                            onPress={async () => {
                                                 if (gameMode === 'REGION' || gameMode === 'USER') {
                                                     setGameMode(gameMode);
                                                 }
@@ -526,7 +527,23 @@ export default function GameResultScreen() {
                                                 console.log('[GameResult] Invalidating streak saver status before Home...');
                                                 queryClient.invalidateQueries({ queryKey: ['streak-saver-status'] });
 
-                                                router.push('/(tabs)');
+                                                // Pre-write updated game status to cache so Home screen shows
+                                                // correct state instantly when it refocuses (no flash of stale data)
+                                                if (user?.id) {
+                                                    const todayStr = new Date().toISOString().split('T')[0];
+                                                    const modeKey = gameMode === 'USER' ? 'user' : 'region';
+                                                    await AsyncStorage.setItem(
+                                                        `cached_game_status_${modeKey}_${user.id}`,
+                                                        JSON.stringify({
+                                                            date: todayStr,
+                                                            status: isWin ? 'solved' : 'failed',
+                                                            guesses: isWin ? guessesCount : 0
+                                                        })
+                                                    );
+                                                }
+
+                                                // Pop back to the existing Home screen (no remount/re-animation)
+                                                router.dismissAll();
                                             }}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 24 : 18 }}>Home</StyledText>
@@ -544,7 +561,7 @@ export default function GameResultScreen() {
                                         <StyledTouchableOpacity
                                             className="flex-1 rounded-3xl shadow-sm active:opacity-90"
                                             style={{ backgroundColor: archiveColor, height: isLargeScreen ? 85 : 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: isLargeScreen ? 32 : 16 }}
-                                            onPress={() => router.push({ pathname: '/archive', params: { mode: gameMode } })}
+                                            onPress={() => router.push({ pathname: '/archive', params: { mode: gameMode, scrollToDate: puzzleDate } })}
                                         >
                                             <StyledText className="font-n-bold text-slate-800 dark:text-slate-900" style={{ fontSize: isLargeScreen ? 24 : 18 }}>Archive</StyledText>
                                             <View className="w-[60px] h-[60px] justify-center items-center" style={{ width: 60, height: 60, justifyContent: 'center', alignItems: 'center' }}>

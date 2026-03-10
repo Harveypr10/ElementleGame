@@ -85,6 +85,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
     const [loading, setLoading] = useState(true);
     const [hasFetched, setHasFetched] = useState(false);
     const [dataReady, setDataReady] = useState(false);
+    const fadeAnim = useRef(new Animated.Value(0)).current;
     const [monthData, setMonthData] = useState<Record<string, DayStatus>>({});
     const { isConnected } = useNetwork();
 
@@ -112,10 +113,12 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
     // Trigger fade-in after data is loaded
     useEffect(() => {
         if (!loading && hasFetched) {
-            const timer = setTimeout(() => {
-                setDataReady(true);
-            }, 100);
-            return () => clearTimeout(timer);
+            setDataReady(true);
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
         }
     }, [loading, hasFetched]);
 
@@ -273,10 +276,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
 
     if (loading) {
         return (
-            <View style={{ width: width, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#0ea5e9" />
-                <ThemedText className="mt-4 text-slate-500">Loading history...</ThemedText>
-            </View>
+            <View style={{ width: width, minHeight: (width / 7) * 6 }} />
         );
     }
 
@@ -295,7 +295,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
     return (
         <StyledView className="w-full">
             <StyledView className="relative" style={{ minHeight: (width / 7) * 6 }}>
-                <Animated.View style={{ opacity: 1 }}>
+                <Animated.View style={{ opacity: fadeAnim }}>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: '100%' }}>
                         {days.map((day) => {
                             const dateKey = format(day, 'yyyy-MM-dd');
@@ -310,7 +310,8 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
                             // Determine Colors
                             let colors = themeColors.default;
                             if (data) {
-                                if (data.status === 'won') colors = themeColors.won;
+                                if (!data.hasPuzzle && !data.isFuture) colors = themeColors.future;
+                                else if (data.status === 'won') colors = themeColors.won;
                                 else if (data.status === 'lost') colors = themeColors.lost;
                                 else if (data.status === 'played') colors = themeColors.played;
                                 else if (data.isFuture) colors = themeColors.future;
@@ -367,6 +368,8 @@ export default function ArchiveScreen() {
     const { gameMode: contextMode, textScale, darkMode } = useOptions();
     // Prioritize passed param, fallback to context
     const gameMode = (params.mode as string) || contextMode;
+    const scrollToDate = params.scrollToDate as string | undefined;
+    const scrollToDateConsumedRef = useRef(false);
     const flatListRef = useRef<FlatList>(null);
     const { user, isGuest } = useAuth();
     const isFocused = useIsFocused();
@@ -380,6 +383,8 @@ export default function ArchiveScreen() {
     // Share feature: store each month's data from MonthPage, keyed by yyyy-MM
     const monthDataMapRef = useRef<Record<string, Record<string, any>>>({});
     const [dataVersion, setDataVersion] = useState(0); // triggers re-render when month data arrives
+    const shareButtonFadeAnim = useRef(new Animated.Value(0)).current;
+    const hasTriggeredShareFade = useRef(false);
 
     const handleMonthDataReady = React.useCallback((monthDate: Date, data: Record<string, any>) => {
         const key = format(monthDate, 'yyyy-MM');
@@ -517,33 +522,129 @@ export default function ArchiveScreen() {
         return eachMonthOfInterval({ start: minDate, end: today });
     }, [today, minDate]);
 
-    const [activeIndex, setActiveIndex] = useState(0);
+    const [activeIndex, setActiveIndex] = useState(() => Math.max(0, months.length - 1));
+    const archiveStateRestoredRef = useRef(false);
 
-    // Once initialized, scroll to end (Today)
+    // Keep activeIndex pointing at the latest month until restore logic runs
     useEffect(() => {
-        if (!initializing) {
+        if (!archiveStateRestoredRef.current && months.length > 0) {
             setActiveIndex(months.length - 1);
         }
-    }, [initializing, months.length]);
+    }, [months.length]);
 
-    // Reset scroll to today when mode changes
+    // Trigger Share button fade-in once after first data load (runs after React re-render)
     useEffect(() => {
-        if (!initializing && months.length > 0) {
-            const todayIndex = months.length - 1;
-            setActiveIndex(todayIndex);
+        if (dataVersion > 0 && !hasTriggeredShareFade.current) {
+            hasTriggeredShareFade.current = true;
+            Animated.timing(shareButtonFadeAnim, {
+                toValue: 1,
+                duration: 300,
+                useNativeDriver: true,
+            }).start();
+        }
+    }, [dataVersion]);
 
-            // Only scroll if screen is visible/focused
+    // Helper: compute month index for a date string (yyyy-mm-dd)
+    const getMonthIndexForDate = React.useCallback((dateStr: string) => {
+        const targetDate = new Date(dateStr + 'T00:00:00');
+        const targetMonth = startOfMonth(targetDate);
+        const diff = differenceInMonths(targetMonth, minDate);
+        return Math.max(0, Math.min(months.length - 1, diff));
+    }, [minDate, months.length]);
+
+    // ── Save archive state on blur (per-mode) ──
+    useFocusEffect(
+        React.useCallback(() => {
+            return () => {
+                // Cleanup = screen blurred — save current position
+                if (user?.id && months.length > 0) {
+                    const state = {
+                        activeIndex: activeIndexRef.current,
+                        timestamp: Date.now(),
+                        day: new Date().toISOString().split('T')[0],
+                    };
+                    AsyncStorage.setItem(
+                        `archive_screen_state_${user.id}_${gameMode}`,
+                        JSON.stringify(state)
+                    ).catch(() => { });
+                }
+            };
+        }, [user?.id, gameMode, months.length])
+    );
+
+    // ── Restore archive state on init (per-mode, with 30-min + same-day expiry) ──
+    useEffect(() => {
+        if (initializing || !user?.id || months.length === 0) return;
+        if (archiveStateRestoredRef.current) return;
+        archiveStateRestoredRef.current = true;
+
+        // Priority 1: scrollToDate param from game-result
+        if (scrollToDate && !scrollToDateConsumedRef.current) {
+            scrollToDateConsumedRef.current = true;
+            const targetIndex = getMonthIndexForDate(scrollToDate);
+            setActiveIndex(targetIndex);
+            return;
+        }
+
+        // Priority 2: Restore from AsyncStorage (per-mode)
+        AsyncStorage.getItem(`archive_screen_state_${user.id}_${gameMode}`).then(saved => {
+            if (!saved) {
+                setActiveIndex(months.length - 1);
+                return;
+            }
+            try {
+                const state = JSON.parse(saved);
+                const elapsed = Date.now() - (state.timestamp || 0);
+                const THIRTY_MINUTES = 30 * 60 * 1000;
+                const savedDay = state.day || '';
+                const todayDay = new Date().toISOString().split('T')[0];
+                if (elapsed < THIRTY_MINUTES && savedDay === todayDay && state.activeIndex != null) {
+                    const idx = Math.max(0, Math.min(months.length - 1, state.activeIndex));
+                    setActiveIndex(idx);
+                } else {
+                    setActiveIndex(months.length - 1);
+                }
+            } catch {
+                setActiveIndex(months.length - 1);
+            }
+        }).catch(() => {
+            setActiveIndex(months.length - 1);
+        });
+    }, [initializing, months.length, user?.id, gameMode]);
+
+    // Reset scroll when mode changes (restore from new mode's saved state)
+    const prevGameModeRef = useRef(gameMode);
+    useEffect(() => {
+        if (prevGameModeRef.current === gameMode) return;
+        prevGameModeRef.current = gameMode;
+        if (initializing || months.length === 0 || !user?.id) return;
+
+        // Try to restore saved position for the new mode
+        AsyncStorage.getItem(`archive_screen_state_${user.id}_${gameMode}`).then(saved => {
+            let targetIndex = months.length - 1;
+            if (saved) {
+                try {
+                    const state = JSON.parse(saved);
+                    const elapsed = Date.now() - (state.timestamp || 0);
+                    const THIRTY_MINUTES = 30 * 60 * 1000;
+                    const savedDay = state.day || '';
+                    const todayDay = new Date().toISOString().split('T')[0];
+                    if (elapsed < THIRTY_MINUTES && savedDay === todayDay && state.activeIndex != null) {
+                        targetIndex = Math.max(0, Math.min(months.length - 1, state.activeIndex));
+                    }
+                } catch { }
+            }
+            setActiveIndex(targetIndex);
             if (isFocused) {
-                // Use timeout to ensure FlatList is ready after data change
                 setTimeout(() => {
-                    flatListRef.current?.scrollToIndex({
-                        index: todayIndex,
-                        animated: false
-                    });
+                    flatListRef.current?.scrollToIndex({ index: targetIndex, animated: false });
                 }, 100);
             }
-        }
-    }, [gameMode, months.length, initializing]); // Removed isFocused to prevent reset on every focus
+        }).catch(() => {
+            const todayIndex = months.length - 1;
+            setActiveIndex(todayIndex);
+        });
+    }, [gameMode, months.length, initializing, user?.id]);
 
     // Keep activeIndexRef in sync for stable callbacks
     const activeIndexRef = useRef(activeIndex);
@@ -558,10 +659,12 @@ export default function ArchiveScreen() {
                 setTimeout(() => {
                     // Use ref to avoid dependency loop
                     const targetIndex = activeIndexRef.current;
-                    flatListRef.current?.scrollToIndex({
-                        index: targetIndex,
-                        animated: false
-                    });
+                    if (targetIndex >= 0) {
+                        flatListRef.current?.scrollToIndex({
+                            index: targetIndex,
+                            animated: false
+                        });
+                    }
                 }, 100);
             }
         }, [months.length]) // Removed activeIndex from deps
@@ -696,7 +799,7 @@ export default function ArchiveScreen() {
     if (initializing) {
         return (
             <ThemedView className="flex-1 items-center justify-center">
-                <ActivityIndicator size="large" color="#7DAAE8" />
+                <ActivityIndicator size="large" color="#7DAAE8" style={{ transform: [{ scale: 1.3 }] }} />
             </ThemedView>
         );
     }
@@ -708,7 +811,7 @@ export default function ArchiveScreen() {
     // The width of the calendar card itself
     const calendarCardWidth = effectiveContainerWidth - cardPadding;
     // The header has responsive padding inside the card
-    // Phone: px-2 (8px each side = 16px total), Larger: px-4 (16px each side = 32px total)
+    // Phone: 8px each side = 16px total for date boxes, header has its own 16px padding
     const innerPadding = screenWidth >= 600 ? 32 : 16;
     const calendarContentWidth = calendarCardWidth - innerPadding;
 
@@ -819,11 +922,11 @@ export default function ArchiveScreen() {
             )}
 
             {/* Main Content Area */}
-            <StyledView style={{ flex: 1, paddingHorizontal: 16, width: '100%', maxWidth: 768, alignSelf: 'center' }}>
+            <StyledView style={{ flex: 1, paddingHorizontal: 16, paddingBottom: Platform.OS === 'android' ? 0 : insets.bottom, width: '100%', maxWidth: 768, alignSelf: 'center' }}>
                 {/* Calendar Card Container */}
                 <StyledView style={{ backgroundColor: darkMode ? '#1e293b' : '#FFFFFF', borderRadius: 24, paddingBottom: 16, paddingTop: 24, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: darkMode ? 0 : 0.05, shadowRadius: 2, elevation: darkMode ? 0 : 1 }}>
                     {/* Week Headers - with padding */}
-                    <StyledView style={{ paddingHorizontal: screenWidth >= 600 ? 16 : 8, marginBottom: 16, borderBottomWidth: 1, borderColor: darkMode ? '#334155' : '#f1f5f9', paddingBottom: 8 }}>
+                    <StyledView style={{ paddingHorizontal: 16, marginBottom: 16, borderBottomWidth: 1, borderColor: darkMode ? '#334155' : '#f1f5f9', paddingBottom: 8 }}>
                         <StyledView style={{ flexDirection: 'row' }}>
                             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                                 <StyledText key={day} style={{ fontSize: isTablet ? dateFontSize : 13 * textScale, width: '14.285714%', textAlign: 'center', fontFamily: 'Nunito-Bold', color: darkMode ? '#475569' : '#94a3b8', textTransform: 'uppercase' }}>
@@ -841,7 +944,7 @@ export default function ArchiveScreen() {
                             keyExtractor={(item) => item.toISOString()}
                             horizontal
                             pagingEnabled
-                            initialScrollIndex={months.length - 1}
+                            initialScrollIndex={scrollToDate ? getMonthIndexForDate(scrollToDate) : months.length - 1}
                             getItemLayout={(data, index) => (
                                 // Use content width for item layout
                                 { length: calendarContentWidth, offset: calendarContentWidth * index, index }
@@ -873,6 +976,7 @@ export default function ArchiveScreen() {
                 </StyledView>
 
                 {/* Share Button — outside card, only when games have been played */}
+                <Animated.View style={{ opacity: shareButtonFadeAnim }}>
                 {(() => {
                     const monthKey = format(currentMonthDate, 'yyyy-MM');
                     const mData = monthDataMapRef.current[monthKey] || {};
@@ -904,6 +1008,7 @@ export default function ArchiveScreen() {
                         </StyledView>
                     ) : null;
                 })()}
+                </Animated.View>
             </StyledView>
 
             {/* Return to Today Button (Bottom Floating/Fixed) */}

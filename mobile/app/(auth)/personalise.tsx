@@ -186,6 +186,11 @@ export default function PersonalisePage() {
                 console.log('[Profile] Found tier:', tierData[0]);
             }
 
+            // Default identity: "FirstName L" (surname initial) or just FirstName
+            const identityName = lastName.trim()
+                ? `${firstName.trim()} ${lastName.trim().charAt(0).toUpperCase()}`
+                : firstName.trim();
+
             // Update user_profiles table directly
             const profileData: any = {
                 id: userId,
@@ -196,7 +201,7 @@ export default function PersonalisePage() {
                 postcode: postcode.trim() || null,
                 accepted_terms: true,
                 signup_method: 'password',
-                global_display_name: firstName.trim(),
+                global_display_name: identityName,
             };
 
             // Only add tier_id if we found one
@@ -228,7 +233,7 @@ export default function PersonalisePage() {
             // (The AFTER INSERT trigger on user_profiles can't modify NEW, so we do it here)
             try {
                 const { data: identityResult, error: identityError } = await supabase.rpc('set_global_identity', {
-                    p_display_name: firstName.trim(),
+                    p_display_name: identityName,
                 });
                 if (identityError) {
                     console.warn('[Profile] set_global_identity warning:', identityError.message);
@@ -455,7 +460,7 @@ export default function PersonalisePage() {
                         activeOpacity={1}
                         onPress={() => setRegionModalVisible(false)}
                     >
-                        <View style={[styles.modalContent, { backgroundColor: cardBg }, Platform.OS === 'android' ? { paddingBottom: Math.max(40, insets.bottom + 20) } : undefined]}>
+                        <View style={[styles.modalContent, { backgroundColor: cardBg }, Platform.OS === 'android' ? { paddingBottom: 40 } : undefined]}>
                             <View style={styles.modalHeader}>
                                 <ThemedText style={[styles.modalTitle, { color: textColor }]} size="xl">Select Region</ThemedText>
                                 <TouchableOpacity onPress={() => setRegionModalVisible(false)}>

@@ -12,7 +12,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { useOptions } from '../lib/options';
 import { format, subDays } from 'date-fns';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GuestRestrictionModal } from '../components/GuestRestrictionModal';
 import { hasFeatureAccess } from '../lib/featureGates';
 import { AdBanner } from '../components/AdBanner';
@@ -63,6 +63,7 @@ export default function StatsScreen() {
     const { textScale } = useOptions();
     const searchParams = useLocalSearchParams();
     const mode = (searchParams.mode as 'USER' | 'REGION') || 'USER';
+    const insets = useSafeAreaInsets();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<GameStats>({
         played: 0,
@@ -409,7 +410,7 @@ export default function StatsScreen() {
                     <StyledScrollView
                         showsVerticalScrollIndicator={false}
                         className="flex-1 w-full"
-                        contentContainerStyle={{ paddingBottom: 40 }}
+                        contentContainerStyle={{ paddingBottom: 40 + (Platform.OS === 'android' ? 0 : insets.bottom) }}
                         style={{ marginTop: -20 }}
                     >
                         {/* Main Stats Cards - Overlapping header */}

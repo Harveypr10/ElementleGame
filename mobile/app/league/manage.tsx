@@ -229,7 +229,8 @@ function LeagueManageCard({ league, reorderMode, onMoveUp, onMoveDown, isFirst, 
     // Helper: reset League screen saved state so it shows first league / current month
     const clearLeagueScreenState = useCallback(() => {
         if (user?.id) {
-            AsyncStorage.removeItem(`league_screen_state_${user.id}`).catch(() => { });
+            AsyncStorage.removeItem(`league_screen_state_${user.id}_region`).catch(() => { });
+            AsyncStorage.removeItem(`league_screen_state_${user.id}_user`).catch(() => { });
         }
     }, [user?.id]);
     const [copied, setCopied] = useState(false);
@@ -937,7 +938,10 @@ export default function ManageLeaguesScreen() {
                                 if (leagueTablesEnabled) toggleLeagueTables();
                                 setRemoveAllToggle(true);
                                 // Reset Leagues screen state
-                                if (user?.id) AsyncStorage.removeItem(`league_screen_state_${user.id}`).catch(() => { });
+                                if (user?.id) {
+                                    AsyncStorage.removeItem(`league_screen_state_${user.id}_region`).catch(() => { });
+                                    AsyncStorage.removeItem(`league_screen_state_${user.id}_user`).catch(() => { });
+                                }
                             } catch (e: any) {
                                 Alert.alert('Error', e?.message || 'Failed to leave leagues');
                             } finally {
@@ -983,7 +987,7 @@ export default function ManageLeaguesScreen() {
                 </StyledView>
             </SafeAreaView>
 
-            <StyledScrollView className="flex-1 px-4 pt-4" contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? Math.max(40, insets.bottom + 24) : 40, gap: 12, maxWidth: 768, alignSelf: 'center', width: '100%' }}>
+            <StyledScrollView className="flex-1 px-4 pt-4" contentContainerStyle={{ paddingBottom: Platform.OS === 'android' ? 24 : 40, gap: 12, maxWidth: 768, alignSelf: 'center', width: '100%' }}>
                 {/* Global Identity Card */}
                 <StyledView
                     style={{

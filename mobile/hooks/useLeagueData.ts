@@ -32,6 +32,7 @@ export type League = {
     member_count?: number;
     has_region_board?: boolean;
     has_user_board?: boolean;
+    timezone?: string;
 };
 
 /** Extended league type for the manage screen (includes membership info) */
@@ -71,6 +72,7 @@ export type StandingRow = {
     games_won: number | null;
     win_rate: number | null;
     avg_guesses: number | null;
+    max_streak: number | null;
     is_me: boolean;
     yesterdays_rank: number | null;
     is_unranked?: boolean;
@@ -83,6 +85,17 @@ export type StandingsResponse = {
     is_historical?: boolean;
     period_label?: string;
     min_games_threshold?: number;
+    is_live?: boolean;
+    is_snapshot?: boolean;
+    snapshot_date?: string;
+};
+
+export type SnapshotRange = {
+    oldest_date: string | null;
+    newest_date: string | null;
+    league_created_at: string | null;
+    timezone: string;
+    next_snapshot_utc: string | null;
 };
 
 export type Medal = {
@@ -130,8 +143,10 @@ const leagueKeys = {
     all: ['leagues'] as const,
     myLeagues: (userId: string, gameMode: GameMode) => ['leagues', 'my', userId, gameMode] as const,
     myLeaguesAll: (userId: string) => ['leagues', 'my-all', userId] as const,
-    standings: (leagueId: string, timeframe: Timeframe, gameMode: GameMode) =>
-        ['leagues', 'standings', leagueId, timeframe, gameMode] as const,
+    standings: (leagueId: string, timeframe: Timeframe, gameMode: GameMode, snapshotDate?: string | null) =>
+        ['leagues', 'standings', leagueId, timeframe, gameMode, snapshotDate ?? 'live'] as const,
+    snapshotRange: (leagueId: string, timeframe: Timeframe, gameMode: GameMode) =>
+        ['leagues', 'snapshot-range', leagueId, timeframe, gameMode] as const,
     historicalStandings: (leagueId: string, timeframe: Timeframe, periodLabel: string, gameMode: GameMode) =>
         ['leagues', 'historical', leagueId, timeframe, periodLabel, gameMode] as const,
     member: (leagueId: string, userId: string) =>
@@ -166,18 +181,40 @@ async function fetchMyLeaguesAll(userId: string): Promise<LeagueWithMembership[]
 async function fetchStandings(
     leagueId: string,
     timeframe: Timeframe,
-    gameMode: GameMode = 'region'
+    gameMode: GameMode = 'region',
+    snapshotDate?: string | null
 ): Promise<StandingsResponse> {
-    const { data, error } = await supabase.rpc('get_league_standings' as any, {
+    const params: any = {
         p_league_id: leagueId,
         p_timeframe: timeframe,
         p_game_mode: gameMode,
-    });
+    };
+    if (snapshotDate) {
+        params.p_snapshot_date = snapshotDate;
+    }
+    const { data, error } = await supabase.rpc('get_league_standings' as any, params);
     if (error) {
         console.error('[useLeagueData] Error fetching standings:', error);
         throw error;
     }
     return data as StandingsResponse;
+}
+
+async function fetchSnapshotRange(
+    leagueId: string,
+    timeframe: Timeframe,
+    gameMode: GameMode = 'region'
+): Promise<SnapshotRange> {
+    const { data, error } = await supabase.rpc('get_league_snapshot_range' as any, {
+        p_league_id: leagueId,
+        p_timeframe: timeframe,
+        p_game_mode: gameMode,
+    });
+    if (error) {
+        console.error('[useLeagueData] Error fetching snapshot range:', error);
+        throw error;
+    }
+    return data as SnapshotRange;
 }
 
 async function fetchMyMembership(
@@ -245,13 +282,34 @@ export function useMyLeaguesAll() {
 /**
  * Fetches standings for a specific league and timeframe.
  */
-export function useLeagueStandings(leagueId: string | null, timeframe: Timeframe, gameMode: GameMode = 'region') {
+export function useLeagueStandings(
+    leagueId: string | null,
+    timeframe: Timeframe,
+    gameMode: GameMode = 'region',
+    snapshotDate?: string | null
+) {
     return useQuery({
-        queryKey: leagueKeys.standings(leagueId ?? '', timeframe, gameMode),
-        queryFn: () => fetchStandings(leagueId!, timeframe, gameMode),
+        queryKey: leagueKeys.standings(leagueId ?? '', timeframe, gameMode, snapshotDate),
+        queryFn: () => fetchStandings(leagueId!, timeframe, gameMode, snapshotDate),
         enabled: !!leagueId,
-        staleTime: 1000 * 30,
-        refetchOnWindowFocus: true,
+        staleTime: snapshotDate ? Infinity : 1000 * 30, // Snapshots never change
+        refetchOnWindowFocus: !snapshotDate, // Only auto-refetch live view
+    });
+}
+
+/**
+ * Fetches the available snapshot date range for a league.
+ */
+export function useLeagueSnapshotRange(
+    leagueId: string | null,
+    timeframe: Timeframe,
+    gameMode: GameMode = 'region'
+) {
+    return useQuery({
+        queryKey: leagueKeys.snapshotRange(leagueId ?? '', timeframe, gameMode),
+        queryFn: () => fetchSnapshotRange(leagueId!, timeframe, gameMode),
+        enabled: !!leagueId,
+        staleTime: 1000 * 60 * 5, // Refresh every 5 min
     });
 }
 

@@ -178,6 +178,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
             translucent: true,
         },
         edgeToEdgeEnabled: true,
+        androidNavigationBar: {
+            backgroundColor: '#CDCFD1',
+            barStyle: 'dark-content',
+        },
         // @ts-ignore - Expo SDK feature flag
         predictiveBackGestureEnabled: false,
         permissions: [

@@ -315,10 +315,14 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                 if (storedNeverAsk !== null) setNeverAskReminderState(storedNeverAsk === 'true');
             };
 
-            loadUserScopedSettings().then(() => {
+            loadUserScopedSettings().then(async () => {
+                // After local cache, sync from Supabase (cloud source of truth overwrites).
+                // IMPORTANT: userSettingsLoaded must be set AFTER sync completes, not before.
+                // On a new device, AsyncStorage is empty so all settings use defaults.
+                // If we set userSettingsLoaded=true before sync, code gated by it
+                // (like the league auto-unlock check) fires with stale defaults.
+                await syncWithSupabase();
                 setUserSettingsLoaded(true);
-                // After local cache, sync from Supabase (cloud source of truth overwrites)
-                syncWithSupabase();
             });
         } else {
             // Signed out: force device theme, reset all user-specific state to safe defaults

@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform, AppState, AppStateStatus, LogBox } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Suppress known simulator-only errors that don't affect production
 LogBox.ignoreLogs([
@@ -622,6 +623,7 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
  */
 function UserScopedProviders() {
     const { user } = useAuth();
+    const insets = useSafeAreaInsets();
 
     // Register Expo Push Token for remote award notifications
     usePushToken();
@@ -645,6 +647,7 @@ function UserScopedProviders() {
                                 <StreakCelebrationProvider>
                                     <LeagueProvider>
                                         <WebContainer>
+                                            <View style={Platform.OS === 'android' ? { flex: 1, paddingBottom: insets.bottom, backgroundColor: '#CDCFD1' } : { flex: 1 }}>
                                             <ThemedView className="flex-1">
                                                 <NavigationGuard>
                                                     <Stack screenOptions={{ headerShown: false }}>
@@ -677,6 +680,7 @@ function UserScopedProviders() {
                                                     </Stack>
                                                 </NavigationGuard>
                                             </ThemedView>
+                                            </View>
                                         </WebContainer>
                                     </LeagueProvider>
                                 </StreakCelebrationProvider>

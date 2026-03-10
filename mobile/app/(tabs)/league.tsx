@@ -16,6 +16,7 @@ import {
     Text,
     ScrollView,
     TouchableOpacity,
+    Pressable,
     ActivityIndicator,
     FlatList,
     RefreshControl,
@@ -23,7 +24,7 @@ import {
     Modal,
     LayoutChangeEvent,
     ViewToken,
-
+    Platform,
     useWindowDimensions,
     Share,
 } from 'react-native';
@@ -31,22 +32,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styled } from 'nativewind';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Minus, Settings, Lock, Share2, Trophy } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Minus, Settings, Share2, Trophy } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import {
     useMyLeagues,
     useMyLeaguesAll,
     useLeagueStandings,
-    useRecordLeagueView,
-    useHistoricalStandings,
+    useLeagueSnapshotRange,
     useMyMembership,
     useMyAwards,
-    getAvailablePeriods,
+
     getCurrentPeriodLabel,
     formatPeriodLabel,
 } from '../../hooks/useLeagueData';
-import type { GameMode } from '../../hooks/useLeagueData';
+import type { GameMode, SnapshotRange } from '../../hooks/useLeagueData';
 import { useLeague } from '../../contexts/LeagueContext';
 import { useAuth } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
@@ -62,6 +62,13 @@ import { TrophyPopup } from '../../components/league/TrophyPopup';
 const StyledView = styled(View);
 const StyledTouchableOpacity = styled(TouchableOpacity);
 const StyledScrollView = styled(ScrollView);
+
+// Prevent device text scaling from affecting league tables
+// (league layout is tightly constrained and can't accommodate larger text)
+// This is set globally — it affects ALL Text in the app after this module loads.
+// However since league.tsx is a tab that's always loaded, this is fine.
+if (!(Text as any).defaultProps) (Text as any).defaultProps = {};
+(Text as any).defaultProps.allowFontScaling = false;
 
 const WelcomeHamster = require('../../assets/ui/webp_assets/Win-Hamster-Blue.webp');
 
@@ -197,7 +204,8 @@ function TimeframeToggle({
 
 // ─── GhostRow (smart pinned "my" row) ───────────────────────────────────
 
-function GhostRow({ row, position, isHistorical, isPerfectStreak, brandColor }: { row: StandingRow; position: 'top' | 'bottom'; isHistorical?: boolean; isPerfectStreak?: boolean; brandColor?: string }) {
+function GhostRow({ row, position, isHistorical, isPerfectStreak, brandColor, awardMedal, onRankPress, onStatsPress, onNamePress, sizes }: { row: StandingRow; position: 'top' | 'bottom'; isHistorical?: boolean; isPerfectStreak?: boolean; brandColor?: string; awardMedal?: string; onRankPress?: () => void; onStatsPress?: () => void; onNamePress?: () => void; sizes?: { rowFont: number; subFont: number; pW: number; winW: number; avgW: number; ratingW: number; streakFont: number } }) {
+    const sz = sizes ?? { rowFont: 14, subFont: 10, pW: 36, winW: 42, avgW: 36, ratingW: 48, streakFont: 12 };
     const textColor = useThemeColor({}, 'text');
     const ghostBg = useThemeColor({ light: '#dbeafe', dark: '#1e3a5f' }, 'surface');
 
@@ -206,35 +214,45 @@ function GhostRow({ row, position, isHistorical, isPerfectStreak, brandColor }: 
         : { borderTopWidth: 2, borderTopColor: '#3b82f6' };
 
     const isUnranked = row.is_unranked === true;
+    const medalEmoji = awardMedal === 'gold' ? '🥇' : awardMedal === 'silver' ? '🥈' : awardMedal === 'bronze' ? '🥉' : null;
 
     return (
         <StyledView
             className="flex-row items-center px-3 py-3"
             style={{ ...borderStyle, backgroundColor: ghostBg }}
         >
-            <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>{isUnranked ? '-' : isHistorical && row.rank === 1 ? '🥇' : isHistorical && row.rank === 2 ? '🥈' : isHistorical && row.rank === 3 ? '🥉' : row.rank}</Text>
-            <RankArrow yesterdaysRank={row.yesterdays_rank} currentRank={row.rank} />
-            <StyledView className="flex-1 px-1">
-                <Text style={{ fontSize: 14, fontFamily: 'Nunito_700Bold', fontWeight: '700', color: '#1d4ed8' }}>
+            <Pressable onPress={onRankPress} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ width: 28, textAlign: 'center', fontSize: sz.rowFont, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>{isUnranked ? '-' : medalEmoji ?? row.rank}</Text>
+                <RankArrow yesterdaysRank={row.yesterdays_rank} currentRank={row.rank} />
+            </Pressable>
+            <Pressable onPress={onNamePress} style={{ flex: 1, paddingHorizontal: 4 }}>
+                <Text style={{ fontSize: sz.rowFont, fontFamily: 'Nunito_700Bold', fontWeight: '700', color: '#1d4ed8' }}>
                     {row.league_nickname || row.global_display_name} ★
                 </Text>
-                <Text style={{ fontSize: 10, fontFamily: 'Nunito_400Regular', color: '#94a3b8' }}>
+                <Text style={{ fontSize: sz.subFont, fontFamily: 'Nunito_400Regular', color: '#94a3b8' }}>
                     {row.global_display_name} {row.global_tag}
                 </Text>
-            </StyledView>
-            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: isPerfectStreak ? 'Nunito_700Bold' : 'Nunito_600SemiBold', fontWeight: isPerfectStreak ? '700' : undefined, color: isPerfectStreak ? (brandColor || '#8E57DB') : textColor }}>{row.games_played}</Text>
-            <Text style={{ width: 42, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{isUnranked ? '-' : `${row.win_rate}%`}</Text>
-            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{isUnranked ? '-' : row.avg_guesses}</Text>
-            <Text style={{ width: 48, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>
-                {isUnranked ? '-' : row.elementle_rating}
-            </Text>
+            </Pressable>
+            <Pressable onPress={onStatsPress} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ width: sz.pW, textAlign: 'center', fontSize: sz.rowFont, fontFamily: isPerfectStreak ? 'Nunito_700Bold' : 'Nunito_600SemiBold', fontWeight: isPerfectStreak ? '700' : undefined, color: isPerfectStreak ? (brandColor || '#8E57DB') : textColor }}>{isPerfectStreak ? (
+                    <View style={{ backgroundColor: brandColor || '#8E57DB', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: sz.streakFont, fontFamily: 'Nunito_700Bold', fontWeight: '700', color: '#ffffff' }}>{row.games_played}</Text>
+                    </View>
+                ) : row.games_played}</Text>
+                <Text style={{ width: sz.winW, textAlign: 'center', fontSize: sz.rowFont, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{isUnranked ? '-' : `${row.win_rate}%`}</Text>
+                <Text style={{ width: sz.avgW, textAlign: 'center', fontSize: sz.rowFont, fontFamily: 'Nunito_600SemiBold', color: textColor }}>{isUnranked ? '-' : row.avg_guesses}</Text>
+                <Text style={{ width: sz.ratingW, textAlign: 'center', fontSize: sz.rowFont, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>
+                    {isUnranked ? '-' : row.elementle_rating}
+                </Text>
+            </Pressable>
         </StyledView>
     );
 }
 
 // ─── LeagueTableRow ────────────────────────────────────────────────────
 
-function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode, isHistorical, isPerfectStreak, brandColor }: { row: StandingRow; isEven: boolean; isGlowing?: boolean; glowAnim?: Animated.Value; gameMode?: string; isHistorical?: boolean; isPerfectStreak?: boolean; brandColor?: string }) {
+function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode, isHistorical, isPerfectStreak, brandColor, isLiveView, awardMedal, onRankPress, onStatsPress, onNamePress, sizes }: { row: StandingRow; isEven: boolean; isGlowing?: boolean; glowAnim?: Animated.Value; gameMode?: string; isHistorical?: boolean; isPerfectStreak?: boolean; brandColor?: string; isLiveView?: boolean; awardMedal?: string; onRankPress?: () => void; onStatsPress?: () => void; onNamePress?: () => void; sizes?: { rowFont: number; subFont: number; pW: number; winW: number; avgW: number; ratingW: number; streakFont: number } }) {
+    const sz = sizes ?? { rowFont: 14, subFont: 10, pW: 36, winW: 42, avgW: 36, ratingW: 48, streakFont: 12 };
     const textColor = useThemeColor({}, 'text');
     const secondaryText = useThemeColor({}, 'icon');
     const bgEven = useThemeColor({ light: '#f8fafc', dark: '#1e293b' }, 'surface');
@@ -247,6 +265,37 @@ function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode, isHistoric
 
     const rowBg = row.is_me ? myRowBg : (isEven ? bgEven : bgOdd);
     const isUnranked = row.is_unranked === true;
+    const medalEmoji = awardMedal === 'gold' ? '🥇' : awardMedal === 'silver' ? '🥈' : awardMedal === 'bronze' ? '🥉' : null;
+
+    // Left side content: rank + arrows
+    const leftContent = (
+        <>
+            <Text style={{ width: 28, textAlign: 'center', fontSize: sz.rowFont, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>
+                {isUnranked ? '-' : medalEmoji ?? row.rank}
+            </Text>
+            <RankArrow yesterdaysRank={row.yesterdays_rank} currentRank={row.rank} />
+        </>
+    );
+
+    // Right side content: P, Win%, Avg, Rating
+    const rightContent = (
+        <>
+            {isPerfectStreak ? (
+                <View style={{ width: sz.pW, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ backgroundColor: brandColor || '#8E57DB', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: sz.streakFont, fontFamily: 'Nunito_700Bold', fontWeight: '700', color: '#ffffff' }}>{row.games_played}</Text>
+                    </View>
+                </View>
+            ) : (
+                <Text style={{ width: sz.pW, textAlign: 'center', fontSize: sz.rowFont, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{row.games_played}</Text>
+            )}
+            <Text style={{ width: sz.winW, textAlign: 'center', fontSize: sz.rowFont, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{isUnranked ? '-' : `${row.win_rate}%`}</Text>
+            <Text style={{ width: sz.avgW, textAlign: 'center', fontSize: sz.rowFont, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{isUnranked ? '-' : row.avg_guesses}</Text>
+            <Text style={{ width: sz.ratingW, textAlign: 'center', fontSize: sz.rowFont, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>
+                {isUnranked ? '-' : row.elementle_rating}
+            </Text>
+        </>
+    );
 
     return (
         <Animated.View
@@ -265,32 +314,62 @@ function LeagueTableRow({ row, isEven, isGlowing, glowAnim, gameMode, isHistoric
                 } : {},
             ]}
         >
-            <Text style={{ width: 28, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: textColor }}>
-                {isUnranked ? '-' : isHistorical && row.rank === 1 ? '🥇' : isHistorical && row.rank === 2 ? '🥈' : isHistorical && row.rank === 3 ? '🥉' : row.rank}
-            </Text>
-            <RankArrow yesterdaysRank={row.yesterdays_rank} currentRank={row.rank} />
-            <StyledView className="flex-1 px-1">
-                <Text
-                    style={{
-                        fontSize: 14,
-                        fontFamily: row.is_me ? 'Nunito_700Bold' : 'Nunito_600SemiBold',
-                        fontWeight: row.is_me ? '700' : '500',
-                        color: row.is_me ? '#1d4ed8' : textColor,
-                    }}
-                    numberOfLines={1}
-                >
-                    {row.league_nickname || row.global_display_name}{row.is_me ? ' ★' : ''}
-                </Text>
-                <Text style={{ fontSize: 10, fontFamily: 'Nunito_400Regular', color: '#94a3b8' }}>
-                    {row.global_display_name} {row.global_tag}
-                </Text>
-            </StyledView>
-            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: isPerfectStreak ? 'Nunito_700Bold' : 'Nunito_600SemiBold', fontWeight: isPerfectStreak ? '700' : undefined, color: isPerfectStreak ? (brandColor || '#8E57DB') : secondaryText }}>{row.games_played}</Text>
-            <Text style={{ width: 42, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{isUnranked ? '-' : `${row.win_rate}%`}</Text>
-            <Text style={{ width: 36, textAlign: 'center', fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: secondaryText }}>{isUnranked ? '-' : row.avg_guesses}</Text>
-            <Text style={{ width: 48, textAlign: 'center', fontSize: 14, fontWeight: '700', fontFamily: 'Nunito_700Bold', color: '#b45309' }}>
-                {isUnranked ? '-' : row.elementle_rating}
-            </Text>
+            {/* Left: rank + arrows — Pressable for own row */}
+            {row.is_me && onRankPress ? (
+                <Pressable onPress={onRankPress} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {leftContent}
+                </Pressable>
+            ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {leftContent}
+                </View>
+            )}
+            {/* Name — Pressable for own row */}
+            {row.is_me && onNamePress ? (
+                <Pressable onPress={onNamePress} style={{ flex: 1, paddingHorizontal: 4 }}>
+                    <Text
+                        style={{
+                            fontSize: sz.rowFont,
+                            fontFamily: 'Nunito_700Bold',
+                            fontWeight: '700',
+                            color: '#1d4ed8',
+                        }}
+                        numberOfLines={1}
+                    >
+                        {row.league_nickname || row.global_display_name} ★
+                    </Text>
+                    <Text style={{ fontSize: sz.subFont, fontFamily: 'Nunito_400Regular', color: '#94a3b8' }} numberOfLines={1}>
+                        {row.global_display_name} {row.global_tag}
+                    </Text>
+                </Pressable>
+            ) : (
+                <StyledView className="flex-1 px-1">
+                    <Text
+                        style={{
+                            fontSize: sz.rowFont,
+                            fontFamily: row.is_me ? 'Nunito_700Bold' : 'Nunito_600SemiBold',
+                            fontWeight: row.is_me ? '700' : '500',
+                            color: row.is_me ? '#1d4ed8' : textColor,
+                        }}
+                        numberOfLines={1}
+                    >
+                        {row.league_nickname || row.global_display_name}{row.is_me ? ' ★' : ''}
+                    </Text>
+                    <Text style={{ fontSize: sz.subFont, fontFamily: 'Nunito_400Regular', color: '#94a3b8' }} numberOfLines={1}>
+                        {row.global_display_name} {row.global_tag}
+                    </Text>
+                </StyledView>
+            )}
+            {/* Right: stats — Pressable for own row */}
+            {row.is_me && onStatsPress ? (
+                <Pressable onPress={onStatsPress} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {rightContent}
+                </Pressable>
+            ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {rightContent}
+                </View>
+            )}
         </Animated.View>
     );
 }
@@ -301,30 +380,33 @@ function ColumnHeaders({
     borderColor,
     iconColor,
     onStatInfo,
+    sizes,
 }: {
     borderColor: string;
     iconColor: string;
-    onStatInfo: (stat: string) => void;
+    onStatInfo?: (type: string) => void;
+    sizes?: { headerFont: number; pW: number; winW: number; avgW: number; ratingW: number };
 }) {
+    const sz = sizes ?? { headerFont: 12, pW: 36, winW: 42, avgW: 36, ratingW: 48 };
     return (
         <StyledView
             className="flex-row items-center px-3 py-2"
             style={{ borderBottomWidth: 1, borderBottomColor: borderColor }}
         >
-            <Text style={{ width: 28, textAlign: 'center', fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>#</Text>
-            <Text style={{ width: 36, textAlign: 'center', fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>▲▼</Text>
-            <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>Name</Text>
-            <TouchableOpacity
-                style={{ flexDirection: 'row', width: 114, justifyContent: 'center' }}
-                onPress={() => onStatInfo('stats')}
-                hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}
-            >
-                <Text style={{ width: 36, textAlign: 'center', fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>P</Text>
-                <Text style={{ width: 42, textAlign: 'center', fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>Win%</Text>
-                <Text style={{ width: 36, textAlign: 'center', fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>Avg</Text>
+            <TouchableOpacity onPress={() => onStatInfo?.('rank')} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ width: 28, textAlign: 'center', fontSize: sz.headerFont, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>#</Text>
+                <Text style={{ width: 36, textAlign: 'center', fontSize: sz.headerFont, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>▲▼</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={{ width: 48, alignItems: 'center' }} onPress={() => onStatInfo('rating')} hitSlop={{ top: 10, bottom: 10, left: 5, right: 5 }}>
-                <Text style={{ fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: '#b45309' }}>Rating</Text>
+            <TouchableOpacity onPress={() => onStatInfo?.('name')} style={{ flex: 1 }}>
+                <Text style={{ fontSize: sz.headerFont, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>Name</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onStatInfo?.('stats')} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ width: sz.pW, textAlign: 'center', fontSize: sz.headerFont, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>P</Text>
+                <Text style={{ width: sz.winW, textAlign: 'center', fontSize: sz.headerFont, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>Win%</Text>
+                <Text style={{ width: sz.avgW, textAlign: 'center', fontSize: sz.headerFont, fontFamily: 'Nunito_600SemiBold', color: iconColor }}>Avg</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onStatInfo?.('rating')} style={{ width: sz.ratingW, alignItems: 'center' }}>
+                <Text style={{ textAlign: 'center', fontSize: sz.headerFont, fontFamily: 'Nunito_600SemiBold', color: '#b45309' }}>Rating</Text>
             </TouchableOpacity>
         </StyledView>
     );
@@ -344,7 +426,15 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     const textColor = useThemeColor({}, 'text');
     const iconColor = useThemeColor({}, 'icon');
 
-    const { darkMode } = useOptions();
+    const { darkMode, textSize } = useOptions();
+    const isLargeText = textSize === 'large';
+
+    // Dynamic text sizes and column widths for league table
+    const leagueSizes = useMemo(() => {
+        if (textSize === 'small') return { rowFont: 13, subFont: 9, headerFont: 11, pW: 34, winW: 40, avgW: 34, ratingW: 46, streakFont: 11 };
+        if (textSize === 'large') return { rowFont: 15, subFont: 11, headerFont: 13, pW: 38, winW: 46, avgW: 38, ratingW: 50, streakFont: 13 };
+        return { rowFont: 14, subFont: 10, headerFont: 12, pW: 36, winW: 42, avgW: 36, ratingW: 48, streakFont: 12 }; // medium (default)
+    }, [textSize]);
     const { selectedLeagueId, setSelectedLeagueId, selectedTimeframe, setSelectedTimeframe, consumeNewlyJoinedLeagueId } = useLeague();
 
     // ── Glow animation for newly joined league ──
@@ -396,12 +486,19 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     }, []);
 
     const { data: leagues, isLoading: leaguesLoading, refetch: refetchLeagues } = useMyLeagues(gameMode);
+
+    // ── Snapshot date navigation state ──
+    // null = live view, string = 'YYYY-MM-DD' snapshot date
+    const [snapshotDate, setSnapshotDate] = useState<string | null>(null);
+
+    const { data: snapshotRange } = useLeagueSnapshotRange(selectedLeagueId, selectedTimeframe, gameMode);
+
     const { data: standings, isLoading: standingsLoading, refetch: refetchStandings } = useLeagueStandings(
         selectedLeagueId,
         selectedTimeframe,
-        gameMode
+        gameMode,
+        snapshotDate
     );
-    const recordView = useRecordLeagueView();
     const { data: membership } = useMyMembership(selectedLeagueId);
     const { data: allLeaguesData } = useMyLeaguesAll();
 
@@ -447,7 +544,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
 
     // ── State persistence (save on blur, restore on focus) ──
     const stateRestoredRef = useRef(false);
-    const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null); // null = current/live
+
 
     // Save state when screen loses focus, refetch + validate on focus
     useFocusEffect(
@@ -458,11 +555,11 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
             // Check if the saved state was cleared (e.g. user left a league in Manage Leagues)
             // If so, reset to first league / current month
             if (user?.id) {
-                AsyncStorage.getItem(`league_screen_state_${user.id}`).then(saved => {
+                AsyncStorage.getItem(`league_screen_state_${user.id}_${gameMode}`).then(saved => {
                     if (!saved) {
                         // State was cleared — reset to defaults
                         setSelectedLeagueId(null);
-                        setSelectedPeriod(null);
+                        setSnapshotDate(null);
                         setSelectedTimeframe('mtd');
                     }
                 }).catch(() => { });
@@ -474,34 +571,37 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                     const state = {
                         selectedLeagueId,
                         selectedTimeframe,
-                        selectedPeriod,
+                        snapshotDate,
                         timestamp: Date.now(),
+                        day: new Date().toISOString().split('T')[0],
                     };
-                    AsyncStorage.setItem(`league_screen_state_${user.id}`, JSON.stringify(state)).catch(() => { });
+                    AsyncStorage.setItem(`league_screen_state_${user.id}_${gameMode}`, JSON.stringify(state)).catch(() => { });
                 }
             };
-        }, [user?.id, selectedLeagueId, selectedTimeframe, selectedPeriod])
+        }, [user?.id, selectedLeagueId, selectedTimeframe, snapshotDate])
     );
 
     // Restore state on mount (or reset if >30 min)
     useEffect(() => {
         if (!user?.id || stateRestoredRef.current || !orderLoadedRef.current) return;
         stateRestoredRef.current = true;
-        AsyncStorage.getItem(`league_screen_state_${user.id}`).then(saved => {
+        AsyncStorage.getItem(`league_screen_state_${user.id}_${gameMode}`).then(saved => {
             if (!saved) return;
             try {
                 const state = JSON.parse(saved);
                 const elapsed = Date.now() - (state.timestamp || 0);
                 const THIRTY_MINUTES = 30 * 60 * 1000;
-                if (elapsed < THIRTY_MINUTES) {
+                const savedDay = state.day || '';
+                const todayDay = new Date().toISOString().split('T')[0];
+                if (elapsed < THIRTY_MINUTES && savedDay === todayDay) {
                     // Restore previous view
                     if (state.selectedLeagueId) setSelectedLeagueId(state.selectedLeagueId);
                     if (state.selectedTimeframe) setSelectedTimeframe(state.selectedTimeframe);
-                    if (state.selectedPeriod !== undefined) setSelectedPeriod(state.selectedPeriod);
+                    if (state.snapshotDate !== undefined) setSnapshotDate(state.snapshotDate ?? null);
                 } else {
                     // Reset: first league in saved order, current month
                     setSelectedTimeframe('mtd');
-                    setSelectedPeriod(null);
+                    setSnapshotDate(null);
                 }
             } catch { }
         }).catch(() => { });
@@ -526,7 +626,6 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     }, [selectedLeague, membership, allLeaguesData, selectedLeagueId]);
 
     const [refreshing, setRefreshing] = useState(false);
-    const [showRatingTooltip, setShowRatingTooltip] = useState(false);
     const [statTooltipType, setStatTooltipType] = useState<string | null>(null);
     const [monthPickerVisible, setMonthPickerVisible] = useState(false);
     const [showTrophyPopup, setShowTrophyPopup] = useState(false);
@@ -545,89 +644,118 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         return myAwards.medals.some(m => m.league_id === selectedLeagueId && m.timeframe === selectedTimeframe && m.game_mode === gameMode);
     }, [myAwards, selectedLeagueId, selectedTimeframe, gameMode]);
 
-    // ── Date Picker / Historical Mode state ──
-    const availablePeriods = useMemo(() => getAvailablePeriods(selectedTimeframe), [selectedTimeframe]);
-    const currentPeriodLabel = useMemo(() => getCurrentPeriodLabel(selectedTimeframe), [selectedTimeframe]);
+    // ── Snapshot-based date navigation ──
+    const isLiveView = snapshotDate === null;
+    const newestSnapshotDate = snapshotRange?.newest_date ?? null;
+    const oldestSnapshotDate = snapshotRange?.oldest_date ?? null;
 
-    // Is the user viewing a past period?
-    const isViewingPast = selectedPeriod !== null && selectedPeriod !== currentPeriodLabel;
+    // Effective data (must come before isGapDay)
+    const effectiveStandings = standings;
+    const effectiveLoading = standingsLoading;
 
-    // Historical standings hook (only fires when viewing a past period)
-    const { data: historicalStandings, isLoading: historicalLoading } = useHistoricalStandings(
-        isViewingPast ? selectedLeagueId : null,
-        selectedTimeframe,
-        isViewingPast ? selectedPeriod : null,
-        gameMode
-    );
+    // Display period formatted (for live view month label — must come before dateDisplayLabel)
+    const currentPeriodLabel = getCurrentPeriodLabel(selectedTimeframe);
+    const displayPeriodFormatted = formatPeriodLabel(currentPeriodLabel, selectedTimeframe);
 
-    // Determine if we're in blind phase (live RPC returned is_historical: true)
-    const isBlindPhase = !isViewingPast && standings?.is_historical === true;
+    // Can navigate older: back to league created_at date
+    const leagueCreatedAt = snapshotRange?.league_created_at ?? null;
+    const canGoOlder = (() => {
+        if (isLiveView) return true; // Can always go back from live
+        if (!isLiveView && snapshotDate && leagueCreatedAt && snapshotDate > leagueCreatedAt) return true;
+        return false;
+    })();
 
-    // Effective data: historical (past or blind phase) vs live
-    const isHistoricalMode = isViewingPast || isBlindPhase;
-    const effectiveStandings = isViewingPast ? historicalStandings : standings;
-    const effectiveLoading = isViewingPast ? historicalLoading : standingsLoading;
+    // Can navigate newer if we're on a snapshot (not live)
+    const canGoNewer = !isLiveView;
 
-    // Grey background for historical/blind mode
+    // Is gap day: navigated to a date that has no snapshot data
+    const isGapDay = !isLiveView && standings && effectiveStandings?.standings?.length === 0;
+
+    // Format next snapshot time for gap-day message
+    const gapDayLocalTime = useMemo(() => {
+        if (!snapshotRange?.next_snapshot_utc) return null;
+        const utcDate = new Date(snapshotRange.next_snapshot_utc);
+        return utcDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }, [snapshotRange?.next_snapshot_utc]);
+
+    // Date navigation handlers
+    const handleDatePrev = () => {
+        // Get yesterday's date — today should always be live, never a snapshot
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        if (isLiveView) {
+            // From live → always go to yesterday (never today's snapshot)
+            setSnapshotDate(yesterdayStr);
+        } else if (snapshotDate && leagueCreatedAt) {
+            const d = new Date(snapshotDate);
+            d.setDate(d.getDate() - 1);
+            const newDate = d.toISOString().split('T')[0];
+            if (newDate >= leagueCreatedAt) {
+                setSnapshotDate(newDate);
+            }
+        }
+    };
+
+    const handleDateNext = () => {
+        if (!isLiveView && snapshotDate) {
+            // Get yesterday's date — if we're at or past yesterday, go live
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+            if (snapshotDate >= yesterdayStr) {
+                // At or past yesterday → go live
+                setSnapshotDate(null);
+            } else {
+                const d = new Date(snapshotDate);
+                d.setDate(d.getDate() + 1);
+                const newDate = d.toISOString().split('T')[0];
+                if (newDate >= yesterdayStr) {
+                    // Would reach yesterday → check if yesterday has data, else go live
+                    setSnapshotDate(yesterdayStr);
+                } else {
+                    setSnapshotDate(newDate);
+                }
+            }
+        }
+    };
+
+    // Display label for the date picker
+    const dateDisplayLabel = useMemo(() => {
+        if (isLiveView) {
+            // Show "9 March 2026" style for live view (includes today's date)
+            const now = new Date();
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+        }
+        // Snapshot: show as "DD Mon YYYY"
+        if (snapshotDate) {
+            const d = new Date(snapshotDate + 'T12:00:00');
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+        }
+        return displayPeriodFormatted;
+    }, [isLiveView, snapshotDate, displayPeriodFormatted]);
+
+    // Reset snapshot date when league changes
+    useEffect(() => {
+        setSnapshotDate(null);
+    }, [selectedLeagueId]);
+
+    // Background: snapshot = grey, live = transparent
+    const isSnapshotMode = !isLiveView;
     const historicalBg = darkMode ? '#1a2332' : '#f0f0f0';
     const normalBg = 'transparent';
-    const tableContainerBg = isHistoricalMode ? historicalBg : normalBg;
-
-    // Reset period selection when timeframe changes
-    useEffect(() => {
-        setSelectedPeriod(null);
-    }, [selectedTimeframe]);
-
-    // Date picker label
-    const displayPeriodLabel = selectedPeriod || (isBlindPhase && standings?.period_label) || currentPeriodLabel;
-    const displayPeriodFormatted = formatPeriodLabel(displayPeriodLabel, selectedTimeframe);
-
-    // Date picker navigation
-    const currentPeriodIndex = availablePeriods.indexOf(displayPeriodLabel);
-    const canGoNewer = currentPeriodIndex > 0;
-    const canGoOlder = currentPeriodIndex < availablePeriods.length - 1;
-
-    const handlePeriodPrev = () => {
-        if (canGoOlder) {
-            setSelectedPeriod(availablePeriods[currentPeriodIndex + 1]);
-        }
-    };
-    const handlePeriodNext = () => {
-        if (canGoNewer) {
-            const newPeriod = availablePeriods[currentPeriodIndex - 1];
-            setSelectedPeriod(newPeriod === currentPeriodLabel ? null : newPeriod);
-        }
-    };
-
-
-    // MonthSelectModal date helpers
-    const periodToDate = (period: string | null): Date => {
-        if (!period) return new Date();
-        const parts = period.split('-');
-        if (parts.length === 2) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1);
-        return new Date(parseInt(parts[0]), 0, 1);
-    };
-    const minPeriodDate = useMemo(() => {
-        if (availablePeriods.length === 0) return new Date(2022, 0, 1);
-        return periodToDate(availablePeriods[availablePeriods.length - 1]);
-    }, [availablePeriods]);
-    const maxPeriodDate = useMemo(() => new Date(), []);
-
-    const handleMonthSelect = (date: Date) => {
-        const label = selectedTimeframe === 'mtd'
-            ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-            : `${date.getFullYear()}`;
-        if (label === currentPeriodLabel) {
-            setSelectedPeriod(null);
-        } else if (availablePeriods.includes(label)) {
-            setSelectedPeriod(label);
-        }
-    };
+    const tableContainerBg = isSnapshotMode ? historicalBg : normalBg;
 
     // Stat tooltip descriptions
     const statDescriptions: Record<string, { title: string; body: string | null }> = {
         stats: { title: 'Game Statistics', body: null }, // Uses custom JSX render
         rating: { title: 'Elementle Rating', body: 'A comprehensive measure of your puzzle-solving skill, factoring in your win rate, average guesses, and consistency.' },
+        rank: { title: 'Rank & Movement', body: null }, // Uses custom JSX render
+        name: { title: 'Player Identity', body: null }, // Uses custom JSX render
     };
 
     // Compute day-of-period for perfect streak detection
@@ -650,6 +778,35 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         return row.current_streak >= dayOfPeriod || (row.current_streak >= dayOfPeriod - 1 && row.games_played >= dayOfPeriod - 1);
     }, [dayOfPeriod]);
 
+    // ── Award medals: show 🥇🥈🥉 on last day of month/year snapshots ──
+    // When viewing the last day of a period, ranks 1-3 get medal icons
+    const isAwardDate = useMemo((): boolean => {
+        if (!snapshotDate) return false;
+        const d = new Date(snapshotDate + 'T12:00:00');
+        const day = d.getDate();
+        const month = d.getMonth();
+        const year = d.getFullYear();
+
+        if (selectedTimeframe === 'mtd') {
+            // Last day of the month
+            const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+            return day === lastDayOfMonth;
+        } else if (selectedTimeframe === 'ytd') {
+            // Last day of the year (Dec 31)
+            return month === 11 && day === 31;
+        }
+        return false;
+    }, [snapshotDate, selectedTimeframe]);
+
+    // Helper: get medal string for a rank on award dates
+    const getMedalForRank = useCallback((rank: number | null): string | undefined => {
+        if (!isAwardDate || rank === null) return undefined;
+        if (rank === 1) return 'gold';
+        if (rank === 2) return 'silver';
+        if (rank === 3) return 'bronze';
+        return undefined;
+    }, [isAwardDate]);
+
     // ── Smart Ghost Row state ──
     const [myRowVisible, setMyRowVisible] = useState(false);
     // Track the range of visible item indices to determine ghost position
@@ -663,28 +820,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         }
     }, [sortedLeagues, selectedLeagueId]);
 
-    // Record league view — refetch standings after so rank arrows reflect updated yesterdays_rank
-    const recordViewCalledRef = useRef<string | null>(null);
-    useFocusEffect(
-        useCallback(() => {
-            if (standings?.my_rank && selectedLeagueId && selectedLeague) {
-                // Avoid duplicate calls for the same league+rank combo within this focus
-                const key = `${selectedLeagueId}_${standings.my_rank}`;
-                if (recordViewCalledRef.current === key) return;
-                recordViewCalledRef.current = key;
-                recordView.mutateAsync({ leagueId: selectedLeagueId, currentRank: standings.my_rank })
-                    .catch((err) => console.warn('[League] record_league_view warning:', err?.message ?? err))
-                    .finally(() => {
-                        // Always refetch standings so the rank arrows render with updated yesterdays_rank
-                        refetchStandings();
-                    });
-            }
-            return () => {
-                // Reset when screen loses focus so next visit records again
-                recordViewCalledRef.current = null;
-            };
-        }, [standings?.my_rank, selectedLeagueId, selectedLeague])
-    );
+
 
     const onRefresh = async () => {
         setRefreshing(true);
@@ -707,10 +843,9 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
 
                 if (rank && total) {
                     const ordinal = getOrdinal(rank);
-                    if (isViewingPast) {
-                        // Past period
-                        const periodStr = formatPeriodLabel(displayPeriodLabel, selectedTimeframe);
-                        shareText = `I was ${ordinal} of ${total.toLocaleString()} players in ${periodStr} in the ${leagueName} game!`;
+                    if (!isLiveView) {
+                        // Past snapshot
+                        shareText = `I was ${ordinal} of ${total.toLocaleString()} players in the ${leagueName} game!`;
                     } else {
                         // Current period
                         shareText = `I'm currently ${ordinal} of ${total.toLocaleString()} players this ${periodType} in the ${leagueName} game!`;
@@ -744,7 +879,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         } catch (e) {
             console.error('[League] Share error:', e);
         }
-    }, [selectedLeague, effectiveStandings, selectedTimeframe, isViewingPast, displayPeriodLabel, user]);
+    }, [selectedLeague, effectiveStandings, selectedTimeframe, isLiveView, user]);
 
     const myRow = effectiveStandings?.standings?.find((s: StandingRow) => s.is_me);
     const minGamesThreshold = effectiveStandings?.min_games_threshold ?? 5;
@@ -963,7 +1098,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, gap: 12, marginBottom: 8 }}>
                     {/* Left (older) arrow */}
                     <StyledTouchableOpacity
-                        onPress={handlePeriodPrev}
+                        onPress={handleDatePrev}
                         disabled={!canGoOlder}
                         style={{
                             backgroundColor: darkMode ? '#1e293b' : '#FFFFFF',
@@ -983,45 +1118,51 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                         <ChevronLeft size={24} color={darkMode ? '#FFFFFF' : '#64748B'} />
                     </StyledTouchableOpacity>
 
-                    {/* Period label (tappable) */}
+                    {/* Date / period label (tappable to open month picker) */}
                     <TouchableOpacity
+                        onPress={() => setMonthPickerVisible(true)}
+                        activeOpacity={0.7}
                         style={{
                             flex: 1,
-                            backgroundColor: isHistoricalMode
-                                ? (darkMode ? '#334155' : '#e2e8f0')
-                                : (darkMode ? '#1e293b' : '#FFFFFF'),
+                            backgroundColor: darkMode ? '#1e293b' : '#FFFFFF',
                             borderRadius: 24,
                             alignItems: 'center',
                             justifyContent: 'center',
                             height: 60,
-                            flexDirection: 'row',
-                            gap: 6,
                             shadowColor: '#000',
                             shadowOffset: { width: 0, height: 1 },
                             shadowOpacity: darkMode ? 0 : 0.05,
                             shadowRadius: 2,
                             elevation: darkMode ? 0 : 1,
                         }}
-                        onPress={() => setMonthPickerVisible(true)}
                     >
-                        {isHistoricalMode && <Lock size={12} color={iconColor} />}
                         <ThemedText
                             style={{
                                 fontSize: 20,
-                                color: isHistoricalMode ? iconColor : (darkMode ? '#FFFFFF' : '#1e293b'),
+                                color: darkMode ? '#FFFFFF' : '#1e293b',
                             }}
                             className="font-n-bold"
                             numberOfLines={1}
                         >
-                            {isBlindPhase && !isViewingPast
-                                ? `${displayPeriodFormatted} (final)`
-                                : displayPeriodFormatted}
+                            {dateDisplayLabel}
                         </ThemedText>
+                        {/* "Live" label below the date when in live mode */}
+                        {isLiveView && (
+                            <Text style={{
+                                fontSize: 11,
+                                fontFamily: 'Nunito_700Bold',
+                                fontWeight: '700',
+                                color: '#ef4444',
+                                marginTop: 1,
+                            }}>
+                                ● Live
+                            </Text>
+                        )}
                     </TouchableOpacity>
 
                     {/* Right (newer) arrow */}
                     <StyledTouchableOpacity
-                        onPress={handlePeriodNext}
+                        onPress={handleDateNext}
                         disabled={!canGoNewer}
                         style={{
                             backgroundColor: darkMode ? '#1e293b' : '#FFFFFF',
@@ -1103,7 +1244,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
 
                 {/* ── STICKY COLUMN HEADERS ── */}
                 <View style={{ marginTop: 4 }}>
-                    <ColumnHeaders borderColor={borderColor} iconColor={iconColor} onStatInfo={(stat) => setStatTooltipType(stat)} />
+                    <ColumnHeaders borderColor={borderColor} iconColor={iconColor} onStatInfo={(type) => setStatTooltipType(type)} sizes={leagueSizes} />
                 </View>
             </View>
 
@@ -1111,14 +1252,55 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
             {
                 effectiveLoading ? (
                     <ActivityIndicator style={{ marginTop: 40 }} color="#3b82f6" />
+                ) : isGapDay ? (
+                    (() => {
+                        // Differentiate: past dates with no data = "No snapshot available" (no qualifying users);
+                        // today/future dates = "Snapshot pending" (cron hasn't run yet)
+                        const today = new Date().toISOString().split('T')[0];
+                        const isWithinSnapshotRange = snapshotDate && snapshotDate < today;
+                        return (
+                            <StyledView className="flex-1 justify-center items-center p-10" style={{ gap: 12, width: '100%', maxWidth: 768, alignSelf: 'center' }}>
+                                <Image source={WelcomeHamster} style={{ width: 80, height: 80 }} contentFit="contain" />
+                                {isWithinSnapshotRange ? (
+                                    <>
+                                        <ThemedText size="lg" className="font-n-bold text-center">No snapshot available</ThemedText>
+                                        <ThemedText className="font-n-regular text-center" style={{ color: iconColor }}>
+                                            Leagues data is only shown when users have played a minimum of {minGamesThreshold} games
+                                        </ThemedText>
+                                    </>
+                                ) : (
+                                    <>
+                                        <ThemedText size="lg" className="font-n-bold text-center">Snapshot pending</ThemedText>
+                                        <ThemedText className="font-n-regular text-center" style={{ color: iconColor }}>
+                                            {gapDayLocalTime
+                                                ? `Data for this date will be available at ${gapDayLocalTime}`
+                                                : 'Data for this date is not yet available'}
+                                        </ThemedText>
+                                    </>
+                                )}
+                                <TouchableOpacity
+                                    style={{
+                                        paddingHorizontal: 24, paddingVertical: 12,
+                                        borderRadius: 12, marginTop: 8,
+                                        borderWidth: 1, borderColor: brandColor,
+                                    }}
+                                    onPress={() => setSnapshotDate(null)}
+                                >
+                                    <Text style={{ color: brandColor, fontWeight: '600', fontFamily: 'Nunito_600SemiBold', fontSize: 15 }}>
+                                        Return to live
+                                    </Text>
+                                </TouchableOpacity>
+                            </StyledView>
+                        );
+                    })()
                 ) : allRows.length === 0 ? (
                     <StyledView className="flex-1 justify-center items-center p-10" style={{ gap: 12, width: '100%', maxWidth: 768, alignSelf: 'center' }}>
                         <Image source={WelcomeHamster} style={{ width: 80, height: 80 }} contentFit="contain" />
-                        {isViewingPast ? (
+                        {!isLiveView ? (
                             <>
                                 <ThemedText size="lg" className="font-n-bold text-center">No data available</ThemedText>
                                 <ThemedText className="font-n-regular text-center" style={{ color: iconColor }}>
-                                    This league was created after the selected date
+                                    No snapshot data exists for this date
                                 </ThemedText>
                                 <TouchableOpacity
                                     style={{
@@ -1126,10 +1308,10 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                         borderRadius: 12, marginTop: 8,
                                         borderWidth: 1, borderColor: brandColor,
                                     }}
-                                    onPress={() => setSelectedPeriod(null)}
+                                    onPress={() => setSnapshotDate(null)}
                                 >
                                     <Text style={{ color: brandColor, fontWeight: '600', fontFamily: 'Nunito_600SemiBold', fontSize: 15 }}>
-                                        Return to today
+                                        Return to live
                                     </Text>
                                 </TouchableOpacity>
                             </>
@@ -1175,9 +1357,15 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                         isGlowing={!!glowLeagueId && (item as StandingRow).is_me}
                                         glowAnim={glowAnim}
                                         gameMode={gameMode}
-                                        isHistorical={isHistoricalMode}
+                                        isHistorical={isSnapshotMode}
                                         isPerfectStreak={isPerfectStreak(item as StandingRow)}
                                         brandColor={brandColor}
+                                        isLiveView={isLiveView}
+                                        awardMedal={getMedalForRank((item as StandingRow).rank)}
+                                        onRankPress={() => setStatTooltipType('rank')}
+                                        onStatsPress={() => setStatTooltipType('stats')}
+                                        onNamePress={() => setStatTooltipType('name')}
+                                        sizes={leagueSizes}
                                     />
                                 );
                             }}
@@ -1187,7 +1375,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                 index,
                             })}
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                            contentContainerStyle={{ paddingBottom: 20 }}
+                            contentContainerStyle={{ paddingBottom: 20 + (Platform.OS === 'android' ? 0 : insets.bottom) }}
                             showsVerticalScrollIndicator={false}
                             onScroll={(event) => {
                                 handleScroll(event);
@@ -1211,14 +1399,25 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                         {/* Ghost row — absolute overlay (doesn't affect list layout) */}
                         {showGhost && myRow && (
                             <View
-                                pointerEvents="none"
+                                pointerEvents="box-none"
                                 style={{
                                     position: 'absolute',
                                     left: 0, right: 0,
                                     ...(ghostPosition === 'top' ? { top: 0 } : { bottom: 0 }),
                                 }}
                             >
-                                <GhostRow row={myRow} position={ghostPosition} isHistorical={isHistoricalMode} isPerfectStreak={isPerfectStreak(myRow)} brandColor={brandColor} />
+                                <GhostRow
+                                    row={myRow}
+                                    position={ghostPosition}
+                                    isHistorical={isSnapshotMode}
+                                    isPerfectStreak={isPerfectStreak(myRow)}
+                                    brandColor={brandColor}
+                                    awardMedal={getMedalForRank(myRow.rank)}
+                                    onRankPress={() => setStatTooltipType('rank')}
+                                    onStatsPress={() => setStatTooltipType('stats')}
+                                    onNamePress={() => setStatTooltipType('name')}
+                                    sizes={leagueSizes}
+                                />
                             </View>
                         )}
                     </View>
@@ -1252,8 +1451,32 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                                 <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor, marginTop: 8 }}>
                                     <Text style={{ fontFamily: 'Nunito_700Bold', fontWeight: '700' }}>Avg — Average Guesses:</Text> average number of guesses per game.
                                 </Text>
-                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor, marginTop: 12 }}>
-                                    *When a player is on a perfect streak their <Text style={{ fontFamily: 'Nunito_700Bold', fontWeight: '700', color: brandColor }}>Games Played</Text> is shown in <Text style={{ fontFamily: 'Nunito_700Bold', fontWeight: '700', color: brandColor }}>bold</Text>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
+                                    <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor }}>*When a player is on a perfect streak their Games Played is shown as: </Text>
+                                    <View style={{ backgroundColor: brandColor, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 }}>
+                                        <Text style={{ fontSize: 12, fontFamily: 'Nunito_700Bold', fontWeight: '700', color: '#ffffff' }}>5</Text>
+                                    </View>
+                                </View>
+                            </View>
+                        ) : statTooltipType === 'rank' ? (
+                            <View style={{ marginBottom: 20 }}>
+                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor }}>
+                                    <Text style={{ fontFamily: 'Nunito_700Bold', fontWeight: '700' }}># — League Ranking:</Text> your current position within the league, based on your Elementle Rating.
+                                </Text>
+                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor, marginTop: 8 }}>
+                                    The arrows show how your rank has changed since the last snapshot. ▲ means you moved up, ▼ means you moved down, and — means no change.
+                                </Text>
+                            </View>
+                        ) : statTooltipType === 'name' ? (
+                            <View style={{ marginBottom: 20 }}>
+                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor }}>
+                                    Your League Nickname is specific to each league and can be edited in that league's settings. Your identity name (shown in smaller text) is unique to you across all leagues and can be changed in your profile settings.
+                                </Text>
+                                <Text style={{ fontSize: 15, fontFamily: 'Nunito_700Bold', fontWeight: '700', color: '#dc2626', marginTop: 14, marginBottom: 4 }}>
+                                    Live vs Snapshot Data
+                                </Text>
+                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_400Regular', lineHeight: 22, color: textColor }}>
+                                    When "Live" is shown, the league updates as users play today's puzzle. Previous days' snapshots are locked in once all users have passed midnight in their timezone.
                                 </Text>
                             </View>
                         ) : (
@@ -1275,10 +1498,34 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
             <MonthSelectModal
                 visible={monthPickerVisible}
                 onClose={() => setMonthPickerVisible(false)}
-                currentDate={periodToDate(displayPeriodLabel)}
-                minDate={minPeriodDate}
-                maxDate={maxPeriodDate}
-                onSelectDate={handleMonthSelect}
+                currentDate={snapshotDate ? new Date(snapshotDate + 'T12:00:00') : new Date()}
+                minDate={leagueCreatedAt ? new Date(leagueCreatedAt + 'T12:00:00') : new Date(2025, 0, 1)}
+                maxDate={new Date()}
+                onSelectDate={(date: Date) => {
+                    const year = date.getFullYear();
+                    const month = date.getMonth();
+                    const now = new Date();
+
+                    if (selectedTimeframe === 'ytd') {
+                        // Year view: navigate to Dec 31 of selected year
+                        if (year === now.getFullYear()) {
+                            // Current year — go to live
+                            setSnapshotDate(null);
+                        } else {
+                            setSnapshotDate(`${year}-12-31`);
+                        }
+                    } else {
+                        // Month view: navigate to last day of selected month
+                        if (year === now.getFullYear() && month === now.getMonth()) {
+                            // Current month — go to live
+                            setSnapshotDate(null);
+                        } else {
+                            const lastDay = new Date(year, month + 1, 0);
+                            setSnapshotDate(lastDay.toISOString().split('T')[0]);
+                        }
+                    }
+                    setMonthPickerVisible(false);
+                }}
                 mode={selectedTimeframe === 'ytd' ? 'year' : 'month'}
             />
 
@@ -1291,6 +1538,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                     leagueId={selectedLeagueId}
                     brandColor={brandColor}
                     initialTimeframe={selectedTimeframe}
+                    currentSnapshotDate={snapshotDate}
                 />
             )}
         </ThemedView >
