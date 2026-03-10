@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform, AppState, AppStateStatus, LogBox } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as NavigationBar from 'expo-navigation-bar';
 
 // Suppress known simulator-only errors that don't affect production
 LogBox.ignoreLogs([
@@ -42,7 +43,7 @@ Sentry.init({
         'Cannot find native module',
     ],
 });
-import { styled } from 'nativewind';
+import { styled, useColorScheme } from 'nativewind';
 import { ThemedView } from '../components/ThemedView';
 import { WebContainer } from '../components/WebContainer';
 import * as ExpoSplashScreen from 'expo-splash-screen';
@@ -624,6 +625,17 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
 function UserScopedProviders() {
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
+    const { colorScheme } = useColorScheme();
+    const isDark = colorScheme === 'dark';
+
+    // Set Android navigation bar color to match theme (edge-to-edge makes it transparent by default)
+    useEffect(() => {
+        if (Platform.OS === 'android') {
+            const bgColor = isDark ? '#0f172a' : '#f1f5f9'; // Match tab bar background
+            NavigationBar.setBackgroundColorAsync(bgColor);
+            NavigationBar.setButtonStyleAsync(isDark ? 'light' : 'dark');
+        }
+    }, [isDark]);
 
     // Register Expo Push Token for remote award notifications
     usePushToken();
@@ -647,7 +659,7 @@ function UserScopedProviders() {
                                 <StreakCelebrationProvider>
                                     <LeagueProvider>
                                         <WebContainer>
-                                            <View style={Platform.OS === 'android' ? { flex: 1, paddingBottom: insets.bottom, backgroundColor: '#CDCFD1' } : { flex: 1 }}>
+                                            <View style={Platform.OS === 'android' ? { flex: 1, paddingBottom: insets.bottom, backgroundColor: isDark ? '#0f172a' : '#f1f5f9' } : { flex: 1 }}>
                                             <ThemedView className="flex-1">
                                                 <NavigationGuard>
                                                     <Stack screenOptions={{ headerShown: false }}>
