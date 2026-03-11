@@ -10,12 +10,14 @@
  * - Supabase: Both providers configured in Authentication settings
  */
 
-import { Platform } from 'react-native';
+import { Platform, Linking } from 'react-native';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import { supabase, checkLinkedIdentity, linkIdentityToUser } from './supabase';
+
+// Hardcoded redirect URI — matches the scheme in app.config.ts
+const APPLE_OAUTH_REDIRECT_URI = 'elementle://auth/callback';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
@@ -61,6 +63,8 @@ export interface SocialAuthResult {
     success: boolean;
     error?: string;
     isNewUser?: boolean;
+    /** True when the browser was opened for OAuth — auth.tsx handles the callback */
+    browserOpened?: boolean;
 }
 
 /**
@@ -191,7 +195,7 @@ async function signInWithAppleWeb(): Promise<SocialAuthResult> {
     try {
         console.log('[SocialAuth] Starting web-based Apple sign-in (Android)');
 
-        const redirectUri = makeRedirectUri({ scheme: 'elementle', path: 'auth/callback' });
+        const redirectUri = APPLE_OAUTH_REDIRECT_URI;
         console.log('[SocialAuth] Redirect URI:', redirectUri);
 
         // Get the OAuth URL from Supabase (skipBrowserRedirect so we control the browser)
@@ -199,7 +203,7 @@ async function signInWithAppleWeb(): Promise<SocialAuthResult> {
             provider: 'apple',
             options: {
                 redirectTo: redirectUri,
-                skipBrowserRedirect: true, // Don't auto-open — we use WebBrowser
+                skipBrowserRedirect: true,
             },
         });
 
@@ -208,62 +212,211 @@ async function signInWithAppleWeb(): Promise<SocialAuthResult> {
             return { success: false, error: oauthError?.message || 'Failed to start Apple sign-in' };
         }
 
-        console.log('[SocialAuth] Opening Apple OAuth page...');
+        // Try in-app browser first (Chrome Custom Tab) — better UX, auto-returns
+        let resultUrl: string | null = null;
+        try {
+            const WebBrowser = require('expo-web-browser');
+            console.log('[SocialAuth] expo-web-browser loaded successfully');
+            console.log('[SocialAuth] openAuthSessionAsync available:', typeof WebBrowser.openAuthSessionAsync);
+            
+            // Warm up Chrome Custom Tab for faster launch
+            if (WebBrowser.warmUpAsync) {
+                await WebBrowser.warmUpAsync();
+            }
+            
+            console.log('[SocialAuth] Opening Apple OAuth in in-app browser...');
+            const result = await WebBrowser.openAuthSessionAsync(oauthData.url, redirectUri);
+            console.log('[SocialAuth] In-app browser result type:', result.type);
 
-        // Open the OAuth URL in a secure in-app browser
-        const result = await WebBrowser.openAuthSessionAsync(
-            oauthData.url,
-            redirectUri,
-        );
+            if (result.type === 'cancel') {
+                console.log('[SocialAuth] User cancelled Apple OAuth');
+                return { success: false, error: 'Sign in cancelled' };
+            }
 
-        if (result.type !== 'success' || !result.url) {
-            console.log('[SocialAuth] Apple OAuth cancelled or failed:', result.type);
-            return { success: false, error: 'Sign in cancelled' };
+            if (result.type === 'dismiss' || !result.url) {
+                console.log('[SocialAuth] Browser dismissed');
+                return { success: true, browserOpened: true };
+            }
+            resultUrl = result.url;
+            console.log('[SocialAuth] Got redirect URL from in-app browser');
+        } catch (webBrowserError: any) {
+            // expo-web-browser native module not available — fall back to system browser
+            console.log('[SocialAuth] expo-web-browser error:', webBrowserError.message);
+            console.log('[SocialAuth] Falling back to Linking.openURL');
+            await Linking.openURL(oauthData.url);
+            return { success: true, browserOpened: true };
         }
 
         console.log('[SocialAuth] Apple OAuth redirect received');
 
-        // Extract tokens from the redirect URL hash
-        // Format: elementle://auth/callback#access_token=...&refresh_token=...
-        const url = new URL(result.url);
+        // Parse the redirect URL to extract auth data
+        const url = new URL(resultUrl!);
+
+        // --- Check for OAuth errors first ---
+        const oauthErrorParam = url.searchParams.get('error');
+        const errorDescription = url.searchParams.get('error_description');
+        if (oauthErrorParam) {
+            console.error('[SocialAuth] OAuth error in redirect:', oauthErrorParam, errorDescription);
+            const friendlyMessage = errorDescription
+                ? decodeURIComponent(errorDescription.replace(/\+/g, ' '))
+                : 'Apple sign-in failed';
+            return { success: false, error: friendlyMessage };
+        }
+        
+        // --- PKCE flow: Supabase redirects with ?code=... ---
+        const code = url.searchParams.get('code');
+
+        if (code) {
+            console.log('[SocialAuth] Found PKCE code in redirect URL, exchanging for session...');
+
+            try {
+                const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
+
+                if (sessionError || !sessionData.user) {
+                    console.error('[SocialAuth] PKCE code exchange failed:', sessionError);
+                    return { success: false, error: sessionError?.message || 'Failed to exchange auth code' };
+                }
+
+                const oauthUser = sessionData.user;
+                console.log('[SocialAuth] Apple PKCE session established for:', oauthUser.id);
+
+                // Check if this Apple identity is linked to a different user
+                const appleIdentity = oauthUser.identities?.find(i => i.provider === 'apple');
+                const appleProviderUserId = (appleIdentity?.identity_data as any)?.sub || appleIdentity?.id;
+                const appleEmail = oauthUser.email;
+
+                if (appleProviderUserId) {
+                    try {
+                        const { data: switchData, error: switchError } = await supabase.functions.invoke(
+                            'link-social-identity',
+                            {
+                                body: {
+                                    provider: 'apple',
+                                    action: 'signin-by-provider-id',
+                                    providerUserId: appleProviderUserId,
+                                    providerEmail: appleEmail,
+                                    oauthUserId: oauthUser.id,
+                                },
+                            }
+                        );
+
+                        if (!switchError && switchData?.success && switchData.accessToken && switchData.refreshToken) {
+                            console.log('[SocialAuth] Found linked Apple account! Switching to user:', switchData.userId);
+                            const { error: setErr } = await supabase.auth.setSession({
+                                access_token: switchData.accessToken,
+                                refresh_token: switchData.refreshToken,
+                            });
+                            if (!setErr) {
+                                return { success: true, isNewUser: false };
+                            }
+                            console.error('[SocialAuth] Failed to set linked user session:', setErr);
+                        }
+                    } catch (efError: any) {
+                        console.error('[SocialAuth] Edge Function call failed:', efError.message);
+                    }
+                }
+
+                // No linked identity found — treat as the OAuth user
+                await syncOAuthProfileToDatabase(oauthUser.id, 'apple');
+
+                let needsProfileSetup = true;
+                const { data: profile } = await supabase
+                    .from('user_profiles')
+                    .select('first_name, region')
+                    .eq('id', oauthUser.id)
+                    .single();
+                needsProfileSetup = !profile?.first_name || !profile?.region;
+
+                return { success: true, isNewUser: needsProfileSetup };
+            } catch (outerErr: any) {
+                console.error('[SocialAuth] PKCE flow error:', outerErr);
+                return { success: false, error: outerErr?.message || 'PKCE flow error' };
+            }
+
+            // Safety fallback
+            return { success: true, isNewUser: true };
+        }
+
+        // --- Implicit flow: Supabase redirects with #access_token=...&refresh_token=... ---
         const hashParams = new URLSearchParams(url.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
 
-        if (!accessToken || !refreshToken) {
-            console.error('[SocialAuth] No tokens in redirect URL');
-            return { success: false, error: 'Authentication failed — no tokens received' };
+        if (accessToken && refreshToken) {
+            console.log('[SocialAuth] Found tokens in redirect URL hash, setting session...');
+
+            try {
+                const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken,
+                });
+
+                if (sessionError || !sessionData.user) {
+                    console.error('[SocialAuth] Failed to set session:', sessionError);
+                    return { success: false, error: sessionError?.message || 'Failed to establish session' };
+                }
+
+                const oauthUser = sessionData.user;
+                console.log('[SocialAuth] Apple implicit sign-in session established for:', oauthUser.id);
+
+                // Check if this Apple identity is linked to a different user
+                const appleIdentity = oauthUser.identities?.find(i => i.provider === 'apple');
+                const appleProviderUserId = (appleIdentity?.identity_data as any)?.sub || appleIdentity?.id;
+                const appleEmail = oauthUser.email;
+
+                if (appleProviderUserId) {
+                    try {
+                        const { data: switchData, error: switchError } = await supabase.functions.invoke(
+                            'link-social-identity',
+                            {
+                                body: {
+                                    provider: 'apple',
+                                    action: 'signin-by-provider-id',
+                                    providerUserId: appleProviderUserId,
+                                    providerEmail: appleEmail,
+                                    oauthUserId: oauthUser.id,
+                                },
+                            }
+                        );
+
+                        if (!switchError && switchData?.success && switchData.accessToken && switchData.refreshToken) {
+                            console.log('[SocialAuth] Found linked Apple account! Switching to user:', switchData.userId);
+                            const { error: setErr } = await supabase.auth.setSession({
+                                access_token: switchData.accessToken,
+                                refresh_token: switchData.refreshToken,
+                            });
+                            if (!setErr) {
+                                return { success: true, isNewUser: false };
+                            }
+                            console.error('[SocialAuth] Failed to set linked user session:', setErr);
+                        }
+                    } catch (efErr: any) {
+                        console.error('[SocialAuth] Edge Function call failed:', efErr.message);
+                    }
+                }
+
+                // No linked identity found — treat as the OAuth user
+                await syncOAuthProfileToDatabase(oauthUser.id, 'apple');
+
+                let needsProfileSetup = true;
+                const { data: profile } = await supabase
+                    .from('user_profiles')
+                    .select('first_name, region')
+                    .eq('id', oauthUser.id)
+                    .single();
+                needsProfileSetup = !profile?.first_name || !profile?.region;
+
+                return { success: true, isNewUser: needsProfileSetup };
+            } catch (implErr: any) {
+                console.error('[SocialAuth] Implicit flow error:', implErr);
+                return { success: false, error: implErr?.message || 'Implicit flow error' };
+            }
         }
 
-        // Set the Supabase session with the extracted tokens
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-        });
-
-        if (sessionError || !sessionData.user) {
-            console.error('[SocialAuth] Failed to set session:', sessionError);
-            return { success: false, error: sessionError?.message || 'Failed to establish session' };
-        }
-
-        const user = sessionData.user;
-        console.log('[SocialAuth] Apple web sign-in session established for:', user.id);
-
-        // Sync OAuth profile to database
-        await syncOAuthProfileToDatabase(user.id, 'apple');
-
-        // Check if user needs to complete profile setup
-        let needsProfileSetup = true;
-        const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('first_name, region')
-            .eq('id', user.id)
-            .single();
-
-        needsProfileSetup = !profile?.first_name || !profile?.region;
-
-        console.log('[SocialAuth] Apple web authentication complete, needsProfileSetup:', needsProfileSetup);
-        return { success: true, isNewUser: needsProfileSetup };
+        // Neither code nor tokens found
+        console.error('[SocialAuth] No auth code or tokens in redirect URL');
+        console.error('[SocialAuth] Full URL:', resultUrl);
+        return { success: false, error: 'Authentication failed — no tokens received' };
 
     } catch (error: any) {
         console.error('[SocialAuth] Apple web sign-in error:', error);
@@ -440,7 +593,7 @@ async function linkAppleAccountWeb(): Promise<SocialAuthResult> {
 
         console.log('[SocialAuth] Starting Apple linking via web for user:', currentUser.id);
 
-        const redirectUri = makeRedirectUri({ scheme: 'elementle', path: 'auth/callback' });
+        const redirectUri = APPLE_OAUTH_REDIRECT_URI;
 
         // Use Supabase's linkIdentity which attaches the Apple identity to the current user
         const { data: oauthData, error: oauthError } = await supabase.auth.linkIdentity({
@@ -456,17 +609,22 @@ async function linkAppleAccountWeb(): Promise<SocialAuthResult> {
             return { success: false, error: oauthError?.message || 'Failed to start Apple linking' };
         }
 
-        const result = await WebBrowser.openAuthSessionAsync(
-            oauthData.url,
-            redirectUri,
-        );
+        // Try in-app browser first, fall back to system browser
+        try {
+            const WebBrowser = require('expo-web-browser');
+            const result = await WebBrowser.openAuthSessionAsync(oauthData.url, redirectUri);
 
-        if (result.type !== 'success') {
-            return { success: false, error: 'Linking cancelled' };
+            if (result.type !== 'success') {
+                return { success: false, error: 'Linking cancelled' };
+            }
+
+            console.log('[SocialAuth] Apple account linked successfully via in-app browser');
+            return { success: true };
+        } catch (webBrowserError) {
+            console.log('[SocialAuth] expo-web-browser not available, falling back to Linking.openURL');
+            await Linking.openURL(oauthData.url);
+            return { success: true, browserOpened: true };
         }
-
-        console.log('[SocialAuth] Apple account linked successfully via web OAuth');
-        return { success: true };
 
     } catch (error: any) {
         console.error('[SocialAuth] Link Apple web error:', error);

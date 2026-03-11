@@ -110,7 +110,7 @@ export const queryClient = new QueryClient({
   Handles redirection based on auth state and "First Login Setup"
 */
 function NavigationGuard({ children }: { children: React.ReactNode }) {
-    const { session, authPhase, hasCompletedFirstLogin, isGuest, user, pendingPuzzleDate, pendingPuzzleMode, consumePendingPuzzle, setDeferredPuzzle, deferredPuzzle, pendingLeagueCode, consumePendingLeagueCode } = useAuth();
+    const { session, authPhase, hasCompletedFirstLogin, isGuest, isSigningIn, user, pendingPuzzleDate, pendingPuzzleMode, consumePendingPuzzle, setDeferredPuzzle, deferredPuzzle, pendingLeagueCode, consumePendingLeagueCode } = useAuth();
     const { setPendingJoinCode, setPendingLeagueInviteRegion, setPendingLeagueInviteUser } = useLeague();
     const segments = useSegments();
     const router = useRouter();
@@ -559,6 +559,15 @@ function NavigationGuard({ children }: { children: React.ReactNode }) {
             const completedFirstLogin = hasCompletedFirstLogin();
 
             if (!completedFirstLogin && !inAuthGroup) {
+                // Skip during active sign-in flows: OAuth (Apple/Google) may
+                // briefly create a session for a temp relay user whose
+                // first_login_completed is undefined. Without this guard,
+                // NavGuard would redirect to personalise before the linked
+                // identity session switch completes.
+                if (isSigningIn()) {
+                    console.log('[NavGuard] Skipping personalise redirect — sign-in in progress');
+                    return;
+                }
                 console.log('[NavGuard] User needs to complete profile setup');
                 safeReplace('/(auth)/personalise');
             } else if (completedFirstLogin) {

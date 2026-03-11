@@ -9,8 +9,11 @@ const corsHeaders = {
 
 interface RequestBody {
     provider: 'google' | 'apple';
-    idToken?: string;  // Not required for disable/unlink action
-    action: 'check' | 'link' | 'signin' | 'disable' | 'enable' | 'unlink';
+    idToken?: string;  // Not required for disable/unlink/signin-by-provider-id action
+    action: 'check' | 'link' | 'signin' | 'signin-by-provider-id' | 'disable' | 'enable' | 'unlink';
+    providerUserId?: string;  // For signin-by-provider-id action
+    providerEmail?: string;   // For signin-by-provider-id action
+    oauthUserId?: string;     // The duplicate user created by web OAuth, for cleanup
 }
 
 interface CheckResponse {
@@ -45,6 +48,7 @@ serve(async (req) => {
         // Parse request body
         const body: RequestBody = await req.json()
         const { provider, idToken, action } = body
+        console.log(`[link-social-identity] ${action} for ${provider}`)
 
         if (!provider || !action) {
             return new Response(
@@ -60,9 +64,9 @@ serve(async (req) => {
             )
         }
 
-        if (!['check', 'link', 'signin', 'disable', 'enable', 'unlink'].includes(action)) {
+        if (!['check', 'link', 'signin', 'signin-by-provider-id', 'disable', 'enable', 'unlink'].includes(action)) {
             return new Response(
-                JSON.stringify({ error: 'Invalid action. Must be check, link, signin, disable, enable, or unlink' }),
+                JSON.stringify({ error: 'Invalid action. Must be check, link, signin, signin-by-provider-id, disable, enable, or unlink' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
         }
@@ -349,11 +353,157 @@ serve(async (req) => {
         }
 
         // For remaining actions (check, link, signin), idToken is required
-        if (!idToken) {
+        if (!idToken && action !== 'signin-by-provider-id') {
             return new Response(
                 JSON.stringify({ error: 'ID token required for this action' }),
                 { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             )
+        }
+
+        // Handle SIGNIN-BY-PROVIDER-ID action (early return — no idToken needed)
+        // Used by Android web OAuth flow where we have the provider_user_id from the
+        // OAuth session but no raw ID token to decode.
+        if (action === 'signin-by-provider-id') {
+            const { providerUserId: directProviderUserId, providerEmail: directProviderEmail, oauthUserId } = body
+
+            if (!directProviderUserId) {
+                return new Response(
+                    JSON.stringify({ success: false, error: 'providerUserId is required for signin-by-provider-id' }),
+                    { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+
+            console.log(`[link-social-identity] SIGNIN-BY-PROVIDER-ID: provider=${provider}, providerUserId=${directProviderUserId}`)
+
+            // Look up linked identity
+            const { data: linkedIdentity, error: lookupError } = await supabaseAdmin
+                .from('linked_identities')
+                .select('user_id, provider_email, disabled_at')
+                .eq('provider', provider)
+                .eq('provider_user_id', directProviderUserId)
+                .is('disabled_at', null)
+                .single()
+
+            if (lookupError && lookupError.code !== 'PGRST116') {
+                console.error('[link-social-identity] Signin-by-provider-id lookup error:', lookupError)
+            }
+
+            if (!linkedIdentity) {
+                console.log('[link-social-identity] SIGNIN-BY-PROVIDER-ID: No linked identity found')
+                return new Response(
+                    JSON.stringify({ success: false, error: 'No linked identity found' }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+
+            // Check if identity is disabled
+            if (linkedIdentity.disabled_at) {
+                console.log(`[link-social-identity] SIGNIN-BY-PROVIDER-ID: Identity is DISABLED for user ${linkedIdentity.user_id}`)
+                return new Response(
+                    JSON.stringify({
+                        success: false,
+                        isDisabled: true,
+                        error: `This ${provider === 'apple' ? 'Apple ID' : 'Google account'} was previously linked but has been disabled.`
+                    }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+
+            // Found active linked identity - generate session for that user
+            console.log(`[link-social-identity] SIGNIN-BY-PROVIDER-ID: Found linked user ${linkedIdentity.user_id}`)
+
+            // Get user details
+            const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(
+                linkedIdentity.user_id
+            )
+
+            if (userError || !userData.user) {
+                console.error('[link-social-identity] Failed to get linked user:', userError)
+                return new Response(
+                    JSON.stringify({ success: false, error: 'Linked user not found' }),
+                    { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+
+            // Generate a magic link to create a session for the linked user
+            try {
+                const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
+                    type: 'magiclink',
+                    email: userData.user.email!,
+                    options: {
+                        redirectTo: 'elementle://auth/callback'
+                    }
+                })
+
+                if (sessionError) {
+                    console.error('[link-social-identity] Failed to generate link:', sessionError)
+                    return new Response(
+                        JSON.stringify({ success: false, error: 'Failed to authenticate linked user' }),
+                        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    )
+                }
+
+                // Extract token from generated link
+                const linkUrl = new URL(sessionData.properties.hashed_token ?
+                    `${Deno.env.get('SUPABASE_URL')}/auth/v1/verify?token=${sessionData.properties.hashed_token}&type=magiclink` :
+                    sessionData.properties.action_link
+                )
+                const verifyToken = linkUrl.searchParams.get('token')
+
+                if (!verifyToken) {
+                    console.error('[link-social-identity] No token in generated link')
+                    return new Response(
+                        JSON.stringify({ success: false, error: 'Failed to generate authentication token' }),
+                        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    )
+                }
+
+                // Verify the token to get a session
+                const { data: verifyData, error: verifyError } = await supabaseAdmin.auth.verifyOtp({
+                    token_hash: verifyToken,
+                    type: 'magiclink'
+                })
+
+                if (verifyError || !verifyData.session) {
+                    console.error('[link-social-identity] Failed to verify OTP:', verifyError)
+                    return new Response(
+                        JSON.stringify({ success: false, error: 'Failed to create session for linked user' }),
+                        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                    )
+                }
+
+                // Clean up the duplicate OAuth user if provided
+                if (oauthUserId && oauthUserId !== linkedIdentity.user_id) {
+                    console.log(`[link-social-identity] Cleaning up duplicate OAuth user: ${oauthUserId}`)
+                    try {
+                        await supabaseAdmin.auth.admin.deleteUser(oauthUserId)
+                        await supabaseAdmin.from('user_profiles').delete().eq('id', oauthUserId)
+                        console.log(`[link-social-identity] Deleted duplicate user ${oauthUserId}`)
+                    } catch (deleteErr) {
+                        console.warn(`[link-social-identity] Failed to delete duplicate user (non-fatal):`, deleteErr)
+                    }
+                }
+
+                console.log(`[link-social-identity] SIGNIN-BY-PROVIDER-ID SUCCESS: Created session for user ${linkedIdentity.user_id}`)
+
+                return new Response(
+                    JSON.stringify({
+                        success: true,
+                        isNewUser: false,
+                        userId: linkedIdentity.user_id,
+                        accessToken: verifyData.session.access_token,
+                        refreshToken: verifyData.session.refresh_token
+                    }),
+                    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+
+            } catch (authError) {
+                console.error('[link-social-identity] Auth error:', authError)
+                return new Response(
+                    JSON.stringify({ success: false, error: 'Authentication failed' }),
+                    { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
         }
 
         // Decode the ID token to extract the 'sub' (subject) claim

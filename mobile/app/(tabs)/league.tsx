@@ -659,17 +659,19 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
         return (leagues as League[]).find(l => l.id === selectedLeagueId) ?? null;
     }, [leagues, selectedLeagueId]);
 
-    // Share permission: system leagues always shareable, user leagues need can_share
-    // Check both useMyMembership AND useMyLeaguesAll as fallback sources for can_share
+    // Share permission: system leagues always shareable, admin always can share,
+    // other members need can_share flag set to true
     const canShare = useMemo(() => {
         if (!selectedLeague) return false;
         if (selectedLeague.is_system_league) return true;
+        // Admin always has share permission regardless of toggle setting
+        if (selectedLeague.admin_user_id === user?.id) return true;
         // Primary: from dedicated membership query
         if (membership?.can_share === true) return true;
         // Fallback: from the all-leagues query (LeagueWithMembership includes can_share)
         const allLeagueMatch = allLeaguesData?.find(l => l.id === selectedLeagueId);
         return allLeagueMatch?.can_share === true;
-    }, [selectedLeague, membership, allLeaguesData, selectedLeagueId]);
+    }, [selectedLeague, membership, allLeaguesData, selectedLeagueId, user?.id]);
 
     const [refreshing, setRefreshing] = useState(false);
     const [statTooltipType, setStatTooltipType] = useState<string | null>(null);
@@ -799,7 +801,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
     // Stat tooltip descriptions
     const statDescriptions: Record<string, { title: string; body: string | null }> = {
         stats: { title: 'Game Statistics', body: null }, // Uses custom JSX render
-        rating: { title: 'Elementle Rating', body: 'A comprehensive measure of your puzzle-solving skill, factoring in your win rate, average guesses, and consistency.' },
+        rating: { title: 'Elementle Rating', body: 'A comprehensive measure of your puzzle-solving skill, factoring in your win rate, average guesses, and first guess accuracy.' },
         rank: { title: 'Rank & Movement', body: null }, // Uses custom JSX render
         name: { title: 'Player Identity', body: null }, // Uses custom JSX render
     };
@@ -1330,14 +1332,14 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                     <ActivityIndicator style={{ marginTop: 40 }} color="#3b82f6" />
                 ) : isGapDay ? (
                     (() => {
-                        // Differentiate: past dates with no data = "No snapshot available" (no qualifying users);
-                        // today/future dates = "Snapshot pending" (cron hasn't run yet)
-                        const today = new Date().toISOString().split('T')[0];
-                        const isWithinSnapshotRange = snapshotDate && snapshotDate < today;
+                        // Differentiate: dates at or before the newest snapshot with no data = "No snapshot available"
+                        // (snapshot was taken, but no qualifying users due to 5-game minimum);
+                        // dates beyond the newest snapshot = "Snapshot pending" (cron hasn't run yet)
+                        const snapshotWasTaken = snapshotDate && newestSnapshotDate && snapshotDate <= newestSnapshotDate;
                         return (
                             <StyledView className="flex-1 justify-center items-center p-10" style={{ gap: 12, width: '100%', maxWidth: 768, alignSelf: 'center' }}>
                                 <Image source={WelcomeHamster} style={{ width: 80, height: 80 }} contentFit="contain" />
-                                {isWithinSnapshotRange ? (
+                                {snapshotWasTaken ? (
                                     <>
                                         <ThemedText size="lg" className="font-n-bold text-center">No snapshot available</ThemedText>
                                         <ThemedText className="font-n-regular text-center" style={{ color: iconColor }}>

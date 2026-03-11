@@ -11,6 +11,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // guestMigration.ts -> _layout.tsx -> auth.tsx -> guestMigration.ts
 const getQueryClient = () => require('../app/_layout').queryClient;
 
+/** Calculate first-guess penalty: MIN(|actual_year - guess_year|, 1000) / 100000 */
+function calcFirstGuessPenalty(answerDateCanonical: string | undefined, guesses: string[]): number {
+    if (!answerDateCanonical || guesses.length === 0) return 0;
+    // Parse years directly from YYYY-MM-DD strings to avoid JS Date bugs with ancient dates
+    const actualYear = parseInt(answerDateCanonical.split('-')[0], 10);
+    const firstGuessYear = parseInt(guesses[0].split('-')[0], 10);
+    if (isNaN(actualYear) || isNaN(firstGuessYear)) return 0;
+    return Math.min(Math.abs(actualYear - firstGuessYear), 1000) / 100000;
+}
+
 interface GuestGameData {
     puzzleId: number;
     mode: 'REGION' | 'USER';
@@ -172,7 +182,8 @@ export async function migrateGuestDataToUser(userId: string): Promise<{
                         started_at: gameData.updatedAt || new Date().toISOString(),
                         completed_at: gameData.result ? (gameData.updatedAt || new Date().toISOString()) : null,
                         digits: gameData.digits ? gameData.digits.toString() : '8', // Use saved digits or default
-                        streak_day_status: gameData.result === 'won' ? 1 : null // Set streak legacy status
+                        streak_day_status: gameData.result === 'won' ? 1 : null, // Set streak legacy status
+                        first_guess_penalty: calcFirstGuessPenalty(gameData.puzzleDate, gameData.guesses)
                     })
                     .select('id')
                     .single();
@@ -319,7 +330,8 @@ export async function migrateDeferredGuestGames(
                         started_at: gameData.updatedAt || new Date().toISOString(),
                         completed_at: gameData.result ? (gameData.updatedAt || new Date().toISOString()) : null,
                         digits: gameData.digits ? gameData.digits.toString() : '8',
-                        streak_day_status: streakDayStatus
+                        streak_day_status: streakDayStatus,
+                        first_guess_penalty: calcFirstGuessPenalty(gameData.puzzleDate, gameData.guesses)
                     })
                     .select('id')
                     .single();

@@ -9,7 +9,7 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 // Web version import
 import HomeScreenWeb from './index.web';
 import { supabase } from '../../lib/supabase';
-import { HelpCircle, Settings } from 'lucide-react-native';
+import { HelpCircle, Settings, ChevronUp, ChevronDown } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useOptions } from '../../lib/options';
 import { useUserStats } from '../../hooks/useUserStats';
@@ -42,7 +42,7 @@ import { ReminderPromptModal } from '../../components/game/ReminderPromptModal';
 import { ReminderSuccessToast } from '../../components/game/ReminderSuccessToast';
 import * as NotificationService from '../../lib/NotificationService';
 import { fetchNotificationData } from '../../hooks/useNotificationData';
-import { useMyLeagues, useMyLeaguesAll, useLeagueStandings, useRejoinLeague, invalidateAllLeagueQueries, usePendingTrophies, League, GameMode } from '../../hooks/useLeagueData';
+import { useMyLeagues, useMyLeaguesAll, useMyHomeRanks, useRejoinLeague, invalidateAllLeagueQueries, usePendingTrophies, League, GameMode } from '../../hooks/useLeagueData';
 import { TrophyUnlockModal } from '../../components/game/TrophyUnlockModal';
 import { useLeague } from '../../contexts/LeagueContext';
 import LeagueUnlockPopup from '../../components/LeagueUnlockPopup';
@@ -140,23 +140,25 @@ const GameModePage = React.memo(({
     const scale = screenWidth >= 768 ? 1.25 : 1;
     const cardHeightScale = screenWidth >= 768 ? 1.06 : 1; // 15% smaller buttons on iPad (1.25 * 0.85 ≈ 1.06)
 
-    // ── League Rankings for home button ──
+    // ── League Rankings for home button (lightweight RPC) ──
     const leagueGameMode: GameMode = isRegion ? 'region' : 'user';
-    const { data: myLeagues } = useMyLeagues(leagueGameMode);
-    const globalLeagueId = useMemo(() => {
-        if (!myLeagues) return null;
-        const global = (myLeagues as League[]).find(l => l.is_system_league && l.system_region === 'GLOBAL');
-        return global?.id ?? null;
-    }, [myLeagues]);
-    const regionLeagueId = useMemo(() => {
-        if (!myLeagues) return null;
-        const region = (myLeagues as League[]).find(l => l.is_system_league && l.system_region !== 'GLOBAL');
-        return region?.id ?? null;
-    }, [myLeagues]);
-    const { data: globalStandings } = useLeagueStandings(globalLeagueId, 'mtd', leagueGameMode);
-    const { data: regionStandings } = useLeagueStandings(regionLeagueId, 'mtd', leagueGameMode);
-    const globalRank = globalStandings?.my_rank ?? null;
-    const regionRank = regionStandings?.my_rank ?? null;
+    const { data: homeRanks, refetch: refetchHomeRanks } = useMyHomeRanks(leagueGameMode);
+    const globalRank = homeRanks?.global_rank ?? null;
+    const regionRank = homeRanks?.region_rank ?? null;
+    const globalRankChange = (homeRanks?.global_yesterdays_rank != null && homeRanks?.global_rank != null)
+        ? homeRanks.global_yesterdays_rank - homeRanks.global_rank : null;
+    const regionRankChange = (homeRanks?.region_yesterdays_rank != null && homeRanks?.region_rank != null)
+        ? homeRanks.region_yesterdays_rank - homeRanks.region_rank : null;
+    const regionName = homeRanks?.region_name ?? 'UK';
+    const hasRankChange = (globalRankChange != null && globalRankChange !== 0) || (regionRankChange != null && regionRankChange !== 0);
+    const [globalOverflows, setGlobalOverflows] = useState(false);
+
+    // Refetch home ranks whenever screen gains focus (e.g. returning from a game)
+    useFocusEffect(
+        useCallback(() => {
+            refetchHomeRanks();
+        }, [refetchHomeRanks])
+    );
 
     // Helper: Calculate Total Guesses
     const calculateTotalGuesses = (distribution: any, gamesWon: number, gamesPlayed: number) => {
@@ -259,7 +261,7 @@ const GameModePage = React.memo(({
                             </View>
                             <View className="rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
                                 <ThemedText className="text-slate-700 font-n-medium text-sm">Streak</ThemedText>
-                                <ThemedText className="text-slate-700 font-n-bold text-xl">{stats.current_streak}</ThemedText>
+                                <ThemedText className="text-slate-700 font-n-bold text-xl">{(stats.current_streak || 0).toLocaleString()}</ThemedText>
                             </View>
                         </View>
                     )}
@@ -284,7 +286,7 @@ const GameModePage = React.memo(({
                     <View className="flex-row w-full" style={{ flexDirection: 'row' }}>
                         <View className="mt-0 rounded-xl p-2 items-center justify-center" style={{ width: 95 }}>
                             <ThemedText className="text-slate-700 font-n-medium text-sm">Played</ThemedText>
-                            <ThemedText className="text-slate-700 font-n-bold text-xl">{totalGames}</ThemedText>
+                            <ThemedText className="text-slate-700 font-n-bold text-xl">{totalGames.toLocaleString()}</ThemedText>
                         </View>
                     </View>
                 </HomeCard>
@@ -356,15 +358,49 @@ const GameModePage = React.memo(({
                                         </ThemedText>
                                     </View>
                                 ) : (
-                                    <View style={{ marginTop: 10, gap: 1 }}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <View style={{ flex: 1, justifyContent: 'center', gap: 1, paddingTop: 6 }}>
+                                        {/* Global row — 2-column: label + rank/change */}
+                                        <View
+                                            style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}
+                                            onLayout={(e) => {
+                                                // If Global row exceeds single-line height (~24px), hide UK row
+                                                setGlobalOverflows(e.nativeEvent.layout.height > 24);
+                                            }}
+                                        >
                                             <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>Global</ThemedText>
-                                            <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{globalRank ?? '—'}</ThemedText>
+                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, flex: 1 }}>
+                                                <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{globalRank != null ? globalRank.toLocaleString() : '—'}</ThemedText>
+                                                {globalRankChange != null && globalRankChange !== 0 && (
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+                                                        {globalRankChange > 0
+                                                            ? <ChevronUp size={12} color="#15803d" />
+                                                            : <ChevronDown size={12} color="#dc2626" />}
+                                                        <Text style={{ fontSize: 11, fontFamily: 'Nunito_700Bold', color: globalRankChange > 0 ? '#15803d' : '#dc2626' }}>
+                                                            {Math.abs(globalRankChange).toLocaleString()}
+                                                        </Text>
+                                                    </View>
+                                                )}
+                                            </View>
                                         </View>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                            <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>UK</ThemedText>
-                                            <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{regionRank ?? '—'}</ThemedText>
-                                        </View>
+                                        {/* UK row — hidden when Global overflows */}
+                                        {!globalOverflows && (
+                                            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
+                                                <ThemedText className="font-n-medium" style={{ fontSize: 15, color: '#475569' }}>{regionName}</ThemedText>
+                                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, flex: 1 }}>
+                                                    <ThemedText className="font-n-bold" size="base" style={{ color: '#1e293b' }}>{regionRank != null ? regionRank.toLocaleString() : '—'}</ThemedText>
+                                                    {regionRankChange != null && regionRankChange !== 0 && (
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+                                                            {regionRankChange > 0
+                                                                ? <ChevronUp size={12} color="#15803d" />
+                                                                : <ChevronDown size={12} color="#dc2626" />}
+                                                            <Text style={{ fontSize: 11, fontFamily: 'Nunito_700Bold', color: regionRankChange > 0 ? '#15803d' : '#dc2626' }}>
+                                                                {Math.abs(regionRankChange).toLocaleString()}
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            </View>
+                                        )}
                                     </View>
                                 )}
                             </View>
@@ -579,6 +615,25 @@ function HomeScreenInner({ snapshot }: { snapshot: HomeCacheSnapshot }) {
 
         const checkAutoUnlock = async () => {
             try {
+                // SAFETY CHECK: verify against Supabase DB directly, since AsyncStorage
+                // may not have this user's settings on a new/different device.
+                // If the user has ALREADY unlocked leagues on another device, skip the popup.
+                const { data: dbSettings } = await supabase
+                    .from('user_settings')
+                    .select('league_auto_unlock_done, league_tables_enabled')
+                    .eq('user_id', user.id)
+                    .maybeSingle() as any;
+
+                if ((dbSettings as any)?.league_auto_unlock_done || (dbSettings as any)?.league_tables_enabled) {
+                    console.log('[Home] Auto-unlock: DB shows leagues already configured, skipping popup');
+                    // Sync local state with DB
+                    if ((dbSettings as any).league_tables_enabled && !leagueTablesEnabled) {
+                        toggleLeagueTables(); // Enable locally
+                    }
+                    setLeagueAutoUnlockDone(true);
+                    return;
+                }
+
                 // Check if user signed up in a previous calendar month
                 const createdDate = new Date(user.created_at);
                 const now = new Date();
@@ -603,17 +658,18 @@ function HomeScreenInner({ snapshot }: { snapshot: HomeCacheSnapshot }) {
 
                 if (monthlyGames >= minGames) {
                     console.log('[Home] Auto-unlock: user qualifies! Enabling league tables.');
-                    // Enable leagues (toggleLeagueTables also sets leagueAutoUnlockDone = true)
+                    // Only enable if not already enabled (never toggle OFF)
                     if (!leagueTablesEnabled) {
                         toggleLeagueTables();
                     } else {
-                        // Already enabled (e.g. user turned them on manually but flag wasn't set)
                         setLeagueAutoUnlockDone(true);
                     }
                     setShowLeagueUnlockPopup(true);
                 }
             } catch (err) {
-                console.error('[Home] Auto-unlock check error:', err);
+                // If DB check fails, assume user has already seen leagues (fail-safe: don't show popup)
+                console.error('[Home] Auto-unlock check error (defaulting to done):', err);
+                setLeagueAutoUnlockDone(true);
             }
         };
 
@@ -1313,19 +1369,24 @@ function HomeScreenInner({ snapshot }: { snapshot: HomeCacheSnapshot }) {
 
     // Flag to ignore scroll events triggered by programmatic scrolling
     const isProgrammaticScroll = useRef(false);
+    const isInitialScrollSync = useRef(true);
 
     // Sync Scroll Position with GameMode
     useEffect(() => {
         isProgrammaticScroll.current = true;
+        // Don't animate on initial mount — prevents visible flick if mode somehow isn't REGION
+        const shouldAnimate = !isInitialScrollSync.current;
+        isInitialScrollSync.current = false;
+
         if (gameMode === 'REGION') {
-            scrollViewRef.current?.scrollTo({ x: 0, animated: true });
+            scrollViewRef.current?.scrollTo({ x: 0, animated: shouldAnimate });
         } else {
-            scrollViewRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: true });
+            scrollViewRef.current?.scrollTo({ x: SCREEN_WIDTH, animated: shouldAnimate });
         }
         // Reset flag after animation duration (approx 300ms)
         const timer = setTimeout(() => {
             isProgrammaticScroll.current = false;
-        }, 500);
+        }, shouldAnimate ? 500 : 50);
         return () => clearTimeout(timer);
     }, [gameMode]);
 

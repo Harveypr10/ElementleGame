@@ -7,10 +7,21 @@ interface PendingGameState {
     userId: string;
     mode: 'REGION' | 'USER';
     puzzleId: number;
-    guesses: string[]; // Raw guess values
+    guesses: string[]; // Raw guess values (canonical dates)
     result: 'won' | 'lost' | null;
     digits: number;
     updatedAt: string;
+    answerDateCanonical?: string; // The puzzle answer date (YYYY-MM-DD)
+}
+
+/** Calculate first-guess penalty: MIN(|actual_year - guess_year|, 1000) / 100000 */
+function calcFirstGuessPenalty(answerDateCanonical: string | undefined, guesses: string[]): number {
+    if (!answerDateCanonical || guesses.length === 0) return 0;
+    // Parse years directly from YYYY-MM-DD strings to avoid JS Date bugs with ancient dates
+    const actualYear = parseInt(answerDateCanonical.split('-')[0], 10);
+    const firstGuessYear = parseInt(guesses[0].split('-')[0], 10);
+    if (isNaN(actualYear) || isNaN(firstGuessYear)) return 0;
+    return Math.min(Math.abs(actualYear - firstGuessYear), 1000) / 100000;
 }
 
 export async function syncPendingGames(userId: string) {
@@ -147,7 +158,8 @@ export async function syncPendingGames(userId: string) {
                         .update({
                             result: localState.result,
                             completed_at: new Date().toISOString(),
-                            num_guesses: localState.guesses.length
+                            num_guesses: localState.guesses.length,
+                            first_guess_penalty: calcFirstGuessPenalty(localState.answerDateCanonical, localState.guesses)
                         })
                         .eq('id', attemptId);
 

@@ -41,6 +41,9 @@ type AuthContextType = {
     hasCompletedFirstLogin: () => boolean;
     markFirstLoginCompleted: () => Promise<void>;
     markSigningIn: () => void;
+    clearSigningIn: () => void;
+    /** Returns true while a deliberate sign-in flow is in progress. */
+    isSigningIn: () => boolean;
     /** Puzzle date from a deep link (e.g. elementle://puzzle/2026-02-16). */
     pendingPuzzleDate: string | null;
     /** Puzzle mode from a deep link query param (?mode=USER or ?mode=REGION). */
@@ -71,6 +74,8 @@ const AuthContext = createContext<AuthContextType>({
     hasCompletedFirstLogin: () => false,
     markFirstLoginCompleted: async () => { },
     markSigningIn: () => { },
+    clearSigningIn: () => { },
+    isSigningIn: () => false,
     pendingPuzzleDate: null,
     pendingPuzzleMode: null,
     consumePendingPuzzle: () => null,
@@ -609,7 +614,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const isDeliberateSignIn = signingInRef.current;
                 if (isDeliberateSignIn) {
                     console.log('[Auth] Deliberate sign-in detected — running pipeline silently (no phase transitions)');
-                    signingInRef.current = false;
+                    // NOTE: Do NOT reset signingInRef here. OAuth flows (Apple, Google)
+                    // fire multiple onAuthStateChange events (temp user → real user).
+                    // Consuming the flag on the first event leaves the second unprotected,
+                    // causing NavGuard to flash the Personalise screen. The caller
+                    // (login.tsx or signInWithEmail) is responsible for clearing.
                 }
 
                 // Defer pipeline to next tick so the auth lock is released first.
@@ -746,6 +755,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     return;
                 }
 
+                // --- PKCE code (e.g. from Apple OAuth on Android) ---
+                const codeParam = searchParams.get('code');
+                if (codeParam) {
+                    console.log('[Auth] Warm-start PKCE code — exchanging for session');
+                    setAuthPhase('processing_link');
+                    // Mark as deliberate sign-in so onAuthStateChange runs the
+                    // silent pipeline (no phase transitions, no NavGuard flash)
+                    signingInRef.current = true;
+
+                    try {
+                        const { data: sessionData, error: codeError } = await supabase.auth.exchangeCodeForSession(codeParam);
+
+                        if (codeError) {
+                            console.error('[Auth] PKCE code exchange error:', codeError);
+                            signingInRef.current = false;
+                            setAuthPhase('ready');
+                            return;
+                        }
+
+                        if (!sessionData?.user) {
+                            console.error('[Auth] PKCE exchange succeeded but no user in response');
+                            signingInRef.current = false;
+                            setAuthPhase('ready');
+                            return;
+                        }
+
+                        const oauthUser = sessionData.user;
+                        console.log('[Auth] PKCE session established for:', oauthUser.id);
+
+                        // Check if this Apple identity is linked to a different user
+                        const appleIdentity = oauthUser.identities?.find(i => i.provider === 'apple');
+                        const appleProviderUserId = (appleIdentity?.identity_data as any)?.sub || appleIdentity?.id;
+
+                        if (appleProviderUserId) {
+                            try {
+                                const { data: switchData, error: switchError } = await supabase.functions.invoke(
+                                    'link-social-identity',
+                                    {
+                                        body: {
+                                            provider: 'apple',
+                                            action: 'signin-by-provider-id',
+                                            providerUserId: appleProviderUserId,
+                                            providerEmail: oauthUser.email,
+                                            oauthUserId: oauthUser.id,
+                                        },
+                                    }
+                                );
+
+                                if (!switchError && switchData?.success && switchData.accessToken && switchData.refreshToken) {
+                                    console.log('[Auth] Found linked Apple account! Switching to user:', switchData.userId);
+                                    await supabase.auth.setSession({
+                                        access_token: switchData.accessToken,
+                                        refresh_token: switchData.refreshToken,
+                                    });
+                                    signingInRef.current = false;
+                                    setAuthPhase('ready');
+                                    return;
+                                }
+                                console.log('[Auth] No linked identity found, continuing with OAuth user');
+                            } catch (efErr: any) {
+                                console.error('[Auth] Edge Function call failed:', efErr);
+                            }
+                        }
+                    } catch (outerErr: any) {
+                        console.error('[Auth] PKCE handler error:', outerErr);
+                    }
+
+                    signingInRef.current = false;
+                    setAuthPhase('ready');
+                    return;
+                }
+
                 // --- Hash-based auth tokens (e.g. from OAuth redirect) ---
                 const accessToken = hashParams.get('access_token');
                 const refreshToken = hashParams.get('refresh_token');
@@ -806,9 +887,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             password,
         });
 
-        if (error) {
-            signingInRef.current = false; // Reset on failure
-        }
+        // Reset signingInRef — email/password only fires ONE onAuthStateChange,
+        // so it's safe to clear here (the captured isDeliberateSignIn in the
+        // callback still holds true).
+        signingInRef.current = false;
 
         // onAuthStateChange SIGNED_IN will trigger the full pipeline
         // (ensureProfileReady + runGuestMigration + RevenueCat)
@@ -921,10 +1003,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // Expose markSigningIn so login.tsx can flag social auth flows
+    // Expose markSigningIn / clearSigningIn so login.tsx can flag social auth flows.
+    // markSigningIn: call BEFORE starting an OAuth flow (signInWithApple/signInWithGoogle)
+    // clearSigningIn: call AFTER the OAuth flow completes (success or failure)
     const markSigningIn = () => {
         signingInRef.current = true;
     };
+    const clearSigningIn = () => {
+        signingInRef.current = false;
+    };
+    const isSigningIn = () => signingInRef.current;
 
     return (
         <AuthContext.Provider
@@ -940,6 +1028,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 hasCompletedFirstLogin,
                 markFirstLoginCompleted,
                 markSigningIn,
+                clearSigningIn,
+                isSigningIn,
                 pendingPuzzleDate,
                 pendingPuzzleMode,
                 consumePendingPuzzle,

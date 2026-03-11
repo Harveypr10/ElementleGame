@@ -182,9 +182,8 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
     const [userSettingsLoaded, setUserSettingsLoaded] = useState(false);
 
-    const setGameMode = useCallback(async (mode: GameMode) => {
+    const setGameMode = useCallback((mode: GameMode) => {
         setGameModeState(mode);
-        await AsyncStorage.setItem('app_game_mode', mode);
     }, []);
 
     // Apply dark mode when it changes
@@ -273,18 +272,19 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
                 const storedQuickMenu = await AsyncStorage.getItem(sk('opt_quick_menu'));
                 if (storedQuickMenu !== null) setQuickMenuEnabled(storedQuickMenu === 'true');
 
-                // League flags
+                // League flags — ONLY set if we have a cached value.
+                // Do NOT default to false here: during OAuth flows, the user may
+                // momentarily switch to a temp relay user (e.g. Apple sign-in)
+                // whose ID has no stored settings. Defaulting to false would
+                // incorrectly disable leagues. The signed-out handler already
+                // resets these to false for genuinely signed-out users.
                 const storedLeagueTables = await AsyncStorage.getItem(sk('opt_league_tables'));
                 if (storedLeagueTables !== null) {
                     setLeagueTablesEnabled(storedLeagueTables === 'true');
-                } else {
-                    setLeagueTablesEnabled(false);
                 }
                 const storedAutoUnlockDone = await AsyncStorage.getItem(sk('opt_league_auto_unlock_done'));
                 if (storedAutoUnlockDone !== null) {
                     setLeagueAutoUnlockDoneState(storedAutoUnlockDone === 'true');
-                } else {
-                    setLeagueAutoUnlockDoneState(false);
                 }
 
                 const storedHowToPlay = await AsyncStorage.getItem(sk('opt_has_seen_how_to_play'));
@@ -496,9 +496,9 @@ export function OptionsProvider({ children }: { children: React.ReactNode }) {
         try {
             // Only load GLOBAL keys here (runs on mount, before user is available)
             // All user-scoped keys are loaded in the user-available useEffect above.
-
-            const storedMode = await AsyncStorage.getItem('app_game_mode');
-            if (storedMode) setGameModeState(storedMode as GameMode);
+            // NOTE: game mode is NOT loaded from AsyncStorage — it always defaults to
+            // REGION on cold start. On warm resume (backgrounding), React state is
+            // preserved in memory, so the current mode persists naturally.
 
             // On initial mount (before user is available), apply device theme as safe default
             const deviceScheme = Appearance.getColorScheme();

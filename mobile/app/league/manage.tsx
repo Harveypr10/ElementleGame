@@ -23,7 +23,8 @@ import {
     ActivityIndicator,
     Platform,
     Dimensions,
-    Switch,
+    Pressable,
+    Animated,
     Share,
 } from 'react-native';
 import { styled } from 'nativewind';
@@ -48,6 +49,7 @@ import {
     useLeaveLeagueMode,
     useRejoinLeagueMode,
     useDeleteLeagueMembership,
+    useAdminDeleteLeague,
     useLeagueMembers,
     useUpdateMemberShare,
     useToggleAllSharing,
@@ -71,6 +73,72 @@ const StyledScrollView = styled(ScrollView);
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MEMBER_LIST_MAX_HEIGHT = SCREEN_HEIGHT * 0.4;
+
+/**
+ * Custom toggle that doesn't steal touches from the parent ScrollView.
+ * The native Switch captures touches at the OS level, preventing scrolling.
+ * This uses Pressable which participates in RN's gesture responder system.
+ */
+function ScrollFriendlySwitch({ value, onValueChange, disabled, activeColor = '#3b82f6' }: {
+    value: boolean;
+    onValueChange: (val: boolean) => void;
+    disabled?: boolean;
+    activeColor?: string;
+}) {
+    const animRef = React.useRef(new Animated.Value(value ? 1 : 0)).current;
+
+    React.useEffect(() => {
+        Animated.timing(animRef, {
+            toValue: value ? 1 : 0,
+            duration: 200,
+            useNativeDriver: false,
+        }).start();
+    }, [value]);
+
+    const trackBg = animRef.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['#cbd5e1', activeColor],
+    });
+
+    const thumbTranslateX = animRef.interpolate({
+        inputRange: [0, 1],
+        outputRange: [2, 20],
+    });
+
+    return (
+        <Pressable
+            onPress={() => !disabled && onValueChange(!value)}
+            disabled={disabled}
+            hitSlop={0}
+            style={{ opacity: disabled ? 0.5 : 1 }}
+        >
+            <Animated.View
+                style={{
+                    width: 42,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: trackBg,
+                    justifyContent: 'center',
+                }}
+            >
+                <Animated.View
+                    style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        backgroundColor: '#ffffff',
+                        transform: [{ translateX: thumbTranslateX }],
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 1.5,
+                        elevation: 2,
+                    }}
+                />
+            </Animated.View>
+        </Pressable>
+    );
+}
 
 // ─── Admin Member Row ───────────────────────────────────────────────────
 
@@ -148,14 +216,11 @@ function AdminMemberRow({
                             >
                                 {isLoading ? <ActivityIndicator size="small" color="#ef4444" /> : <UserX size={22} color="#ef4444" />}
                             </TouchableOpacity>
-                            {/* Share toggle — fixed width column */}
+                            {/* Share toggle — custom Pressable-based toggle to avoid scroll interference */}
                             <View style={{ width: 60, alignItems: 'center' }}>
-                                <Switch
+                                <ScrollFriendlySwitch
                                     value={member.can_share}
                                     onValueChange={handleToggleShare}
-                                    trackColor={{ false: '#cbd5e1', true: '#3b82f6' }}
-                                    thumbColor="#ffffff"
-                                    style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
                                 />
                             </View>
                         </>
@@ -215,6 +280,7 @@ function LeagueManageCard({ league, reorderMode, onMoveUp, onMoveDown, isFirst, 
     const leaveMode = useLeaveLeagueMode();
     const rejoinMode = useRejoinLeagueMode();
     const deleteMembership = useDeleteLeagueMembership();
+    const adminDeleteLeague = useAdminDeleteLeague();
     const toggleAllSharing = useToggleAllSharing();
 
     const surfaceColor = useThemeColor({}, 'surface');
@@ -362,7 +428,7 @@ function LeagueManageCard({ league, reorderMode, onMoveUp, onMoveDown, isFirst, 
                     text: 'Confirm',
                     style: 'destructive',
                     onPress: async () => {
-                        try { await deleteMembership.mutateAsync(league.id); }
+                        try { await adminDeleteLeague.mutateAsync(league.id); }
                         catch (e: any) { Alert.alert('Error', e?.message || 'Failed to delete league'); }
                     },
                 },
@@ -540,13 +606,10 @@ function LeagueManageCard({ league, reorderMode, onMoveUp, onMoveDown, isFirst, 
                                 <Text style={{ flex: 1, fontSize: 13, fontFamily: 'Nunito_500Medium', color: iconColor, fontStyle: 'italic' }}>All Members</Text>
                                 <View style={{ width: 48 }} />
                                 <View style={{ width: 60, alignItems: 'center' }}>
-                                    <Switch
+                                    <ScrollFriendlySwitch
                                         value={allShareOn}
                                         onValueChange={handleToggleAllSharing}
-                                        trackColor={{ false: '#cbd5e1', true: '#3b82f6' }}
-                                        thumbColor="#ffffff"
                                         disabled={toggleAllSharing.isPending}
-                                        style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
                                     />
                                 </View>
                             </View>
@@ -734,9 +797,9 @@ function LeagueManageCard({ league, reorderMode, onMoveUp, onMoveDown, isFirst, 
                                 backgroundColor: '#ef4444', marginTop: 8,
                             }}
                             onPress={handleDeleteLeague}
-                            disabled={deleteMembership.isPending}
+                            disabled={adminDeleteLeague.isPending}
                         >
-                            {deleteMembership.isPending
+                            {adminDeleteLeague.isPending
                                 ? <ActivityIndicator size="small" color="#fff" />
                                 : <Trash2 size={16} color="#fff" />
                             }
@@ -1149,11 +1212,10 @@ export default function ManageLeaguesScreen() {
                                     Remove myself from all leagues?
                                 </Text>
                             </View>
-                            <Switch
+                            <ScrollFriendlySwitch
                                 value={removeAllToggle}
                                 onValueChange={handleToggleRemoveAll}
-                                trackColor={{ false: '#cbd5e1', true: '#ef4444' }}
-                                thumbColor="#ffffff"
+                                activeColor="#ef4444"
                             />
                         </View>
                     </View>

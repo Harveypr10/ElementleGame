@@ -814,6 +814,31 @@ export function useAdminUnblockMember() {
     });
 }
 
+/**
+ * Permanently delete a custom league (admin-only).
+ * Removes the league and ALL related data (members, standings, awards, bans).
+ */
+export function useAdminDeleteLeague() {
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
+    return useMutation({
+        mutationFn: async (leagueId: string) => {
+            const { data, error } = await supabase.rpc('admin_delete_league' as any, {
+                p_league_id: leagueId,
+            });
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            if (user?.id) {
+                queryClient.invalidateQueries({ queryKey: leagueKeys.myLeagues(user.id, 'region') });
+                queryClient.invalidateQueries({ queryKey: leagueKeys.myLeagues(user.id, 'user') });
+                queryClient.invalidateQueries({ queryKey: leagueKeys.myLeaguesAll(user.id) });
+            }
+        },
+    });
+}
+
 // ─── Historical Standings & Awards ──────────────────────────────────────
 
 /**
@@ -957,4 +982,41 @@ export function usePendingTrophies() {
     };
 
     return { pendingTrophies, refetchPendingTrophies, markTrophyAsSeen };
+}
+
+// ─── Home Screen Lightweight Rankings ───────────────────────────────────
+
+export type HomeRanks = {
+    global_rank: number | null;
+    global_yesterdays_rank: number | null;
+    region_rank: number | null;
+    region_yesterdays_rank: number | null;
+    region_name: string;
+};
+
+async function fetchMyHomeRanks(gameMode: GameMode): Promise<HomeRanks> {
+    const { data, error } = await supabase.rpc('get_my_home_ranks' as any, {
+        p_game_mode: gameMode,
+    });
+    if (error) {
+        console.error('[useLeagueData] Error fetching home ranks:', error);
+        throw error;
+    }
+    return data as HomeRanks;
+}
+
+/**
+ * Lightweight hook for the Home Screen league button.
+ * Fetches only the current user's rank + rank change without building
+ * the full leaderboard. Replaces the heavy useLeagueStandings chain.
+ */
+export function useMyHomeRanks(gameMode: GameMode = 'region') {
+    const { user } = useAuth();
+    return useQuery({
+        queryKey: ['leagues', 'home-ranks', user?.id ?? '', gameMode],
+        queryFn: () => fetchMyHomeRanks(gameMode),
+        enabled: !!user?.id,
+        staleTime: 1000 * 30, // 30s — fresh enough for live feel
+        refetchOnWindowFocus: true,
+    });
 }

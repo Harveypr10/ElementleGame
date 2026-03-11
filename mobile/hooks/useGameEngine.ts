@@ -817,7 +817,8 @@ export function useGameEngine({
                 result: isWin ? 'won' : (newGuesses.length >= maxGuesses ? 'lost' : null),
                 digits: numDigits,
                 updatedAt: new Date().toISOString(),
-                streakDayStatus: streakDayStatus
+                streakDayStatus: streakDayStatus,
+                answerDateCanonical: answerDateCanonical
             };
             const storageKey = `${SYNC_STORAGE_PREFIX}${user.id}_${mode}_${puzzleId}`;
             await AsyncStorage.setItem(storageKey, JSON.stringify(userStateToSave));
@@ -982,6 +983,19 @@ export function useGameEngine({
                     }
                 }
 
+                // Calculate first-guess penalty for league tie-breaking
+                // Formula: MIN(ABS(actual_year - first_guess_year), 1000) / 100000
+                let firstGuessPenalty = 0;
+                if (canonicalGuesses.length > 0) {
+                    // Parse years directly from YYYY-MM-DD strings to avoid
+                    // JS Date constructor bugs with ancient dates (e.g. year 356)
+                    const actualYear = parseInt(answerDateCanonical.split('-')[0], 10);
+                    const firstGuessYear = parseInt(canonicalGuesses[0].split('-')[0], 10);
+                    if (!isNaN(actualYear) && !isNaN(firstGuessYear)) {
+                        firstGuessPenalty = Math.min(Math.abs(actualYear - firstGuessYear), 1000) / 100000;
+                    }
+                }
+
                 const { error: updateError } = await supabase
                     .from(ATTEMPTS_TABLE)
                     .update({
@@ -989,7 +1003,8 @@ export function useGameEngine({
                         num_guesses: newGuesses.length,
                         streak_day_status: newStreakDayStatus,
                         completed_at: new Date().toISOString(),
-                        digits: numDigits.toString()
+                        digits: numDigits.toString(),
+                        first_guess_penalty: firstGuessPenalty
                     })
                     .eq('id', currentAttemptId);
 

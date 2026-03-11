@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, Mail } from 'lucide-react-native';
 import { GoogleLogo } from '../../components/icons/GoogleLogo';
+import { AppleLogo } from '../../components/icons/AppleLogo';
 import { PasswordInput } from '../../components/ui/PasswordInput';
 
 import { validatePassword } from '../../lib/passwordValidation';
@@ -71,7 +72,7 @@ export default function LoginPage() {
     const fromLeague = params.fromLeague === '1';
 
     const { darkMode: isDarkMode } = useOptions();
-    const { signInWithEmail, signUpWithEmail, markSigningIn } = useAuth();
+    const { signInWithEmail, signUpWithEmail, markSigningIn, clearSigningIn } = useAuth();
 
     const [step, setStep] = useState<LoginStep>(initialStep || 'email');
     const [email, setEmail] = useState('');
@@ -374,6 +375,7 @@ export default function LoginPage() {
                 const signInResult = await signInWithLinkedIdentity('google', userInfo.data.idToken);
 
                 if (!signInResult.success) {
+                    clearSigningIn();
                     if (signInResult.isDisabled) {
                         Alert.alert('Account Disabled', 'This Google account has been disabled. Please re-enable it in Settings → Account Info.');
                     } else {
@@ -383,6 +385,7 @@ export default function LoginPage() {
                 }
 
                 console.log('[Login] Successfully signed in as linked user:', signInResult.userId);
+                clearSigningIn();
                 if (subscribeFirst) {
                     router.replace('/(auth)/subscription-flow');
                 } else {
@@ -435,6 +438,7 @@ export default function LoginPage() {
                                         router.replace('/');
                                     }
                                 } finally {
+                                    clearSigningIn();
                                     setLoading(false);
                                 }
                             }
@@ -444,6 +448,7 @@ export default function LoginPage() {
             }
         } catch (error: any) {
             console.error('[Login] Google sign-in error:', error);
+            clearSigningIn();
             if (error.code !== 'SIGN_IN_CANCELLED' && error.message !== 'Sign in cancelled') {
                 Alert.alert('Error', error.message || 'Failed to sign in with Google');
             }
@@ -469,6 +474,11 @@ export default function LoginPage() {
         if (Platform.OS === 'android') {
             try {
                 console.log('[Login] Starting web-based Apple sign-in (Android)');
+                // Mark signing-in BEFORE the auth call — signInWithApple() calls
+                // supabase.auth.setSession() internally, which triggers onAuthStateChange.
+                // Without this flag, the auth pipeline runs non-silently and NavGuard
+                // may see the temp Apple relay user (missing first_login_completed)
+                // and briefly redirect to the Personalise screen.
                 markSigningIn();
                 const result = await signInWithApple();
 
@@ -479,6 +489,15 @@ export default function LoginPage() {
                     return;
                 }
 
+                if (result.browserOpened) {
+                    // System browser fallback — auth.tsx handles the redirect callback.
+                    // Dismiss loading; the auth state change will trigger navigation.
+                    console.log('[Login] Apple OAuth browser opened, waiting for redirect...');
+                    setLoading(false);
+                    return;
+                }
+
+                // In-app browser completed successfully — session is already set
                 console.log('[Login] Apple web sign-in successful, isNewUser:', result.isNewUser);
 
                 if (result.isNewUser) {
@@ -497,6 +516,7 @@ export default function LoginPage() {
                 console.error('[Login] Apple web sign-in error:', error);
                 Alert.alert('Error', error.message || 'Failed to sign in with Apple');
             } finally {
+                clearSigningIn();
                 setLoading(false);
             }
             return;
@@ -535,11 +555,13 @@ export default function LoginPage() {
                 const signInResult = await signInWithLinkedIdentity('apple', credential.identityToken);
 
                 if (!signInResult.success) {
+                    clearSigningIn();
                     Alert.alert('Error', signInResult.error || 'Failed to sign in with linked Apple account');
                     return;
                 }
 
                 console.log('[Login] Successfully signed in as linked user:', signInResult.userId);
+                clearSigningIn();
                 if (subscribeFirst) {
                     router.replace('/(auth)/subscription-flow');
                 } else {
@@ -592,6 +614,7 @@ export default function LoginPage() {
                                         router.replace('/');
                                     }
                                 } finally {
+                                    clearSigningIn();
                                     setLoading(false);
                                 }
                             }
@@ -601,6 +624,7 @@ export default function LoginPage() {
             }
         } catch (error: any) {
             console.error('[Login] Apple sign-in error:', error);
+            clearSigningIn();
             if (error.code !== 'ERR_CANCELED') {
                 Alert.alert('Error', error.message || 'Failed to sign in with Apple');
             }
@@ -716,7 +740,7 @@ export default function LoginPage() {
                                     disabled={!appleAvailable || loading}
                                 >
                                     <View style={styles.socialButtonContent}>
-                                        <Text style={styles.appleIcon}></Text>
+                                        <AppleLogo size={20} color="#fff" />
                                         <Text style={[styles.socialButtonText, { color: '#fff' }, !appleAvailable && { color: '#999' }]}>
                                             {appleAvailable ? 'Continue with Apple' : 'Apple (iOS only)'}
                                         </Text>
@@ -850,7 +874,7 @@ export default function LoginPage() {
                                         onPress={handleAppleSignIn}
                                     >
                                         <View style={styles.socialButtonContent}>
-                                            <Text style={styles.appleIcon}></Text>
+                                            <AppleLogo size={20} color="#fff" />
                                             <Text style={[styles.socialButtonText, { color: '#fff' }]}>Continue with Apple</Text>
                                         </View>
                                     </TouchableOpacity>

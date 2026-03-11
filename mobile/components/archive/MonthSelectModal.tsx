@@ -72,10 +72,10 @@ export const MonthSelectModal = ({ visible, onClose, currentDate, minDate, maxDa
         onClose();
     };
 
-    // Year-mode: build list of available years
+    // Year-mode: build list of available years (oldest → newest, left → right)
     const yearList = useMemo(() => {
         const years: number[] = [];
-        for (let y = maxYear; y >= minYear; y--) {
+        for (let y = minYear; y <= maxYear; y++) {
             years.push(y);
         }
         return years;
@@ -111,7 +111,7 @@ export const MonthSelectModal = ({ visible, onClose, currentDate, minDate, maxDa
 
                     {mode === 'year' ? (
                         /* ── Year Grid ── */
-                        <StyledView className="flex-row flex-wrap justify-between gap-y-4 mt-4">
+                        <StyledView className="flex-row flex-wrap gap-3 mt-4">
                             {yearList.map((year) => {
                                 const isSelected = year === currentDate.getFullYear();
                                 return (
