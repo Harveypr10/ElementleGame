@@ -257,15 +257,16 @@ Return a valid JSON object with double‑quoted keys and values, with fields:
   if (job.scope_type === "region") {
     if (job.scope_id === "GLOBAL") {
       // Global game: truly worldwide, universally recognised events
+      // NOTE: No universalMetadataBlock here — region questions don't need sphere/regions metadata.
+      // We hardcode regions=["ALL"], target_sphere=null, excluded_spheres=[] at INSERT time.
       prompt = `Generate a truly worldwide, universally recognised historical event, suitable as a question in a global family game.
 The event must be on an exact recorded date and fall strictly between ${spec.start_date} and ${effectiveEndDate}.
 ${noDuplicateBlock}The event should be recognisable to audiences across any culture or continent — not specific to one country.
 The event must relate to the category "${job.category?.name}" (id ${job.category_id}), described as: "${job.category?.description}".
 Only return events that are verifiable in reliable sources. If none exist for the requested window and scope, return null (JSON null).
-Estimate a quality score for the event, based on its historical significance and how interesting or quirky it is, 1 being poor to 5 being excellent.
+Estimate a quality score for the event. A score of 4 or 5 means the event is genuinely famous, historically significant, or delightfully quirky. A score of 3 means it is obscure or only relevant regionally — AVOID generating events that would score 3 or below. Aim for 4+.
 Also estimate an accuracy_score (integer 1–5). Only give 5 if this is a well-documented event with a precise, reliable recorded date.
 ${strictnessBlock}
-${universalMetadataBlock}
 You may also assign up to 2 additional categories but only if they are a very strong match, chosen only from the list below:
 ${CATEGORY_LIST}
 
@@ -276,21 +277,18 @@ Return a valid JSON object with double‑quoted keys and values, e.g. {"event_ti
 - categories (include ${job.category_id}, plus up to 2 more ids if very strongly relevant)
 - quality_score (integer 1–5, self-assessed quality of the event)
 - accuracy_score (integer 1–5, 5 = well-documented with precise date)
-- event_origin (strict ISO code)
-- target_sphere (string: sphere code, one of ANG/ELA/ASI/SAM/AFR)
-- excluded_spheres (array of sphere codes, or ["unique"], or [])
-- regions (array of Tier 1 ISO codes, or ["ALL"], or [])`;
+- event_origin (strict 2-letter ISO country code where the event occurred, e.g. "FR", "US". Use "UK" for United Kingdom, NOT "GB")`;
     } else {
       // Country-specific region game (future per-country regions or legacy)
+      // NOTE: No universalMetadataBlock here — region questions don't need sphere/regions metadata.
       prompt = `Generate a memorable or interesting event relevant to ${countryPromptName}, suitable as a question in a family game.
 The event must be on an exact recorded date and fall strictly between ${spec.start_date} and ${effectiveEndDate}.
 ${noDuplicateBlock}The event can be from anywhere in the world, but should feel relevant to a "${job.scope_id}" audience.
 The event must relate to the category "${job.category?.name}" (id ${job.category_id}), described as: "${job.category?.description}".
 Only return events that are verifiable in reliable sources. If none exist for the requested window and scope, return null (JSON null).
-Estimate a quality score for the event, based on its historical significance and how interesting or quirky it is, 1 being poor to 5 being excellent.
+Estimate a quality score for the event. A score of 4 or 5 means the event is genuinely famous, historically significant, or delightfully quirky. A score of 3 means it is obscure or only relevant regionally — AVOID generating events that would score 3 or below. Aim for 4+.
 Also estimate an accuracy_score (integer 1–5). Only give 5 if this is a well-documented event with a precise, reliable recorded date.
 ${strictnessBlock}
-${universalMetadataBlock}
 You may also assign up to 2 additional categories but only if they are a very strong match, chosen only from the list below:
 ${CATEGORY_LIST}
 
@@ -301,10 +299,7 @@ Return a valid JSON object with double‑quoted keys and values, e.g. {"event_ti
 - categories (include ${job.category_id}, plus up to 2 more ids if very strongly relevant)
 - quality_score (integer 1–5, self-assessed quality of the event)
 - accuracy_score (integer 1–5, 5 = well-documented with precise date)
-- event_origin (strict ISO code)
-- target_sphere (string: sphere code, one of ANG/ELA/ASI/SAM/AFR)
-- excluded_spheres (array of sphere codes, or ["unique"], or [])
-- regions (array of Tier 1 ISO codes, or ["ALL"], or [])`;
+- event_origin (strict 2-letter ISO country code where the event occurred, e.g. "FR", "US". Use "UK" for United Kingdom, NOT "GB")`;
     }
   }
 
@@ -909,8 +904,9 @@ break;
     }
 
     // Interpret quality score outcomes
-    if (qualityScore === 1) {
-      const reason = "low_quality_score";
+    // Quality < 3 → reject outright and deactivate spec
+    if (qualityScore < 3) {
+      const reason = `low_quality_score_${qualityScore}`;
       console.log(`Job ${job.id}: ${reason}; fail + deactivate spec`);
       const { error: deactivateError } = await supabase.rpc("archive_and_delete_spec", { p_spec_id: job.spec_id, p_reason: "spec_missing_or_inactive" });
       if (deactivateError) {
@@ -919,17 +915,6 @@ break;
         console.log(`[worker] Spec ${spec.id} marked inactive`);
       }
       throw new Error(reason);
-    }
-
-    if (qualityScore === 2) {
-      console.log(`Job ${job.id}: score=2; accept but deactivate spec`);
-      const { error: deactivateError } = await supabase.rpc("archive_and_delete_spec", { p_spec_id: job.spec_id, p_reason: "spec_missing_or_inactive" });
-      if (deactivateError) {
-        console.warn(`[worker] Failed to mark spec ${spec.id} inactive: ${deactivateError.message}`);
-      } else {
-        console.log(`[worker] Spec ${spec.id} marked inactive`);
-      }
-      // continue with insert, do not throw
     }
 
     // Pre-insert diagnostics
@@ -949,6 +934,19 @@ break;
 
     console.log("[SpecRowFetched]", JSON.stringify(spec, null, 2));
 
+    // --- Post-generation metadata sanitisation ---
+    // Bug 3 fix: Map GB → UK for event_origin (our convention uses UK, not ISO GB)
+    let sanitisedEventOrigin = aiResponse.event_origin || "Unknown";
+    if (sanitisedEventOrigin === "GB") sanitisedEventOrigin = "UK";
+
+    // Bug 2 fix: Validate target_sphere (must be one of the 5 allowed codes)
+    const VALID_SPHERES = ["ANG", "ELA", "ASI", "SAM", "AFR"];
+    let sanitisedTargetSphere = aiResponse.target_sphere || null;
+    if (sanitisedTargetSphere && !VALID_SPHERES.includes(sanitisedTargetSphere)) {
+      console.warn(`[worker] Invalid target_sphere "${sanitisedTargetSphere}" from AI — setting to null`);
+      sanitisedTargetSphere = null;
+    }
+
     // Scope-aware insert
     let targetTable, payload;
     if (job.scope_type === "user") {
@@ -960,12 +958,13 @@ break;
         answer_date_canonical: aiResponse.answer_date_canonical,
         categories: normalizeCategories(aiResponse.categories),
         question_kind: job.slot_type,
-        event_origin: aiResponse.event_origin || job.region || "UK",
+        event_origin: sanitisedEventOrigin === "Unknown" ? (job.region || "UK") : sanitisedEventOrigin,
         quality_score: qualityScore,
         accuracy_score: Number(aiResponse.accuracy_score ?? null),
         archive_id: job.archive_id || job.id,
         ai_model_used: AI_MODEL_GENERATOR,
-        target_sphere: aiResponse.target_sphere || null,
+        is_approved: true,
+        target_sphere: sanitisedTargetSphere,
         excluded_spheres: aiResponse.excluded_spheres || []
       };
 
@@ -979,27 +978,24 @@ break;
         payload.categories = [999];
       }
     } else {
+      // Region-scope questions: hardcode metadata (no AI sphere/regions needed)
       targetTable = "questions_master_region";
       payload = {
-        regions: [job.scope_id],
+        regions: ["ALL"],
         event_title: aiResponse.event_title,
         event_description: aiResponse.event_description,
         answer_date_canonical: aiResponse.answer_date_canonical,
         categories: normalizeCategories(aiResponse.categories),
         question_kind: job.slot_type,
-        event_origin: aiResponse.event_origin || "Unknown",
+        event_origin: sanitisedEventOrigin,
         quality_score: qualityScore,
         accuracy_score: Number(aiResponse.accuracy_score ?? null),
         archive_id: job.archive_id || job.id,
         ai_model_used: AI_MODEL_GENERATOR,
-        target_sphere: aiResponse.target_sphere || null,
-        excluded_spheres: aiResponse.excluded_spheres || []
+        is_approved: true,
+        target_sphere: null,
+        excluded_spheres: []
       };
-
-      // For category questions, use AI-provided Tier 1 inclusion list
-      if (job.slot_type === "category" && Array.isArray(aiResponse.regions)) {
-        payload.regions = aiResponse.regions;
-      }
 
       if (job.slot_type === "location") {
         payload.populated_place_id = job.populated_place_id;
