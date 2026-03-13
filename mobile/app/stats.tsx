@@ -123,7 +123,7 @@ export default function StatsScreen() {
         lostTrack: isDark ? 'rgba(127, 29, 29, 0.6)' : '#FEF2F2',
         cardBorder: isDark ? '#334155' : '#F3F4F6',
         shadow: 'rgba(0, 0, 0, 0.04)',
-        hamsterTitle: mode === 'REGION' ? `${userRegion} Edition` : 'Personal Stats',
+        hamsterTitle: mode === 'REGION' ? 'Global Edition' : 'Personal Stats',
     };
 
     // Check for guest mode on mount
@@ -384,7 +384,7 @@ export default function StatsScreen() {
                             <ChevronLeft size={28} color="#FFFFFF" />
                         </StyledTouchableOpacity>
                         <ThemedText baseSize={36} className="font-n-bold font-heading" style={{ color: '#FFFFFF' }}>
-                            {mode === 'REGION' ? `${userRegion} Stats` : 'Personal Stats'}
+                            {mode === 'REGION' ? 'Global Stats' : 'Personal Stats'}
                         </ThemedText>
                         <StyledView className="w-10" />
                     </StyledView>

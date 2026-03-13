@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { AppState, AppStateStatus, Linking, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { detectUserLocale } from './localeDetection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { migrateGuestDataToUser } from './guestMigration';
 import { logInRevenueCat, logOutRevenueCat } from './RevenueCat';
@@ -334,6 +335,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (data) {
                     console.log(`[Auth] Profile confirmed for user on attempt ${attempt}:`, userId);
                     getQueryClient().setQueryData(['user_profile', userId], data);
+
+                    // Backfill timezone if not set — fire-and-forget
+                    if (!(data as any).timezone) {
+                        try {
+                            const { timezone } = detectUserLocale();
+                            if (timezone) {
+                                console.log('[Auth] Backfilling timezone:', timezone);
+                                supabase
+                                    .from('user_profiles')
+                                    .update({ timezone } as any)
+                                    .eq('id', userId)
+                                    .then(({ error: tzErr }) => {
+                                        if (tzErr) console.warn('[Auth] Timezone backfill failed:', tzErr.message);
+                                        else console.log('[Auth] Timezone backfilled successfully');
+                                    });
+                            }
+                        } catch (e) {
+                            console.warn('[Auth] Timezone backfill error:', e);
+                        }
+                    }
+
                     return true;
                 }
 
@@ -355,14 +377,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const fullName = userMeta?.full_name || userMeta?.name || 'Player';
             const email = userMeta?.email || 'admin@dobl.tech';
             const nameParts = fullName.split(' ');
+
+            // Detect locale for region/timezone
+            const { regionCode, timezone } = detectUserLocale();
+            const profileData: any = {
+                id: userId,
+                email,
+                first_name: nameParts[0] || 'Player',
+                last_name: nameParts.slice(1).join(' ') || null,
+            };
+            if (regionCode) profileData.region = regionCode;
+            if (timezone) profileData.timezone = timezone;
+
             const { data: newProfile, error: insertError } = await supabase
                 .from('user_profiles')
-                .upsert({
-                    id: userId,
-                    email,
-                    first_name: nameParts[0] || 'Player',
-                    last_name: nameParts.slice(1).join(' ') || null,
-                } as any)
+                .upsert(profileData as any)
                 .select('*')
                 .single();
 
@@ -430,6 +459,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Phase: merging_data
         setAuthPhase('merging_data');
         await runGuestMigration(sessionUser.id);
+
+        // Fire-and-forget: prefetch top location for paywall personalisation
+        prefetchTopLocation(sessionUser.id).catch(e =>
+            console.warn('[Auth] Top location prefetch failed (non-blocking):', e)
+        );
+    };
+
+    /**
+     * Prefetch the user's highest-scored location_allocation place name
+     * and cache it in AsyncStorage for the Paywall to read without latency.
+     */
+    const prefetchTopLocation = async (userId: string): Promise<void> => {
+        try {
+            const { data, error } = await supabase
+                .from('location_allocation')
+                .select('populated_places(name1)')
+                .eq('user_id', userId)
+                .order('score', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error) {
+                console.warn('[Auth] Top location query error:', error.message);
+                return;
+            }
+
+            const placeName = (data as any)?.populated_places?.name1;
+            if (placeName) {
+                await AsyncStorage.setItem(`top_location_${userId}`, placeName);
+                console.log('[Auth] Cached top location:', placeName);
+            }
+        } catch (e) {
+            console.warn('[Auth] Top location prefetch error:', e);
+        }
     };
 
     // ============================================================

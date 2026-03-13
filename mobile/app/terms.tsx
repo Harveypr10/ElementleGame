@@ -30,7 +30,7 @@ export default function TermsScreen() {
         },
         {
             title: "2. Use of Service",
-            content: "Elementle is a daily historical date-guessing puzzle game. You may:\n• Play as a guest with local storage only\n• Create an account to save progress permanently\n• Access daily puzzles and archived puzzles\n\nThe service is intended for users aged 13 and over (or 16 in the EEA/UK). By using the service, you confirm you meet this age requirement."
+            content: "Elementle is a daily historical date-guessing puzzle game. You may:\n\u2022 Play as a guest with local storage only\n\u2022 Create an account to save progress permanently\n\u2022 Access daily puzzles and archived puzzles\n\nThe service is intended for users aged 13 and over (or the minimum age required in your jurisdiction). By using the service, you confirm you meet this age requirement."
         },
         {
             title: "3. User Accounts",
@@ -70,7 +70,7 @@ export default function TermsScreen() {
         },
         {
             title: "12. Governing Law",
-            content: "These terms are governed by and construed in accordance with the laws of England and Wales. Any disputes arising from these terms or your use of the service shall be subject to the exclusive jurisdiction of the courts of England and Wales."
+            content: "These terms are governed by and construed in accordance with the laws of England and Wales. Any disputes arising from these terms or your use of the service shall be subject to the exclusive jurisdiction of the courts of England and Wales.\n\nFor users outside the UK, local consumer protection laws in your jurisdiction may also apply where they cannot be excluded by contract."
         },
         {
             title: "13. Dispute Resolution",

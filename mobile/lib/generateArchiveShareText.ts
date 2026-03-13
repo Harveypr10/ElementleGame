@@ -12,7 +12,7 @@ interface DayInfo {
 }
 
 interface ArchiveShareTextParams {
-    edition: string;           // e.g. "UK Edition" or "Personalised"
+    edition: string;           // e.g. "Global" or "Personalised"
     monthLabel: string;        // e.g. "Feb 2026"
     days: DayInfo[];           // One entry per calendar day of the month (1st → last)
     wonCount: number;          // Total wins

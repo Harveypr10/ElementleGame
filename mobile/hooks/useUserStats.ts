@@ -120,7 +120,7 @@ export const useUserStats = (mode: 'REGION' | 'USER' = 'REGION') => {
             current_streak: newCurrentStreak,
             max_streak: newMaxStreak,
             // Only add region if it's the region table to satisfy unique constraint
-            ...(mode === 'REGION' ? { region: 'UK' } : {})
+            ...(mode === 'REGION' ? { region: 'GLOBAL' } : {})
         };
 
         const { error: upsertError } = await supabase

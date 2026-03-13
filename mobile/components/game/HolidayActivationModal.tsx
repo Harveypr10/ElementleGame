@@ -129,7 +129,7 @@ export function HolidayActivationModal({ visible, filledDates, onClose, gameType
                         .eq('user_id', user.id)
                         .gte('questions_allocated_region.puzzle_date', start.toISOString())
                         .lte('questions_allocated_region.puzzle_date', end.toISOString())
-                        .eq('questions_allocated_region.region', 'UK'); // Aligning with Archive.tsx logic
+                        .eq('questions_allocated_region.region', 'GLOBAL'); // Global game allocation
 
                     regionData?.forEach((row: any) => {
                         const date = row.questions_allocated_region?.puzzle_date;

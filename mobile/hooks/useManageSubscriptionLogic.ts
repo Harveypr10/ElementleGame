@@ -102,7 +102,7 @@ export const useManageSubscriptionLogic = () => {
     }, [subscription?.autoRenew]);
 
     // Calculations
-    const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
+    const regionLabel = 'Global';
     const regionUsed = status?.region?.streakSaversUsedMonth ?? 0;
     const userUsed = status?.user?.streakSaversUsedMonth ?? 0;
     const effectiveStreakSavers = streakSavers ?? (isPro ? 3 : 1);

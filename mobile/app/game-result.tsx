@@ -146,7 +146,7 @@ export default function GameResultScreen() {
     }, [parsedFeedback, answerDateCanonical, isMMFirst]);
 
     // Edition label
-    const edition = gameMode === 'USER' ? 'Personalised' : 'UK Edition';
+    const edition = gameMode === 'USER' ? 'Personalised' : 'Global';
 
     // Format short date for share header using PUZZLE date (not historical answer date)
     const puzzleDateObj = new Date(puzzleDate + 'T00:00:00');

@@ -8,6 +8,8 @@ export interface UserProfile {
     last_name: string | null;
     region: string | null;
     postcode: string | null;
+    sub_region: string | null;
+    timezone: string | null;
     is_admin: boolean;
     categories_last_changed_at: string | null;
     postcode_last_changed_at: string | null;
@@ -28,7 +30,7 @@ export function useProfile() {
 
             const { data, error } = await supabase
                 .from('user_profiles')
-                .select('id, first_name, last_name, region, postcode, is_admin, categories_last_changed_at, postcode_last_changed_at, ads_consent, password_created, google_linked, apple_linked')
+                .select('*')
                 .eq('id', user.id)
                 .single();
 
@@ -41,7 +43,7 @@ export function useProfile() {
                 throw error;
             }
 
-            return data as UserProfile;
+            return data as any as UserProfile;
         },
         enabled: !!user,
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -94,7 +96,7 @@ export function useProfile() {
                 .single();
 
             if (error) throw error;
-            return data as UserProfile;
+            return data as any as UserProfile;
         },
         onSuccess: (updatedProfile) => {
             queryClient.setQueryData(['user-profile', user?.id], updatedProfile);

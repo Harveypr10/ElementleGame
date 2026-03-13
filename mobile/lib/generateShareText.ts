@@ -9,7 +9,7 @@ interface GuessFeedbackCell {
 }
 
 interface ShareTextParams {
-    edition: string;          // e.g. "UK Edition", "US Edition", "Personalised"
+    edition: string;          // e.g. "Global" or "Personalised"
     formattedDate: string;    // Puzzle calendar date e.g. "25th Feb 2026"
     eventTitle: string;       // e.g. "Spanish Flu Pandemic Ends"
     guessFeedback: GuessFeedbackCell[][]; // Grid of cell states

@@ -81,7 +81,7 @@ export default function PrivacyScreen() {
         },
         {
             title: "9. Children's Privacy",
-            content: "Elementle is rated for users aged 13+ and does not knowingly collect personal information from children under 13 (or 16 in the EEA/UK) without parental consent. If you believe a child has provided us with personal data, please contact us and we will delete it promptly."
+            content: "Elementle is rated for users aged 13+ and does not knowingly collect personal information from children under 13 (or the minimum age required in your jurisdiction) without parental consent. If you believe a child has provided us with personal data, please contact us and we will delete it promptly."
         },
         {
             title: "10. Contact Us",

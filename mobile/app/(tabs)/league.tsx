@@ -886,7 +886,7 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
                 // System league: share ranking
                 const rank = effectiveStandings.my_rank;
                 const total = effectiveStandings.total_members;
-                const leagueName = selectedLeague.system_region === 'GLOBAL' ? 'Global' : 'UK';
+                const leagueName = selectedLeague.system_region === 'GLOBAL' ? 'Global' : (selectedLeague.system_region || 'Global');
                 const periodType = selectedTimeframe === 'mtd' ? 'month' : 'year';
 
                 if (rank && total) {
@@ -1120,12 +1120,12 @@ export default function LeagueScreen({ gameMode = 'region' as GameMode }: { game
 
                     {screenWidth >= 768 ? (
                         <ThemedText className="font-n-bold text-white" size="3xl" style={{ color: '#FFFFFF' }}>
-                            {gameMode === 'region' ? 'UK Edition Leagues' : 'Personal Edition Leagues'}
+                            {gameMode === 'region' ? 'Global Game Leagues' : 'Personal Game Leagues'}
                         </ThemedText>
                     ) : (
                         <View style={{ alignItems: 'center' }}>
                             <ThemedText className="font-n-bold text-white" size="3xl" style={{ color: '#FFFFFF' }}>
-                                {gameMode === 'region' ? 'UK Edition' : 'Personal Edition'}
+                                {gameMode === 'region' ? 'Global Game' : 'Personal Game'}
                             </ThemedText>
                             <ThemedText className="font-n-bold text-white" size="3xl" style={{ color: '#FFFFFF', marginTop: -2 }}>
                                 Leagues

@@ -194,13 +194,13 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
                     .select('*, categories(id, name)');
 
                 if (puzzleIdParam === 'today') {
-                    regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', today);
+                    regionQuery = regionQuery.eq('region', 'GLOBAL').eq('puzzle_date', today);
                 } else if (/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)) {
-                    regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', puzzleIdParam);
+                    regionQuery = regionQuery.eq('region', 'GLOBAL').eq('puzzle_date', puzzleIdParam);
                 } else {
                     const idInt = parseInt(puzzleIdParam, 10);
                     if (!isNaN(idInt)) {
-                        regionQuery = regionQuery.eq('id', idInt).eq('region', 'UK');
+                        regionQuery = regionQuery.eq('id', idInt).eq('region', 'GLOBAL');
                     } else {
                         console.error('[usePlayLogic] Invalid puzzle ID:', puzzleIdParam);
                         setPuzzle(null);

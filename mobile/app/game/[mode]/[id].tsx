@@ -203,13 +203,13 @@ export default function GameScreen() {
                     let regionQuery = supabase.from('questions_allocated_region').select('*, categories(id, name)');
 
                     if (puzzleIdParam === 'today') {
-                        regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', today);
+                        regionQuery = regionQuery.eq('region', 'GLOBAL').eq('puzzle_date', today);
                     } else if (/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)) {
-                        regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', puzzleIdParam);
+                        regionQuery = regionQuery.eq('region', 'GLOBAL').eq('puzzle_date', puzzleIdParam);
                     } else {
                         const idInt = parseInt(puzzleIdParam, 10);
                         if (!isNaN(idInt)) {
-                            regionQuery = regionQuery.eq('id', idInt).eq('region', 'UK');
+                            regionQuery = regionQuery.eq('id', idInt).eq('region', 'GLOBAL');
                         } else {
                             console.error("Invalid puzzle ID:", puzzleIdParam);
                             return null;
@@ -223,7 +223,7 @@ export default function GameScreen() {
                         throw allocError;
                     }
                     if (!allocRes) {
-                        console.warn(`[GameScreen] No region allocation found. Query: region='UK', puzzle_date='${puzzleIdParam}'`);
+                        console.warn(`[GameScreen] No region allocation found. Query: region='GLOBAL', puzzle_date='${puzzleIdParam}'`);
                         return null;
                     }
 

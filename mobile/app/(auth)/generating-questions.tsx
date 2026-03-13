@@ -131,36 +131,36 @@ export default function GeneratingQuestionsScreen() {
             try {
                 // Mock data for now
                 const mockTitles = [
-                    'The Battle of Hastings',
-                    'The Great Fire of London',
-                    'The Signing of Magna Carta',
-                    'The Norman Conquest',
-                    'The English Civil War',
-                    'The Dissolution of the Monasteries',
-                    'The Spanish Armada',
-                    'The Gunpowder Plot',
-                    'The Wars of the Roses',
-                    'The Black Death',
-                    'The Industrial Revolution',
-                    'The Reform Act',
-                    'The Chartist Movement',
-                    'The Corn Laws Repealed',
-                    'The Great Exhibition',
-                    'The Crimean War',
-                    'The Indian Mutiny',
-                    'The Boer War',
-                    'The Suffragette Movement',
-                    'The Easter Rising',
-                    'The General Strike',
-                    'The Abdication Crisis',
-                    'The Blitz',
-                    'D-Day Landings',
-                    'VE Day',
-                    'The Festival of Britain',
-                    'The Coronation of Elizabeth II',
-                    'The Suez Crisis',
                     'The Moon Landing',
-                    'The Falklands War',
+                    'The Fall of the Berlin Wall',
+                    'The Invention of the Printing Press',
+                    'The French Revolution',
+                    'The Discovery of Penicillin',
+                    'The Signing of the Declaration of Independence',
+                    'The Renaissance Begins',
+                    'The Construction of the Great Wall',
+                    'The Eruption of Vesuvius',
+                    'The First Olympic Games',
+                    'The Rosetta Stone Discovered',
+                    'The Magna Carta',
+                    'The Industrial Revolution',
+                    'The Boston Tea Party',
+                    'The Treaty of Versailles',
+                    'The Gold Rush',
+                    'The Wright Brothers\' First Flight',
+                    'The Titanic Sinks',
+                    'The End of World War II',
+                    'The Cuban Missile Crisis',
+                    'The Assassination of Julius Caesar',
+                    'The Black Death',
+                    'The Emancipation Proclamation',
+                    'The Storming of the Bastille',
+                    'Magellan Circumnavigates the Globe',
+                    'The Great Fire of London',
+                    'The Partition of India',
+                    'The Suez Canal Opens',
+                    'The Spanish Armada',
+                    'D-Day Landings',
                 ];
 
                 // Shuffle and dedupe
@@ -327,8 +327,8 @@ export default function GeneratingQuestionsScreen() {
 
                     if (allocError) {
                         console.error('[GeneratingQuestions] Error fetching locations:', allocError);
-                        // Fallback to generic UK cities if specific query fails (e.g. table issue)
-                        locationNames = ['London', 'Manchester', 'Birmingham', 'Glasgow', 'Liverpool', 'Bristol', 'Edinburgh', 'Leeds'].map(n => n + '...');
+                        // Fallback to generic loading text if specific query fails
+                        locationNames = ['Discovering local history', 'Finding nearby events', 'Scanning the archives', 'Exploring your area'].map(n => n + '...');
                     } else if (allocationData && allocationData.length > 0) {
                         // Extract names
                         locationNames = allocationData
@@ -339,7 +339,7 @@ export default function GeneratingQuestionsScreen() {
                         console.log('[GeneratingQuestions] Fetched real locations:', locationNames.length);
                     } else {
                         console.log('[GeneratingQuestions] No locations found for user, using generic');
-                        locationNames = ['London', 'Manchester', 'Birmingham', 'Liverpool'].map(n => n + '...');
+                        locationNames = ['Exploring your area', 'Finding local events', 'Scanning nearby history', 'Discovering hidden gems'].map(n => n + '...');
                     }
 
                     if (locationNames.length > 0) {

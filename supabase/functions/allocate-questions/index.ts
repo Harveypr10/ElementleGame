@@ -576,7 +576,7 @@ if (master) {
     region: "GLOBAL",
     puzzle_date: date,
     question_id: master.id,
-    slot_type: "region",
+    slot_type: "category",
     category_id: primaryCategory,
     trigger_reason: d.trigger_reason,
     demand_run_id: d.run_id,
@@ -1054,24 +1054,38 @@ if (slot.slot_type === "location") {
   }
 
   // 2) If master allocation failed, decide whether we are allowed to generate
-  const placeRow = locAlloc.find(r => r.location_id === placeId);
-  const globalActive = placeRow?.populated_places?.active ?? false;
+  //
+  // Virtual locations (US/ROW): placeId is non-numeric (e.g. "US-TX", "US", "DE").
+  // These don't exist in location_allocation or populated_places tables,
+  // so we treat them as always-active — their location identity comes from
+  // the user's sub_region/region, not from the UK populated_places system.
+  const isVirtualLocation = placeId && isNaN(Number(placeId));
 
-  // We ALWAYS allow allocation of existing masters, even if globalActive is false.
-  // But we ONLY generate new questions when the place is globally active.
-const userActive = placeRow?.allocation_active ?? false;
+  if (isVirtualLocation) {
+    console.log("[Allocator][User][Location] Virtual location detected — bypassing active check", {
+      user_id: d.scope_id,
+      date,
+      placeId
+    });
+  } else {
+    const placeRow = locAlloc.find(r => r.location_id === placeId);
+    const globalActive = placeRow?.populated_places?.active ?? false;
+    const userActive = placeRow?.allocation_active ?? false;
 
-if (!userActive && !globalActive) {
-  console.log("[Allocator][User][Location] Skipping generation — user and global inactive", {
-    user_id: d.scope_id,
-    date,
-    placeId,
-    allocation_active: userActive,
-    global_active: globalActive
-  });
-  unmetCount++;
-  continue;
-}
+    // We ALWAYS allow allocation of existing masters, even if globalActive is false.
+    // But we ONLY generate new questions when the place is globally active.
+    if (!userActive && !globalActive) {
+      console.log("[Allocator][User][Location] Skipping generation — user and global inactive", {
+        user_id: d.scope_id,
+        date,
+        placeId,
+        allocation_active: userActive,
+        global_active: globalActive
+      });
+      unmetCount++;
+      continue;
+    }
+  }
 
 
   if (masterFailed) {
@@ -1481,6 +1495,13 @@ try {
     // 🔁 GLOBAL: cleanup any stale queued jobs for this run, then insert
     if (toGenerate.length > 0) {
       const dates = toGenerate.map((j) => j.puzzle_date);
+      const locationJobs = toGenerate.filter(j => j.slot_type === "location");
+      const categoryJobs = toGenerate.filter(j => j.slot_type === "category");
+
+      console.log(`[Allocator][BatchInsert] Preparing batch: total=${toGenerate.length}, location=${locationJobs.length}, category=${categoryJobs.length}, dates=${dates.length}`);
+      if (locationJobs.length > 0) {
+        console.log("[Allocator][BatchInsert] Location job sample:", JSON.stringify(locationJobs[0]));
+      }
 
       const { error: delErr } = await supabase
         .from("questions_to_generate")
@@ -1501,13 +1522,42 @@ try {
           .insert(toGenerate);
 
         if (insErr) {
-          logDbError("BulkInsertToGenerate", insErr, {
-            allocatorRunId,
-            toGenerateCount: toGenerate.length
+          console.error("[Allocator][BatchInsert] BATCH INSERT FAILED — falling back to one-by-one", {
+            error: insErr.message,
+            code: insErr.code,
+            details: insErr.details,
+            hint: insErr.hint,
+            totalJobs: toGenerate.length
           });
+
+          // Fallback: insert one-by-one to identify the problematic entry
+          let successCount = 0;
+          let failCount = 0;
+          for (const job of toGenerate) {
+            const { error: singleErr } = await supabase
+              .from("questions_to_generate")
+              .insert(job);
+
+            if (singleErr) {
+              failCount++;
+              console.error("[Allocator][BatchInsert] Individual insert FAILED", {
+                puzzle_date: job.puzzle_date,
+                slot_type: job.slot_type,
+                category_id: job.category_id,
+                populated_place_id: job.populated_place_id,
+                spec_id: job.spec_id,
+                error: singleErr.message,
+                code: singleErr.code,
+                details: singleErr.details
+              });
+            } else {
+              successCount++;
+            }
+          }
+          console.log(`[Allocator][BatchInsert] Fallback complete: ${successCount} succeeded, ${failCount} failed out of ${toGenerate.length}`);
         } else {
           console.log(
-            `[Allocator] Inserted ${toGenerate.length} jobs into questions_to_generate`,
+            `[Allocator] Inserted ${toGenerate.length} jobs into questions_to_generate (location=${locationJobs.length}, category=${categoryJobs.length})`,
             toGenerate
           );
         }

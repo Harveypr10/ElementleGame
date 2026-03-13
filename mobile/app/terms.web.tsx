@@ -48,7 +48,7 @@ export default function TermsWeb() {
                                 <Text style={styles.listItem}>• Create an account to save progress permanently</Text>
                                 <Text style={styles.listItem}>• Access daily puzzles and archived puzzles</Text>
                             </View>
-                            <Text style={styles.paragraph}>The service is intended for users aged 13 and over (or 16 in the EEA/UK). By using the service, you confirm you meet this age requirement.</Text>
+                            <Text style={styles.paragraph}>The service is intended for users aged 13 and over (or the minimum age required in your jurisdiction). By using the service, you confirm you meet this age requirement.</Text>
                         </View>
 
                         <View style={styles.section}>
@@ -142,7 +142,7 @@ export default function TermsWeb() {
                         <View style={styles.section}>
                             <Text style={styles.subHeader}>12. Governing Law</Text>
                             <Text style={styles.paragraph}>
-                                These terms are governed by and construed in accordance with the laws of England and Wales. Any disputes arising from these terms or your use of the service shall be subject to the exclusive jurisdiction of the courts of England and Wales.
+                                These terms are governed by and construed in accordance with the laws of England and Wales. Any disputes arising from these terms or your use of the service shall be subject to the exclusive jurisdiction of the courts of England and Wales.{"\n\n"}For users outside the UK, local consumer protection laws in your jurisdiction may also apply where they cannot be excluded by contract.
                             </Text>
                         </View>
 

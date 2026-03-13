@@ -10,13 +10,15 @@ import {
     Alert,
     KeyboardAvoidingView,
     Keyboard,
-    Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, HelpCircle, ChevronRight } from 'lucide-react-native';
 import { PostcodeAutocomplete } from '../../components/PostcodeAutocomplete';
+import { USStateAutocomplete } from '../../components/USStateAutocomplete';
+import { RegionAutocomplete } from '../../components/RegionAutocomplete';
 import { supabase } from '../../lib/supabase';
+import { detectUserLocale } from '../../lib/localeDetection';
 import { useColorScheme } from 'nativewind';
 import { ThemedText } from '../../components/ThemedText';
 import { ThemedView } from '../../components/ThemedView';
@@ -39,10 +41,12 @@ export default function PersonalisePage() {
     const [lastName, setLastName] = useState(params.lastName || '');
     const [region, setRegion] = useState<string>('');
     const [postcode, setPostcode] = useState('');
+    const [subRegion, setSubRegion] = useState(''); // US-XX format
+    const [detectedTimezone, setDetectedTimezone] = useState<string | null>(null);
     const [regions, setRegions] = useState<Region[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadingRegions, setLoadingRegions] = useState(true);
-    const [regionModalVisible, setRegionModalVisible] = useState(false);
+
 
     // Refs for keyboard navigation
     const lastNameRef = useRef<TextInput>(null);
@@ -57,13 +61,27 @@ export default function PersonalisePage() {
         fetchRegions();
     }, []);
 
-    // Auto-select region once fetched
+    // Auto-select region based on device locale, falling back to UK
     useEffect(() => {
         console.log('[useEffect] regions.length:', regions.length, 'current region:', region);
         if (regions.length > 0 && !region) {
+            const { regionCode, timezone } = detectUserLocale();
+            setDetectedTimezone(timezone);
+
+            if (regionCode) {
+                // Check if the detected region exists in the regions list
+                const matchedRegion = regions.find((r: Region) => r.code === regionCode);
+                if (matchedRegion) {
+                    console.log('Setting region from locale detection:', matchedRegion.code);
+                    setRegion(matchedRegion.code);
+                    return;
+                }
+            }
+
+            // Fallback to UK for legacy compatibility
             const ukRegion = regions.find((r: Region) => r.name === 'United Kingdom');
             if (ukRegion) {
-                console.log('Setting region to UK:', ukRegion.code);
+                console.log('Setting region to UK (fallback):', ukRegion.code);
                 setRegion(ukRegion.code);
             } else {
                 console.log('Setting region to first:', regions[0].code);
@@ -81,7 +99,7 @@ export default function PersonalisePage() {
             console.log('[Regions] User role:', session?.user?.role);
 
             const { data, error } = await supabase
-                .from('regions')
+                .from('reference_countries')
                 .select('code, name')
                 .order('name');
 
@@ -126,11 +144,30 @@ export default function PersonalisePage() {
             return;
         }
 
-        // Handle blank postcode with warning dialog
-        if (!postcode.trim()) {
+        // Handle blank postcode with warning dialog (skip for US — state picker handles it)
+        if (region !== 'US' && !postcode.trim()) {
             Alert.alert(
                 'No postcode provided',
                 'Without a postcode, we can\'t provide local puzzles. You\'ll only have access to general region-based puzzles. Are you sure you want to continue without entering a postcode?',
+                [
+                    {
+                        text: 'Go Back',
+                        style: 'cancel',
+                    },
+                    {
+                        text: 'Continue anyway',
+                        onPress: () => proceedToGeneration(),
+                    },
+                ]
+            );
+            return;
+        }
+
+        // Handle US users without a state
+        if (region === 'US' && !subRegion) {
+            Alert.alert(
+                'No state selected',
+                'Without selecting your state, you\'ll receive questions from across the entire US rather than tailored to your area. Are you sure?',
                 [
                     {
                         text: 'Go Back',
@@ -191,7 +228,6 @@ export default function PersonalisePage() {
                 ? `${firstName.trim()} ${lastName.trim().charAt(0).toUpperCase()}`
                 : firstName.trim();
 
-            // Update user_profiles table directly
             const profileData: any = {
                 id: userId,
                 first_name: firstName.trim(),
@@ -203,6 +239,16 @@ export default function PersonalisePage() {
                 signup_method: 'password',
                 global_display_name: identityName,
             };
+
+            // Add sub_region for US users
+            if (region === 'US' && subRegion) {
+                profileData.sub_region = subRegion;
+            }
+
+            // Add timezone from locale detection
+            if (detectedTimezone) {
+                profileData.timezone = detectedTimezone;
+            }
 
             // Only add tier_id if we found one
             if (tierIdToUse) {
@@ -359,7 +405,7 @@ export default function PersonalisePage() {
                             </View>
 
                             {/* Region Field */}
-                            <View style={styles.fieldContainer}>
+                            <View style={[styles.fieldContainer, { zIndex: 200, position: 'relative' }]}>
                                 <View style={styles.labelRow}>
                                     <ThemedText style={[styles.label, { color: textColor }]} size="sm">Region</ThemedText>
                                     <TouchableOpacity
@@ -377,16 +423,12 @@ export default function PersonalisePage() {
                                 {loadingRegions ? (
                                     <ActivityIndicator />
                                 ) : (
-                                    <TouchableOpacity
-                                        style={[styles.regionSelector, { borderColor: isDarkMode ? '#444' : '#d1d5db' }]}
-                                        onPress={() => setRegionModalVisible(true)}
-                                        onPressIn={() => Keyboard.dismiss()}
-                                    >
-                                        <ThemedText style={[styles.regionSelectorText, { color: textColor }]} size="base">
-                                            {regions.find(r => r.code === region)?.name || 'Select Region'}
-                                        </ThemedText>
-                                        <ChevronRight size={20} color="#999" />
-                                    </TouchableOpacity>
+                                    <RegionAutocomplete
+                                        value={region}
+                                        onChange={(code) => setRegion(code)}
+                                        regions={regions}
+                                        placeholder="Start typing your country..."
+                                    />
                                 )}
 
                                 <ThemedText style={[styles.helperText, { color: textColor }]} size="xs">
@@ -394,29 +436,56 @@ export default function PersonalisePage() {
                                 </ThemedText>
                             </View>
 
-                            {/* Postcode Field */}
-                            <View style={[styles.fieldContainer, { zIndex: 100, position: 'relative' }]}>
-                                <View style={styles.labelRow}>
-                                    <ThemedText style={[styles.label, { color: textColor }]} size="sm">Postcode</ThemedText>
-                                    <TouchableOpacity
-                                        onPress={() =>
-                                            Alert.alert(
-                                                'Postcode',
-                                                'Your postcode helps us provide local puzzles tailored to your area'
-                                            )
-                                        }
-                                    >
-                                        <HelpCircle size={16} color="#999" />
-                                    </TouchableOpacity>
-                                </View>
+                            {/* Postcode / State / Location Field */}
+                            {region === 'US' ? (
+                                /* US State Picker */
+                                <View style={[styles.fieldContainer, { zIndex: 100, position: 'relative' }]}>
+                                    <View style={styles.labelRow}>
+                                        <ThemedText style={[styles.label, { color: textColor }]} size="sm">State</ThemedText>
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                Alert.alert(
+                                                    'State',
+                                                    'Your state helps us provide local puzzles tailored to your area'
+                                                )
+                                            }
+                                        >
+                                            <HelpCircle size={16} color="#999" />
+                                        </TouchableOpacity>
+                                    </View>
 
-                                <PostcodeAutocomplete
-                                    value={postcode}
-                                    onChange={setPostcode}
-                                    placeholder="Enter postcode"
-                                    required={false}
-                                />
-                            </View>
+                                    <USStateAutocomplete
+                                        value={subRegion}
+                                        onChange={setSubRegion}
+                                        placeholder="Start typing your state..."
+                                        required={false}
+                                    />
+                                </View>
+                            ) : (
+                                /* Postcode Field (UK and other regions) */
+                                <View style={[styles.fieldContainer, { zIndex: 100, position: 'relative' }]}>
+                                    <View style={styles.labelRow}>
+                                        <ThemedText style={[styles.label, { color: textColor }]} size="sm">Postcode</ThemedText>
+                                        <TouchableOpacity
+                                            onPress={() =>
+                                                Alert.alert(
+                                                    'Postcode',
+                                                    'Your postcode helps us provide local puzzles tailored to your area'
+                                                )
+                                            }
+                                        >
+                                            <HelpCircle size={16} color="#999" />
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    <PostcodeAutocomplete
+                                        value={postcode}
+                                        onChange={setPostcode}
+                                        placeholder="Enter postcode"
+                                        required={false}
+                                    />
+                                </View>
+                            )}
 
 
 
@@ -448,54 +517,7 @@ export default function PersonalisePage() {
                     </TouchableOpacity>
                 </ScrollView>
 
-                {/* Region Selection Modal */}
-                <Modal
-                    visible={regionModalVisible}
-                    transparent={true}
-                    animationType="slide"
-                    onRequestClose={() => setRegionModalVisible(false)}
-                >
-                    <TouchableOpacity
-                        style={styles.modalOverlay}
-                        activeOpacity={1}
-                        onPress={() => setRegionModalVisible(false)}
-                    >
-                        <View style={[styles.modalContent, { backgroundColor: cardBg }, Platform.OS === 'android' ? { paddingBottom: 40 } : undefined]}>
-                            <View style={styles.modalHeader}>
-                                <ThemedText style={[styles.modalTitle, { color: textColor }]} size="xl">Select Region</ThemedText>
-                                <TouchableOpacity onPress={() => setRegionModalVisible(false)}>
-                                    <ThemedText style={styles.modalClose}>✕</ThemedText>
-                                </TouchableOpacity>
-                            </View>
-                            <ScrollView style={styles.modalList}>
-                                {regions.map((r) => (
-                                    <TouchableOpacity
-                                        key={r.code}
-                                        style={[
-                                            styles.modalOption,
-                                            region === r.code && styles.modalOptionSelected
-                                        ]}
-                                        onPress={() => {
-                                            setRegion(r.code);
-                                            setRegionModalVisible(false);
-                                        }}
-                                    >
-                                        <ThemedText style={[
-                                            styles.modalOptionText,
-                                            { color: textColor },
-                                            region === r.code && styles.modalOptionTextSelected
-                                        ]} size="base">
-                                            {r.name}
-                                        </ThemedText>
-                                        {region === r.code && (
-                                            <ThemedText style={styles.modalOptionCheck}>✓</ThemedText>
-                                        )}
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-                    </TouchableOpacity>
-                </Modal>
+
             </KeyboardAvoidingView>
         </ThemedView>
     );

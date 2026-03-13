@@ -17,7 +17,7 @@ interface ModeToggleProps {
     regionLabel?: string;
 }
 
-export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel, regionLabel = 'UK Edition' }: ModeToggleProps) {
+export function ModeToggle({ mode, onModeChange, scrollX, screenWidth, userLabel, regionLabel = 'Global' }: ModeToggleProps) {
     const [containerWidth, setContainerWidth] = useState(0);
     const [activeMode, setActiveMode] = useState(mode);
     const { darkMode: isDark } = useOptions();

@@ -19,7 +19,7 @@ export interface NotificationHydratedData {
 
     // User region
     userRegion: string;         // 'UK', 'US', etc.
-    regionDisplayName: string;  // 'UK Edition', etc.
+    regionDisplayName: string;  // 'Global' (for Region game notifications)
 
     // Holiday mode
     holidayActive: boolean;
@@ -36,12 +36,8 @@ export interface NotificationHydratedData {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function getRegionDisplayName(region: string): string {
-    const names: Record<string, string> = {
-        'UK': 'UK Edition',
-        'US': 'US Edition',
-        'AU': 'Australian Edition',
-    };
-    return names[region] || `${region} Edition`;
+    // Region game is now Global for all users
+    return 'Global';
 }
 
 function addDaysToDate(dateStr: string, days: number): string {
@@ -131,7 +127,7 @@ export async function fetchNotificationData(userId: string): Promise<Notificatio
         const { data: regionAllocs } = await supabase
             .from('questions_allocated_region')
             .select('puzzle_date, question_id')
-            .eq('region', userRegion)
+            .eq('region', 'GLOBAL')  // Region allocations always use GLOBAL
             .in('puzzle_date', allRegionDates);
 
         if (regionAllocs && regionAllocs.length > 0) {

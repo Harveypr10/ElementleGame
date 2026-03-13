@@ -90,7 +90,7 @@ export default function ManageSubscriptionScreen() {
 
 
 
-    const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
+    const regionLabel = 'Global';
 
     // Calculate allowances
     const regionUsed = status?.region?.streakSaversUsedMonth ?? 0;

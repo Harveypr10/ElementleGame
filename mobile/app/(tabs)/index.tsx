@@ -272,7 +272,7 @@ const GameModePage = React.memo(({
                 <AnimatedEntry opacity={entryAnims[2].opacity} translateY={entryAnims[2].translateY}>
                 <HomeCard
                     testID="home-card-archive"
-                    title={isRegion ? "UK Archive" : "Personal Archive"}
+                    title={isRegion ? "Global Archive" : "Personal Archive"}
                     icon={archiveIcon}
                     backgroundColor={archiveColor}
                     onPress={() => {
@@ -409,7 +409,7 @@ const GameModePage = React.memo(({
                 ) : (
                     <HomeCard
                         testID="home-card-stats"
-                        title={isRegion ? "UK Stats" : "Personal Stats"}
+                        title={isRegion ? "Global Stats" : "Personal Stats"}
                         icon={statsIcon}
                         backgroundColor={statsColor}
                         onPress={() => {
@@ -1529,7 +1529,7 @@ function HomeScreenInner({ snapshot }: { snapshot: HomeCacheSnapshot }) {
                                 {/* Mode Label */}
                                 <StyledView className="items-center" style={{ marginBottom: 5 }}>
                                     <ThemedText className="font-n-bold" lightColor="#0f172a" darkColor="#ffffff" baseSize={25}>
-                                        {userRegion} Edition
+                                        Global
                                     </ThemedText>
                                 </StyledView>
                                 <GameModePage

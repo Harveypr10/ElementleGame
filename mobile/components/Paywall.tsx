@@ -7,6 +7,9 @@ import { useOptions } from '../lib/options';
 import { supabase } from '../lib/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
+import { useProfile } from '../hooks/useProfile';
+import { getStateName } from '../components/USStateAutocomplete';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemedText } from './ThemedText';
 
 const StyledView = styled(View);
@@ -33,6 +36,47 @@ export default function Paywall({ onPurchaseSuccess, onPurchaseCancel, onLoginRe
     // Dark mode system colors
     const systemBackgroundColor = '#020617'; // slate-950
     const systemSurfaceColor = '#1e293b'; // slate-800
+
+    // Dynamic feature line based on user region
+    const { profile } = useProfile();
+    const [dynamicFeature, setDynamicFeature] = useState<string>('');
+
+    useEffect(() => {
+        const loadDynamicFeature = async () => {
+            try {
+                const region = profile?.region;
+                const subRegion = profile?.sub_region;
+
+                if (region === 'UK') {
+                    // Try to read cached top location
+                    const topPlace = user?.id
+                        ? await AsyncStorage.getItem(`top_location_${user.id}`)
+                        : null;
+                    if (topPlace) {
+                        setDynamicFeature(`🌍 History puzzles near ${topPlace}`);
+                    } else {
+                        setDynamicFeature('🌍 Puzzles tailored to your region');
+                    }
+                } else if (region === 'US') {
+                    const stateName = subRegion ? getStateName(subRegion) : '';
+                    if (stateName) {
+                        setDynamicFeature(`🌍 Puzzles from ${stateName} and US history`);
+                    } else {
+                        setDynamicFeature('🌍 Puzzles tailored to US history');
+                    }
+                } else if (region) {
+                    setDynamicFeature('🌍 Puzzles tailored to your region');
+                } else {
+                    setDynamicFeature('🌍 Questions from history around the world');
+                }
+            } catch (e) {
+                console.warn('[Paywall] Error loading dynamic feature:', e);
+                setDynamicFeature('🌍 Questions from history around the world');
+            }
+        };
+
+        loadDynamicFeature();
+    }, [profile?.region, profile?.sub_region, user?.id]);
 
     useEffect(() => {
         loadOfferings();
@@ -403,6 +447,7 @@ export default function Paywall({ onPurchaseSuccess, onPurchaseCancel, onLoginRe
                         'Choose your own categories',
                         '6 monthly Streak Savers (3 per game)',
                         '4 streak protecting annual holiday periods',
+                        ...(dynamicFeature ? [dynamicFeature] : []),
                     ].map((feature, index) => (
                         <StyledView key={index} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                             <StyledView style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#22c55e', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>

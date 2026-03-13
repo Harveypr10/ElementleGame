@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -12,8 +13,95 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
+      admin_action_logs: {
+        Row: {
+          action_type: string
+          admin_id: string
+          created_at: string | null
+          description: string
+          id: string
+          new_state: Json | null
+          previous_state: Json | null
+          target_user_id: string
+        }
+        Insert: {
+          action_type: string
+          admin_id: string
+          created_at?: string | null
+          description: string
+          id?: string
+          new_state?: Json | null
+          previous_state?: Json | null
+          target_user_id: string
+        }
+        Update: {
+          action_type?: string
+          admin_id?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          new_state?: Json | null
+          previous_state?: Json | null
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_action_logs_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "admin_action_logs_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_action_logs_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "admin_action_logs_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_settings: {
         Row: {
           description: string | null
@@ -166,13 +254,6 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_aqs_location"
-            columns: ["location"]
-            isOneToOne: false
-            referencedRelation: "populated_places"
-            referencedColumns: ["id"]
-          },
         ]
       }
       available_question_spec_archive: {
@@ -227,13 +308,6 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_aqs_archive_location"
-            columns: ["location"]
-            isOneToOne: false
-            referencedRelation: "populated_places"
             referencedColumns: ["id"]
           },
         ]
@@ -292,6 +366,44 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_league_rank_snapshot: {
+        Row: {
+          game_mode: string
+          id: number
+          league_id: string
+          rank: number
+          snapshot_date: string
+          timeframe: string
+          user_id: string
+        }
+        Insert: {
+          game_mode: string
+          id?: never
+          league_id: string
+          rank: number
+          snapshot_date: string
+          timeframe: string
+          user_id: string
+        }
+        Update: {
+          game_mode?: string
+          id?: never
+          league_id?: string
+          rank?: number
+          snapshot_date?: string
+          timeframe?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_league_rank_snapshot_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_percentile_job_logs: {
         Row: {
           error_message: string | null
@@ -325,6 +437,54 @@ export type Database = {
           region?: string
           started_at?: string
           status?: string
+        }
+        Relationships: []
+      }
+      daily_user_stats_snapshot: {
+        Row: {
+          avg_guesses: number | null
+          current_streak: number | null
+          elementle_rating: number | null
+          frozen_at: string
+          game_mode: string
+          games_played: number | null
+          games_won: number | null
+          id: number
+          max_streak: number | null
+          snapshot_date: string
+          timeframe: string
+          user_id: string
+          win_rate: number | null
+        }
+        Insert: {
+          avg_guesses?: number | null
+          current_streak?: number | null
+          elementle_rating?: number | null
+          frozen_at?: string
+          game_mode: string
+          games_played?: number | null
+          games_won?: number | null
+          id?: never
+          max_streak?: number | null
+          snapshot_date: string
+          timeframe: string
+          user_id: string
+          win_rate?: number | null
+        }
+        Update: {
+          avg_guesses?: number | null
+          current_streak?: number | null
+          elementle_rating?: number | null
+          frozen_at?: string
+          game_mode?: string
+          games_played?: number | null
+          games_won?: number | null
+          id?: never
+          max_streak?: number | null
+          snapshot_date?: string
+          timeframe?: string
+          user_id?: string
+          win_rate?: number | null
         }
         Relationships: []
       }
@@ -448,11 +608,60 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_notes: {
+        Row: {
+          admin_user_id: string
+          created_at: string | null
+          feedback_id: string
+          id: string
+          note: string
+        }
+        Insert: {
+          admin_user_id: string
+          created_at?: string | null
+          feedback_id: string
+          id?: string
+          note: string
+        }
+        Update: {
+          admin_user_id?: string
+          created_at?: string | null
+          feedback_id?: string
+          id?: string
+          note?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_notes_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "feedback_notes_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedback_notes_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "user_feedback"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_attempts_region: {
         Row: {
+          ad_watched: boolean | null
           allocated_region_id: number | null
           completed_at: string | null
           digits: string | null
+          first_guess_penalty: number
+          guest_id: string | null
           id: number
           num_guesses: number | null
           result: string | null
@@ -462,9 +671,12 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          ad_watched?: boolean | null
           allocated_region_id?: number | null
           completed_at?: string | null
           digits?: string | null
+          first_guess_penalty?: number
+          guest_id?: string | null
           id?: number
           num_guesses?: number | null
           result?: string | null
@@ -474,9 +686,12 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          ad_watched?: boolean | null
           allocated_region_id?: number | null
           completed_at?: string | null
           digits?: string | null
+          first_guess_penalty?: number
+          guest_id?: string | null
           id?: number
           num_guesses?: number | null
           result?: string | null
@@ -511,9 +726,11 @@ export type Database = {
       }
       game_attempts_user: {
         Row: {
+          ad_watched: boolean | null
           allocated_user_id: number
           completed_at: string | null
           digits: string | null
+          first_guess_penalty: number
           id: number
           num_guesses: number | null
           result: string | null
@@ -523,9 +740,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ad_watched?: boolean | null
           allocated_user_id: number
           completed_at?: string | null
           digits?: string | null
+          first_guess_penalty?: number
           id?: number
           num_guesses?: number | null
           result?: string | null
@@ -535,9 +754,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ad_watched?: boolean | null
           allocated_user_id?: number
           completed_at?: string | null
           digits?: string | null
+          first_guess_penalty?: number
           id?: number
           num_guesses?: number | null
           result?: string | null
@@ -563,6 +784,60 @@ export type Database = {
           },
           {
             foreignKeyName: "game_attempts_user_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      global_percentile_awards: {
+        Row: {
+          awarded_at: string
+          elementle_rating: number | null
+          game_mode: string
+          id: number
+          percentile_rank: number
+          percentile_tier: string
+          period_label: string
+          timeframe: string
+          total_ranked: number | null
+          user_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          elementle_rating?: number | null
+          game_mode?: string
+          id?: never
+          percentile_rank: number
+          percentile_tier: string
+          period_label: string
+          timeframe: string
+          total_ranked?: number | null
+          user_id: string
+        }
+        Update: {
+          awarded_at?: string
+          elementle_rating?: number | null
+          game_mode?: string
+          id?: never
+          percentile_rank?: number
+          percentile_tier?: string
+          period_label?: string
+          timeframe?: string
+          total_ranked?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "global_percentile_awards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "global_percentile_awards_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
@@ -648,6 +923,405 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      league_awards: {
+        Row: {
+          awarded_at: string
+          elementle_rating: number | null
+          game_mode: string
+          id: number
+          is_awarded: boolean
+          league_id: string
+          medal: string
+          period_label: string
+          timeframe: string
+          user_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          elementle_rating?: number | null
+          game_mode?: string
+          id?: never
+          is_awarded?: boolean
+          league_id: string
+          medal: string
+          period_label: string
+          timeframe: string
+          user_id: string
+        }
+        Update: {
+          awarded_at?: string
+          elementle_rating?: number | null
+          game_mode?: string
+          id?: never
+          is_awarded?: boolean
+          league_id?: string
+          medal?: string
+          period_label?: string
+          timeframe?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_awards_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "league_awards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "league_awards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      league_bans: {
+        Row: {
+          banned_at: string
+          banned_by: string | null
+          id: number
+          league_id: string
+          user_id: string
+        }
+        Insert: {
+          banned_at?: string
+          banned_by?: string | null
+          id?: never
+          league_id: string
+          user_id: string
+        }
+        Update: {
+          banned_at?: string
+          banned_by?: string | null
+          id?: never
+          league_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_bans_banned_by_fkey"
+            columns: ["banned_by"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "league_bans_banned_by_fkey"
+            columns: ["banned_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "league_bans_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "league_bans_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "league_bans_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      league_members: {
+        Row: {
+          can_share: boolean
+          id: number
+          is_active: boolean
+          is_active_region: boolean
+          is_active_user: boolean
+          joined_at: string
+          last_seen_rank: number | null
+          last_viewed_date: string | null
+          league_id: string
+          league_nickname: string
+          user_id: string
+          yesterdays_rank: number | null
+        }
+        Insert: {
+          can_share?: boolean
+          id?: never
+          is_active?: boolean
+          is_active_region?: boolean
+          is_active_user?: boolean
+          joined_at?: string
+          last_seen_rank?: number | null
+          last_viewed_date?: string | null
+          league_id: string
+          league_nickname: string
+          user_id: string
+          yesterdays_rank?: number | null
+        }
+        Update: {
+          can_share?: boolean
+          id?: never
+          is_active?: boolean
+          is_active_region?: boolean
+          is_active_user?: boolean
+          joined_at?: string
+          last_seen_rank?: number | null
+          last_viewed_date?: string | null
+          league_id?: string
+          league_nickname?: string
+          user_id?: string
+          yesterdays_rank?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_members_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "league_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "league_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      league_standings_live: {
+        Row: {
+          avg_guesses: number | null
+          current_streak: number | null
+          elementle_rating: number | null
+          game_mode: string
+          games_played: number | null
+          games_won: number | null
+          id: number
+          league_id: string
+          max_streak_mtd: number | null
+          max_streak_ytd: number | null
+          timeframe: string
+          updated_at: string
+          user_id: string
+          win_rate: number | null
+        }
+        Insert: {
+          avg_guesses?: number | null
+          current_streak?: number | null
+          elementle_rating?: number | null
+          game_mode?: string
+          games_played?: number | null
+          games_won?: number | null
+          id?: never
+          league_id: string
+          max_streak_mtd?: number | null
+          max_streak_ytd?: number | null
+          timeframe: string
+          updated_at?: string
+          user_id: string
+          win_rate?: number | null
+        }
+        Update: {
+          avg_guesses?: number | null
+          current_streak?: number | null
+          elementle_rating?: number | null
+          game_mode?: string
+          games_played?: number | null
+          games_won?: number | null
+          id?: never
+          league_id?: string
+          max_streak_mtd?: number | null
+          max_streak_ytd?: number | null
+          timeframe?: string
+          updated_at?: string
+          user_id?: string
+          win_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_standings_live_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      league_standings_snapshot: {
+        Row: {
+          avg_guesses: number | null
+          current_streak: number | null
+          elementle_rating: number | null
+          frozen_at: string
+          game_mode: string
+          games_played: number | null
+          games_won: number | null
+          id: number
+          league_id: string
+          period_label: string
+          rank: number | null
+          timeframe: string
+          user_id: string
+          win_rate: number | null
+        }
+        Insert: {
+          avg_guesses?: number | null
+          current_streak?: number | null
+          elementle_rating?: number | null
+          frozen_at?: string
+          game_mode?: string
+          games_played?: number | null
+          games_won?: number | null
+          id?: never
+          league_id: string
+          period_label: string
+          rank?: number | null
+          timeframe: string
+          user_id: string
+          win_rate?: number | null
+        }
+        Update: {
+          avg_guesses?: number | null
+          current_streak?: number | null
+          elementle_rating?: number | null
+          frozen_at?: string
+          game_mode?: string
+          games_played?: number | null
+          games_won?: number | null
+          id?: never
+          league_id?: string
+          period_label?: string
+          rank?: number | null
+          timeframe?: string
+          user_id?: string
+          win_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_standings_snapshot_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leagues: {
+        Row: {
+          admin_user_id: string | null
+          created_at: string
+          has_region_board: boolean
+          has_user_board: boolean
+          id: string
+          is_system_league: boolean
+          join_code: string | null
+          last_snapshot_date: string | null
+          name: string
+          share_link_public: boolean
+          system_region: string | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          admin_user_id?: string | null
+          created_at?: string
+          has_region_board?: boolean
+          has_user_board?: boolean
+          id?: string
+          is_system_league?: boolean
+          join_code?: string | null
+          last_snapshot_date?: string | null
+          name?: string
+          share_link_public?: boolean
+          system_region?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_user_id?: string | null
+          created_at?: string
+          has_region_board?: boolean
+          has_user_board?: boolean
+          id?: string
+          is_system_league?: boolean
+          join_code?: string | null
+          last_snapshot_date?: string | null
+          name?: string
+          share_link_public?: boolean
+          system_region?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leagues_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "leagues_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      linked_identities: {
+        Row: {
+          created_at: string | null
+          disabled_at: string | null
+          id: string
+          provider: string
+          provider_email: string | null
+          provider_user_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          disabled_at?: string | null
+          id?: string
+          provider: string
+          provider_email?: string | null
+          provider_user_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          disabled_at?: string | null
+          id?: string
+          provider?: string
+          provider_email?: string | null
+          provider_user_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       location_allocation: {
         Row: {
@@ -1125,6 +1799,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_alloc_region_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_master_region_stats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_allocated_region_region"
             columns: ["region"]
             isOneToOne: false
@@ -1206,6 +1887,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_alloc_user_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_master_user_stats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_qau_category"
             columns: ["category_id"]
             isOneToOne: false
@@ -1225,11 +1913,15 @@ export type Database = {
           event_description: string
           event_origin: string
           event_title: string
+          excluded_spheres: Json
           id: number
+          is_approved: boolean | null
           populated_place_id: string | null
           quality_score: number | null
           question_kind: string | null
           regions: Json
+          target_country: string | null
+          target_sphere: string | null
         }
         Insert: {
           accuracy_score?: number | null
@@ -1241,11 +1933,15 @@ export type Database = {
           event_description: string
           event_origin: string
           event_title: string
+          excluded_spheres?: Json
           id?: number
+          is_approved?: boolean | null
           populated_place_id?: string | null
           quality_score?: number | null
           question_kind?: string | null
           regions?: Json
+          target_country?: string | null
+          target_sphere?: string | null
         }
         Update: {
           accuracy_score?: number | null
@@ -1257,11 +1953,15 @@ export type Database = {
           event_description?: string
           event_origin?: string
           event_title?: string
+          excluded_spheres?: Json
           id?: number
+          is_approved?: boolean | null
           populated_place_id?: string | null
           quality_score?: number | null
           question_kind?: string | null
           regions?: Json
+          target_country?: string | null
+          target_sphere?: string | null
         }
         Relationships: [
           {
@@ -1284,11 +1984,15 @@ export type Database = {
           event_description: string
           event_origin: string
           event_title: string
+          excluded_spheres: Json
           id: number
+          is_approved: boolean | null
           populated_place_id: string | null
           quality_score: number | null
           question_kind: string | null
           regions: Json
+          target_country: string | null
+          target_sphere: string | null
         }
         Insert: {
           accuracy_score?: number | null
@@ -1300,11 +2004,15 @@ export type Database = {
           event_description: string
           event_origin: string
           event_title: string
+          excluded_spheres?: Json
           id?: number
+          is_approved?: boolean | null
           populated_place_id?: string | null
           quality_score?: number | null
           question_kind?: string | null
           regions?: Json
+          target_country?: string | null
+          target_sphere?: string | null
         }
         Update: {
           accuracy_score?: number | null
@@ -1316,11 +2024,15 @@ export type Database = {
           event_description?: string
           event_origin?: string
           event_title?: string
+          excluded_spheres?: Json
           id?: number
+          is_approved?: boolean | null
           populated_place_id?: string | null
           quality_score?: number | null
           question_kind?: string | null
           regions?: Json
+          target_country?: string | null
+          target_sphere?: string | null
         }
         Relationships: [
           {
@@ -1595,30 +2307,93 @@ export type Database = {
         }
         Relationships: []
       }
+      reference_countries: {
+        Row: {
+          active: boolean
+          code: string
+          continent: string
+          created_at: string
+          cultural_sphere_code: string
+          display_name: string
+          is_tier_1: boolean
+          name: string
+          prompt_name: string
+          timezone: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          continent: string
+          created_at?: string
+          cultural_sphere_code?: string
+          display_name: string
+          is_tier_1?: boolean
+          name: string
+          prompt_name: string
+          timezone: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          continent?: string
+          created_at?: string
+          cultural_sphere_code?: string
+          display_name?: string
+          is_tier_1?: boolean
+          name?: string
+          prompt_name?: string
+          timezone?: string
+        }
+        Relationships: []
+      }
+      reference_us_states: {
+        Row: {
+          code: string
+          created_at: string
+          display_name: string
+          name: string
+          prompt_name: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          display_name: string
+          name: string
+          prompt_name: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          display_name?: string
+          name?: string
+          prompt_name?: string
+        }
+        Relationships: []
+      }
       regions: {
         Row: {
           code: string
           default_date_format: string
           id: number
           name: string
-          privacy_legislation: string | null
           privacy_content: string | null
+          privacy_legislation: string | null
         }
         Insert: {
           code: string
           default_date_format: string
           id?: number
           name: string
-          privacy_legislation?: string | null
           privacy_content?: string | null
+          privacy_legislation?: string | null
         }
         Update: {
           code?: string
           default_date_format?: string
           id?: number
           name?: string
-          privacy_legislation?: string | null
           privacy_content?: string | null
+          privacy_legislation?: string | null
         }
         Relationships: []
       }
@@ -1747,6 +2522,63 @@ export type Database = {
           },
         ]
       }
+      user_feedback: {
+        Row: {
+          app_version: string | null
+          created_at: string | null
+          device_os: string | null
+          email: string | null
+          id: string
+          message: string
+          rating: number | null
+          status: string
+          type: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string | null
+          device_os?: string | null
+          email?: string | null
+          id?: string
+          message: string
+          rating?: number | null
+          status?: string
+          type: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string | null
+          device_os?: string | null
+          email?: string | null
+          id?: string
+          message?: string
+          rating?: number | null
+          status?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_current_tier"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
           accepted_terms: boolean
@@ -1754,6 +2586,7 @@ export type Database = {
           active_locations_count: number
           ads_consent: boolean
           ads_consent_updated_at: string | null
+          age_date: string | null
           apple_linked: boolean | null
           archive_synced_count: number | null
           categories_last_changed_at: string | null
@@ -1761,10 +2594,14 @@ export type Database = {
           date_first_subscription: string | null
           email: string
           email_verified: boolean | null
+          expo_push_token: string | null
           first_name: string | null
+          global_display_name: string | null
+          global_tag: string | null
           google_linked: boolean | null
           id: string
           is_admin: boolean | null
+          is_adult: boolean | null
           last_name: string | null
           location: unknown
           magic_link: boolean | null
@@ -1775,7 +2612,9 @@ export type Database = {
           signup_method: string | null
           stripe_customer_id: string | null
           stripe_default_payment_method_id: string | null
+          sub_region: string | null
           subscription_end_date: string | null
+          timezone: string | null
           total_locations_allocated: number
           updated_at: string | null
           user_tier_id: string | null
@@ -1786,6 +2625,7 @@ export type Database = {
           active_locations_count?: number
           ads_consent?: boolean
           ads_consent_updated_at?: string | null
+          age_date?: string | null
           apple_linked?: boolean | null
           archive_synced_count?: number | null
           categories_last_changed_at?: string | null
@@ -1793,10 +2633,14 @@ export type Database = {
           date_first_subscription?: string | null
           email: string
           email_verified?: boolean | null
+          expo_push_token?: string | null
           first_name?: string | null
+          global_display_name?: string | null
+          global_tag?: string | null
           google_linked?: boolean | null
           id: string
           is_admin?: boolean | null
+          is_adult?: boolean | null
           last_name?: string | null
           location?: unknown
           magic_link?: boolean | null
@@ -1807,7 +2651,9 @@ export type Database = {
           signup_method?: string | null
           stripe_customer_id?: string | null
           stripe_default_payment_method_id?: string | null
+          sub_region?: string | null
           subscription_end_date?: string | null
+          timezone?: string | null
           total_locations_allocated?: number
           updated_at?: string | null
           user_tier_id?: string | null
@@ -1818,6 +2664,7 @@ export type Database = {
           active_locations_count?: number
           ads_consent?: boolean
           ads_consent_updated_at?: string | null
+          age_date?: string | null
           apple_linked?: boolean | null
           archive_synced_count?: number | null
           categories_last_changed_at?: string | null
@@ -1825,10 +2672,14 @@ export type Database = {
           date_first_subscription?: string | null
           email?: string
           email_verified?: boolean | null
+          expo_push_token?: string | null
           first_name?: string | null
+          global_display_name?: string | null
+          global_tag?: string | null
           google_linked?: boolean | null
           id?: string
           is_admin?: boolean | null
+          is_adult?: boolean | null
           last_name?: string | null
           location?: unknown
           magic_link?: boolean | null
@@ -1839,7 +2690,9 @@ export type Database = {
           signup_method?: string | null
           stripe_customer_id?: string | null
           stripe_default_payment_method_id?: string | null
+          sub_region?: string | null
           subscription_end_date?: string | null
+          timezone?: string | null
           total_locations_allocated?: number
           updated_at?: string | null
           user_tier_id?: string | null
@@ -1932,14 +2785,30 @@ export type Database = {
           dark_mode: boolean | null
           date_format_preference: string | null
           digit_preference: string | null
+          has_seen_how_to_play: boolean | null
           holiday_saver_active: boolean
           id: number
+          last_retention_reminder_date: string | null
+          league_auto_unlock_done: boolean | null
+          league_order: Json | null
+          league_tables_enabled: boolean | null
+          never_ask_reminder: boolean
+          prompted_streak2: boolean
+          prompted_streak7: boolean
+          quick_menu_enabled: boolean | null
+          reminder_enabled: boolean
+          reminder_time: string
           sounds_enabled: boolean | null
+          streak_reminder_enabled: boolean
+          streak_reminder_time: string
           streak_saver_active: boolean
+          streaks_enabled: boolean | null
           text_size: string | null
           updated_at: string | null
+          use_device_display: boolean
           use_region_default: boolean | null
           user_id: string
+          winback_shown_for: string | null
         }
         Insert: {
           category_preferences?: Json | null
@@ -1947,14 +2816,30 @@ export type Database = {
           dark_mode?: boolean | null
           date_format_preference?: string | null
           digit_preference?: string | null
+          has_seen_how_to_play?: boolean | null
           holiday_saver_active?: boolean
           id?: number
+          last_retention_reminder_date?: string | null
+          league_auto_unlock_done?: boolean | null
+          league_order?: Json | null
+          league_tables_enabled?: boolean | null
+          never_ask_reminder?: boolean
+          prompted_streak2?: boolean
+          prompted_streak7?: boolean
+          quick_menu_enabled?: boolean | null
+          reminder_enabled?: boolean
+          reminder_time?: string
           sounds_enabled?: boolean | null
+          streak_reminder_enabled?: boolean
+          streak_reminder_time?: string
           streak_saver_active?: boolean
+          streaks_enabled?: boolean | null
           text_size?: string | null
           updated_at?: string | null
+          use_device_display?: boolean
           use_region_default?: boolean | null
           user_id: string
+          winback_shown_for?: string | null
         }
         Update: {
           category_preferences?: Json | null
@@ -1962,14 +2847,30 @@ export type Database = {
           dark_mode?: boolean | null
           date_format_preference?: string | null
           digit_preference?: string | null
+          has_seen_how_to_play?: boolean | null
           holiday_saver_active?: boolean
           id?: number
+          last_retention_reminder_date?: string | null
+          league_auto_unlock_done?: boolean | null
+          league_order?: Json | null
+          league_tables_enabled?: boolean | null
+          never_ask_reminder?: boolean
+          prompted_streak2?: boolean
+          prompted_streak7?: boolean
+          quick_menu_enabled?: boolean | null
+          reminder_enabled?: boolean
+          reminder_time?: string
           sounds_enabled?: boolean | null
+          streak_reminder_enabled?: boolean
+          streak_reminder_time?: string
           streak_saver_active?: boolean
+          streaks_enabled?: boolean | null
           text_size?: string | null
           updated_at?: string | null
+          use_device_display?: boolean
           use_region_default?: boolean | null
           user_id?: string
+          winback_shown_for?: string | null
         }
         Relationships: [
           {
@@ -2005,6 +2906,7 @@ export type Database = {
           region: string
           score_final: number | null
           score_final_all_users: number | null
+          score_final_ytd: number | null
           score_term1: number | null
           score_term2: number | null
           streak_savers_used_month: number
@@ -2027,6 +2929,7 @@ export type Database = {
           region?: string
           score_final?: number | null
           score_final_all_users?: number | null
+          score_final_ytd?: number | null
           score_term1?: number | null
           score_term2?: number | null
           streak_savers_used_month?: number
@@ -2049,6 +2952,7 @@ export type Database = {
           region?: string
           score_final?: number | null
           score_final_all_users?: number | null
+          score_final_ytd?: number | null
           score_term1?: number | null
           score_term2?: number | null
           streak_savers_used_month?: number
@@ -2433,6 +3337,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_alloc_region_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_master_region_stats"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fk_allocated_region_region"
             columns: ["region"]
             isOneToOne: false
@@ -2495,6 +3406,13 @@ export type Database = {
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "questions_master_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_alloc_user_question"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_master_user_stats"
             referencedColumns: ["id"]
           },
           {
@@ -2662,6 +3580,66 @@ export type Database = {
         }
         Relationships: []
       }
+      v_questions_master_region_stats: {
+        Row: {
+          accuracy_score: number | null
+          ai_model_used: string | null
+          allocation_count: number | null
+          answer_date_canonical: string | null
+          archive_id: number | null
+          categories: Json | null
+          created_at: string | null
+          earliest_allocation_date: string | null
+          event_description: string | null
+          event_origin: string | null
+          event_title: string | null
+          id: number | null
+          is_approved: boolean | null
+          populated_place_id: string | null
+          quality_score: number | null
+          question_kind: string | null
+          regions: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_qmr_pop_place"
+            columns: ["populated_place_id"]
+            isOneToOne: false
+            referencedRelation: "populated_places"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_questions_master_user_stats: {
+        Row: {
+          accuracy_score: number | null
+          ai_model_used: string | null
+          allocation_count: number | null
+          answer_date_canonical: string | null
+          archive_id: number | null
+          categories: Json | null
+          created_at: string | null
+          earliest_allocation_date: string | null
+          event_description: string | null
+          event_origin: string | null
+          event_title: string | null
+          id: number | null
+          is_approved: boolean | null
+          populated_place_id: string | null
+          quality_score: number | null
+          question_kind: string | null
+          regions: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_qmu_pop_place"
+            columns: ["populated_place_id"]
+            isOneToOne: false
+            referencedRelation: "populated_places"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _postgis_deprecate: {
@@ -2695,11 +3673,11 @@ export type Database = {
         Returns: boolean
       }
       _st_coveredby:
-      | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-      | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       _st_covers:
-      | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-      | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       _st_crosses: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
@@ -2757,13 +3735,25 @@ export type Database = {
         Args: { p_start_date?: string; p_user_id: string }
         Returns: string
       }
-      activate_holiday_mode_mobile: {
-        Args: { p_duration_days: number; p_user_id: string }
-        Returns: {
-          message: string
-          success: boolean
-        }[]
-      }
+      activate_holiday_mode_mobile:
+        | {
+            Args: { p_duration_days: number; p_user_id: string }
+            Returns: {
+              message: string
+              success: boolean
+            }[]
+          }
+        | {
+            Args: {
+              p_duration_days: number
+              p_start_date?: string
+              p_user_id: string
+            }
+            Returns: {
+              message: string
+              success: boolean
+            }[]
+          }
       add_region_holiday_attempt: {
         Args: { p_puzzle_date: string; p_region: string; p_user_id: string }
         Returns: undefined
@@ -2774,41 +3764,169 @@ export type Database = {
       }
       addauth: { Args: { "": string }; Returns: boolean }
       addgeometrycolumn:
-      | {
+        | {
+            Args: {
+              catalog_name: string
+              column_name: string
+              new_dim: number
+              new_srid_in: number
+              new_type: string
+              schema_name: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              new_dim: number
+              new_srid: number
+              new_type: string
+              schema_name: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              new_dim: number
+              new_srid: number
+              new_type: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+      admin_allocation_stats: {
         Args: {
-          catalog_name: string
-          column_name: string
-          new_dim: number
-          new_srid_in: number
-          new_type: string
-          schema_name: string
-          table_name: string
-          use_typmod?: boolean
+          p_filter_value: string
+          p_limit?: number
+          p_offset?: number
+          p_table: string
         }
-        Returns: string
+        Returns: {
+          alloc_id: number
+          answer_date: string
+          avg_guesses: number
+          category_id: number
+          category_name: string
+          event_description: string
+          event_title: string
+          is_approved: boolean
+          is_played: boolean
+          play_count: number
+          puzzle_date: string
+          question_id: number
+          question_kind: string
+          win_count: number
+        }[]
       }
-      | {
+      admin_assign_subscription: {
         Args: {
-          column_name: string
-          new_dim: number
-          new_srid: number
-          new_type: string
-          schema_name: string
-          table_name: string
-          use_typmod?: boolean
+          p_auto_renew?: boolean
+          p_billing_period: string
+          p_expires_at: string
+          p_tier: string
+          p_user_id: string
+          p_user_tier_id: string
         }
-        Returns: string
+        Returns: undefined
       }
-      | {
+      admin_dashboard_metrics:
+        | {
+            Args: { p_end: string; p_region?: string; p_start: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_end: string
+              p_mode?: string
+              p_region?: string
+              p_start: string
+            }
+            Returns: Json
+          }
+      admin_delete_league: { Args: { p_league_id: string }; Returns: Json }
+      admin_find_date_gaps: {
         Args: {
-          column_name: string
-          new_dim: number
-          new_srid: number
-          new_type: string
-          table_name: string
-          use_typmod?: boolean
+          p_extend_days?: number
+          p_filter_value: string
+          p_table: string
         }
-        Returns: string
+        Returns: {
+          gap_date: string
+        }[]
+      }
+      admin_move_question: {
+        Args: { p_from_table: string; p_question_id: number }
+        Returns: Json
+      }
+      admin_rejoin_member: {
+        Args: { p_league_id: string; p_target_user_id: string }
+        Returns: Json
+      }
+      admin_remove_member: {
+        Args: { p_league_id: string; p_target_user_id: string }
+        Returns: Json
+      }
+      admin_swap_puzzle_dates: {
+        Args: { p_alloc_id_a: number; p_alloc_id_b: number; p_table: string }
+        Returns: Json
+      }
+      admin_timeseries_metric:
+        | {
+            Args: {
+              p_end: string
+              p_group?: string
+              p_metric: string
+              p_region?: string
+              p_start: string
+            }
+            Returns: {
+              period: string
+              value: number
+            }[]
+          }
+        | {
+            Args: {
+              p_end: string
+              p_group?: string
+              p_metric: string
+              p_mode?: string
+              p_region?: string
+              p_start: string
+            }
+            Returns: {
+              period: string
+              value: number
+            }[]
+          }
+      admin_unallocated_masters: {
+        Args: {
+          p_filter_value: string
+          p_limit?: number
+          p_offset?: number
+          p_table: string
+        }
+        Returns: {
+          accuracy_score: number
+          answer_date: string
+          categories: Json
+          created_at: string
+          event_description: string
+          event_title: string
+          is_approved: boolean
+          quality_score: number
+          question_id: number
+          question_kind: string
+        }[]
+      }
+      admin_unblock_member: {
+        Args: { p_league_id: string; p_target_user_id: string }
+        Returns: Json
       }
       allocate_for_scope: {
         Args: {
@@ -2822,17 +3940,22 @@ export type Database = {
         }
         Returns: string
       }
-      allocate_monthly_percentile_badges: { Args: never; Returns: undefined }
+      allocate_monthly_percentile_badges:
+        | { Args: never; Returns: undefined }
+        | {
+            Args: { p_period_label: string; p_timeframe: string }
+            Returns: Json
+          }
       archive_and_delete_job:
-      | {
-        Args: {
-          final_status: string
-          job_id: number
-          p_error_context?: string
-        }
-        Returns: undefined
-      }
-      | { Args: { final_status: string; job_id: number }; Returns: undefined }
+        | {
+            Args: {
+              final_status: string
+              job_id: number
+              p_error_context?: string
+            }
+            Returns: undefined
+          }
+        | { Args: { final_status: string; job_id: number }; Returns: undefined }
       archive_and_delete_spec: {
         Args: { p_reason: string; p_spec_id: number }
         Returns: undefined
@@ -2853,8 +3976,41 @@ export type Database = {
         }
         Returns: undefined
       }
+      auto_delete_empty_league: {
+        Args: { p_league_id: string }
+        Returns: undefined
+      }
       calculate_cumulative_percentiles: { Args: never; Returns: undefined }
       calculate_monthly_scores: { Args: never; Returns: undefined }
+      calculate_user_league_rating: {
+        Args: {
+          p_cutoff_date?: string
+          p_period: string
+          p_region: string
+          p_user_id: string
+        }
+        Returns: {
+          avg_guesses: number
+          current_streak: number
+          elementle_rating: number
+          games_played: number
+          games_won: number
+          max_streak: number
+          win_rate: number
+        }[]
+      }
+      calculate_user_league_rating_user_mode: {
+        Args: { p_cutoff_date?: string; p_period: string; p_user_id: string }
+        Returns: {
+          avg_guesses: number
+          current_streak: number
+          elementle_rating: number
+          games_played: number
+          games_won: number
+          max_streak: number
+          win_rate: number
+        }[]
+      }
       check_and_award_elementle_badge_mobile: {
         Args: {
           p_game_type: string
@@ -2913,6 +4069,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      cleanup_old_standings: { Args: never; Returns: Json }
       count_unplayed_region_archive: {
         Args: { rid: string; today: string }
         Returns: number
@@ -2921,10 +4078,26 @@ export type Database = {
         Args: { today: string; uid: string }
         Returns: number
       }
+      create_league:
+        | { Args: { p_name?: string }; Returns: Json }
+        | {
+            Args: {
+              p_has_region_board?: boolean
+              p_has_user_board?: boolean
+              p_name?: string
+            }
+            Returns: Json
+          }
       custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      delete_league_membership: { Args: { p_league_id: string }; Returns: Json }
       delete_unattempted_allocations: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      delete_user_account: { Args: never; Returns: undefined }
+      delete_user_identity: {
+        Args: { target_provider: string; target_user_id: string }
+        Returns: boolean
       }
       describe_table_columns: {
         Args: { p_table_name: string }
@@ -2936,35 +4109,35 @@ export type Database = {
       }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
-      | {
-        Args: {
-          catalog_name: string
-          column_name: string
-          schema_name: string
-          table_name: string
-        }
-        Returns: string
-      }
-      | {
-        Args: {
-          column_name: string
-          schema_name: string
-          table_name: string
-        }
-        Returns: string
-      }
-      | { Args: { column_name: string; table_name: string }; Returns: string }
+        | {
+            Args: {
+              catalog_name: string
+              column_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | { Args: { column_name: string; table_name: string }; Returns: string }
       dropgeometrytable:
-      | {
-        Args: {
-          catalog_name: string
-          schema_name: string
-          table_name: string
-        }
-        Returns: string
-      }
-      | { Args: { schema_name: string; table_name: string }; Returns: string }
-      | { Args: { table_name: string }; Returns: string }
+        | {
+            Args: {
+              catalog_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | { Args: { schema_name: string; table_name: string }; Returns: string }
+        | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
       end_holiday_mode: {
         Args: { p_acknowledge?: boolean; p_user_id: string }
@@ -2978,6 +4151,17 @@ export type Database = {
         }[]
       }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      find_user_by_identity: {
+        Args: { p_provider: string; p_provider_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      generate_display_tag: {
+        Args: { p_display_name: string }
+        Returns: string
+      }
+      generate_join_code: { Args: never; Returns: string }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }
@@ -3145,6 +4329,42 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_historical_standings:
+        | {
+            Args: {
+              p_league_id: string
+              p_period_label: string
+              p_timeframe: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_game_mode?: string
+              p_league_id: string
+              p_period_label: string
+              p_timeframe: string
+            }
+            Returns: Json
+          }
+      get_league_members: { Args: { p_league_id: string }; Returns: Json }
+      get_league_snapshot_range: {
+        Args: {
+          p_game_mode?: string
+          p_league_id: string
+          p_timeframe?: string
+        }
+        Returns: Json
+      }
+      get_league_standings: {
+        Args: {
+          p_game_mode?: string
+          p_league_id: string
+          p_snapshot_date?: string
+          p_timeframe?: string
+        }
+        Returns: Json
+      }
       get_location_allocation_with_place_active: {
         Args: never
         Returns: {
@@ -3157,6 +4377,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_my_awards: { Args: never; Returns: Json }
+      get_my_home_ranks: { Args: { p_game_mode?: string }; Returns: Json }
+      get_my_leagues:
+        | { Args: never; Returns: Json }
+        | { Args: { p_game_mode?: string }; Returns: Json }
+      get_my_leagues_all: { Args: never; Returns: Json }
+      get_my_membership: { Args: { p_league_id: string }; Returns: Json }
       get_nearby_locations: {
         Args: { p_radius_meters?: number; p_user_id: string }
         Returns: {
@@ -3176,6 +4403,14 @@ export type Database = {
         }[]
       }
       gettransactionid: { Args: never; Returns: unknown }
+      grant_period_awards: {
+        Args: { p_period_label: string; p_timeframe: string }
+        Returns: Json
+      }
+      hydrate_member_standings: {
+        Args: { p_league_id: string; p_user_id: string }
+        Returns: undefined
+      }
       insert_pending_subscription: {
         Args: {
           p_stripe_customer_id: string
@@ -3184,19 +4419,29 @@ export type Database = {
         }
         Returns: undefined
       }
+      is_admin: { Args: never; Returns: boolean }
+      join_league: {
+        Args: { p_display_name: string; p_join_code: string }
+        Returns: Json
+      }
       jwt_custom_claims: { Args: never; Returns: Json }
+      leave_league: { Args: { p_league_id: string }; Returns: Json }
+      leave_league_mode: {
+        Args: { p_game_mode: string; p_league_id: string }
+        Returns: Json
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       mark_spec_dead: { Args: { p_spec_id: number }; Returns: undefined }
       nightly_holiday_allowance_reset: { Args: never; Returns: undefined }
       populate_geometry_columns:
-      | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
-      | { Args: { use_typmod?: boolean }; Returns: string }
+        | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
+        | { Args: { use_typmod?: boolean }; Returns: string }
       populate_user_locations:
-      | { Args: { p_user_id: string }; Returns: undefined }
-      | {
-        Args: { p_postcode: string; p_user_id: string }
-        Returns: undefined
-      }
+        | { Args: { p_user_id: string }; Returns: undefined }
+        | {
+            Args: { p_postcode: string; p_user_id: string }
+            Returns: undefined
+          }
       postgis_constraint_dims: {
         Args: { geomcolumn: string; geomschema: string; geomtable: string }
         Returns: number
@@ -3234,6 +4479,8 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      process_pending_snapshots: { Args: never; Returns: Json }
+      prune_old_snapshots: { Args: never; Returns: Json }
       reallocate_jobs_for_inactive_place: {
         Args: { p_place_id: string }
         Returns: undefined
@@ -3243,14 +4490,39 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
-      refresh_allocation_flag_for_user_location:
-      | {
-        Args: { p_location_id: string; p_user_id: string }
+      recalculate_league_timezone: {
+        Args: { p_league_id: string }
         Returns: undefined
       }
-      | {
-        Args: { p_location_id: string; p_user_id: string }
-        Returns: undefined
+      record_league_view: {
+        Args: { p_current_rank: number; p_league_id: string }
+        Returns: Json
+      }
+      refresh_all_active_league_standings: { Args: never; Returns: Json }
+      refresh_allocation_flag_for_user_location:
+        | {
+            Args: { p_location_id: string; p_user_id: string }
+            Returns: undefined
+          }
+        | {
+            Args: { p_location_id: string; p_user_id: string }
+            Returns: undefined
+          }
+      refresh_user_league_standings:
+        | { Args: { p_region?: string; p_user_id: string }; Returns: undefined }
+        | {
+            Args: { p_game_mode?: string; p_region?: string; p_user_id: string }
+            Returns: undefined
+          }
+      region_to_timezone: { Args: { p_region: string }; Returns: string }
+      rejoin_league: { Args: { p_league_id: string }; Returns: Json }
+      rejoin_league_mode: {
+        Args: { p_game_mode: string; p_league_id: string }
+        Returns: Json
+      }
+      remove_and_block_member: {
+        Args: { p_league_id: string; p_target_user_id: string }
+        Returns: Json
       }
       reset_holiday_allowance_if_due: {
         Args: { p_user_id: string }
@@ -3262,15 +4534,20 @@ export type Database = {
         Returns: undefined
       }
       seed_category_specs:
-      | { Args: never; Returns: undefined }
-      | { Args: { p_region: string }; Returns: undefined }
+        | { Args: never; Returns: undefined }
+        | { Args: { p_region: string }; Returns: undefined }
       seed_user_category_specs: {
         Args: { p_region: string }
         Returns: undefined
       }
       seed_user_location_specs:
-      | { Args: { p_place_id: string }; Returns: undefined }
-      | { Args: { p_place_id: string; p_region: string }; Returns: undefined }
+        | { Args: { p_place_id: string }; Returns: undefined }
+        | { Args: { p_place_id: string; p_region: string }; Returns: undefined }
+      set_global_identity: { Args: { p_display_name: string }; Returns: Json }
+      snapshot_period_standings: {
+        Args: { p_period_label: string; p_timeframe: string }
+        Returns: undefined
+      }
       split_available_spec: {
         Args: { p_event_date: string; p_spec_id: number }
         Returns: undefined
@@ -3318,86 +4595,86 @@ export type Database = {
         Returns: unknown
       }
       st_angle:
-      | { Args: { line1: unknown; line2: unknown }; Returns: number }
-      | {
-        Args: { pt1: unknown; pt2: unknown; pt3: unknown; pt4?: unknown }
-        Returns: number
-      }
+        | { Args: { line1: unknown; line2: unknown }; Returns: number }
+        | {
+            Args: { pt1: unknown; pt2: unknown; pt3: unknown; pt4?: unknown }
+            Returns: number
+          }
       st_area:
-      | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
-      | { Args: { "": string }; Returns: number }
+        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
+        | { Args: { "": string }; Returns: number }
       st_asencodedpolyline: {
         Args: { geom: unknown; nprecision?: number }
         Returns: string
       }
       st_asewkt: { Args: { "": string }; Returns: string }
       st_asgeojson:
-      | {
-        Args: { geog: unknown; maxdecimaldigits?: number; options?: number }
-        Returns: string
-      }
-      | {
-        Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
-        Returns: string
-      }
-      | {
-        Args: {
-          geom_column?: string
-          maxdecimaldigits?: number
-          pretty_bool?: boolean
-          r: Record<string, unknown>
-        }
-        Returns: string
-      }
-      | { Args: { "": string }; Returns: string }
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
+            Args: {
+              geom_column?: string
+              maxdecimaldigits?: number
+              pretty_bool?: boolean
+              r: Record<string, unknown>
+            }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
       st_asgml:
-      | {
-        Args: {
-          geog: unknown
-          id?: string
-          maxdecimaldigits?: number
-          nprefix?: string
-          options?: number
-        }
-        Returns: string
-      }
-      | {
-        Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
-        Returns: string
-      }
-      | { Args: { "": string }; Returns: string }
-      | {
-        Args: {
-          geog: unknown
-          id?: string
-          maxdecimaldigits?: number
-          nprefix?: string
-          options?: number
-          version: number
-        }
-        Returns: string
-      }
-      | {
-        Args: {
-          geom: unknown
-          id?: string
-          maxdecimaldigits?: number
-          nprefix?: string
-          options?: number
-          version: number
-        }
-        Returns: string
-      }
+        | {
+            Args: {
+              geog: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+            }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+        | {
+            Args: {
+              geog: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+              version: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              geom: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+              version: number
+            }
+            Returns: string
+          }
       st_askml:
-      | {
-        Args: { geog: unknown; maxdecimaldigits?: number; nprefix?: string }
-        Returns: string
-      }
-      | {
-        Args: { geom: unknown; maxdecimaldigits?: number; nprefix?: string }
-        Returns: string
-      }
-      | { Args: { "": string }; Returns: string }
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
       st_aslatlontext: {
         Args: { geom: unknown; tmpl?: string }
         Returns: string
@@ -3414,60 +4691,60 @@ export type Database = {
         Returns: unknown
       }
       st_assvg:
-      | {
-        Args: { geog: unknown; maxdecimaldigits?: number; rel?: number }
-        Returns: string
-      }
-      | {
-        Args: { geom: unknown; maxdecimaldigits?: number; rel?: number }
-        Returns: string
-      }
-      | { Args: { "": string }; Returns: string }
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; rel?: number }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; rel?: number }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
       st_astext: { Args: { "": string }; Returns: string }
       st_astwkb:
-      | {
-        Args: {
-          geom: unknown
-          prec?: number
-          prec_m?: number
-          prec_z?: number
-          with_boxes?: boolean
-          with_sizes?: boolean
-        }
-        Returns: string
-      }
-      | {
-        Args: {
-          geom: unknown[]
-          ids: number[]
-          prec?: number
-          prec_m?: number
-          prec_z?: number
-          with_boxes?: boolean
-          with_sizes?: boolean
-        }
-        Returns: string
-      }
+        | {
+            Args: {
+              geom: unknown
+              prec?: number
+              prec_m?: number
+              prec_z?: number
+              with_boxes?: boolean
+              with_sizes?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              geom: unknown[]
+              ids: number[]
+              prec?: number
+              prec_m?: number
+              prec_z?: number
+              with_boxes?: boolean
+              with_sizes?: boolean
+            }
+            Returns: string
+          }
       st_asx3d: {
         Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
         Returns: string
       }
       st_azimuth:
-      | { Args: { geog1: unknown; geog2: unknown }; Returns: number }
-      | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: number }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
       st_boundingdiagonal: {
         Args: { fits?: boolean; geom: unknown }
         Returns: unknown
       }
       st_buffer:
-      | {
-        Args: { geom: unknown; options?: string; radius: number }
-        Returns: unknown
-      }
-      | {
-        Args: { geom: unknown; quadsegs: number; radius: number }
-        Returns: unknown
-      }
+        | {
+            Args: { geom: unknown; options?: string; radius: number }
+            Returns: unknown
+          }
+        | {
+            Args: { geom: unknown; quadsegs: number; radius: number }
+            Returns: unknown
+          }
       st_centroid: { Args: { "": string }; Returns: unknown }
       st_clipbybox2d: {
         Args: { box: unknown; geom: unknown }
@@ -3496,11 +4773,11 @@ export type Database = {
       }
       st_coorddim: { Args: { geometry: unknown }; Returns: number }
       st_coveredby:
-      | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-      | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_covers:
-      | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-      | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_crosses: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_curvetoline: {
         Args: { flags?: number; geom: unknown; tol?: number; toltype?: number }
@@ -3519,17 +4796,17 @@ export type Database = {
         Returns: boolean
       }
       st_distance:
-      | {
-        Args: { geog1: unknown; geog2: unknown; use_spheroid?: boolean }
-        Returns: number
-      }
-      | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+        | {
+            Args: { geog1: unknown; geog2: unknown; use_spheroid?: boolean }
+            Returns: number
+          }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
       st_distancesphere:
-      | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
-      | {
-        Args: { geom1: unknown; geom2: unknown; radius: number }
-        Returns: number
-      }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+        | {
+            Args: { geom1: unknown; geom2: unknown; radius: number }
+            Returns: number
+          }
       st_distancespheroid: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: number
@@ -3545,21 +4822,21 @@ export type Database = {
       }
       st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_expand:
-      | { Args: { box: unknown; dx: number; dy: number }; Returns: unknown }
-      | {
-        Args: { box: unknown; dx: number; dy: number; dz?: number }
-        Returns: unknown
-      }
-      | {
-        Args: {
-          dm?: number
-          dx: number
-          dy: number
-          dz?: number
-          geom: unknown
-        }
-        Returns: unknown
-      }
+        | { Args: { box: unknown; dx: number; dy: number }; Returns: unknown }
+        | {
+            Args: { box: unknown; dx: number; dy: number; dz?: number }
+            Returns: unknown
+          }
+        | {
+            Args: {
+              dm?: number
+              dx: number
+              dy: number
+              dz?: number
+              geom: unknown
+            }
+            Returns: unknown
+          }
       st_force3d: { Args: { geom: unknown; zvalue?: number }; Returns: unknown }
       st_force3dm: {
         Args: { geom: unknown; mvalue?: number }
@@ -3574,16 +4851,16 @@ export type Database = {
         Returns: unknown
       }
       st_generatepoints:
-      | { Args: { area: unknown; npoints: number }; Returns: unknown }
-      | {
-        Args: { area: unknown; npoints: number; seed: number }
-        Returns: unknown
-      }
+        | { Args: { area: unknown; npoints: number }; Returns: unknown }
+        | {
+            Args: { area: unknown; npoints: number; seed: number }
+            Returns: unknown
+          }
       st_geogfromtext: { Args: { "": string }; Returns: unknown }
       st_geographyfromtext: { Args: { "": string }; Returns: unknown }
       st_geohash:
-      | { Args: { geog: unknown; maxchars?: number }; Returns: string }
-      | { Args: { geom: unknown; maxchars?: number }; Returns: string }
+        | { Args: { geog: unknown; maxchars?: number }; Returns: string }
+        | { Args: { geom: unknown; maxchars?: number }; Returns: string }
       st_geomcollfromtext: { Args: { "": string }; Returns: unknown }
       st_geometricmedian: {
         Args: {
@@ -3597,9 +4874,9 @@ export type Database = {
       st_geometryfromtext: { Args: { "": string }; Returns: unknown }
       st_geomfromewkt: { Args: { "": string }; Returns: unknown }
       st_geomfromgeojson:
-      | { Args: { "": Json }; Returns: unknown }
-      | { Args: { "": Json }; Returns: unknown }
-      | { Args: { "": string }; Returns: unknown }
+        | { Args: { "": Json }; Returns: unknown }
+        | { Args: { "": Json }; Returns: unknown }
+        | { Args: { "": string }; Returns: unknown }
       st_geomfromgml: { Args: { "": string }; Returns: unknown }
       st_geomfromkml: { Args: { "": string }; Returns: unknown }
       st_geomfrommarc21: { Args: { marc21xml: string }; Returns: unknown }
@@ -3627,8 +4904,8 @@ export type Database = {
         Returns: unknown
       }
       st_intersects:
-      | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
-      | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_isvaliddetail: {
         Args: { flags?: number; geom: unknown }
         Returns: Database["public"]["CompositeTypes"]["valid_detail"]
@@ -3640,8 +4917,8 @@ export type Database = {
         }
       }
       st_length:
-      | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
-      | { Args: { "": string }; Returns: number }
+        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
+        | { Args: { "": string }; Returns: number }
       st_letters: { Args: { font?: Json; letters: string }; Returns: unknown }
       st_linecrossingdirection: {
         Args: { line1: unknown; line2: unknown }
@@ -3781,8 +5058,8 @@ export type Database = {
         Returns: unknown
       }
       st_setsrid:
-      | { Args: { geog: unknown; srid: number }; Returns: unknown }
-      | { Args: { geom: unknown; srid: number }; Returns: unknown }
+        | { Args: { geog: unknown; srid: number }; Returns: unknown }
+        | { Args: { geom: unknown; srid: number }; Returns: unknown }
       st_sharedpaths: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -3805,8 +5082,8 @@ export type Database = {
         Returns: Record<string, unknown>[]
       }
       st_srid:
-      | { Args: { geog: unknown }; Returns: number }
-      | { Args: { geom: unknown }; Returns: number }
+        | { Args: { geog: unknown }; Returns: number }
+        | { Args: { geom: unknown }; Returns: number }
       st_subdivide: {
         Args: { geom: unknown; gridsize?: number; maxvertices?: number }
         Returns: unknown[]
@@ -3835,22 +5112,22 @@ export type Database = {
       }
       st_touches: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       st_transform:
-      | {
-        Args: { from_proj: string; geom: unknown; to_proj: string }
-        Returns: unknown
-      }
-      | {
-        Args: { from_proj: string; geom: unknown; to_srid: number }
-        Returns: unknown
-      }
-      | { Args: { geom: unknown; to_proj: string }; Returns: unknown }
+        | {
+            Args: { from_proj: string; geom: unknown; to_proj: string }
+            Returns: unknown
+          }
+        | {
+            Args: { from_proj: string; geom: unknown; to_srid: number }
+            Returns: unknown
+          }
+        | { Args: { geom: unknown; to_proj: string }; Returns: unknown }
       st_triangulatepolygon: { Args: { g1: unknown }; Returns: unknown }
       st_union:
-      | { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
-      | {
-        Args: { geom1: unknown; geom2: unknown; gridsize: number }
-        Returns: unknown
-      }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
+        | {
+            Args: { geom1: unknown; geom2: unknown; gridsize: number }
+            Returns: unknown
+          }
       st_voronoilines: {
         Args: { extend_to?: unknown; g1: unknown; tolerance?: number }
         Returns: unknown
@@ -3865,6 +5142,18 @@ export type Database = {
       st_wrapx: {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
+      }
+      toggle_all_sharing: {
+        Args: { p_can_share: boolean; p_league_id: string }
+        Returns: Json
+      }
+      toggle_member_share: {
+        Args: {
+          p_can_share: boolean
+          p_league_id: string
+          p_target_user_id: string
+        }
+        Returns: undefined
       }
       top_places_for_postcode_v3: {
         Args: { p_postcode: string }
@@ -3886,6 +5175,26 @@ export type Database = {
         Args: { new_schedule: string }
         Returns: undefined
       }
+      update_display_name: {
+        Args: { p_display_name: string; p_league_id: string }
+        Returns: Json
+      }
+      update_league_nickname: {
+        Args: { p_league_id: string; p_nickname: string }
+        Returns: Json
+      }
+      update_league_settings: {
+        Args: { p_league_id: string; p_share_link_public: boolean }
+        Returns: undefined
+      }
+      update_member_share: {
+        Args: {
+          p_can_share: boolean
+          p_league_id: string
+          p_target_user_id: string
+        }
+        Returns: Json
+      }
       updategeometrysrid: {
         Args: {
           catalogn_name: string
@@ -3897,54 +5206,54 @@ export type Database = {
         Returns: string
       }
       user_archive_demand:
-      | {
-        Args: { today: string }
-        Returns: {
-          min_threshold: number
-          region: string
-          seed_amount: number
-          target_topup: number
-          tier: string
-          unplayed_archive: number
-          user_id: string
-        }[]
-      }
-      | {
-        Args: { target_user?: string; today: string }
-        Returns: {
-          debug_info: string
-          min_threshold: number
-          region: string
-          seed_amount: number
-          target_topup: number
-          tier: string
-          unplayed_archive: number
-          user_id: string
-        }[]
-      }
+        | {
+            Args: { today: string }
+            Returns: {
+              min_threshold: number
+              region: string
+              seed_amount: number
+              target_topup: number
+              tier: string
+              unplayed_archive: number
+              user_id: string
+            }[]
+          }
+        | {
+            Args: { target_user?: string; today: string }
+            Returns: {
+              debug_info: string
+              min_threshold: number
+              region: string
+              seed_amount: number
+              target_topup: number
+              tier: string
+              unplayed_archive: number
+              user_id: string
+            }[]
+          }
       user_future_demand:
-      | {
-        Args: { today: string }
-        Returns: {
-          future_count: number
-          min_threshold: number
-          region: string
-          target_topup: number
-          tier: string
-          user_id: string
-        }[]
-      }
-      | {
-        Args: { target_user?: string; today: string }
-        Returns: {
-          future_count: number
-          min_threshold: number
-          region: string
-          target_topup: number
-          tier: string
-          user_id: string
-        }[]
-      }
+        | {
+            Args: { today: string }
+            Returns: {
+              future_count: number
+              min_threshold: number
+              region: string
+              target_topup: number
+              tier: string
+              user_id: string
+            }[]
+          }
+        | {
+            Args: { target_user?: string; today: string }
+            Returns: {
+              future_count: number
+              min_threshold: number
+              region: string
+              target_topup: number
+              tier: string
+              user_id: string
+            }[]
+          }
     }
     Enums: {
       [_ in never]: never
@@ -3969,119 +5278,124 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
 } as const
+A new version of Supabase CLI is available: v2.75.0 (currently installed v2.72.7)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

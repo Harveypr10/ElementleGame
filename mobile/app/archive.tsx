@@ -159,7 +159,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
                 .lte('puzzle_date', end.toISOString());
 
             if (isRegion) {
-                query = query.eq('region', 'UK');
+                query = query.eq('region', 'GLOBAL');
             } else {
                 query = query.eq('user_id', user.id);
             }
@@ -454,7 +454,7 @@ export default function ArchiveScreen() {
                     .limit(1);
 
                 if (isRegion) {
-                    query = query.eq('region', 'UK');
+                    query = query.eq('region', 'GLOBAL');
                 } else {
                     query = query.eq('user_id', user.id);
                 }
@@ -494,7 +494,7 @@ export default function ArchiveScreen() {
                         .limit(1);
 
                     if (isRegion) {
-                        query = query.eq('region', 'UK');
+                        query = query.eq('region', 'GLOBAL');
                     } else {
                         query = query.eq('user_id', user.id);
                     }
@@ -717,7 +717,7 @@ export default function ArchiveScreen() {
         try {
             const monthDate = months[activeIndex] || today;
             const monthLabel = format(monthDate, 'MMM yyyy');
-            const edition = gameMode === 'USER' ? 'Personalised' : 'UK Edition';
+            const edition = gameMode === 'USER' ? 'Personalised' : 'Global';
             const monthKey = format(monthDate, 'yyyy-MM');
             const data = monthDataMapRef.current[monthKey] || {};
 

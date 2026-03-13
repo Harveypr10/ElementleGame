@@ -73,7 +73,7 @@ export default function OnboardingPage() {
             let { data: allocation, error } = await supabase
                 .from('questions_allocated_region')
                 .select('question_id, puzzle_date')
-                .eq('region', 'UK')
+                .eq('region', 'GLOBAL')
                 .eq('puzzle_date', today)
                 .maybeSingle();
 
@@ -82,7 +82,7 @@ export default function OnboardingPage() {
                 const { data: recent, error: recentError } = await supabase
                     .from('questions_allocated_region')
                     .select('question_id, puzzle_date')
-                    .eq('region', 'UK')
+                    .eq('region', 'GLOBAL')
                     .order('puzzle_date', { ascending: false })
                     .limit(1)
                     .single();

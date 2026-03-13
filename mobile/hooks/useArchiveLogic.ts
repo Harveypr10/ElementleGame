@@ -131,7 +131,7 @@ export const useArchiveLogic = () => {
                     .limit(1);
 
                 if (isRegion) {
-                    query = query.eq('region', 'UK');
+                    query = query.eq('region', 'GLOBAL');
                 } else {
                     query = query.eq('user_id', user.id);
                 }
@@ -193,7 +193,7 @@ export const useArchiveLogic = () => {
                 .lte('puzzle_date', end.toISOString());
 
             if (isRegion) {
-                query = query.eq('region', 'UK');
+                query = query.eq('region', 'GLOBAL');
             } else {
                 query = query.eq('user_id', user.id);
             }

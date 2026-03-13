@@ -273,7 +273,7 @@ function LeagueManageCard({ league, reorderMode, onMoveUp, onMoveDown, isFirst, 
 }) {
     const { user } = useAuth();
     const { profile } = useProfile();
-    const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
+    const regionLabel = 'Global';
     const updateNickname = useUpdateLeagueNickname();
     const leaveLeague = useLeaveLeague();
     const rejoinLeague = useRejoinLeague();
@@ -833,7 +833,7 @@ export default function ManageLeaguesScreen() {
     const setGlobalIdentity = useSetGlobalIdentity();
     const { pendingLeagueInviteRegion, pendingLeagueInviteUser } = useLeague();
     const { profile } = useProfile();
-    const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
+    const regionLabel = 'Global';
 
     const [editingGlobal, setEditingGlobal] = useState(false);
     const [globalName, setGlobalName] = useState('');

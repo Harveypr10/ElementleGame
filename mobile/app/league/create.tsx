@@ -56,7 +56,7 @@ export default function CreateLeagueScreen() {
     const textColor = useThemeColor({}, 'text');
     const iconColor = useThemeColor({}, 'icon');
     const { profile } = useProfile();
-    const regionLabel = profile?.region ? `${profile.region} Edition` : 'UK Edition';
+    const regionLabel = 'Global';
 
     const [leagueName, setLeagueName] = useState('');
     const [step, setStep] = useState<'name' | 'success'>('name');
@@ -180,7 +180,7 @@ export default function CreateLeagueScreen() {
                                 <StyledView className="flex-row items-center justify-between" style={{ flexDirection: 'row' }}>
                                     <View>
                                         <ThemedText className="font-n-semibold" size="base">{regionLabel} League</ThemedText>
-                                        <Text style={{ fontSize: 12, fontFamily: 'Nunito_400Regular', color: iconColor }}>Based on daily {profile?.region || 'UK'} edition puzzles</Text>
+                                        <Text style={{ fontSize: 12, fontFamily: 'Nunito_400Regular', color: iconColor }}>Based on daily Global puzzles</Text>
                                     </View>
                                     <Switch
                                         value={hasRegionBoard}
