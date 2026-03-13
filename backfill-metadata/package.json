@@ -1,0 +1,14 @@
+{
+  "name": "backfill-metadata",
+  "version": "1.0.0",
+  "description": "Universal Metadata backfill for legacy questions",
+  "main": "backfill.js",
+  "scripts": {
+    "start": "node backfill.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.99.1",
+    "dotenv": "^16.6.1",
+    "openai": "^4.104.0"
+  }
+}

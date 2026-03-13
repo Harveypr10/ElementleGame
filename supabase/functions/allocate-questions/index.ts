@@ -491,7 +491,7 @@ if (d.scope_type === "region") {
     while (!done) {
       const { data, error } = await supabase
         .from("questions_master_region")
-        .select("id, categories, question_kind, quality_score")
+        .select("id, categories, question_kind, quality_score, target_sphere")
         .or('quality_score.is.null,quality_score.gte.3')
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -573,7 +573,7 @@ const master = matchingMasters.length > 0
 if (master) {
   const primaryCategory = Array.isArray(master.categories) ? master.categories[0] : chosenCat;
   const { error: insErr } = await supabase.from("questions_allocated_region").insert({
-    region: d.scope_id,
+    region: "GLOBAL",
     puzzle_date: date,
     question_id: master.id,
     slot_type: "region",
@@ -604,16 +604,17 @@ if (master) {
 
 
 try {
+  // Category specs are GLOBAL — never auto-create, they should exist from Phase 3
   const { data: specs, error: specErr } = await supabase
     .from("available_question_spec")
     .select("id")
-    .eq("region", d.scope_id)
+    .eq("region", "GLOBAL")
     .eq("category_id", chosenCat)
     .eq("active", true);
 
   if (specErr) {
     logDbError("SpecLookup(region-category)", specErr, {
-      allocatorRunId, region: d.scope_id, category_id: chosenCat
+      allocatorRunId, region: "GLOBAL", category_id: chosenCat
     });
     unmetCount++;
     continue;
@@ -624,10 +625,13 @@ try {
     const idx = Math.floor(Math.random() * specs.length);
     chosenSpecId = specs[idx].id;
   } else {
+    // Failsafe: auto-create GLOBAL specs for a new category
+    console.warn(`[allocate] No GLOBAL spec found for category ${chosenCat} — auto-creating`);
     const ranges = splitDateRanges("0001-01-01", "9999-01-01", 8);
     const payloads = ranges.map((r) => ({
-      region: d.scope_id,
+      region: "GLOBAL",
       category_id: chosenCat,
+      location: null,
       start_date: r.start_date,
       end_date: r.end_date,
       created_at: new Date().toISOString()
@@ -764,7 +768,7 @@ let done = false;
 while (!done) {
   const { data, error } = await supabase
     .from("questions_master_user")
-    .select("id, categories, populated_place_id, question_kind, quality_score")
+    .select("id, categories, populated_place_id, question_kind, quality_score, target_sphere, excluded_spheres, regions")
     .or('quality_score.is.null,quality_score.gte.3')
     .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -784,8 +788,48 @@ while (!done) {
   let availableMasters = (masterPool ?? [])
     .filter(m => !usedQuestionIds.has(m.id));
 
+  // --- Tier 1 / ROW category wall ---
+  // Fetch user's region, sub_region, and country reference data
+  const { data: userProfileForSphere } = await supabase
+    .from("user_profiles")
+    .select("region, sub_region")
+    .eq("id", d.scope_id)
+    .single();
+
+  const userRegionCode = userProfileForSphere?.region ?? 'UK';
+  const userSubRegion = userProfileForSphere?.sub_region ?? null;
+
+  const { data: userCountryRef } = await supabase
+    .from("reference_countries")
+    .select("cultural_sphere_code, is_tier_1")
+    .eq("code", userRegionCode)
+    .single();
+
+  const isTier1User = userCountryRef?.is_tier_1 ?? false;
+  const userSphereCode = userCountryRef?.cultural_sphere_code ?? 'ANG';
+
   let categoryMasters = availableMasters.filter(m => m.question_kind === "category");
   let locationMasters = availableMasters.filter(m => m.question_kind === "location");
+
+  // Apply Universal Metadata filter to category masters only
+  const preCatCount = categoryMasters.length;
+  if (isTier1User) {
+    // Tier 1: include if user's region code IS IN the regions array, or array contains "ALL"
+    categoryMasters = categoryMasters.filter(m => {
+      const regions = Array.isArray(m.regions) ? m.regions : [];
+      return regions.includes(userRegionCode) || regions.includes('ALL');
+    });
+  } else {
+    // ROW: include if target_sphere is set AND (matches user's sphere OR not excluded)
+    categoryMasters = categoryMasters.filter(m => {
+      if (!m.target_sphere) return false;
+      if (m.target_sphere === userSphereCode) return true;
+      const excluded = Array.isArray(m.excluded_spheres) ? m.excluded_spheres : [];
+      if (excluded.includes('unique')) return false;
+      return !excluded.includes(userSphereCode);
+    });
+  }
+  console.log(`[Allocator][User] Universal metadata filter (tier1=${isTier1User}, region=${userRegionCode}, sphere=${userSphereCode}): category pool ${preCatCount} → ${categoryMasters.length}`);
 
 const userPrefs = await getUserCategoryIds(d.scope_id);
 
@@ -877,20 +921,33 @@ function nextCategory(): number {
   return validCats[catIdx++];
 }
 
-// --- FORCE CATEGORY-ONLY MODE FOR USERS WITH NO ACTIVE LOCATIONS ---
+// --- US/ROW LOCATION BRANCH (Option B) ---
+// For users with no populated_places (US/ROW), detect their region and
+// keep location slots using region/sub_region as the location identity.
 if (userPlaces.length === 0) {
-  console.log("[Allocator][User] No active locations → converting all location slots to category slots");
+  const isUS = userRegionCode === 'US' && userSubRegion;
+  const isROW = userRegionCode && userRegionCode !== 'UK' && !isUS;
 
-  for (let i = 0; i < slots.length; i++) {
-    if (slots[i].slot_type === "location") {
-      slots[i] = {
-        slot_type: "category",
-        category_id: nextCategory()
-      };
+  if (isUS || isROW) {
+    // US/ROW user: use sub_region (US) or region code (ROW) as location identity
+    const locationRegion = isUS ? userSubRegion : userRegionCode;
+    console.log(`[Allocator][User] US/ROW detected (region=${userRegionCode}, sub_region=${userSubRegion}) → location identity: ${locationRegion}`);
+    userPlaces.push(locationRegion);
+  } else {
+    // UK user with no locations, or unknown → category-only fallback (existing behavior)
+    console.log("[Allocator][User] No active locations → converting all location slots to category slots");
+
+    for (let i = 0; i < slots.length; i++) {
+      if (slots[i].slot_type === "location") {
+        slots[i] = {
+          slot_type: "category",
+          category_id: nextCategory()
+        };
+      }
     }
-  }
 
-  console.log("[Allocator][User] Updated slot plan (category-only):", slots);
+    console.log("[Allocator][User] Updated slot plan (category-only):", slots);
+  }
 }
 
   let nextMasterIdx = 0;
@@ -1283,17 +1340,18 @@ try {
     active: true
   });
 
+  // Category specs are GLOBAL — never auto-create
   const { data: specs, error: specErr } = await supabase
     .from("available_question_spec")
     .select("id")
-    .eq("region", d.region)
+    .eq("region", "GLOBAL")
     .eq("category_id", chosen)
     .eq("active", true);
 
   if (specErr) {
     logDbError("SpecLookup(user-category)", specErr, {
       allocatorRunId,
-      region: d.region,
+      region: "GLOBAL",
       category_id: chosen
     });
     unmetCount++;
@@ -1305,10 +1363,13 @@ try {
     const idxSpec = Math.floor(Math.random() * specs.length);
     chosenSpecId = specs[idxSpec].id;
   } else {
+    // Failsafe: auto-create GLOBAL specs for a new category
+    console.warn(`[allocate] No GLOBAL spec found for category ${chosen} — auto-creating`);
     const ranges = splitDateRanges("0001-01-01", "9999-01-01", 8);
     const payloads = ranges.map((r) => ({
-      region: d.region,
+      region: "GLOBAL",
       category_id: chosen,
+      location: null,
       start_date: r.start_date,
       end_date: r.end_date,
       created_at: new Date().toISOString()

@@ -1,0 +1,21 @@
+{
+  "name": "elementle-worker",
+  "version": "1.0.0",
+  "description": "Elementle question generation worker service",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "worker",
+    "supabase",
+    "elementle"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "openai": "^6.8.1",
+    "pg": "^8.11.3"
+  }
+}

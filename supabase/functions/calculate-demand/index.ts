@@ -306,7 +306,12 @@ for (const row of scopedArchiveNeeds ?? []) {
 // -------------------------
 // REGION DEMAND (future + archive)
 // -------------------------
-const regionId = targetRegion ?? "UK"; // default region
+// Region demand uses 'GLOBAL' only — category specs are now GLOBAL.
+// Location demand (future) will be per-country but is handled separately.
+const regionIds: string[] = targetRegion ? [targetRegion] : ["GLOBAL"];
+console.log(`[RegionDemand] Processing regions:`, regionIds);
+
+for (const regionId of regionIds) {
 if (!targetUserId) {
 // --- REGION FUTURE WINDOW CHECK (corrected logic) ---
 const regionFutureSettings = await getSettings("region", null, "future");
@@ -467,7 +472,7 @@ if (regionFutureSettings && (regionFutureSettings.min_threshold ?? 0) > 0) {
     }
   }
 }
-
+} // end for (const regionId of regionIds)
 // -------------------------
 // ARCHIVE USAGE CHECK (GLOBAL RUN ONLY)
 // -------------------------
