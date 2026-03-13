@@ -262,6 +262,7 @@ Return a valid JSON object with double‑quoted keys and values, with fields:
       prompt = `Generate a truly worldwide, universally recognised historical event, suitable as a question in a global family game.
 The event must be on an exact recorded date and fall strictly between ${spec.start_date} and ${effectiveEndDate}.
 ${noDuplicateBlock}The event should be recognisable to audiences across any culture or continent — not specific to one country.
+CRITICAL: Do NOT generate "National Firsts" (e.g., "First radio broadcast in the Netherlands", "First Portuguese dictionary"). If the event is a "First", it MUST be the first time it happened in the ENTIRE WORLD (a true World First). National or regional firsts are NOT acceptable for the GLOBAL game.
 The event must relate to the category "${job.category?.name}" (id ${job.category_id}), described as: "${job.category?.description}".
 Only return events that are verifiable in reliable sources. If none exist for the requested window and scope, return null (JSON null).
 Estimate a quality score for the event. A score of 4 or 5 means the event is genuinely famous, historically significant, or delightfully quirky. A score of 3 means it is obscure or only relevant regionally — AVOID generating events that would score 3 or below. Aim for 4+.
@@ -308,12 +309,21 @@ Return a valid JSON object with double‑quoted keys and values, e.g. {"event_ti
 
 
 async function verifyEventCandidate(candidate, job) {
+  // Build scope-aware verifier rules
+  const scopeId = job.scope_id || job.scope_type || "unknown";
+  const nationalFirstRule = scopeId === "GLOBAL"
+    ? `\nNational-First check (GLOBAL scope only): Determine whether this event is merely a "National First" — i.e. the first time something happened in ONE particular country, rather than a true World First or a universally significant event. Examples of national firsts to reject: "First radio broadcast in the Netherlands", "First Portuguese dictionary". Set is_strictly_national_first to true if so.`
+    : '';
+
   const verifierPrompt = `
 You are a historical verification assistant. Work independently with no prior context.
 
 Task: Assess whether the following event occurred and whether its date is accurate. Use widely accepted, reliable historical sources (e.g., encyclopedias, reference works). If evidence is insufficient, treat as likely fictitious.
 
 Special rule: If the date is 1st January of any year, treat it as suspicious. Confirm only if reliable sources explicitly record 1st January as the true date. Otherwise, return verdict="hallucination" or provide a corrected specific date if known.
+${nationalFirstRule}
+
+Scope: ${scopeId}
 
 Input JSON:
 ${JSON.stringify(candidate)}
@@ -325,6 +335,7 @@ Return JSON with:
 - corrected_event_title (<=50 chars - do not include any reference to the date in the title): string or null
 - corrected_event_description (<=200 chars): string or null
 - corrected_answer_date_canonical: yyyy-mm-dd or null
+- is_strictly_national_first: boolean (true if the event is merely a national/regional first, not a world first or universally significant event; false otherwise)
 `;
 
   const completion = await openai.chat.completions.create({
@@ -815,12 +826,32 @@ if (accuracyScore >= 3 && accuracyScore < 5) {
     continue;
   }
 
+  // ✅ National First gating (GLOBAL scope only)
+  if (verify.is_strictly_national_first === true && (job.scope_id === "GLOBAL")) {
+    console.log(`Job ${job.id}: verifier flagged as National First — rejecting for GLOBAL scope`);
+    if (!firstFailureCaptured) {
+      await supabase
+        .from("questions_to_generate")
+        .update({
+          failed_candidate_date: candidate.answer_date_canonical,
+          failed_candidate_description: `[National First] ${candidate.event_description}`
+        })
+        .eq("id", job.id);
+      firstFailureCaptured = true;
+    }
+    if (attempts >= 2) {
+      await supabase.rpc("archive_and_delete_spec", { p_spec_id: job.spec_id, p_reason: "national_first_rejected" });
+      throw new Error("national_first_rejected");
+    }
+    continue;
+  }
+
   if (verify.verdict === "corrected" || verify.verdict === "confirm") {
     candidate.event_title = verify.corrected_event_title ?? candidate.event_title;
     candidate.event_description = verify.corrected_event_description ?? candidate.event_description;
     candidate.answer_date_canonical = verify.corrected_answer_date_canonical ?? candidate.answer_date_canonical;
 
-    // ✅ overwrite accuracy_score with verifier’s score
+    // ✅ overwrite accuracy_score with verifier's score
     candidate.accuracy_score = verify.accuracy_score;
 
     // ✅ reject if verifier score <= 3
