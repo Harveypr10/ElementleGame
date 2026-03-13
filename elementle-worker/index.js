@@ -1441,7 +1441,6 @@ async function pollForJobs(batchSize = 5) {
       .from('questions_to_generate')
       .select(`
         *,
-        populated_place:populated_places(name1),
         category:categories(name, description)
       `)
       .in('status', ['pending', 'retry'])
@@ -1458,6 +1457,31 @@ async function pollForJobs(batchSize = 5) {
 
     if (data && data.length > 0) {
       console.log(`Found ${data.length} pending job(s)`);
+
+      // Resolve populated_place name for UK-style (numeric) place IDs
+      const ukPlaceIds = data
+        .filter(j => j.populated_place_id && !isNaN(Number(j.populated_place_id)))
+        .map(j => j.populated_place_id);
+
+      if (ukPlaceIds.length > 0) {
+        const uniquePlaceIds = [...new Set(ukPlaceIds)];
+        const { data: places, error: placesErr } = await supabase
+          .from('populated_places')
+          .select('id, name1')
+          .in('id', uniquePlaceIds);
+
+        if (!placesErr && places) {
+          const placeMap = Object.fromEntries(places.map(p => [p.id, p]));
+          for (const job of data) {
+            if (job.populated_place_id && placeMap[job.populated_place_id]) {
+              job.populated_place = placeMap[job.populated_place_id];
+            }
+          }
+        } else if (placesErr) {
+          console.warn('[Worker] Failed to resolve UK place names:', placesErr.message);
+        }
+      }
+
 
       const today = new Date();
 
@@ -1702,7 +1726,9 @@ while (true) {
     console.log(`[Worker] Cycle scope tracking: added ${job.scope_type} ${job.scope_id}`);
 
     // ✅ Safety net: if this was a location job and it succeeded, ensure place is active if active specs exist.
-    if (success && job.slot_type === "location" && job.populated_place_id) {
+    // Skip for virtual locations (US states, ROW countries) — they don't exist in populated_places.
+    const isVirtualPlace = job.populated_place_id && isNaN(Number(job.populated_place_id));
+    if (success && job.slot_type === "location" && job.populated_place_id && !isVirtualPlace) {
       const { data: activeSpecs, error: specCheckErr } = await supabase
         .from("available_question_spec")
         .select("id")
