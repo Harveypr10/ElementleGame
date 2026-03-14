@@ -67,11 +67,13 @@ if (req.method === "OPTIONS") {
     let today;
     let targetUserId = null;
     let targetRegion = null;
+    let targetScope = null; // "region" or "user" to run only that branch
     try {
       const body = await req.json();
       today = body.today ?? formatDate(new Date());
       targetUserId = body.user_id ?? null;
       targetRegion = body.region ?? null;
+      targetScope = body.scope ?? null;
     } catch  {
       today = formatDate(new Date());
     }
@@ -116,7 +118,7 @@ if (targetUserId) {
 // -------------------------
 // USER DEMAND (future + archive)
 // -------------------------
-
+if (targetScope !== "region") {
 // --- FUTURE DEMAND ---
 const { data: futureNeeds, error: futureErr } = await supabase.rpc(
   "user_future_demand",
@@ -303,11 +305,13 @@ for (const row of scopedArchiveNeeds ?? []) {
     });
   }
 }
+} // end if (targetScope !== "region")
 // -------------------------
 // REGION DEMAND (future + archive)
 // -------------------------
 // Region demand uses 'UK' — the single unified global region.
 // Location demand (future) will be per-country but is handled separately.
+if (targetScope !== "user") {
 const regionIds: string[] = targetRegion ? [targetRegion] : ["UK"];
 console.log(`[RegionDemand] Processing regions:`, regionIds);
 
@@ -473,6 +477,7 @@ if (regionFutureSettings && (regionFutureSettings.min_threshold ?? 0) > 0) {
   }
 }
 } // end for (const regionId of regionIds)
+} // end if (targetScope !== "user")
 // -------------------------
 // ARCHIVE USAGE CHECK (GLOBAL RUN ONLY)
 // -------------------------
