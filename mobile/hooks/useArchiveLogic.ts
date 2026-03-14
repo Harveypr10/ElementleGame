@@ -86,6 +86,7 @@ export const useArchiveLogic = () => {
     const { isConnected } = useNetwork();
     const { holidayActive, holidayEndDate } = useStreakSaverStatus();
 
+
     // Prioritize passed param, fallback to context
     const gameMode = (params.mode as string) || contextMode;
     const isDark = darkMode;
@@ -131,7 +132,7 @@ export const useArchiveLogic = () => {
                     .limit(1);
 
                 if (isRegion) {
-                    query = query.eq('region', 'GLOBAL');
+                    query = query.eq('region', 'UK');
                 } else {
                     query = query.eq('user_id', user.id);
                 }
@@ -193,7 +194,7 @@ export const useArchiveLogic = () => {
                 .lte('puzzle_date', end.toISOString());
 
             if (isRegion) {
-                query = query.eq('region', 'GLOBAL');
+                query = query.eq('region', 'UK');
             } else {
                 query = query.eq('user_id', user.id);
             }

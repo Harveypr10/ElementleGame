@@ -306,9 +306,9 @@ for (const row of scopedArchiveNeeds ?? []) {
 // -------------------------
 // REGION DEMAND (future + archive)
 // -------------------------
-// Region demand uses 'GLOBAL' only — category specs are now GLOBAL.
+// Region demand uses 'UK' — the single unified global region.
 // Location demand (future) will be per-country but is handled separately.
-const regionIds: string[] = targetRegion ? [targetRegion] : ["GLOBAL"];
+const regionIds: string[] = targetRegion ? [targetRegion] : ["UK"];
 console.log(`[RegionDemand] Processing regions:`, regionIds);
 
 for (const regionId of regionIds) {

@@ -255,8 +255,8 @@ Return a valid JSON object with double‑quoted keys and values, with fields:
   }
 
   if (job.scope_type === "region") {
-    if (job.scope_id === "GLOBAL") {
-      // Global game: truly worldwide, universally recognised events
+    if (job.scope_id === "UK") {
+      // UK is the single unified global game: truly worldwide, universally recognised events
       // NOTE: No universalMetadataBlock here — region questions don't need sphere/regions metadata.
       // We hardcode regions=["ALL"], target_sphere=null, excluded_spheres=[] at INSERT time.
       prompt = `Generate a truly worldwide, universally recognised historical event, suitable as a question in a global family game.
@@ -311,8 +311,8 @@ Return a valid JSON object with double‑quoted keys and values, e.g. {"event_ti
 async function verifyEventCandidate(candidate, job) {
   // Build scope-aware verifier rules
   const scopeId = job.scope_id || job.scope_type || "unknown";
-  const nationalFirstRule = scopeId === "GLOBAL"
-    ? `\nNational-First check (GLOBAL scope only): Determine whether this event is merely a "National First" — i.e. the first time something happened in ONE particular country, rather than a true World First or a universally significant event. Examples of national firsts to reject: "First radio broadcast in the Netherlands", "First Portuguese dictionary". Set is_strictly_national_first to true if so.`
+  const nationalFirstRule = scopeId === "UK"
+    ? `\nNational-First check (UK/Global scope): Determine whether this event is merely a "National First" — i.e. the first time something happened in ONE particular country, rather than a true World First or a universally significant event. Examples of national firsts to reject: "First radio broadcast in the Netherlands", "First Portuguese dictionary". Set is_strictly_national_first to true if so.`
     : '';
 
   const verifierPrompt = `
@@ -827,7 +827,7 @@ if (accuracyScore >= 3 && accuracyScore < 5) {
   }
 
   // ✅ National First gating (GLOBAL scope only)
-  if (verify.is_strictly_national_first === true && (job.scope_id === "GLOBAL")) {
+  if (verify.is_strictly_national_first === true && (job.scope_id === "UK")) {
     console.log(`Job ${job.id}: verifier flagged as National First — rejecting for GLOBAL scope`);
     if (!firstFailureCaptured) {
       await supabase

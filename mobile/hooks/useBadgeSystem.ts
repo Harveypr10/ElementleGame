@@ -46,7 +46,7 @@ export const useBadgeSystem = () => {
         guesses: number,
         streak: number,
         gameType: 'REGION' | 'USER',
-        region: string = 'GLOBAL'
+        region: string = 'UK'
     ): Promise<Badge[]> => {
         if (!user || !badgeDefinitions) return [];
 
@@ -66,13 +66,13 @@ export const useBadgeSystem = () => {
                     .select('id, badge_count')
                     .eq('user_id', user.id)
                     .eq('badge_id', definition.id)
-                    .eq('region', gameType === 'REGION' ? 'GLOBAL' : 'GLOBAL')
+                    .eq('region', gameType === 'REGION' ? 'UK' : 'UK')
                     // Actually, the insert block below uses 'region' var. 
                     // Let's assume we match on badge_id + user_id + maybe game_type if needed?
                     // User request says: "region version of the UK game... update existing row... region=UK"
-                    // Existing logic below inserts with `region: gameType === 'REGION' ? region : 'GLOBAL'`.
+                    // Existing logic below inserts with `region: gameType === 'REGION' ? region : 'UK'`.
                     // So we must match that.
-                    .eq('region', gameType === 'REGION' ? region : 'GLOBAL')
+                    .eq('region', gameType === 'REGION' ? region : 'UK')
                     .eq('game_type', gameType)
                     .single();
 
@@ -139,7 +139,7 @@ export const useBadgeSystem = () => {
                 badge_id: b.id,
                 is_awarded: false, // Pending display
                 game_type: gameType,
-                region: gameType === 'REGION' ? 'GLOBAL' : 'GLOBAL',
+                region: gameType === 'REGION' ? 'UK' : 'UK',
                 badge_count: 1
             }));
 

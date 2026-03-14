@@ -37,6 +37,7 @@ import { HolidayActiveModal } from '../components/game/HolidayActiveModal';
 import { endHolidayMode } from '../lib/supabase-rpc';
 import { generateArchiveShareText } from '../lib/generateArchiveShareText';
 
+
 // Web version import
 import ArchiveScreenWeb from './archive.web';
 
@@ -88,6 +89,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const [monthData, setMonthData] = useState<Record<string, DayStatus>>({});
     const { isConnected } = useNetwork();
+
 
 
     // Fetch data when active and screen is focused
@@ -159,7 +161,7 @@ const MonthPage = React.memo(({ monthDate, isActive, gameMode, isScreenFocused, 
                 .lte('puzzle_date', end.toISOString());
 
             if (isRegion) {
-                query = query.eq('region', 'GLOBAL');
+                query = query.eq('region', 'UK');
             } else {
                 query = query.eq('user_id', user.id);
             }
@@ -454,7 +456,7 @@ export default function ArchiveScreen() {
                     .limit(1);
 
                 if (isRegion) {
-                    query = query.eq('region', 'GLOBAL');
+                    query = query.eq('region', 'UK');
                 } else {
                     query = query.eq('user_id', user.id);
                 }
@@ -494,7 +496,7 @@ export default function ArchiveScreen() {
                         .limit(1);
 
                     if (isRegion) {
-                        query = query.eq('region', 'GLOBAL');
+                        query = query.eq('region', 'UK');
                     } else {
                         query = query.eq('user_id', user.id);
                     }

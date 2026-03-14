@@ -240,7 +240,7 @@ function IntroView({
     const promptText = cluesEnabled
         ? (mode === 'REGION'
             ? "On what date did this historical event occur?"
-            : "On what date did this personal event occur?")
+            : "On what date did this event occur?")
         : "Take on the challenge of guessing a date in history!";
 
     // For streak games: black bg with colored text

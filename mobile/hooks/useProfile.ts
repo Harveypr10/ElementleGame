@@ -17,6 +17,7 @@ export interface UserProfile {
     password_created: boolean | null;
     google_linked: boolean | null;
     apple_linked: boolean | null;
+    is_legacy_tester: boolean;
 }
 
 export function useProfile() {

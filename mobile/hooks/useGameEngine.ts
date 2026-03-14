@@ -1078,7 +1078,7 @@ export function useGameEngine({
                                 .single();
                             userRegion = profile?.region || 'UK';
                         }
-                        const REGION = mode === 'REGION' ? userRegion : 'GLOBAL';
+                        const REGION = mode === 'REGION' ? userRegion : 'UK';
 
                         // Streak badges require an active streak
                         if (newCurrentStreak > 0) {

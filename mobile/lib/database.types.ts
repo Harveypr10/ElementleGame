@@ -2602,6 +2602,7 @@ export type Database = {
           id: string
           is_admin: boolean | null
           is_adult: boolean | null
+          is_legacy_tester: boolean
           last_name: string | null
           location: unknown
           magic_link: boolean | null
@@ -2641,6 +2642,7 @@ export type Database = {
           id: string
           is_admin?: boolean | null
           is_adult?: boolean | null
+          is_legacy_tester?: boolean
           last_name?: string | null
           location?: unknown
           magic_link?: boolean | null
@@ -2680,6 +2682,7 @@ export type Database = {
           id?: string
           is_admin?: boolean | null
           is_adult?: boolean | null
+          is_legacy_tester?: boolean
           last_name?: string | null
           location?: unknown
           magic_link?: boolean | null

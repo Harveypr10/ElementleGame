@@ -127,7 +127,7 @@ export async function fetchNotificationData(userId: string): Promise<Notificatio
         const { data: regionAllocs } = await supabase
             .from('questions_allocated_region')
             .select('puzzle_date, question_id')
-            .eq('region', 'GLOBAL')  // Region allocations always use GLOBAL
+            .eq('region', 'UK')  // Region allocations use UK
             .in('puzzle_date', allRegionDates);
 
         if (regionAllocs && regionAllocs.length > 0) {

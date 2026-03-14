@@ -84,7 +84,7 @@ export function IntroScreen({
     const promptText = cluesEnabled
         ? (gameMode === 'REGION'
             ? "On what date did this historical event occur?"
-            : "On what date did this personal event occur?")
+            : "On what date did this event occur?")
         : "Take on the challenge of guessing a date in history!";
 
     const formattedDate = puzzleDate ? format(new Date(puzzleDate), 'MMM d, yyyy') : '';

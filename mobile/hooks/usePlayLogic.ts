@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { resolveLocationName } from '../lib/resolveLocationName';
 import { useAuth } from '../lib/auth';
 import { useOptions } from '../lib/options';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -100,6 +101,7 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
     const { cluesEnabled } = useOptions();
     const { isConnected } = useNetwork();
 
+
     // Puzzle state
     const [puzzle, setPuzzle] = useState<PuzzleData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -194,13 +196,13 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
                     .select('*, categories(id, name)');
 
                 if (puzzleIdParam === 'today') {
-                    regionQuery = regionQuery.eq('region', 'GLOBAL').eq('puzzle_date', today);
+                    regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', today);
                 } else if (/^\d{4}-\d{2}-\d{2}$/.test(puzzleIdParam)) {
-                    regionQuery = regionQuery.eq('region', 'GLOBAL').eq('puzzle_date', puzzleIdParam);
+                    regionQuery = regionQuery.eq('region', 'UK').eq('puzzle_date', puzzleIdParam);
                 } else {
                     const idInt = parseInt(puzzleIdParam, 10);
                     if (!isNaN(idInt)) {
-                        regionQuery = regionQuery.eq('id', idInt).eq('region', 'GLOBAL');
+                        regionQuery = regionQuery.eq('id', idInt);
                     } else {
                         console.error('[usePlayLogic] Invalid puzzle ID:', puzzleIdParam);
                         setPuzzle(null);
@@ -285,10 +287,18 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
                 if (allocRes.question_id) {
                     const { data: master } = await supabase
                         .from('questions_master_user')
-                        .select('*, populated_places!populated_place_id(name1)')
+                        .select('*')
                         .eq('id', allocRes.question_id)
                         .maybeSingle();
                     masterData = master;
+
+                    // Resolve location name using shared 3-tier utility
+                    if (master?.populated_place_id) {
+                        const resolvedName = await resolveLocationName(master.populated_place_id);
+                        if (resolvedName) {
+                            masterData._resolvedLocationName = resolvedName;
+                        }
+                    }
 
                     // Fetch Attempts
                     const { data: attempts } = await supabase
@@ -311,8 +321,8 @@ export function usePlayLogic({ mode, puzzleIdParam }: UsePlayLogicParams): UsePl
                     masterId: allocationData.question_id,
                     category: allocationData?.categories?.name || 'History',
                     categoryNumber: allocationData?.categories?.id,
-                    location: allocationData?.categories?.id === 999 && masterData?.populated_places?.name1
-                        ? masterData.populated_places.name1
+                    location: allocationData?.categories?.id === 999 && masterData?._resolvedLocationName
+                        ? masterData._resolvedLocationName
                         : '',
                     eventDescription: masterData?.event_description || masterData?.description || '',
                     // Apply attempt data if found

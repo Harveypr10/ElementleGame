@@ -573,7 +573,7 @@ const master = matchingMasters.length > 0
 if (master) {
   const primaryCategory = Array.isArray(master.categories) ? master.categories[0] : chosenCat;
   const { error: insErr } = await supabase.from("questions_allocated_region").insert({
-    region: "GLOBAL",
+    region: "UK",
     puzzle_date: date,
     question_id: master.id,
     slot_type: "category",
@@ -604,17 +604,17 @@ if (master) {
 
 
 try {
-  // Category specs are GLOBAL — never auto-create, they should exist from Phase 3
+  // Category specs are UK — never auto-create, they should exist from Phase 3
   const { data: specs, error: specErr } = await supabase
     .from("available_question_spec")
     .select("id")
-    .eq("region", "GLOBAL")
+    .eq("region", "UK")
     .eq("category_id", chosenCat)
     .eq("active", true);
 
   if (specErr) {
     logDbError("SpecLookup(region-category)", specErr, {
-      allocatorRunId, region: "GLOBAL", category_id: chosenCat
+      allocatorRunId, region: "UK", category_id: chosenCat
     });
     unmetCount++;
     continue;
@@ -625,11 +625,11 @@ try {
     const idx = Math.floor(Math.random() * specs.length);
     chosenSpecId = specs[idx].id;
   } else {
-    // Failsafe: auto-create GLOBAL specs for a new category
-    console.warn(`[allocate] No GLOBAL spec found for category ${chosenCat} — auto-creating`);
+    // Failsafe: auto-create UK specs for a new category
+    console.warn(`[allocate] No UK spec found for category ${chosenCat} — auto-creating`);
     const ranges = splitDateRanges("0001-01-01", "9999-01-01", 8);
     const payloads = ranges.map((r) => ({
-      region: "GLOBAL",
+      region: "UK",
       category_id: chosenCat,
       location: null,
       start_date: r.start_date,
@@ -1354,18 +1354,18 @@ try {
     active: true
   });
 
-  // Category specs are GLOBAL — never auto-create
+  // Category specs are UK — never auto-create
   const { data: specs, error: specErr } = await supabase
     .from("available_question_spec")
     .select("id")
-    .eq("region", "GLOBAL")
+    .eq("region", "UK")
     .eq("category_id", chosen)
     .eq("active", true);
 
   if (specErr) {
     logDbError("SpecLookup(user-category)", specErr, {
       allocatorRunId,
-      region: "GLOBAL",
+      region: "UK",
       category_id: chosen
     });
     unmetCount++;
@@ -1377,11 +1377,11 @@ try {
     const idxSpec = Math.floor(Math.random() * specs.length);
     chosenSpecId = specs[idxSpec].id;
   } else {
-    // Failsafe: auto-create GLOBAL specs for a new category
-    console.warn(`[allocate] No GLOBAL spec found for category ${chosen} — auto-creating`);
+    // Failsafe: auto-create UK specs for a new category
+    console.warn(`[allocate] No UK spec found for category ${chosen} — auto-creating`);
     const ranges = splitDateRanges("0001-01-01", "9999-01-01", 8);
     const payloads = ranges.map((r) => ({
-      region: "GLOBAL",
+      region: "UK",
       category_id: chosen,
       location: null,
       start_date: r.start_date,
