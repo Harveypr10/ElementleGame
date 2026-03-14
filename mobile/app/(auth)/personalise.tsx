@@ -144,8 +144,8 @@ export default function PersonalisePage() {
             return;
         }
 
-        // Handle blank postcode with warning dialog (skip for US — state picker handles it)
-        if (region !== 'US' && !postcode.trim()) {
+        // Handle blank postcode with warning dialog (UK only — US uses state picker, ROW has no local)
+        if (region === 'UK' && !postcode.trim()) {
             Alert.alert(
                 'No postcode provided',
                 'Without a postcode, we can\'t provide local puzzles. You\'ll only have access to general region-based puzzles. Are you sure you want to continue without entering a postcode?',
@@ -461,8 +461,8 @@ export default function PersonalisePage() {
                                         required={false}
                                     />
                                 </View>
-                            ) : (
-                                /* Postcode Field (UK and other regions) */
+                            ) : region === 'UK' ? (
+                                /* Postcode Field (UK only) */
                                 <View style={[styles.fieldContainer, { zIndex: 100, position: 'relative' }]}>
                                     <View style={styles.labelRow}>
                                         <ThemedText style={[styles.label, { color: textColor }]} size="sm">Postcode</ThemedText>
@@ -485,7 +485,7 @@ export default function PersonalisePage() {
                                         required={false}
                                     />
                                 </View>
-                            )}
+                            ) : null /* ROW countries: no postcode or state needed */}
 
 
 

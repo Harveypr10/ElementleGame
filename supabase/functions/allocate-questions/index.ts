@@ -88,8 +88,8 @@ let targetCategory = totalSlots - targetLocation;
 // Adjust location target based on recent allocations
 targetLocation = Math.max(0, targetLocation - (recentByType["location"] ?? 0));
 
-// ✅ Force minimum location slots for PRO users with no prefs
-if (tier === "pro" && userPrefs.length === 0) {
+// ✅ Force minimum location slots for PRO users
+if (tier === "pro") {
   const minLocation = Math.max(1, Math.floor(totalSlots / 3));
   targetLocation = Math.max(targetLocation, minLocation);
   targetCategory = totalSlots - targetLocation;
