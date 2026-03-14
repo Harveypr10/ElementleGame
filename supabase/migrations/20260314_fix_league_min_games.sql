@@ -213,11 +213,11 @@ BEGIN
         WHERE games_played < v_min_games
     ),
     combined AS (
-        SELECT row_data FROM ranked   ORDER BY sort_key
+        SELECT row_data, section, sort_key FROM ranked
         UNION ALL
-        SELECT row_data FROM unranked ORDER BY sort_key
+        SELECT row_data, section, sort_key FROM unranked
     )
-    SELECT jsonb_agg(row_data) INTO v_standings FROM combined;
+    SELECT jsonb_agg(row_data ORDER BY section ASC, sort_key ASC) INTO v_standings FROM combined;
 
     -- My rank (NULL if unranked)
     SELECT (row_data->>'rank')::integer INTO v_my_rank
