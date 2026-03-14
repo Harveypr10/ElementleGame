@@ -37,8 +37,8 @@ export async function resolveLocationName(placeId: string | null | undefined): P
             return data?.name ?? null;
         }
 
-        // Tier 2: UK numeric place ID (e.g. "12345")
-        if (!isNaN(Number(trimmed))) {
+        // Tier 2: UK osgb place ID (e.g. "osgb4000000074564395")
+        if (trimmed.startsWith('osgb')) {
             const { data } = await supabase
                 .from('populated_places')
                 .select('name1')

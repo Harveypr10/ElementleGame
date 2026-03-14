@@ -969,6 +969,8 @@ break;
     // Bug 3 fix: Map GB → UK for event_origin (our convention uses UK, not ISO GB)
     let sanitisedEventOrigin = aiResponse.event_origin || "Unknown";
     if (sanitisedEventOrigin === "GB") sanitisedEventOrigin = "UK";
+    if (sanitisedEventOrigin === "United Kingdom") sanitisedEventOrigin = "UK";
+    if (sanitisedEventOrigin === "United States") sanitisedEventOrigin = "US";
 
     // Bug 2 fix: Validate target_sphere (must be one of the 5 allowed codes)
     const VALID_SPHERES = ["ANG", "ELA", "ASI", "SAM", "AFR"];
@@ -1458,9 +1460,9 @@ async function pollForJobs(batchSize = 5) {
     if (data && data.length > 0) {
       console.log(`Found ${data.length} pending job(s)`);
 
-      // Resolve populated_place name for UK-style (numeric) place IDs
+      // Resolve populated_place name for UK osgb place IDs
       const ukPlaceIds = data
-        .filter(j => j.populated_place_id && !isNaN(Number(j.populated_place_id)))
+        .filter(j => j.populated_place_id && j.populated_place_id.startsWith('osgb'))
         .map(j => j.populated_place_id);
 
       if (ukPlaceIds.length > 0) {
@@ -1727,7 +1729,7 @@ while (true) {
 
     // ✅ Safety net: if this was a location job and it succeeded, ensure place is active if active specs exist.
     // Skip for virtual locations (US states, ROW countries) — they don't exist in populated_places.
-    const isVirtualPlace = job.populated_place_id && isNaN(Number(job.populated_place_id));
+    const isVirtualPlace = job.populated_place_id && !job.populated_place_id.startsWith('osgb');
     if (success && job.slot_type === "location" && job.populated_place_id && !isVirtualPlace) {
       const { data: activeSpecs, error: specCheckErr } = await supabase
         .from("available_question_spec")

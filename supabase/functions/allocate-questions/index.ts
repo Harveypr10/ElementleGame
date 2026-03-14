@@ -1059,7 +1059,7 @@ if (slot.slot_type === "location") {
   // These don't exist in location_allocation or populated_places tables,
   // so we treat them as always-active — their location identity comes from
   // the user's sub_region/region, not from the UK populated_places system.
-  const isVirtualLocation = placeId && isNaN(Number(placeId));
+  const isVirtualLocation = placeId && !placeId.startsWith('osgb');
 
   if (isVirtualLocation) {
     console.log("[Allocator][User][Location] Virtual location detected — bypassing active check", {
