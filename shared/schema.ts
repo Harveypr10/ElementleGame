@@ -38,12 +38,10 @@ export type Postcode = typeof postcodes.$inferSelect;
 export const ProTierEnum = z.enum(['free', 'bronze', 'silver', 'gold', 'standard', 'pro_monthly', 'pro_annual', 'pro_lifetime']);
 export type ProTier = z.infer<typeof ProTierEnum>;
 
-// User Tier table - defines available subscription tiers per region
-// This table is managed in Supabase and defines tier metadata
-// Unique constraint: (region, tier, tier_type)
+// User Tier table - defines available subscription tiers (global, region-agnostic)
+// Unique constraint: (tier, tier_type)
 export const userTier = pgTable("user_tier", {
   id: uuid("id").primaryKey(),
-  region: text("region").notNull(), // e.g., 'UK', 'US'
   tier: text("tier").notNull(), // e.g., 'Standard', 'Pro', 'Education'
   tierType: text("tier_type").notNull().default("default"), // e.g., 'default', 'monthly', 'annual', 'lifetime'
   billingPeriod: text("billing_period"), // 'month', 'quarter', 'year' - for Stripe billing
@@ -72,7 +70,6 @@ export interface UserActiveTier {
   userId: string;
   tierId: string;
   tier: string;
-  region: string;
   subscriptionCost: number | null;
   currency: string | null;
   subscriptionDurationMonths: number | null;

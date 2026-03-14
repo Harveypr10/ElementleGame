@@ -18,7 +18,6 @@ import { supabase } from '../lib/supabase';
 // Tier data from user_tier table
 export interface TierData {
     id: string;
-    region: string;
     tier: string;
     tierType: string; // 'monthly', 'annual', 'lifetime', 'default'
     subscriptionCost: number | null;
@@ -110,7 +109,7 @@ export const useGoProLogic = () => {
                 }
 
                 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-                const response = await fetch(`${supabaseUrl}/rest/v1/user_tier?region=eq.UK&tier=neq.standard&active=eq.true&order=sort_order`, {
+                const response = await fetch(`${supabaseUrl}/rest/v1/user_tier?tier=neq.standard&active=eq.true&order=sort_order`, {
                     headers: {
                         'Authorization': `Bearer ${session.access_token}`,
                         'apikey': process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
@@ -125,7 +124,6 @@ export const useGoProLogic = () => {
                 // Map snake_case to camelCase
                 const mappedTiers = data.map((t: any) => ({
                     id: t.id,
-                    region: t.region,
                     tier: t.tier,
                     tierType: t.tier_type,
                     subscriptionCost: t.subscription_cost,

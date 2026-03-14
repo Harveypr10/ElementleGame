@@ -325,11 +325,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const defaultDateFormat = selectedRegion?.defaultDateFormat ?? 'ddmmyy';
         
         // Look up the Standard tier ID for the user's region
-        const standardTierId = await storage.getStandardTierId(finalRegion || 'UK');
+        const standardTierId = await storage.getStandardTierId();
         if (!standardTierId) {
-          console.error(`[PATCH /api/auth/profile] No Standard tier found for region: ${finalRegion}`);
+          console.error(`[PATCH /api/auth/profile] No Standard tier found`);
         } else {
-          console.log(`[PATCH /api/auth/profile] Using Standard tier ID: ${standardTierId} for region: ${finalRegion}`);
+          console.log(`[PATCH /api/auth/profile] Using Standard tier ID: ${standardTierId}`);
         }
         
         const newProfile = await storage.upsertUserProfile({
@@ -426,12 +426,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let userTierId = existing.userTierId;
       if (!userTierId) {
         const finalRegion = region ?? existing.region ?? 'UK';
-        const standardTierId = await storage.getStandardTierId(finalRegion);
+        const standardTierId = await storage.getStandardTierId();
         if (standardTierId) {
-          console.log(`[PATCH /api/auth/profile] Setting missing user_tier_id to Standard tier: ${standardTierId} for region: ${finalRegion}`);
+          console.log(`[PATCH /api/auth/profile] Setting missing user_tier_id to Standard tier: ${standardTierId}`);
           userTierId = standardTierId;
         } else {
-          console.error(`[PATCH /api/auth/profile] No Standard tier found for region: ${finalRegion}`);
+          console.error(`[PATCH /api/auth/profile] No Standard tier found`);
         }
       }
 
@@ -2068,7 +2068,7 @@ app.get("/api/stats", verifySupabaseAuth, async (req: any, res) => {
     console.log('[tiers] Fetching purchasable tiers for region:', region);
     
     try {
-      const tiers = await storage.getPurchasableTiers(region);
+      const tiers = await storage.getPurchasableTiers();
       
       console.log('[tiers] Found purchasable tiers:', tiers.length);
       console.log('[tiers] Tier data:', tiers.map(t => ({ 
@@ -2265,7 +2265,7 @@ app.post("/api/subscription/auto-renew", verifySupabaseAuth, async (req: any, re
       const region = profile?.region || 'UK';
 
       // Downgrade user to Standard tier
-      await storage.downgradeToStandard(userId, region);
+      await storage.downgradeToStandard(userId);
 
       console.log('[subscription/downgrade] Successfully downgraded to Standard');
       res.json({ 

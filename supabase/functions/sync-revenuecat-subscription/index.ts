@@ -76,37 +76,16 @@ serve(async (req) => {
         const productId = proEntitlement.product_identifier
         const subscriberId = subscriberInfo.subscriber.original_app_user_id
 
-        // 6. Get user's region from profile
-        const { data: profile, error: profileError } = await supabaseClient
-            .from('user_profiles')
-            .select('region')
-            .eq('id', user.id)
-            .single()
-
-        if (profileError || !profile) {
-            console.error('[sync-revenuecat] Error fetching profile:', profileError)
-            throw new Error('Failed to fetch user profile')
-        }
-
-        if (!profile.region) {
-            console.error('[sync-revenuecat] User has no region set')
-            throw new Error('User region not set in profile')
-        }
-
-        const region = profile.region
-        console.log(`[sync-revenuecat] User region: ${region}`)
-
-        // 7. Find matching user_tier by EXACT product_id + region match
+        // 6. Find matching user_tier by product_id (user_tier is region-agnostic)
         const { data: tierData, error: tierError } = await supabaseClient
             .from('user_tier')
             .select('id, tier_type, tier, subscription_cost')
-            .eq('region', region)
             .eq('revenuecat_product_id', productId)
             .single()
 
         if (tierError || !tierData) {
-            console.error(`[sync-revenuecat] No tier found for product ${productId} in region ${region}:`, tierError)
-            throw new Error(`No tier found for product ${productId} in region ${region}`)
+            console.error(`[sync-revenuecat] No tier found for product ${productId}:`, tierError)
+            throw new Error(`No tier found for product ${productId}`)
         }
 
         const userTierId = tierData.id

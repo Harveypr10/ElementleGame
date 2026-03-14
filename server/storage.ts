@@ -107,12 +107,12 @@ export interface IStorage {
   
   // New subscription system - reads from user_profiles + user_tier
   getSubscriptionData(userId: string): Promise<SubscriptionResponse | null>;
-  getAvailableTiers(region: string): Promise<UserTier[]>;
-  getPurchasableTiers(region: string): Promise<UserTier[]>; // Excludes Standard
-  getStandardTierId(region: string): Promise<string | null>;
+  getAvailableTiers(): Promise<UserTier[]>;
+  getPurchasableTiers(): Promise<UserTier[]>; // Excludes Standard
+  getStandardTierId(): Promise<string | null>;
   createUserSubscription(subscription: { userId: string; userTierId: string; amountPaid?: number; currency?: string; expiresAt?: Date; autoRenew?: boolean; source?: string }): Promise<void>;
-  createDefaultSubscription(userId: string, region: string): Promise<void>; // For signup
-  downgradeToStandard(userId: string, region: string): Promise<void>;
+  createDefaultSubscription(userId: string): Promise<void>; // For signup
+  downgradeToStandard(userId: string): Promise<void>;
   updateAutoRenew(userId: string, autoRenew: boolean): Promise<void>;
 
   // Puzzle operations (LEGACY - will be deprecated)
@@ -410,7 +410,6 @@ export class DatabaseStorage implements IStorage {
         user_id as "userId",
         tier_id as "tierId",
         tier,
-        region,
         subscription_cost as "subscriptionCost",
         currency,
         subscription_duration_months as "subscriptionDurationMonths",
@@ -435,7 +434,6 @@ export class DatabaseStorage implements IStorage {
       userId: row.userId,
       tierId: row.tierId,
       tier: row.tier,
-      region: row.region,
       subscriptionCost: row.subscriptionCost,
       currency: row.currency,
       subscriptionDurationMonths: row.subscriptionDurationMonths,
@@ -581,23 +579,22 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getAvailableTiers(region: string): Promise<UserTier[]> {
-    // Query available tiers for the given region, ordered by sort_order
+  async getAvailableTiers(): Promise<UserTier[]> {
+    // Query all available tiers (user_tier is region-agnostic), ordered by sort_order
     const tiers = await db
       .select()
       .from(userTier)
-      .where(and(eq(userTier.region, region), eq(userTier.active, true)))
+      .where(eq(userTier.active, true))
       .orderBy(userTier.sortOrder);
     
     return tiers;
   }
 
   // Get purchasable tiers (excludes Standard tier)
-  async getPurchasableTiers(region: string): Promise<UserTier[]> {
+  async getPurchasableTiers(): Promise<UserTier[]> {
     const result = await db.execute(sql`
       SELECT 
         id,
-        region,
         tier,
         tier_type as "tierType",
         subscription_cost as "subscriptionCost",
@@ -612,8 +609,7 @@ export class DatabaseStorage implements IStorage {
         description,
         sort_order as "sortOrder"
       FROM user_tier
-      WHERE region = ${region}
-        AND active = true
+      WHERE active = true
         AND tier != 'Standard'
       ORDER BY sort_order ASC
     `);
@@ -622,33 +618,30 @@ export class DatabaseStorage implements IStorage {
     return rows as UserTier[];
   }
 
-  // Get the Standard tier ID for a region
-  async getStandardTierId(region: string): Promise<string | null> {
-    // Use ILIKE for case-insensitive matching (database stores 'standard' lowercase)
-    // Note: We don't filter on active here - the active field is for purchasable tiers shown in upgrade menus,
-    // not for whether the Standard tier should be assigned to new users
+  // Get the global Standard tier ID (user_tier is region-agnostic)
+  async getStandardTierId(): Promise<string | null> {
     const result = await db.execute(sql`
       SELECT id 
       FROM user_tier 
       WHERE LOWER(tier) = 'standard' 
-        AND region = ${region}
+        AND tier_type = 'lifetime'
       LIMIT 1
     `);
     
     const rows = Array.isArray(result) ? result : (result as any).rows || [];
     if (!rows || rows.length === 0) {
-      console.log(`[getStandardTierId] No Standard tier found for region: ${region}`);
+      console.log(`[getStandardTierId] No Standard tier found`);
       return null;
     }
-    console.log(`[getStandardTierId] Found Standard tier ID: ${rows[0].id} for region: ${region}`);
+    console.log(`[getStandardTierId] Found Standard tier ID: ${rows[0].id}`);
     return rows[0].id;
   }
 
   // Create default Standard subscription on signup
-  async createDefaultSubscription(userId: string, region: string): Promise<void> {
-    const standardTierId = await this.getStandardTierId(region);
+  async createDefaultSubscription(userId: string): Promise<void> {
+    const standardTierId = await this.getStandardTierId();
     if (!standardTierId) {
-      console.error(`[createDefaultSubscription] No Standard tier found for region: ${region}`);
+      console.error(`[createDefaultSubscription] No Standard tier found`);
       return;
     }
     
@@ -679,10 +672,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Downgrade user to Standard tier
-  async downgradeToStandard(userId: string, region: string): Promise<void> {
-    const standardTierId = await this.getStandardTierId(region);
+  async downgradeToStandard(userId: string): Promise<void> {
+    const standardTierId = await this.getStandardTierId();
     if (!standardTierId) {
-      throw new Error(`No Standard tier found for region: ${region}`);
+      throw new Error(`No Standard tier found`);
     }
     
     // Update user_profiles to point to Standard tier with null end date

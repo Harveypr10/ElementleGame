@@ -243,25 +243,16 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription, supa
         return
     }
 
-    // Get user's region to find Standard tier
-    const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('region')
-        .eq('id', subRecord.user_id)
-        .single()
-
-    const region = profile?.region || 'UK'
-
-    // Find Standard tier for this region
+    // Find the global Standard tier (user_tier is region-agnostic)
     const { data: standardTier } = await supabase
         .from('user_tier')
         .select('id')
-        .eq('region', region)
         .ilike('tier', 'Standard')
+        .eq('tier_type', 'lifetime')
         .single()
 
     if (!standardTier) {
-        console.error('[stripe-webhook] No Standard tier found for region:', region)
+        console.error('[stripe-webhook] No Standard tier found')
         return
     }
 

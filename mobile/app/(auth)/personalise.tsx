@@ -200,14 +200,12 @@ export default function PersonalisePage() {
 
             const userId = session.user.id;
 
-            // Get user_tier_id for "Standard" tier
-            // From logs: available tiers include {"tier": "standard", "tier_type": "lifetime"}
+            // Get user_tier_id for "Standard" tier (user_tier is region-agnostic)
             const { data: tierData, error: tierError } = await supabase
                 .from('user_tier')
                 .select('id, tier, tier_type')
                 .ilike('tier', 'standard')
                 .eq('tier_type', 'lifetime')
-                .eq('region', region) // Filter by selected region
                 .limit(1);
 
             let tierIdToUse = null;
@@ -290,13 +288,29 @@ export default function PersonalisePage() {
                 console.warn('[Profile] set_global_identity error:', e);
             }
 
-            // Create initial user_settings
+            // Fetch the country's default date format before creating settings
+            let defaultDateFormat = 'ddmmyy';
+            try {
+                const { data: countryData } = await supabase
+                    .from('reference_countries' as any)
+                    .select('default_date_format')
+                    .eq('code', region)
+                    .single();
+                if (countryData?.default_date_format) {
+                    defaultDateFormat = countryData.default_date_format;
+                }
+            } catch (e) {
+                console.warn('[Profile] Could not fetch default_date_format, using ddmmyy');
+            }
+
+            // Create initial user_settings with region-appropriate date format
             const { error: settingsError } = await supabase
                 .from('user_settings')
                 .insert({
                     user_id: userId,
                     use_region_default: true,
                     digit_preference: '8',
+                    date_format_preference: defaultDateFormat,
                 });
 
             if (settingsError) {

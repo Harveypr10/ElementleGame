@@ -90,25 +90,15 @@ async function handleSubscriptionActive(supabase: any, userId: string, eventData
         return
     }
 
-    // Get user's region
-    const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('region')
-        .eq('id', userId)
-        .single()
-
-    const region = profile?.region || 'UK'
-
-    // Find tier by product ID + region
+    // Find tier by product ID (user_tier is region-agnostic)
     const { data: tier } = await supabase
         .from('user_tier')
         .select('id')
-        .eq('region', region)
         .eq('revenuecat_product_id', productId)
         .single()
 
     if (!tier) {
-        console.error(`[Webhook] No tier found for product ${productId} in region ${region}`)
+        console.error(`[Webhook] No tier found for product ${productId}`)
         return
     }
 
@@ -206,17 +196,12 @@ async function handleCancellation(supabase: any, userId: string) {
 async function handleExpiration(supabase: any, userId: string) {
     console.log(`[Webhook] Handling expiration for user: ${userId}`)
 
-    const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('region')
-        .eq('id', userId)
-        .single()
-
+    // Find the global Standard tier (user_tier is region-agnostic)
     const { data: standardTier } = await supabase
         .from('user_tier')
         .select('id')
-        .eq('region', profile?.region || 'UK')
         .ilike('tier', 'Standard')
+        .eq('tier_type', 'lifetime')
         .single()
 
     if (!standardTier) {
